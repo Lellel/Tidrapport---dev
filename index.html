@@ -1,1 +1,424 @@
 
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Tidrapport DEV</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#F2F2F7">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+
+  <style>
+    :root {
+      --ios-bg: #F2F2F7;
+      --ios-card: #FFFFFF;
+      --ios-blue: #007AFF;
+      --ios-gray: #8E8E93;
+      --ios-separator: rgba(60, 60, 67, 0.12);
+      --ios-label: #1C1C1E;
+      --ios-secondary-label: #8A8A8E;
+      --ios-picker-item-h: 40px;
+      --ios-yellow: #FF9500;
+      --ios-green: #34C759;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif; 
+      background-color: var(--ios-bg); 
+      color: var(--ios-label); 
+      padding-top: calc(env(safe-area-inset-top) + 12px); 
+      padding-bottom: calc(env(safe-area-inset-bottom) + 30px); 
+      padding-left: 18px; 
+      padding-right: 18px; 
+      touch-action: manipulation; 
+    }
+    .app-container { max-width: 580px; margin: 0 auto; position: relative; }
+
+    /* HEADER & STATUS */
+    header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; padding: 0 4px; }
+    h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.1; }
+    .status-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border: 0.5px solid var(--ios-separator); padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: 500; color: var(--ios-secondary-label); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ios-green); box-shadow: 0 0 6px rgba(52, 199, 89, 0.6); animation: pulse 2.5s infinite ease-in-out; }
+    .status-dot.offline { background: var(--ios-yellow); box-shadow: 0 0 6px rgba(255, 149, 0, 0.6); }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.9); } }
+
+    /* SEGMENTED CONTROL */
+    .segmented-control { display: flex; background: rgba(118, 118, 128, 0.12); border-radius: 10px; padding: 2px; margin-bottom: 22px; user-select: none; }
+    .seg-btn { flex: 1; border: none; background: transparent; padding: 8px 12px; font-size: 14px; font-weight: 600; color: var(--ios-secondary-label); border-radius: 8px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .seg-btn.active { background: #FFFFFF; color: var(--ios-label); box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 0.5px 1px rgba(0,0,0,0.04); }
+    .seg-badge { background: #FF3B30; color: white; font-size: 11px; padding: 1px 6px; border-radius: 10px; font-weight: 700; }
+
+    /* CARD DESIGN */
+    .section-title { font-size: 13px; font-weight: 600; color: var(--ios-secondary-label); text-transform: uppercase; letter-spacing: -0.2px; margin-left: 14px; margin-bottom: 7px; }
+    .ios-card { background: var(--ios-card); border-radius: 14px; overflow: hidden; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.03), 0 0.5px 0.5px rgba(0,0,0,0.03); border: 0.5px solid var(--ios-separator); }
+    .ios-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 0.5px solid var(--ios-separator); font-size: 17px; }
+    .ios-row:last-child { border-bottom: none; }
+    .row-label-group { display: flex; align-items: center; gap: 10px; font-weight: 400; color: var(--ios-label); }
+    .row-icon { width: 22px; height: 22px; fill: var(--ios-blue); opacity: 0.9; }
+
+    select { border: none; background: transparent; font-family: inherit; font-size: 17px; color: var(--ios-blue); outline: none; max-width: 62%; text-align-last: right; cursor: pointer; font-weight: 400; }
+    .value-button { font-size: 17px; color: var(--ios-blue); cursor: pointer; user-select: none; font-weight: 400; }
+    .time-badge { font-size: 17px; font-weight: 500; color: var(--ios-blue); background: rgba(0, 122, 255, 0.1); padding: 6px 14px; border-radius: 8px; cursor: pointer; transition: all 0.15s ease; }
+    .time-badge.active { background: var(--ios-blue); color: #FFFFFF; }
+    .calculated-val { font-weight: 600; color: var(--ios-label); }
+
+    /* ACTION SHEET & WHEELS */
+    .action-sheet-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(4px); z-index: 100; opacity: 0; transition: opacity 0.25s ease; }
+    .action-sheet-overlay.show { display: block; opacity: 1; }
+    .action-sheet { position: fixed; bottom: -100%; left: 0; right: 0; background: var(--ios-bg); border-top-left-radius: 16px; border-top-right-radius: 16px; z-index: 101; transition: bottom 0.3s cubic-bezier(0.1, 0.8, 0.1, 1); padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -4px 20px rgba(0,0,0,0.15); }
+    .action-sheet.open { bottom: 0; }
+    .action-sheet-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: var(--ios-card); border-bottom: 0.5px solid var(--ios-separator); border-top-left-radius: 16px; border-top-right-radius: 16px; }
+    .action-sheet-btn { color: var(--ios-blue); font-size: 17px; font-weight: 600; background: none; border: none; cursor: pointer; }
+    
+    .wheel-drawer { display: none; background: #FAFAFC; border-bottom: 0.5px solid var(--ios-separator); padding: 8px 0; overflow: hidden; }
+    .wheel-drawer.open { display: block; }
+    .picker-container { position: relative; height: 190px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+    .picker-container.full-width { background: var(--ios-card); }
+    .picker-highlight { position: absolute; left: 16px; right: 16px; height: var(--ios-picker-item-h); background-color: rgba(0, 0, 0, 0.05); border-radius: 10px; pointer-events: none; z-index: 31; }
+    .picker-mask-top, .picker-mask-bottom { position: absolute; left: 0; right: 0; height: 75px; pointer-events: none; z-index: 32; }
+    .picker-mask-top { top: 0; background: linear-gradient(to bottom, rgba(250,250,252,0.95), rgba(250,250,252,0)); }
+    .picker-mask-bottom { bottom: 0; background: linear-gradient(to top, rgba(250,250,252,0.95), rgba(250,250,252,0)); }
+    .picker-column { width: 95px; height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-top: 75px; padding-bottom: 75px; z-index: 33; position: relative; }
+    .picker-column.full-width-col { width: 100%; }
+    .picker-column::-webkit-scrollbar { display: none; }
+    .picker-item { height: var(--ios-picker-item-h); line-height: var(--ios-picker-item-h); text-align: center; font-size: 21px; font-weight: 500; color: var(--ios-label); scroll-snap-align: center; }
+    .picker-separator { font-size: 22px; font-weight: 600; line-height: 190px; z-index: 33; position: relative; padding: 0 4px; }
+
+    /* APPLE NOTES VY */
+    .note-sheet { background: #FFFFFF; border-radius: 16px; padding: 22px 20px; border: 0.5px solid var(--ios-separator); box-shadow: 0 4px 14px rgba(0,0,0,0.04); min-height: 280px; }
+    .note-updated-header { color: #007AFF; font-style: italic; font-size: 14px; margin-bottom: 18px; }
+    .note-h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 14px; color: var(--ios-label); }
+    .note-bullet-list { list-style-type: disc; padding-left: 24px; margin-bottom: 22px; }
+    .note-bullet-list li { font-size: 17px; line-height: 1.6; color: #2C2C2E; margin-bottom: 6px; }
+    .note-summary { font-size: 18px; border-top: 0.5px solid var(--ios-separator); padding-top: 14px; margin-top: 10px; }
+    .empty-note-state { text-align: center; padding: 40px 10px; color: var(--ios-secondary-label); font-size: 16px; }
+
+    /* KNAPPAR */
+    .ios-btn { width: 100%; background-color: var(--ios-blue); color: #FFFFFF; font-size: 17px; font-weight: 600; padding: 16px; border-radius: 14px; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 3px 12px rgba(0,122,255,0.28); transition: transform 0.1s ease, opacity 0.15s ease; margin-top: 8px; }
+    .ios-btn:active { transform: scale(0.98); opacity: 0.9; }
+    .ios-btn:disabled { background-color: var(--ios-gray); box-shadow: none; transform: none; }
+    
+    .refresh-btn { width: 100%; background: rgba(118, 118, 128, 0.1); color: var(--ios-blue); font-size: 16px; font-weight: 600; padding: 14px; border-radius: 12px; border: none; cursor: pointer; margin-top: 16px; transition: background 0.15s ease; }
+    .refresh-btn:active { background: rgba(118, 118, 128, 0.18); }
+
+    /* PIN BOX */
+    .pin-box { display:none; position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 310px; background: rgba(255,255,255,0.96); backdrop-filter: blur(15px); border-radius: 16px; z-index: 200; box-shadow: 0 12px 36px rgba(0,0,0,0.22); padding: 22px; text-align: center; }
+    .pin-box h3 { font-size: 17px; font-weight: 600; margin-bottom: 14px; }
+    .pin-input { font-size: 28px; letter-spacing: 8px; text-align: center; width: 100%; padding: 10px; border: 1px solid var(--ios-separator); border-radius: 10px; margin-bottom: 18px; outline: none; background: #fff; }
+    .pin-buttons { display: flex; border-top: 0.5px solid var(--ios-separator); margin: 0 -22px -22px -22px; }
+    .pin-btn { flex: 1; padding: 14px; font-size: 17px; background: none; border: none; color: var(--ios-blue); cursor: pointer; }
+    .pin-btn.confirm { font-weight: 600; border-left: 0.5px solid var(--ios-separator); }
+
+    #statusBox { display: none; padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; font-size: 15px; font-weight: 500; text-align: center; }
+    .status-success { background-color: #E8F5E9; color: #2E7D32; }
+    .status-error { background-color: #FFEBEE; color: #C62828; }
+    .status-offline { background-color: #FFF3E0; color: #E65100; }
+    .spinner { width: 18px; height: 18px; border: 2px solid #FFFFFF; border-top: 2px solid transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; display: none; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header>
+      <div><h1>Tidrapport</h1></div>
+      <div class="status-pill"><span class="status-dot" id="liveDot"></span><span id="liveText">Ansluten</span></div>
+    </header>
+
+    <div class="segmented-control">
+      <button class="seg-btn active" id="tabReportBtn" onclick="switchView('report')">Rapportera</button>
+      <button class="seg-btn" id="tabNotesBtn" onclick="switchView('notes')">
+        Orapporterade tider <span class="seg-badge" id="unreportedBadge" style="display:none;">0</span>
+      </button>
+    </div>
+
+    <div id="statusBox"></div>
+
+    <div id="viewReport">
+      <div class="section-title">Användare</div>
+      <div class="ios-card">
+        <div class="ios-row">
+          <div class="row-label-group"><svg class="row-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg><span>Ditt namn</span></div>
+          <div class="value-button" id="userValDisplay" onclick="openUserPicker()">Välj...</div>
+        </div>
+      </div>
+
+      <div class="section-title">Kalenderhändelse</div>
+      <div class="ios-card">
+        <div class="ios-row">
+          <div class="row-label-group"><svg class="row-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/></svg><span>Aktivitet</span></div>
+          <select id="eventSelect" onchange="handleEventChange()"><option value="">Laddar kalender...</option></select>
+        </div>
+        <div class="ios-row">
+          <div class="row-label-group"><svg class="row-icon" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg><span>Datum för pass</span></div>
+          <select id="dateSelect"><option value="">Välj händelse först</option></select>
+        </div>
+      </div>
+
+      <div class="section-title">Arbetspass & Tider</div>
+      <div class="ios-card">
+        <div class="ios-row">
+          <label>Pass</label>
+          <select id="passSelect">
+            <option value="Pass 1">Pass 1</option><option value="Pass 2">Pass 2</option><option value="Pass 3">Pass 3</option><option value="Övertid">Övertid</option>
+          </select>
+        </div>
+        <div class="ios-row">
+          <label>Starttid</label><div class="time-badge" id="startBadge" onclick="togglePicker('start')">07:00</div>
+        </div>
+        <div class="wheel-drawer" id="startDrawer">
+          <div class="picker-container"><div class="picker-highlight"></div><div class="picker-mask-top"></div><div class="picker-mask-bottom"></div><div class="picker-column" id="startHours"></div><div class="picker-separator">:</div><div class="picker-column" id="startMinutes"></div></div>
+        </div>
+        <div class="ios-row">
+          <label>Sluttid</label><div class="time-badge" id="endBadge" onclick="togglePicker('end')">16:00</div>
+        </div>
+        <div class="wheel-drawer" id="endDrawer">
+          <div class="picker-container"><div class="picker-highlight"></div><div class="picker-mask-top"></div><div class="picker-mask-bottom"></div><div class="picker-column" id="endHours"></div><div class="picker-separator">:</div><div class="picker-column" id="endMinutes"></div></div>
+        </div>
+        <div class="ios-row">
+          <label>Arbetad tid</label><span class="calculated-val" id="totalDurationText">9 tim 0 min</span>
+        </div>
+      </div>
+
+      <div class="section-title">Övrigt</div>
+      <div class="ios-card">
+        <div style="padding: 14px 16px;"><textarea id="noteInput" placeholder="Lägg till en anteckning (frivilligt)..." style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: 16px; color: var(--ios-label); outline: none; resize: none; min-height: 70px;"></textarea></div>
+      </div>
+
+      <button class="ios-btn" id="submitBtn" onclick="initiateSubmit()">
+        <div class="spinner" id="btnSpinner"></div><span id="btnText">Skicka tidrapport</span>
+      </button>
+    </div>
+
+    <div id="viewNotes" style="display: none;">
+      <div class="section-title">Apple Anteckningar – Vy</div>
+      <div class="note-sheet">
+        <div class="note-updated-header" id="noteUpdatedTimestamp">Uppdaterad: Hämtar...</div>
+        <h2 class="note-h2">Orapporterade tider:</h2>
+        <ul class="note-bullet-list" id="noteBulletList"><li>Laddar sammanställning...</li></ul>
+        <div class="note-summary"><b>Summa:</b> <span id="noteSumText">0 timmar</span></div>
+      </div>
+      <button class="refresh-btn" onclick="loadData(true)">↻ Uppdatera lista</button>
+    </div>
+  </div>
+
+  <div class="action-sheet-overlay" id="overlay" onclick="closeUserPicker()"></div>
+  <div class="action-sheet" id="userPickerSheet">
+    <div class="action-sheet-header"><div></div><button class="action-sheet-btn" onclick="confirmUser()">Klar</button></div>
+    <div class="picker-container full-width"><div class="picker-highlight"></div><div class="picker-mask-top"></div><div class="picker-mask-bottom"></div><div class="picker-column full-width-col" id="userColumn"></div></div>
+  </div>
+
+  <div class="pin-box" id="pinBox">
+    <h3>Ange PIN-kod för <span id="pinNameDisplay"></span></h3>
+    <input type="password" id="pinInput" class="pin-input" inputmode="numeric" maxlength="4" placeholder="••••">
+    <div class="pin-buttons">
+      <button class="pin-btn" onclick="closePin()">Avbryt</button><button class="pin-btn confirm" onclick="verifyPin()">Klar</button>
+    </div>
+  </div>
+
+  <script>
+    // BYT UT DENNA LÄNK MOT DIN NYA DEV-API LÄNK!!
+    const API_URL = "https://script.google.com/macros/s/AKfycbz-j8_BkNGFc22Cb7xz_LkMMxtBhEr7_1mQw2RCXG5p4kQBrZMMX4K2hBND0gBu2SPmIA/exec";
+    
+    let staffData = [], calendarEvents = [], unreportedData = [];
+    let selectedUserObj = null, selectedEvent = null, pendingPayload = null;
+    const MINUTE_STEPS = [0, 15, 30, 45];
+    const ITEM_HEIGHT = 40;
+    let timeState = { startH: 7, startM: 0, endH: 16, endM: 0 };
+    let userIndexState = 0;
+
+    window.onload = () => {
+      if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+      setupWheels(); loadData();
+      window.addEventListener('online', updateNetworkStatus);
+      window.addEventListener('offline', updateNetworkStatus);
+      updateNetworkStatus();
+    };
+
+    function updateNetworkStatus() {
+      const isOnline = navigator.onLine;
+      const dot = document.getElementById('liveDot'), text = document.getElementById('liveText');
+      if (isOnline) { dot.className = "status-dot"; text.textContent = "Ansluten"; syncOfflineQueue(); } 
+      else { dot.className = "status-dot offline"; text.textContent = "Offline"; }
+    }
+
+    function switchView(viewName) {
+      if (viewName === 'report') {
+        document.getElementById('tabReportBtn').classList.add('active'); document.getElementById('tabNotesBtn').classList.remove('active');
+        document.getElementById('viewReport').style.display = 'block'; document.getElementById('viewNotes').style.display = 'none';
+      } else {
+        document.getElementById('tabNotesBtn').classList.add('active'); document.getElementById('tabReportBtn').classList.remove('active');
+        document.getElementById('viewReport').style.display = 'none'; document.getElementById('viewNotes').style.display = 'block';
+        renderNotesView();
+      }
+    }
+
+    function loadData(isManualRefresh = false) {
+      if (isManualRefresh) showStatus("Uppdaterar...", true);
+      if (navigator.onLine) {
+        fetch(API_URL + "?action=getData").then(res => res.json()).then(data => {
+          localStorage.setItem('tidrapport_data', JSON.stringify(data));
+          applyData(data);
+          if (isManualRefresh) showStatus("Listan är uppdaterad!", true);
+        }).catch(() => useLocalData());
+      } else { useLocalData(); }
+    }
+
+    function useLocalData() {
+      let cached = localStorage.getItem('tidrapport_data');
+      if (cached) applyData(JSON.parse(cached));
+    }
+
+    function applyData(data) {
+      staffData = data.staff || []; calendarEvents = data.events || []; unreportedData = data.unreported || [];
+      buildUserWheel(staffData); populateEvents(calendarEvents); renderNotesView();
+      const badge = document.getElementById('unreportedBadge');
+      if (unreportedData.length > 0) { badge.textContent = unreportedData.length; badge.style.display = 'inline-block'; } 
+      else { badge.style.display = 'none'; }
+    }
+
+    function renderNotesView() {
+      const listEl = document.getElementById('noteBulletList'), sumEl = document.getElementById('noteSumText'), timeEl = document.getElementById('noteUpdatedTimestamp');
+      const now = new Date(), sweDays = ['sön', 'mån', 'tis', 'ons', 'tors', 'fre', 'lör'], sweMonths = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+      timeEl.textContent = `Uppdaterad: ${sweDays[now.getDay()]} ${now.getDate()} ${sweMonths[now.getMonth()]} kl. ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      if (!unreportedData || unreportedData.length === 0) {
+        listEl.innerHTML = `<div class="empty-note-state">Inga orapporterade tider just nu. Grymt jobbat!</div>`;
+        sumEl.textContent = "0 timmar"; return;
+      }
+      let totalMinutesAll = 0, html = "";
+      unreportedData.forEach(item => {
+        let d = new Date(item.datum), dateLabel = item.datum;
+        if (!isNaN(d.getTime())) dateLabel = `${sweDays[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
+        let mins = parseDurationToMinutes(item.totaltid);
+        totalMinutesAll += mins;
+        let hoursDec = (mins / 60), hoursFormatted = Number.isInteger(hoursDec) ? hoursDec : hoursDec.toFixed(1).replace('.', ',');
+        html += `<li>${dateLabel}, ${hoursFormatted} timmar</li>`;
+      });
+      listEl.innerHTML = html;
+      let totalHoursDec = (totalMinutesAll / 60), totalFormatted = Number.isInteger(totalHoursDec) ? totalHoursDec : totalHoursDec.toFixed(1).replace('.', ',');
+      sumEl.textContent = `${totalFormatted} timmar`;
+    }
+
+    function parseDurationToMinutes(str) {
+      if (!str) return 0;
+      let s = String(str).toLowerCase(), h = 0, m = 0;
+      let hMatch = s.match(/(\d+)\s*(tim|h)/); if (hMatch) h = parseInt(hMatch[1], 10);
+      let mMatch = s.match(/(\d+)\s*(min|m)/); if (mMatch) m = parseInt(mMatch[1], 10);
+      if (!hMatch && !mMatch) { let n = parseFloat(s.replace(',', '.')); if (!isNaN(n)) return Math.round(n * 60); }
+      return (h * 60) + m;
+    }
+
+    function setupWheels() {
+      let hours = Array.from({length: 24}, (_, i) => i);
+      buildTimeWheel('startHours', hours); buildTimeWheel('startMinutes', MINUTE_STEPS);
+      buildTimeWheel('endHours', hours); buildTimeWheel('endMinutes', MINUTE_STEPS);
+      calculateDuration();
+    }
+    function padZero(num) { return String(num).padStart(2, '0'); }
+    function buildTimeWheel(id, values) {
+      let col = document.getElementById(id);
+      col.innerHTML = values.map(v => `<div class="picker-item">${padZero(v)}</div>`).join('');
+      let timer;
+      col.addEventListener('scroll', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          let idx = Math.max(0, Math.round(col.scrollTop / ITEM_HEIGHT));
+          if (id === 'startHours') timeState.startH = Math.min(23, idx); if (id === 'startMinutes') timeState.startM = MINUTE_STEPS[Math.min(3, idx)];
+          if (id === 'endHours') timeState.endH = Math.min(23, idx); if (id === 'endMinutes') timeState.endM = MINUTE_STEPS[Math.min(3, idx)];
+          updateTimeBadges(); calculateDuration();
+        }, 60);
+      });
+    }
+    function togglePicker(type) {
+      let startD = document.getElementById('startDrawer'), endD = document.getElementById('endDrawer'), startB = document.getElementById('startBadge'), endB = document.getElementById('endBadge');
+      if (type === 'start') {
+        endD.classList.remove('open'); endB.classList.remove('active');
+        if (startD.classList.toggle('open')) { startB.classList.add('active'); scrollWheelTo('startHours', timeState.startH, false); scrollWheelTo('startMinutes', timeState.startM, true); } 
+        else { startB.classList.remove('active'); }
+      } else {
+        startD.classList.remove('open'); startB.classList.remove('active');
+        if (endD.classList.toggle('open')) { endB.classList.add('active'); scrollWheelTo('endHours', timeState.endH, false); scrollWheelTo('endMinutes', timeState.endM, true); } 
+        else { endB.classList.remove('active'); }
+      }
+    }
+    function scrollWheelTo(id, val, isMin) {
+      let idx = isMin ? MINUTE_STEPS.indexOf(val) : val;
+      setTimeout(() => document.getElementById(id).scrollTo({ top: Math.max(0, idx) * ITEM_HEIGHT, behavior: 'smooth' }), 40);
+    }
+    function updateTimeBadges() { document.getElementById('startBadge').textContent = `${padZero(timeState.startH)}:${padZero(timeState.startM)}`; document.getElementById('endBadge').textContent = `${padZero(timeState.endH)}:${padZero(timeState.endM)}`; }
+    function calculateDuration() {
+      let s = timeState.startH * 60 + timeState.startM, e = timeState.endH * 60 + timeState.endM;
+      let diff = e - s; if (diff < 0) diff += 24 * 60;
+      let h = Math.floor(diff / 60), m = diff % 60;
+      document.getElementById('totalDurationText').textContent = `${h} tim ${m} min`; return `${h} tim ${m} min`;
+    }
+
+    function buildUserWheel(list) {
+      let col = document.getElementById('userColumn');
+      if (list.length === 0) { col.innerHTML = `<div class="picker-item">Ingen personal</div>`; return; }
+      col.innerHTML = list.map(u => `<div class="picker-item">${u.name}</div>`).join('');
+      let timer; col.addEventListener('scroll', () => { clearTimeout(timer); timer = setTimeout(() => { userIndexState = Math.min(list.length - 1, Math.max(0, Math.round(col.scrollTop / ITEM_HEIGHT))); }, 60); });
+    }
+    function openUserPicker() { if (!staffData.length) return; document.getElementById('overlay').classList.add('show'); document.getElementById('userPickerSheet').classList.add('open'); setTimeout(() => document.getElementById('userColumn').scrollTo({ top: userIndexState * ITEM_HEIGHT, behavior: 'auto' }), 10); }
+    function closeUserPicker() { document.getElementById('overlay').classList.remove('show'); document.getElementById('userPickerSheet').classList.remove('open'); }
+    function confirmUser() { selectedUserObj = staffData[userIndexState]; document.getElementById('userValDisplay').textContent = selectedUserObj.name; closeUserPicker(); }
+
+    function populateEvents(events) {
+      let sel = document.getElementById('eventSelect'); sel.innerHTML = '<option value="">-- Välj aktivitet --</option>';
+      events.forEach((ev, i) => { let date = new Date(ev.start).toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' }); sel.innerHTML += `<option value="${i}">${date}: ${ev.title}</option>`; });
+    }
+    function handleEventChange() {
+      let idx = document.getElementById('eventSelect').value, dSel = document.getElementById('dateSelect'); dSel.innerHTML = '';
+      if (!idx) { dSel.innerHTML = '<option value="">Välj händelse först</option>'; selectedEvent = null; return; }
+      selectedEvent = calendarEvents[idx];
+      let curr = new Date(selectedEvent.start), end = new Date(selectedEvent.end), count = 0;
+      while (curr < end || count === 0) {
+        let iso = curr.getFullYear() + "-" + padZero(curr.getMonth()+1) + "-" + padZero(curr.getDate()), read = curr.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' });
+        dSel.innerHTML += `<option value="${iso}">${read}</option>`; curr.setDate(curr.getDate() + 1); if (++count > 31) break;
+      }
+    }
+
+    function initiateSubmit() {
+      if (!selectedUserObj) return showStatus("Vänligen välj ditt namn.", false);
+      if (!selectedEvent || !document.getElementById('dateSelect').value) return showStatus("Välj ett uppdrag och ett datum.", false);
+      pendingPayload = { action: 'saveReport', anvandare: selectedUserObj.name, datum: document.getElementById('dateSelect').value, aktivitet: selectedEvent.title + " (" + document.getElementById('passSelect').value + ")", starttid: `${padZero(timeState.startH)}:${padZero(timeState.startM)}`, sluttid: `${padZero(timeState.endH)}:${padZero(timeState.endM)}`, totaltid: calculateDuration(), anteckning: document.getElementById('noteInput').value };
+      document.getElementById('pinNameDisplay').textContent = selectedUserObj.name; document.getElementById('pinInput').value = ''; document.getElementById('overlay').classList.add('show'); document.getElementById('pinBox').style.display = 'block'; setTimeout(() => document.getElementById('pinInput').focus(), 100);
+    }
+    function closePin() { document.getElementById('overlay').classList.remove('show'); document.getElementById('pinBox').style.display = 'none'; pendingPayload = null; }
+    function verifyPin() {
+      let entered = document.getElementById('pinInput').value, correct = selectedUserObj.pin || "0000";
+      if (entered === correct) { closePin(); if (navigator.onLine) { sendToGoogle(pendingPayload); } else { saveToOfflineQueue(pendingPayload); } } 
+      else { alert("Fel PIN-kod. Försök igen."); document.getElementById('pinInput').value = ''; }
+    }
+
+    function sendToGoogle(payload) {
+      setLoading(true); let qs = new URLSearchParams(payload).toString();
+      fetch(API_URL + "?" + qs).then(res => res.json()).then(res => {
+        setLoading(false); if (res.success) { showStatus("Rapporten har sparats!", true); resetForm(); loadData(); } else { showStatus("Kunde inte spara: " + res.error, false); }
+      }).catch(() => { setLoading(false); saveToOfflineQueue(payload); });
+    }
+
+    function saveToOfflineQueue(payload) {
+      let queue = JSON.parse(localStorage.getItem('tidrapport_queue') || '[]'); queue.push(payload); localStorage.setItem('tidrapport_queue', JSON.stringify(queue));
+      showStatus("Offline: Sparad i telefonen! Skickas vid uppkoppling.", true); document.getElementById('statusBox').className = "status-offline"; resetForm(); updateNetworkStatus();
+    }
+    function syncOfflineQueue() {
+      let queue = JSON.parse(localStorage.getItem('tidrapport_queue') || '[]');
+      if (queue.length === 0 || !navigator.onLine) return;
+      let payload = queue[0], qs = new URLSearchParams(payload).toString();
+      fetch(API_URL + "?" + qs).then(res => res.json()).then(res => {
+        if (res.success) { queue.shift(); localStorage.setItem('tidrapport_queue', JSON.stringify(queue)); if (queue.length > 0) setTimeout(syncOfflineQueue, 1000); else { showStatus("Synkroniserad!", true); loadData(); } }
+      });
+    }
+
+    function resetForm() { document.getElementById('eventSelect').value = ""; document.getElementById('dateSelect').innerHTML = '<option value="">Välj händelse först</option>'; document.getElementById('noteInput').value = ""; selectedEvent = null; }
+    function setLoading(isLoading) { document.getElementById('submitBtn').disabled = isLoading; document.getElementById('btnSpinner').style.display = isLoading ? 'inline-block' : 'none'; document.getElementById('btnText').textContent = isLoading ? 'Skickar...' : 'Skicka tidrapport'; }
+    function showStatus(msg, isSuccess) { let box = document.getElementById('statusBox'); if(!msg) { box.style.display = 'none'; return; } box.textContent = msg; box.className = isSuccess ? 'status-success' : 'status-error'; box.style.display = 'block'; if(isSuccess) setTimeout(() => { if(box.textContent === msg) box.style.display = 'none'; }, 4000); }
+  </script>
+</body>
+</html>
