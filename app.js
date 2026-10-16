@@ -1,97 +1,332 @@
-:root {
-  --ios-bg: #000000;
-  --ios-card: #1C1C1E;
-  --ios-accent: #FF9F0A;
-  --ios-gray: #8E8E93;
-  --ios-separator: rgba(84, 84, 88, 0.45);
-  --ios-label: #FFFFFF;
-  --ios-secondary-label: #8E8E93;
-  --apple-yellow: #FFD60A; --apple-yellow-bg: rgba(255, 214, 10, 0.12); --apple-yellow-border: rgba(255, 214, 10, 0.25);
-  --apple-green: #30D158; --apple-green-bg: rgba(48, 209, 88, 0.12); --apple-green-border: rgba(48, 209, 88, 0.25);
-  --apple-red: #FF453A; --apple-red-bg: rgba(255, 69, 58, 0.12); --apple-red-border: rgba(255, 69, 58, 0.25);
-  --apple-purple: #BF5AF2; --apple-purple-bg: rgba(191, 90, 242, 0.12); --apple-purple-border: rgba(191, 90, 242, 0.25);
+const API_URL = "https://script.google.com/macros/s/AKfycbytaWBk-Zw-ohmKI1pknxOS_A9KjM0-mTMQYkBSTPWsdx21iAPAss7QIatepX9bvXlg_w/exec";
+const OUTBOX_KEY = "lpv_tid_outbox";
+
+let staffData=[], calendarEvents=[], unreportedData=[], locationData=["Blacksta"];
+let selectedUserObj=null, candidateUserObj=null, selectedEvent=null;
+const MINUTE_STEPS=[0,15,30,45];
+let timeState={startH:7,startM:0,endH:16,endM:0}, tempTime={h:0,m:0}, activeTimeType=null, userIndexState=0;
+let currentType = 'kalender', currentPhotoBase64 = "";
+let isSyncing = false;
+
+window.onload = () => { 
+  let today = new Date().toISOString().split('T')[0];
+  document.getElementById('customDate').value = today;
+  setupWheels(); loadData(); loadDashboard();
+  
+  // Lyssna på nätverket för Outbox
+  window.addEventListener('online', updateNetworkStatus); 
+  window.addEventListener('offline', updateNetworkStatus);
+  updateNetworkStatus();
+};
+
+// ==========================================
+// OUTBOX ENGINE (GRIPEN-SYSTEMET)
+// ==========================================
+
+function updateNetworkStatus() {
+  let q = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]');
+  let dot = document.getElementById('liveDot');
+  let txt = document.getElementById('liveText');
+  
+  if (navigator.onLine) {
+    if (q.length > 0) {
+      dot.className = "status-dot offline";
+      dot.style.background = "var(--apple-yellow)"; // Lyser gult när den jobbar
+      txt.textContent = `Synkar ${q.length} köade...`;
+      processOutbox(); // Tryck upp allt till Google
+    } else {
+      dot.className = "status-dot";
+      dot.style.background = "var(--apple-green)"; // Grönt och skönt
+      txt.textContent = "Ansluten";
+    }
+  } else {
+    dot.className = "status-dot offline";
+    dot.style.background = "var(--apple-red)";
+    txt.textContent = q.length > 0 ? `Offline (${q.length} i kö)` : "Offline";
+  }
 }
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; background-color: var(--ios-bg); color: var(--ios-label); padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 30px) 16px; touch-action: manipulation; }
 
-.app-wrapper { width: 100%; max-width: 580px; margin: 0 auto; position: relative; }
-.app-container { width: 100%; }
-
-@media (min-width: 850px) {
-  body { padding-top: 40px; }
-  .app-wrapper { display: flex; justify-content: center; gap: 32px; max-width: 1080px; align-items: flex-start; }
-  .app-container { flex: 1; max-width: 480px; flex-shrink: 0; }
-  #viewDash { display: block !important; flex: 1; max-width: 480px; flex-shrink: 0; position: sticky; top: calc(env(safe-area-inset-top) + 40px); }
+function saveToOutbox(payload) {
+  let q = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]');
+  payload._id = Date.now(); // Ge rapporten ett unikt ID
+  q.push(payload);
+  localStorage.setItem(OUTBOX_KEY, JSON.stringify(q));
+  
+  showStatus("Sparad i utkorgen! ✓");
+  resetFormAfterSubmit();
+  updateNetworkStatus();
 }
 
-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; padding: 0 4px; }
-h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; color: #FFFFFF; }
-.status-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(28, 28, 30, 0.85); border: 0.5px solid rgba(255,255,255,0.08); padding: 4px 11px; border-radius: 20px; font-size: 13px; font-weight: 500; }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--apple-green); }
-.status-dot.offline { background: var(--apple-red); }
+function processOutbox() {
+  if (!navigator.onLine || isSyncing) return;
+  let q = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]');
+  if (q.length === 0) {
+    updateNetworkStatus();
+    return;
+  }
+  
+  isSyncing = true;
+  let payload = q[0]; // Ta första i kön
+  
+  const form = document.getElementById('tank_form'); 
+  form.action = API_URL; 
+  form.innerHTML = '';
+  
+  for (let key in payload) { 
+    if (key === '_id') continue; 
+    let i = document.createElement('input'); 
+    i.type = 'hidden'; i.name = key; i.value = payload[key]; 
+    form.appendChild(i); 
+  }
+  
+  let iframeLoaded = false;
+  document.getElementById('tank_iframe').onload = () => { 
+    if(!iframeLoaded) { iframeLoaded = true; outboxSuccess(payload._id); } 
+  };
+  form.submit();
+  
+  // Säkerhets-timer om iframe fastnar
+  setTimeout(()=>{ 
+    if(!iframeLoaded && navigator.onLine){ 
+      iframeLoaded=true; outboxSuccess(payload._id); 
+    } else if (!navigator.onLine) {
+      isSyncing = false; updateNetworkStatus(); // Avbryt om vi tappade nätet
+    }
+  }, 3500);
+}
 
-.segmented-control { display: flex; background: rgba(118, 118, 128, 0.24); border-radius: 10px; padding: 2px; margin-bottom: 18px; }
-.seg-btn { flex: 1; border: none; background: transparent; padding: 8px 4px; font-size: 14px; font-weight: 600; color: var(--ios-secondary-label); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-.seg-btn.active { background: #636366; color: #FFFFFF; }
-.seg-badge { background: var(--apple-red); color: white; font-size: 11px; padding: 1px 6px; border-radius: 10px; margin-left: 5px; }
+function outboxSuccess(id) {
+  let q = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]');
+  q = q.filter(item => item._id !== id);
+  localStorage.setItem(OUTBOX_KEY, JSON.stringify(q));
+  
+  isSyncing = false;
+  processOutbox(); // Fortsätt med nästa om det finns fler
+  setTimeout(() => { loadData(); loadDashboard(); }, 1000);
+}
 
-.type-control { display: flex; background: rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 2px; margin: 12px 14px 14px 14px; }
-.type-btn { flex: 1; border: none; background: transparent; padding: 7px 0; font-size: 13px; font-weight: 600; color: var(--ios-secondary-label); border-radius: 6px; cursor: pointer; transition: all 0.15s; }
-.type-btn.active { background: rgba(255, 255, 255, 0.16); color: #FFFFFF; }
+// ==========================================
+// UI LOGIK
+// ==========================================
 
-.section-title { font-size: 12px; font-weight: 600; color: var(--ios-secondary-label); text-transform: uppercase; margin-left: 14px; margin-bottom: 6px; letter-spacing: 0.3px; }
-.ios-card { background: var(--ios-card); border-radius: 14px; overflow: hidden; margin-bottom: 16px; border: 0.5px solid rgba(255, 255, 255, 0.08); }
-.ios-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 0.5px solid var(--ios-separator); font-size: 16px; }
-.ios-row:last-child { border-bottom: none; }
+function switchView(v) { 
+  ['report','notes'].forEach(id => { 
+    document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1)+'Btn').classList.remove('active'); 
+    document.getElementById('view'+id.charAt(0).toUpperCase()+id.slice(1)).style.display='none'; 
+  }); 
+  document.getElementById('tab'+v.charAt(0).toUpperCase()+v.slice(1)+'Btn').classList.add('active'); 
+  document.getElementById('view'+v.charAt(0).toUpperCase()+v.slice(1)).style.display='block'; 
+  if(v==='notes') renderNotes(); 
+}
 
-select, input[type="date"], input[type="text"] { border: none; background: transparent; font-family: inherit; font-size: 16px; color: var(--ios-accent); outline: none; max-width: 65%; text-align: right; }
-input[type="text"]::placeholder { color: rgba(255,255,255,0.25); }
-.time-badge { font-size: 16px; font-weight: 500; color: var(--ios-accent); background: rgba(255, 159, 10, 0.12); padding: 5px 12px; border-radius: 8px; cursor: pointer; }
+function setType(type) {
+  currentType = type;
+  ['kalender', 'nya', 'ata'].forEach(t => {
+    document.getElementById('btn' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === type);
+  });
+  document.getElementById('passRow').style.display = (type === 'kalender') ? 'flex' : 'none';
+  if (type === 'kalender') {
+    document.getElementById('blockKalender').style.display = 'block';
+    document.getElementById('blockCustom').style.display = 'none';
+    document.getElementById('noteWrapper').style.display = 'block';
+  } else {
+    document.getElementById('blockKalender').style.display = 'none';
+    document.getElementById('blockCustom').style.display = 'block';
+    if (type === 'nya') {
+      document.getElementById('customTextLabel').textContent = "Vad har gjorts?";
+      document.getElementById('customText').placeholder = "T.ex. Tvätt av maskinhall...";
+      document.getElementById('photoBlock').style.display = 'none';
+      document.getElementById('noteWrapper').style.display = 'block';
+    } else if (type === 'ata') {
+      document.getElementById('customTextLabel').textContent = "Beskrivning av ÄTA";
+      document.getElementById('customText').placeholder = "Vad gjordes? T.ex. Lagat ventil i stall 4...";
+      document.getElementById('photoBlock').style.display = 'block';
+      document.getElementById('noteWrapper').style.display = 'none';
+    }
+  }
+  if (type !== 'ata') {
+    currentPhotoBase64 = "";
+    document.getElementById('photoStatus').textContent = "Bifoga bild-underlag";
+    document.getElementById('photoStatus').style.color = "var(--ios-accent)";
+  }
+}
 
-.photo-btn { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 12px; background: rgba(255,255,255,0.04); color: var(--ios-accent); font-weight: 500; border-radius: 10px; cursor: pointer; font-size: 14px; border: 1px dashed var(--ios-separator); margin: 12px 16px; }
-textarea { width: 100%; border: none; background: transparent; font-family: inherit; font-size: 15px; color: var(--ios-label); outline: none; resize: none; min-height: 55px; padding: 10px 16px; }
+function toggleNoteField() {
+  let card = document.getElementById('noteCard');
+  let btn = document.getElementById('noteToggleBtn');
+  if (card.style.display === 'none') {
+    card.style.display = 'block';
+    btn.textContent = "- Dölj anteckning";
+    document.getElementById('noteInput').focus();
+  } else {
+    card.style.display = 'none';
+    btn.textContent = "+ Lägg till anteckning";
+  }
+}
 
-.note-toggle-btn { background: none; border: none; color: var(--ios-gray); font-size: 14px; font-weight: 500; padding: 6px 14px; margin-bottom: 16px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
-.note-toggle-btn:hover { color: #FFF; }
+function handleLocationChange() { 
+  document.getElementById('customLocationRow').style.display = (document.getElementById('locationSelect').value === "NEW") ? 'flex' : 'none'; 
+}
 
-.ios-btn { width: 100%; background-color: var(--ios-accent); color: #FFFFFF; font-size: 16px; font-weight: 600; padding: 14px; border-radius: 12px; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.2s; }
-.ios-btn:active { opacity: 0.8; }
-.ios-btn.blue { background-color: #0A84FF; margin-top: 14px; }
+function compressAndSaveImage(e) {
+  let file = e.target.files[0]; if(!file) return;
+  document.getElementById('photoStatus').textContent = "Laddar...";
+  let reader = new FileReader();
+  reader.onload = function(ev) {
+    let img = new Image();
+    img.onload = function() {
+      let canvas = document.createElement('canvas');
+      let MAX = 800, w = img.width, h = img.height;
+      if (w > h && w > MAX) { h *= MAX/w; w = MAX; } else if (h > MAX) { w *= MAX/h; h = MAX; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+      document.getElementById('photoStatus').textContent = "Bild bifogad ✓";
+      document.getElementById('photoStatus').style.color = "var(--apple-green)";
+    }
+    img.src = ev.target.result;
+  }
+  reader.readAsDataURL(file);
+}
 
-.summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
-.apple-box { padding: 14px 12px; border-radius: 14px; text-align: left; display: flex; flex-direction: column; justify-content: space-between; min-height: 78px; backdrop-filter: blur(10px); }
-.apple-box-yellow { background: var(--apple-yellow-bg); border: 0.5px solid var(--apple-yellow-border); }
-.apple-box-green { background: var(--apple-green-bg); border: 0.5px solid var(--apple-green-border); }
-.apple-box-red { background: var(--apple-red-bg); border: 0.5px solid var(--apple-red-border); }
-.apple-box-purple { background: var(--apple-purple-bg); border: 0.5px solid var(--apple-purple-border); }
-.box-title { font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.3px; opacity: 0.9; }
-.box-val { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-top: 4px; }
-.apple-box-yellow .box-title, .apple-box-yellow .box-val { color: var(--apple-yellow); }
-.apple-box-green .box-title, .apple-box-green .box-val { color: var(--apple-green); }
-.apple-box-red .box-title, .apple-box-red .box-val { color: var(--apple-red); }
-.apple-box-purple .box-title, .apple-box-purple .box-val { color: var(--apple-purple); }
+function loadData() {
+  if(navigator.onLine) {
+    fetch(API_URL+"?action=getData").then(r=>r.json()).then(d=>{
+      staffData=d.staff||[]; calendarEvents=d.events||[]; unreportedData=d.unreported||[]; locationData=d.locations||["Blacksta"];
+      buildUserWheel(); populateEvents(); updateBadge(); populateLocations(); renderNotes();
+    }).catch(e=>console.log("Fetch err:",e));
+  }
+}
 
-.person-list { background: var(--ios-card); border-radius: 14px; border: 0.5px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
-.person-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 0.5px solid var(--ios-separator); }
-.person-row:last-child { border-bottom: none; }
-.person-stats { display: flex; gap: 14px; text-align: right; }
-.stat-box { display: flex; flex-direction: column; }
-.stat-label { font-size: 9px; color: var(--ios-secondary-label); text-transform: uppercase; font-weight: 600; }
-.stat-val { font-size: 13px; font-weight: 600; }
-.refresh-btn { width: 100%; background: rgba(118, 118, 128, 0.2); color: var(--ios-accent); font-size: 14px; font-weight: 600; padding: 12px; border-radius: 10px; border: none; cursor: pointer; margin-top: 14px; }
+function loadDashboard() {
+  document.getElementById('dashLoading').style.display = 'block'; document.getElementById('dashContent').style.display = 'none';
+  if(navigator.onLine) {
+    fetch(API_URL+"?action=getDashboardData").then(r=>r.json()).then(d=>{
+      renderDashContent(d.allReports||[]);
+      document.getElementById('dashLoading').style.display = 'none'; document.getElementById('dashContent').style.display = 'block';
+    }).catch(e=>console.log("Dash err:",e));
+  }
+}
 
-.action-sheet-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); z-index: 100; opacity: 0; transition: opacity 0.25s; }
-.action-sheet-overlay.show { display: block; opacity: 1; }
-.action-sheet { position: fixed; bottom: -100%; left: 0; right: 0; background: var(--ios-card); border-radius: 16px 16px 0 0; z-index: 101; transition: bottom 0.3s; padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
-.action-sheet.open { bottom: 0; }
-.picker-container { position: relative; height: 180px; display: flex; justify-content: center; overflow: hidden; }
-.picker-highlight { position: absolute; top: 70px; left: 16px; right: 16px; height: 40px; background: rgba(118, 118, 128, 0.2); border-radius: 8px; pointer-events: none; z-index: 31; }
-.picker-column { width: 90px; height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; padding: 70px 0; z-index: 33; }
-.picker-column::-webkit-scrollbar { display: none; }
-.picker-item { height: 40px; line-height: 40px; text-align: center; font-size: 22px; font-weight: 600; color: #FFF; scroll-snap-align: center; }
+function forceRefreshNotes(btn) {
+  if (btn) { btn.textContent = "Hämtar..."; btn.style.opacity = "0.6"; }
+  document.getElementById('noteBulletList').innerHTML = "<div style='color:var(--ios-secondary-label);text-align:center;padding:20px;'>Hämtar senaste tiderna...</div>";
+  document.getElementById('noteSumText').textContent = "0 tim";
+  loadData(); loadDashboard();
+  setTimeout(() => { if (btn) { btn.textContent = "↻ Uppdatera"; btn.style.opacity = "1"; } }, 1200);
+}
 
-.pin-box { display:none; position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 300px; background: rgba(28,28,30,0.96); border-radius: 16px; z-index: 200; padding: 20px; text-align: center; border: 0.5px solid rgba(255,255,255,0.1); }
-.pin-input { font-size: 26px; letter-spacing: 6px; text-align: center; width: 100%; padding: 8px; border-radius: 8px; margin-bottom: 16px; outline: none; background: #000; color: #FFF; border: 1px solid var(--ios-separator); }
-.pin-buttons { display: flex; margin: 0 -20px -20px -20px; border-top: 0.5px solid var(--ios-separator); }
-.pin-btn { flex: 1; padding: 12px; background: none; border: none; color: var(--ios-accent); font-size: 16px; cursor: pointer; }
-#statusBox { display: none; padding: 10px; border-radius: 10px; margin-bottom: 14px; font-weight: 500; text-align: center; font-size: 14px; }
+function populateLocations() {
+  let sel = document.getElementById('locationSelect'); let current = sel.value;
+  sel.innerHTML = locationData.map(l => `<option value="${l}">${l}</option>`).join('');
+  sel.innerHTML += `<option value="NEW">+ Skriv in ny plats...</option>`;
+  if(locationData.includes(current)) sel.value = current; else sel.value = "Blacksta";
+}
+
+function buildUserWheel() { let c = document.getElementById('userColumn'); c.innerHTML = staffData.map(u=>`<div class="picker-item">${u.name}</div>`).join(''); c.addEventListener('scroll', ()=>{ setTimeout(()=>{userIndexState=Math.max(0,Math.round(c.scrollTop/40))}, 60)}); }
+function setupWheels() { buildTimeWheel('timeHours', Array.from({length:24},(_,i)=>i), false); buildTimeWheel('timeMinutes', MINUTE_STEPS, true); calcDur(); }
+function buildTimeWheel(id, vals, isMin) { let c = document.getElementById(id); c.innerHTML = vals.map(v=>`<div class="picker-item">${String(v).padStart(2,'0')}</div>`).join(''); c.addEventListener('scroll', ()=>{ setTimeout(()=>{let idx=Math.max(0,Math.round(c.scrollTop/40)); if(!isMin)tempTime.h=idx; else tempTime.m=MINUTE_STEPS[Math.min(3,idx)]}, 60)}); }
+function pad(n) { return String(n).padStart(2,'0'); }
+function openUserPicker() { document.getElementById('overlay').classList.add('show'); document.getElementById('userPickerSheet').classList.add('open'); }
+function confirmUser() { candidateUserObj=staffData[userIndexState]; closeAllPickers(); openPin(); }
+function openPin() { document.getElementById('pinNameDisplay').textContent=candidateUserObj.name; document.getElementById('pinInput').value=''; document.getElementById('overlay').classList.add('show'); document.getElementById('pinBox').style.display='block'; setTimeout(()=>document.getElementById('pinInput').focus(),100); }
+function closePin() { document.getElementById('overlay').classList.remove('show'); document.getElementById('pinBox').style.display='none'; }
+function verifyPin() { if(document.getElementById('pinInput').value === (candidateUserObj.pin||"0000")) { selectedUserObj=candidateUserObj; document.getElementById('userValDisplay').textContent=selectedUserObj.name; closePin(); updateBadge(); renderNotes(); } else { alert("Fel PIN"); document.getElementById('pinInput').value=''; } }
+function closeAllPickers() { ['userPickerSheet','timePickerSheet'].forEach(id=>document.getElementById(id).classList.remove('open')); document.getElementById('overlay').classList.remove('show'); }
+function openTimePicker(t) { activeTimeType=t; document.getElementById('timePickerTitle').innerText = t==='start'?"VÄLJ STARTTID":"VÄLJ SLUTTID"; document.getElementById('overlay').classList.add('show'); document.getElementById('timePickerSheet').classList.add('open'); }
+function confirmTimePicker() { if(activeTimeType==='start'){timeState.startH=tempTime.h; timeState.startM=tempTime.m;}else{timeState.endH=tempTime.h; timeState.endM=tempTime.m;} document.getElementById('startBadge').textContent=`${pad(timeState.startH)}:${pad(timeState.startM)}`; document.getElementById('endBadge').textContent=`${pad(timeState.endH)}:${pad(timeState.endM)}`; calcDur(); closeAllPickers(); }
+function calcDur() { let d = (timeState.endH*60+timeState.endM)-(timeState.startH*60+timeState.startM); if(d<0)d+=1440; document.getElementById('totalDurationText').textContent = `${Math.floor(d/60)} tim ${d%60} min`; return document.getElementById('totalDurationText').textContent; }
+function populateEvents() { let s = document.getElementById('eventSelect'); s.innerHTML='<option value="">-- Välj händelse --</option>'; calendarEvents.forEach((e,i)=> s.innerHTML+=`<option value="${i}">${new Date(e.start).toLocaleDateString('sv-SE',{month:'short',day:'numeric'})}: ${e.title}</option>`); }
+function handleEventChange() { let i=document.getElementById('eventSelect').value, d=document.getElementById('dateSelect'); d.innerHTML=''; if(!i){d.innerHTML='<option>Välj händelse</option>'; selectedEvent=null; return;} selectedEvent=calendarEvents[i]; let c=new Date(selectedEvent.start); d.innerHTML+=`<option value="${c.toISOString().split('T')[0]}">${c.toLocaleDateString('sv-SE',{weekday:'short',day:'numeric',month:'short'})}</option>`; }
+function parseMins(str) { if(!str)return 0; let s=String(str).toLowerCase(), h=0, m=0; let hm=s.match(/(\d+)\s*(tim|h)/); if(hm)h=parseInt(hm[1]); let mm=s.match(/(\d+)\s*(min|m)/); if(mm)m=parseInt(mm[1]); if(!hm&&!mm){let n=parseFloat(s.replace(',','.')); if(!isNaN(n))return Math.round(n*60);} return h*60+m; }
+function fmtHrs(m) { let h=m/60; return (Number.isInteger(h)?h:h.toFixed(1).replace('.',','))+" tim"; }
+function updateBadge() { let my = unreportedData.filter(i=>i.anvandare===selectedUserObj?.name); let b = document.getElementById('unreportedBadge'); if(my.length){b.textContent=my.length;b.style.display='inline-block';}else b.style.display='none'; }
+function renderNotes() { 
+  let l = document.getElementById('noteBulletList'), s = document.getElementById('noteSumText');
+  if(!selectedUserObj) { l.innerHTML = "<div style='color:var(--ios-secondary-label);text-align:center;padding:20px;'>Välj ditt namn under 'Rapportera' först.</div>"; s.textContent="0 tim"; return; }
+  let my = unreportedData.filter(i=>i.anvandare===selectedUserObj.name);
+  if(!my.length) { l.innerHTML = "<div style='color:var(--apple-green);text-align:center;padding:20px;'>Allt är inrapporterat och klart!</div>"; s.textContent="0 tim"; return; }
+  let tot=0;
+  l.innerHTML = my.map(i=>{
+    let mins = parseMins(i.totaltid); tot+=mins; let isAta = i.aktivitet.includes("[ÄTA]");
+    return `<li style="margin-bottom:12px; padding-bottom:8px; border-bottom:0.5px solid rgba(255,255,255,0.05);"><div style="display:flex; justify-content:space-between;"><b style="color:${isAta?'var(--apple-purple)':'#FFF'};">${i.datum}</b><span style="font-weight:600;">${fmtHrs(mins)}</span></div><div style="font-size:14px; color:var(--ios-secondary-label); margin-top:2px;">${i.aktivitet} (${i.ort})</div></li>`;
+  }).join('');
+  s.textContent = fmtHrs(tot);
+}
+function renderDashContent(reports) {
+  let t=0, d=0, p=0, a=0, pObj={};
+  reports.forEach(r=>{
+    let m=parseMins(r.totaltid), isD=(String(r.status).toLowerCase()==="ja"), isA=String(r.aktivitet).includes("[ÄTA]");
+    t+=m; if(isD)d+=m; else p+=m; if(isA)a+=m;
+    let n=r.anvandare||"Okänd"; if(!pObj[n])pObj[n]={t:0,d:0,p:0,a:0};
+    pObj[n].t+=m; if(isD)pObj[n].d+=m; else pObj[n].p+=m; if(isA)pObj[n].a+=m;
+  });
+  document.getElementById('dashTot').innerText=fmtHrs(t); document.getElementById('dashDone').innerText=fmtHrs(d); document.getElementById('dashPend').innerText=fmtHrs(p); document.getElementById('dashAta').innerText=fmtHrs(a);
+  let html="", keys=Object.keys(pObj).sort((x,y)=>pObj[y].t-pObj[x].t);
+  if(!keys.length) html=`<div style="padding:16px;color:var(--ios-secondary-label);">Ingen data...</div>`;
+  else keys.forEach(k=>{ let o=pObj[k]; html+=`<div class="person-row"><div style="font-weight:600;">${k}</div><div class="person-stats"><div class="stat-box"><span class="stat-label">Klart</span><span class="stat-val" style="color:var(--apple-green);">${fmtHrs(o.d)}</span></div><div class="stat-box"><span class="stat-label">Väntar</span><span class="stat-val" style="color:var(--apple-red);">${fmtHrs(o.p)}</span></div><div class="stat-box"><span class="stat-label">ÄTA</span><span class="stat-val" style="color:var(--apple-purple);">${fmtHrs(o.a)}</span></div><div class="stat-box"><span class="stat-label">Totalt</span><span class="stat-val">${fmtHrs(o.t)}</span></div></div></div>`; });
+  document.getElementById('dashPersonList').innerHTML=html;
+}
+
+function showStatus(msg) { let b=document.getElementById('statusBox'); b.textContent=msg; b.style.display='block'; b.style.background='rgba(48,209,88,0.15)'; b.style.color='#30D158'; setTimeout(()=>{if(b.textContent===msg)b.style.display='none';}, 4000); }
+
+function resetFormAfterSubmit() {
+  document.getElementById('noteInput').value = "";
+  document.getElementById('customText').value = "";
+  document.getElementById('noteCard').style.display = 'none';
+  document.getElementById('noteToggleBtn').textContent = "+ Lägg till anteckning";
+  setType('kalender');
+}
+
+function initiateSubmit() {
+  if(!selectedUserObj) return alert("Välj ditt namn först.");
+  let loc = "Blacksta", akt = "", dat = "", note = "";
+
+  if (currentType === 'kalender') {
+    if(!selectedEvent) return alert("Välj en kalenderhändelse först.");
+    dat = document.getElementById('dateSelect').value; 
+    akt = selectedEvent.title + " (" + document.getElementById('passSelect').value + ")";
+    note = document.getElementById('noteInput').value.trim();
+  } else {
+    loc = document.getElementById('locationSelect').value;
+    if (loc === "NEW") { loc = document.getElementById('customLocationInput').value.trim(); if(!loc) return alert("Skriv in namnet på betalstället."); }
+    dat = document.getElementById('customDate').value; if(!dat) return alert("Välj ett datum.");
+    let textVal = document.getElementById('customText').value.trim();
+    if (currentType === 'nya') {
+      akt = textVal || "Nytt arbete"; note = document.getElementById('noteInput').value.trim();
+    } else if (currentType === 'ata') {
+      if (!textVal) return alert("Beskriv vad som gjorts under ÄTA.");
+      akt = "[ÄTA] " + textVal; note = "";
+    }
+  }
+
+  // Spara omedelbart i Utkorgen istället för att vänta på nätverket
+  saveToOutbox({
+    action: 'saveReport', anvandare: selectedUserObj.name, datum: dat, aktivitet: akt, plats: loc,
+    starttid: `${pad(timeState.startH)}:${pad(timeState.startM)}`, sluttid: `${pad(timeState.endH)}:${pad(timeState.endM)}`,
+    totaltid: calcDur(), anteckning: note, photoBase64: (currentType === 'ata' ? currentPhotoBase64 : "")
+  });
+}
+
+function sendInvoiceMail() {
+  if(!navigator.onLine) return alert("Du måste ha nätverkstäckning för att skicka fakturaunderlag.");
+  if(!selectedUserObj) return alert("Välj namn i flik 1 först.");
+  let my = unreportedData.filter(i=>i.anvandare===selectedUserObj.name);
+  if(!my.length) return alert("Finns inget att skicka in.");
+  
+  document.getElementById('invoiceBtnText').innerText = "Skickar underlag...";
+  const form = document.getElementById('tank_form'); form.action = API_URL; form.innerHTML = '';
+  let payload = { action: 'markAsReported', anvandare: selectedUserObj.name };
+  for (let key in payload) { let i = document.createElement('input'); i.type = 'hidden'; i.name = key; i.value = payload[key]; form.appendChild(i); }
+  
+  let done = false;
+  document.getElementById('tank_iframe').onload = () => { if(!done) { done=true; onSuccess(); } };
+  form.submit();
+  setTimeout(()=>{ if(!done){ done=true; onSuccess(); } }, 2500);
+
+  function onSuccess() {
+    showStatus("Underlaget har skickats till mailen!");
+    document.getElementById('invoiceBtnText').innerText = "Klart att fakturera (Skicka underlag)";
+    setTimeout(() => { loadData(); loadDashboard(); }, 1000);
+  }
+}
