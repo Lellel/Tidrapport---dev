@@ -1,4 +1,3 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyn-mxt1REReA0T4UC4lmf-cbDPcDkv5X5WCJapqyZ06d76tKzxsaCBgaYqTeFfmYPekw/exec";
 const OUTBOX_KEY = "lpv_tid_outbox";
 
 let staffData=[], calendarEvents=[], unreportedData=[], locationData=["Blacksta"];
