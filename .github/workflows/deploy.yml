@@ -1,7 +1,7 @@
 name: Deploy to Production
 
 on:
-  workflow_dispatch: # Gör att vi kan starta skriptet manuellt med en knapp
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -12,14 +12,12 @@ jobs:
 
       - name: Klona produktionsrepot
         run: |
-          # VIKTIGT: Byt ut BYT_TILL_DITT_SKARPA_REPO_NAMN mot vad din skarpa app heter på GitHub
-          git clone https://${{ secrets.DEPLOY_TOKEN }}@github.com/lellel/BYT_TILL_DITT_SKARPA_REPO_NAMN.git prod_repo
+          git clone https://${{ secrets.DEPLOY_TOKEN }}@github.com/lellel/Tidsrapportering-och-annat-LPV.git prod_repo
 
       - name: Kopiera över logik och design
         run: |
           cp app.js prod_repo/
           cp style.css prod_repo/
-          # Vi flyttar INTE index.html eller config.js, de får leva sina egna liv!
 
       - name: Skicka ändringarna till produktion
         run: |
