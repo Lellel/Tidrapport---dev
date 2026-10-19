@@ -48,11 +48,18 @@ function selectActivity(name) {
   closeSheet();
 }
 
-// Starta och initiera datum
+// Starta och initiera datum & tid
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
+  
+  // Sätt dagens datum
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   document.getElementById('input-date').value = localDate;
+  
+  // Sätt aktuell tid som Start (ex. 07:15)
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('input-start').value = `${hours}:${minutes}`;
   
   updateLiveHours();
   renderOutbox();
@@ -122,10 +129,16 @@ function saveToOutbox() {
   drafts.push(draft);
   localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
 
-  // Töm formuläret
+  // Töm formuläret och återställ starttiden till "nu"
   document.getElementById('input-place').value = '';
   document.getElementById('input-notes').value = '';
   document.getElementById('input-end').value = '';
+  
+  const nu = new Date();
+  const hours = String(nu.getHours()).padStart(2, '0');
+  const minutes = String(nu.getMinutes()).padStart(2, '0');
+  document.getElementById('input-start').value = `${hours}:${minutes}`;
+
   document.getElementById('selected-activity').innerHTML = `
     Välj aktivitet
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
