@@ -9,6 +9,28 @@ if ('serviceWorker' in navigator) {
 
 let drafts = JSON.parse(localStorage.getItem('tidrapport_drafts')) || [];
 let currentActivity = "";
+let currentJobType = "nya"; // 'kalender', 'nya' eller 'ata'
+
+// Styrning av uppdragstyp (Kalender / Nya / ÄTA)
+function setJobType(type) {
+  currentJobType = type;
+  
+  document.getElementById('btn-type-cal').classList.toggle('active', type === 'kalender');
+  document.getElementById('btn-type-new').classList.toggle('active', type === 'nya');
+  document.getElementById('btn-type-ata').classList.toggle('active', type === 'ata');
+
+  const ataRow = document.getElementById('row-ata-number');
+  if (type === 'ata') {
+    ataRow.style.display = 'flex';
+    document.getElementById('input-ata').focus();
+  } else {
+    ataRow.style.display = 'none';
+  }
+
+  if (type === 'kalender') {
+    alert("Kalender-jobb hämtas från kontoret i nästa steg!");
+  }
+}
 
 // Ikon-bibliotek med fasta mått (20x20)
 function getActivityIcon(name) {
@@ -30,7 +52,7 @@ function getActivityIcon(name) {
   }
 }
 
-// Action Sheet-styrning
+// Action Sheet
 function openSheet() {
   document.getElementById('sheetBackdrop').classList.add('active');
 }
@@ -51,12 +73,9 @@ function selectActivity(name) {
 // Starta och initiera datum & tid
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
-  
-  // Sätt dagens datum
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   document.getElementById('input-date').value = localDate;
   
-  // Sätt aktuell tid som Start (ex. 07:15)
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   document.getElementById('input-start').value = `${hours}:${minutes}`;
@@ -75,7 +94,6 @@ function calculateHours(start, end) {
   return diff;
 }
 
-// Live-indikator på tider under inmatning
 function updateLiveHours() {
   const start = document.getElementById('input-start').value;
   const end = document.getElementById('input-end').value;
@@ -90,7 +108,6 @@ function updateLiveHours() {
   }
 }
 
-// Stämpla ut pågående pass
 function clockOut(id) {
   const nu = new Date();
   const timeString = nu.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
@@ -110,6 +127,7 @@ function saveToOutbox() {
   const notes = document.getElementById('input-notes').value;
   const start = document.getElementById('input-start').value;
   const end = document.getElementById('input-end').value;
+  const ata = document.getElementById('input-ata').value;
 
   if (!place || !start) {
     alert("Fyll i Betalställe och Starttid!");
@@ -118,21 +136,24 @@ function saveToOutbox() {
 
   const draft = {
     id: Date.now(),
+    type: currentJobType,
+    ataNumber: currentJobType === 'ata' ? ata : '',
     date: date,
     place: place,
     activity: currentActivity || "Övrigt",
     notes: notes,
     start: start,
-    end: end // Kan vara tom = Pågående pass!
+    end: end
   };
 
   drafts.push(draft);
   localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
 
-  // Töm formuläret och återställ starttiden till "nu"
+  // Återställ formuläret
   document.getElementById('input-place').value = '';
   document.getElementById('input-notes').value = '';
   document.getElementById('input-end').value = '';
+  document.getElementById('input-ata').value = '';
   
   const nu = new Date();
   const hours = String(nu.getHours()).padStart(2, '0');
@@ -144,8 +165,10 @@ function saveToOutbox() {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
   `;
   currentActivity = "";
+  
+  // Återgå till standard 'Nya'
+  setJobType('nya');
   updateLiveHours();
-
   renderOutbox();
 }
 
@@ -155,7 +178,7 @@ function deleteDraft(id) {
   renderOutbox();
 }
 
-// Rita upp karusellen
+// Rendera utkorgskorten
 function renderOutbox() {
   const container = document.getElementById('outbox-container');
   const section = document.getElementById('outbox-section');
@@ -188,6 +211,11 @@ function renderOutbox() {
     const timeDisplay = isOngoing ? `<span class="ongoing-pulse">Pågår</span>` : `${draft.start} – ${draft.end}`;
     const hoursDisplay = isOngoing ? `-` : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
 
+    // ÄTA-bricka om passet är ett ÄTA-jobb
+    const ataBadge = draft.type === 'ata' 
+      ? `<span class="badge-ata">${draft.ataNumber ? draft.ataNumber : 'ÄTA'}</span>` 
+      : '';
+
     let actionButtons = '';
     if (isOngoing) {
       actionButtons = `
@@ -207,7 +235,6 @@ function renderOutbox() {
         </button>
         <button class="btn-action delete" onclick="deleteDraft(${draft.id})">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-          Radera
         </button>
       `;
     }
@@ -218,6 +245,7 @@ function renderOutbox() {
           <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">
             ${iconSvg}
           </span>
+          ${ataBadge}
           <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${draft.place}</span>
           <span class="dot">•</span>
           <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>
