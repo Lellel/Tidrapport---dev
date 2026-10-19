@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Utkorg Preview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Tillfällig preview-styling för utkorgen */
+    #outboxContainer { margin-top: 24px; padding-bottom: 30px; }
+    .draft-card { background: var(--ios-card); border-radius: 14px; padding: 16px; margin-bottom: 14px; border: 0.5px solid rgba(255, 255, 255, 0.08); }
+    .draft-header { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #FFF; }
+    .draft-meta { font-size: 13px; color: var(--ios-secondary-label); margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .draft-badge { background: rgba(255, 159, 10, 0.12); color: var(--ios-accent); padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; }
+    .draft-note { font-size: 14px; font-style: italic; color: #CCC; margin-bottom: 12px; border-left: 2px solid var(--ios-separator); padding-left: 10px; line-height: 1.4; }
+    .draft-image-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 13px; color: var(--ios-secondary-label); }
+    .draft-image-preview { width: 42px; height: 42px; border-radius: 6px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--ios-accent); border: 1px solid var(--ios-separator); }
+    .draft-actions { display: flex; gap: 8px; border-top: 0.5px solid var(--ios-separator); padding-top: 12px; }
+    .btn-action { flex: 1; padding: 10px 0; background: rgba(255, 255, 255, 0.06); border: none; border-radius: 8px; color: #FFF; font-weight: 500; font-size: 13px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; }
+    .btn-action.delete { background: rgba(255, 69, 58, 0.12); color: var(--apple-red); }
+  </style>
+</head>
+<body>
+  <div class="app-wrapper">
+    <div class="app-container">
+      <header>
+        <h1>Tidrapport</h1>
+        <div class="status-pill"><span class="status-dot"></span><span>Ansluten</span></div>
+      </header>
+
+      <!-- SPARA PASS -->
+      <button class="ios-btn" style="margin-bottom: 24px;">Spara pass lokalt</button>
+
+      <!-- DAGENS UTKORG -->
+      <div id="outboxContainer">
+        <div class="section-title">Dagens Utkorg (2)</div>
+
+        <!-- KORT 1 -->
+        <div class="draft-card">
+          <div class="draft-header">
+            <span>Blacksta • TV5</span>
+          </div>
+          <div class="draft-meta">
+            <span>📅 2026-10-19</span>
+            <span>⏱ 09:00 – 15:30</span>
+            <span class="draft-badge">6 tim 30 min</span>
+          </div>
+          <div class="draft-note">
+            "Hjälpte till att flytta grisarna vid fack 3."
+          </div>
+          <div class="draft-image-row">
+            <div class="draft-image-preview">FOTO</div>
+            <span>1 bild bifogad (Kamerarullen)</span>
+          </div>
+          <div class="draft-actions">
+            <button class="btn-action">✏️ Ändra</button>
+            <button class="btn-action">📸 Foto</button>
+            <button class="btn-action delete">🗑️ Ta bort</button>
+          </div>
+        </div>
+
+        <!-- KORT 2 -->
+        <div class="draft-card">
+          <div class="draft-header">
+            <span>Kv. Sländan • [ÄTA] Rördragning</span>
+          </div>
+          <div class="draft-meta">
+            <span>📅 2026-10-19</span>
+            <span>⏱ 16:00 – 18:30</span>
+            <span class="draft-badge">2 tim 30 min</span>
+          </div>
+          <div class="draft-note">
+            "Grävt upp och bytt anslutning."
+          </div>
+          <div class="draft-actions">
+            <button class="btn-action">✏️ Ändra</button>
+            <button class="btn-action">📸 Foto</button>
+            <button class="btn-action delete">🗑️ Ta bort</button>
+          </div>
+        </div>
+
+        <!-- SKICKA IN ALLA -->
+        <button class="ios-btn blue" style="margin-top: 14px;">
+          🚀 Skicka in alla till arket (2)
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
