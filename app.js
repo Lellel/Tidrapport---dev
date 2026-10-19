@@ -48,7 +48,7 @@ function selectActivity(name) {
   closeSheet();
 }
 
-// Initiera datum och timberäkning vid start
+// Starta och initiera datum
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
@@ -64,21 +64,35 @@ function calculateHours(start, end) {
   const [startH, startM] = start.split(':').map(Number);
   const [endH, endM] = end.split(':').map(Number);
   let diff = (endH + endM / 60) - (startH + startM / 60);
-  if (diff < 0) diff += 24; // Nattpass
+  if (diff < 0) diff += 24;
   return diff;
 }
 
-// Uppdatera timindikatorn intill "Tid" i realtid
+// Live-indikator på tider under inmatning
 function updateLiveHours() {
   const start = document.getElementById('input-start').value;
   const end = document.getElementById('input-end').value;
   const badge = document.getElementById('current-duration-badge');
+
   if (start && end) {
     const hours = calculateHours(start, end);
     badge.innerText = `${hours.toFixed(1)} h`;
     badge.style.display = 'inline-block';
   } else {
     badge.style.display = 'none';
+  }
+}
+
+// Stämpla ut pågående pass
+function clockOut(id) {
+  const nu = new Date();
+  const timeString = nu.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+
+  const draftIndex = drafts.findIndex(d => d.id === id);
+  if (draftIndex !== -1) {
+    drafts[draftIndex].end = timeString;
+    localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+    renderOutbox();
   }
 }
 
@@ -90,8 +104,8 @@ function saveToOutbox() {
   const start = document.getElementById('input-start').value;
   const end = document.getElementById('input-end').value;
 
-  if (!place || !start || !end) {
-    alert("Fyll i Betalställe, Start och Slut!");
+  if (!place || !start) {
+    alert("Fyll i Betalställe och Starttid!");
     return;
   }
 
@@ -102,20 +116,22 @@ function saveToOutbox() {
     activity: currentActivity || "Övrigt",
     notes: notes,
     start: start,
-    end: end
+    end: end // Kan vara tom = Pågående pass!
   };
 
   drafts.push(draft);
   localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
 
-  // Återställ formulär
+  // Töm formuläret
   document.getElementById('input-place').value = '';
   document.getElementById('input-notes').value = '';
+  document.getElementById('input-end').value = '';
   document.getElementById('selected-activity').innerHTML = `
     Välj aktivitet
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
   `;
   currentActivity = "";
+  updateLiveHours();
 
   renderOutbox();
 }
@@ -126,7 +142,7 @@ function deleteDraft(id) {
   renderOutbox();
 }
 
-// Rita upp Utkorg
+// Rita upp karusellen
 function renderOutbox() {
   const container = document.getElementById('outbox-container');
   const section = document.getElementById('outbox-section');
@@ -143,36 +159,35 @@ function renderOutbox() {
 
   let totalHours = 0;
   drafts.forEach(d => {
-    totalHours += calculateHours(d.start, d.end);
+    if (d.start && d.end) {
+      totalHours += calculateHours(d.start, d.end);
+    }
   });
 
-  title.innerText = `Dagens Utkorg (${drafts.length} pass · ${totalHours.toFixed(1)} h)`;
+  title.innerText = `Dagens pass (${drafts.length} st · ${totalHours.toFixed(1)} h)`;
 
   drafts.forEach(draft => {
     const card = document.createElement('div');
     card.className = 'draft-card';
     const iconSvg = getActivityIcon(draft.activity);
 
-    card.innerHTML = `
-      <div class="card-body">
-        <div class="card-title">
-          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">
-            ${iconSvg}
-          </span>
-          <span>${draft.place}</span>
-          <span class="dot">•</span>
-          <span style="font-weight:400; color:#A1A1A6;">${draft.activity}</span>
-        </div>
-        <div class="card-meta">
-          <span>${draft.date}</span>
-          <span class="dot">•</span>
-          <span>${draft.start} – ${draft.end}</span>
-          <span class="dot">•</span>
-          <span style="color:#FFF; font-weight:500;">${calculateHours(draft.start, draft.end).toFixed(1)} h</span>
-        </div>
-        ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
-      </div>
-      <div class="card-actions">
+    const isOngoing = !draft.end;
+    const timeDisplay = isOngoing ? `<span class="ongoing-pulse">Pågår</span>` : `${draft.start} – ${draft.end}`;
+    const hoursDisplay = isOngoing ? `-` : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
+
+    let actionButtons = '';
+    if (isOngoing) {
+      actionButtons = `
+        <button class="btn-action clock-out" onclick="clockOut(${draft.id})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Stämpla ut nu
+        </button>
+        <button class="btn-action delete" onclick="deleteDraft(${draft.id})" style="flex:0 0 45px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+        </button>
+      `;
+    } else {
+      actionButtons = `
         <button class="btn-action">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           Ändra
@@ -181,6 +196,30 @@ function renderOutbox() {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           Radera
         </button>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="card-body">
+        <div class="card-title">
+          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">
+            ${iconSvg}
+          </span>
+          <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${draft.place}</span>
+          <span class="dot">•</span>
+          <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>
+        </div>
+        <div class="card-meta">
+          <span>${draft.date}</span>
+          <span class="dot">•</span>
+          <span>${timeDisplay}</span>
+          <span class="dot">•</span>
+          <span style="color:#FFF; font-weight:500;">${hoursDisplay}</span>
+        </div>
+        ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
+      </div>
+      <div class="card-actions">
+        ${actionButtons}
       </div>
     `;
     container.appendChild(card);
