@@ -13,12 +13,13 @@
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 body {
-  background-color: var(--bg);
+  background: linear-gradient(135deg, #000000 0%, #1a1a24 100%);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   padding: calc(env(safe-area-inset-top) + 20px) 16px 40px 16px;
   display: flex;
   justify-content: center;
+  min-height: 100vh;
 }
 
 .app-container { width: 100%; max-width: 450px; }
@@ -51,13 +52,19 @@ h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
 .draft-card {
   flex: 0 0 250px;
   scroll-snap-align: start;
-  background: var(--card);
   border-radius: 14px;
-  border: 0.5px solid var(--separator);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  
+  /* GLAS-EFFEKTEN */
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
+
 .card-body { padding: 12px 14px; }
 .card-title { font-size: 15px; font-weight: 600; display: flex; align-items: center; margin-bottom: 4px; }
 .dot { color: var(--separator); margin: 0 5px; font-size: 11px; }
@@ -93,7 +100,19 @@ h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
 .section-title-row .section-title { margin: 0 0 0 14px; }
 .duration-pill { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-bg); padding: 2px 8px; border-radius: 6px; }
 
-.ios-card { background: var(--card); border-radius: 14px; margin-bottom: 16px; border: 0.5px solid var(--separator); overflow: hidden; }
+.ios-card {
+  border-radius: 14px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  
+  /* GLAS-EFFEKTEN */
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
 .ios-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 0.5px solid var(--separator); font-size: 16px; cursor: pointer; }
 .ios-row:last-child { border-bottom: none; }
 .ios-row:active { background: rgba(255, 255, 255, 0.04); }
