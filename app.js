@@ -21,13 +21,7 @@ function checkMagicLinkAndSetupUser() {
   
   applyUserToUI(activeUser);
 }
-  
-  applyUserToUI(activeUser);
-}
-  // 2. Kolla vem som är knuten till telefonen
-  const activeUser = localStorage.getItem(USER_KEY);
-  applyUserToUI(activeUser);
-}
+
 
 function applyUserToUI(userName) {
   const userDisplay = document.getElementById('userValDisplay'); 
