@@ -1,3 +1,53 @@
+// =========================================================
+// ENHETSKNYTNING (MAGIC LINK)
+// =========================================================
+const USER_KEY = 'lpv_active_user';
+
+function checkMagicLinkAndSetupUser() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const userFromUrl = urlParams.get('user');
+
+  // 1. Om någon klickat på en länk med ?user=Namn
+  if (userFromUrl) {
+    localStorage.setItem(USER_KEY, decodeURIComponent(userFromUrl.trim()));
+    // Städa bort ?user=... från webbläsarens adressfält så det ser snyggt ut
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  // 2. Kolla vem som är knuten till telefonen
+  const activeUser = localStorage.getItem(USER_KEY);
+  applyUserToUI(activeUser);
+}
+
+function applyUserToUI(userName) {
+  const userSelect = document.getElementById('anvandare'); // ID på din dropdown
+  const userContainer = userSelect ? userSelect.closest('.form-group') || userSelect.parentElement : null;
+
+  if (userName) {
+    // Sätt värdet i bakgrunden så formuläret vet vem som skickar
+    if (userSelect) {
+      userSelect.value = userName;
+    }
+
+    // Dölj dropdown-väljaren helt
+    if (userContainer) {
+      userContainer.style.display = 'none';
+    }
+
+    // Visa en snygg namnbricka högst upp om elementet finns
+    let badge = document.getElementById('user-badge');
+    if (!badge && userContainer) {
+      badge = document.createElement('div');
+      badge.id = 'user-badge';
+      badge.style.cssText = 'padding: 8px 14px; margin-bottom: 12px; background: #eef2f7; border-left: 4px solid #2980b9; border-radius: 6px; font-weight: bold; color: #2c3e50; font-size: 0.95em;';
+      userContainer.parentNode.insertBefore(badge, userContainer);
+    }
+    if (badge) {
+      badge.innerHTML = `👤 Inloggad förare: <span style="color:#2980b9;">${userName}</span>`;
+    }
+  }
+}
+
 const OUTBOX_KEY = "lpv_tid_outbox";
 
 let staffData=[], calendarEvents=[], unreportedData=[], locationData=["Blacksta"];
