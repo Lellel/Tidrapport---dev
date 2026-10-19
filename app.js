@@ -20,30 +20,19 @@ function checkMagicLinkAndSetupUser() {
 }
 
 function applyUserToUI(userName) {
-  const userSelect = document.getElementById('anvandare'); // ID på din dropdown
-  const userContainer = userSelect ? userSelect.closest('.form-group') || userSelect.parentElement : null;
+  const userDisplay = document.getElementById('userValDisplay'); 
+  const profileRow = userDisplay ? userDisplay.closest('.ios-row') : null;
 
-  if (userName) {
-    // Sätt värdet i bakgrunden så formuläret vet vem som skickar
-    if (userSelect) {
-      userSelect.value = userName;
-    }
+  if (userName && userDisplay) {
+    // 1. Skriv in namnet och lås klick-funktionen
+    userDisplay.innerText = userName;
+    userDisplay.onclick = null; // Tar bort möjligheten att öppna listan
 
-    // Dölj dropdown-väljaren helt
-    if (userContainer) {
-      userContainer.style.display = 'none';
-    }
-
-    // Visa en snygg namnbricka högst upp om elementet finns
-    let badge = document.getElementById('user-badge');
-    if (!badge && userContainer) {
-      badge = document.createElement('div');
-      badge.id = 'user-badge';
-      badge.style.cssText = 'padding: 8px 14px; margin-bottom: 12px; background: #eef2f7; border-left: 4px solid #2980b9; border-radius: 6px; font-weight: bold; color: #2c3e50; font-size: 0.95em;';
-      userContainer.parentNode.insertBefore(badge, userContainer);
-    }
-    if (badge) {
-      badge.innerHTML = `👤 Inloggad förare: <span style="color:#2980b9;">${userName}</span>`;
+    // 2. Ändra utseendet på raden så det ser ut som en låst ID-bricka
+    if (profileRow) {
+      profileRow.style.background = '#eef2f7';
+      profileRow.style.borderLeft = '4px solid #2980b9';
+      profileRow.innerHTML = `<span>👤 Förare</span><div style="color:#2980b9; font-weight:bold; font-size:16px;">${userName}</div>`;
     }
   }
 }
