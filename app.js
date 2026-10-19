@@ -18,10 +18,16 @@ function closeSheet(e) {
     document.getElementById('sheetBackdrop').classList.remove('active');
 }
 
-// När man väljer i menyn
+// Nya variabler för att hålla koll på både namn och ikon
 let currentActivity = "";
-function selectActivity(name) {
+let currentIcon = "";
+
+// Uppdaterad funktion som tar emot både namnet och SVG-ikonen från Action Sheet
+function selectActivity(name, element) {
     currentActivity = name;
+    // Hämta SVG-koden från det klickade elementet
+    currentIcon = element.querySelector('svg').outerHTML;
+    
     // Uppdaterar raden i gränssnittet
     document.getElementById('selected-activity').innerHTML = `
         ${name}
@@ -32,9 +38,11 @@ function selectActivity(name) {
 
 // Ladda om och sätt datum vid start
 document.addEventListener('DOMContentLoaded', () => {
-    // Sätt dagens datum snyggt i fältet
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('input-date').value = today;
+    // Sätt dagens datum snyggt i fältet (utan tidszon-konstigheter)
+    const now = new Date();
+    const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    document.getElementById('input-date').value = localDate;
+    
     renderOutbox();
 });
 
@@ -51,11 +59,15 @@ function saveToOutbox() {
         return;
     }
 
+    // Vi sätter en standard-ikon om föraren glömt välja aktivitet
+    const defaultIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+
     const draft = {
         id: Date.now(),
         date: date,
         place: place,
         activity: currentActivity || "Övrigt",
+        icon: currentIcon || defaultIcon, // Sparar ikonen!
         notes: notes,
         start: start,
         end: end
@@ -72,6 +84,7 @@ function saveToOutbox() {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     `;
     currentActivity = "";
+    currentIcon = "";
 
     renderOutbox();
 }
@@ -81,6 +94,16 @@ function deleteDraft(id) {
     drafts = drafts.filter(draft => draft.id !== id);
     localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
     renderOutbox();
+}
+
+// Räkna ut tidsskillnad i timmar
+function calculateHours(start, end) {
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH, endM] = end.split(':').map(Number);
+    let diff = (endH + endM / 60) - (startH + startM / 60);
+    // Hantera nattpass
+    if (diff < 0) diff += 24; 
+    return diff;
 }
 
 // Rita upp utkorgen
@@ -97,7 +120,15 @@ function renderOutbox() {
     }
 
     section.style.display = 'block';
-    title.innerText = `Dagens Utkorg (${drafts.length})`;
+    
+    // Räkna ihop totala timmar
+    let totalHours = 0;
+    drafts.forEach(d => {
+        totalHours += calculateHours(d.start, d.end);
+    });
+    
+    // Uppdatera rubriken med pass OCH timmar
+    title.innerText = `Dagens Utkorg (${drafts.length} pass · ${totalHours.toFixed(1)} h)`;
 
     drafts.forEach(draft => {
         const card = document.createElement('div');
@@ -105,6 +136,10 @@ function renderOutbox() {
         card.innerHTML = `
             <div class="card-body">
                 <div class="card-title">
+                    <!-- HÄR RITAS IKONEN UT -->
+                    <div style="width: 20px; height: 20px; color: var(--accent); margin-right: 4px; display: flex; align-items: center;">
+                        ${draft.icon}
+                    </div>
                     <span>${draft.place}</span>
                     <span class="dot">•</span>
                     <span style="font-weight:400; color:#A1A1A6;">${draft.activity}</span>
@@ -113,6 +148,8 @@ function renderOutbox() {
                     <span>${draft.date}</span>
                     <span class="dot">•</span>
                     <span>${draft.start} – ${draft.end}</span>
+                    <span class="dot">•</span>
+                    <span style="color:#FFF; font-weight:500;">${calculateHours(draft.start, draft.end).toFixed(1)} h</span>
                 </div>
                 ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
             </div>
@@ -132,5 +169,5 @@ function renderOutbox() {
 }
 
 function submitAll() {
-    alert("Nu är " + drafts.length + " pass redo att skickas in!");
+    alert("Nu skickas " + drafts.length + " pass in till kalkylarket!");
 }
