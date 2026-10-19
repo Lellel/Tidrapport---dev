@@ -22,7 +22,7 @@
       </div>
     </header>
 
-    <!-- UTKORG / DAGENS PASS (HORISONTELL KARUSELL I TOPPEN) -->
+    <!-- UTKORG / DAGENS PASS -->
     <div id="outbox-section" style="display: none;">
       <div class="outbox-header-row">
         <span class="section-title" id="outbox-title" style="margin:0;">Dagens pass</span>
@@ -38,14 +38,20 @@
     <div class="section-title">Uppdrag</div>
     <div class="ios-card">
       <div class="type-control">
-        <button class="type-btn">Kalender</button>
-        <button class="type-btn active">Nya</button>
-        <button class="type-btn">ÄTA</button>
+        <button type="button" id="btn-type-cal" class="type-btn" onclick="setJobType('kalender')">Kalender</button>
+        <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
+        <button type="button" id="btn-type-ata" class="type-btn" onclick="setJobType('ata')">ÄTA</button>
       </div>
 
       <div class="ios-row">
         <span>Betalställe</span>
-        <input type="text" id="input-place" placeholder="T.ex. Coop" class="val-text">
+        <input type="text" id="input-place" placeholder="T.ex. NCC" class="val-text">
+      </div>
+
+      <!-- DÖLT ÄTA-FÄLT SOM FÄLLS UT VID ÄTA -->
+      <div class="ios-row" id="row-ata-number" style="display: none;">
+        <span>ÄTA-nr / Ref</span>
+        <input type="text" id="input-ata" placeholder="T.ex. ÄTA 04" class="val-text">
       </div>
 
       <div class="ios-row" onclick="openSheet()">
@@ -69,7 +75,7 @@
       </div>
       <div class="ios-row">
         <span>Start</span>
-        <input type="time" id="input-start" value="07:00" onchange="updateLiveHours()">
+        <input type="time" id="input-start" onchange="updateLiveHours()">
       </div>
       <div class="ios-row">
         <span>Slut</span>
