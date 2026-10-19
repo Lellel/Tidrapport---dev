@@ -1,192 +1,139 @@
-// Registrera Service Worker för offline-drift
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then((reg) => console.log('SW aktiv:', reg.scope))
-      .catch((err) => console.error('Kunde inte starta SW:', err));
-  });
-}
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Tidrapport</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+</head>
+<body>
 
-let drafts = JSON.parse(localStorage.getItem('tidrapport_drafts')) || [];
-let currentActivity = "";
-
-// Ikon-bibliotek med fasta mått (20x20)
-function getActivityIcon(name) {
-  switch (name) {
-    case 'Kyl- & frysflytt':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><path d="M5 17L8 4m-2-1h3M7 19h13"/><rect x="9.5" y="4" width="10.5" height="13" rx="1.5"/><path d="M14.5 4v10M13.5 7v4m2.5-4v4M11.5 15.5h6.5"/><path d="M21 2v3m-1.5-1.5h3" stroke-width="1.2"/></svg>`;
-    case 'Snöröjning':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4v4m-2-2h4m-3.5-1.5l3 3m-3 0l3-3"/><path d="M12 16v-6h-4l-2-4h-4v10"/><circle cx="5" cy="16" r="2"/><circle cx="12" cy="16" r="2"/><path d="M16 19l2-8" stroke-width="2"/><path d="M17 17h4"/></svg>`;
-    case 'Linjemålning':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l3 5v4"/><rect x="7" y="11" width="6" height="4" rx="1"/><circle cx="8" cy="17" r="2"/><circle cx="15" cy="17" r="1.5"/><path d="M13 13h5M17 13v4M21 20H15M11 20H5" stroke-width="2"/></svg>`;
-    case 'Fasadmålning':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/><rect x="7" y="6" width="6" height="2.5" rx="1"/><path d="M10 8.5v3"/></svg>`;
-    case 'Stalltvätt':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c-1-1-1-3 0-4l3-3 4 4-3 3c-1 1-3 1-4 0z"/><path d="M10 14l5-5M14 8l2 2M17 7l4-4M19 9l3-2M15 5l2-3"/><path d="M21 14l-1 2-2 1 2 1 1 2 1-2 2-1-2-1-1-2z" stroke-width="1"/></svg>`;
-    case 'Bandgrävare':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="15" width="13" height="5" rx="2.5"/><circle cx="5.5" cy="17.5" r="1"/><circle cx="9.5" cy="17.5" r="1"/><circle cx="13.5" cy="17.5" r="1"/><path d="M5 15v-5a2 2 0 0 1 2-2h4v7M9 11l4-5 6 4-2 4M17 14h4l1-3-3-2"/></svg>`;
-    default:
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-  }
-}
-
-// Action Sheet-styrning
-function openSheet() {
-  document.getElementById('sheetBackdrop').classList.add('active');
-}
-
-function closeSheet() {
-  document.getElementById('sheetBackdrop').classList.remove('active');
-}
-
-function selectActivity(name) {
-  currentActivity = name;
-  document.getElementById('selected-activity').innerHTML = `
-    ${name}
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-  `;
-  closeSheet();
-}
-
-// Initiera datum och timberäkning vid start
-document.addEventListener('DOMContentLoaded', () => {
-  const now = new Date();
-  const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-  document.getElementById('input-date').value = localDate;
-  
-  updateLiveHours();
-  renderOutbox();
-});
-
-// Tidsberäkning
-function calculateHours(start, end) {
-  if (!start || !end) return 0;
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
-  let diff = (endH + endM / 60) - (startH + startM / 60);
-  if (diff < 0) diff += 24; // Nattpass
-  return diff;
-}
-
-// Uppdatera timindikatorn intill "Tid" i realtid
-function updateLiveHours() {
-  const start = document.getElementById('input-start').value;
-  const end = document.getElementById('input-end').value;
-  const badge = document.getElementById('current-duration-badge');
-  if (start && end) {
-    const hours = calculateHours(start, end);
-    badge.innerText = `${hours.toFixed(1)} h`;
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
-// Spara till Utkorg
-function saveToOutbox() {
-  const date = document.getElementById('input-date').value;
-  const place = document.getElementById('input-place').value;
-  const notes = document.getElementById('input-notes').value;
-  const start = document.getElementById('input-start').value;
-  const end = document.getElementById('input-end').value;
-
-  if (!place || !start || !end) {
-    alert("Fyll i Betalställe, Start och Slut!");
-    return;
-  }
-
-  const draft = {
-    id: Date.now(),
-    date: date,
-    place: place,
-    activity: currentActivity || "Övrigt",
-    notes: notes,
-    start: start,
-    end: end
-  };
-
-  drafts.push(draft);
-  localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
-
-  // Återställ formulär
-  document.getElementById('input-place').value = '';
-  document.getElementById('input-notes').value = '';
-  document.getElementById('selected-activity').innerHTML = `
-    Välj aktivitet
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-  `;
-  currentActivity = "";
-
-  renderOutbox();
-}
-
-function deleteDraft(id) {
-  drafts = drafts.filter(draft => draft.id !== id);
-  localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
-  renderOutbox();
-}
-
-// Rita upp Utkorg
-function renderOutbox() {
-  const container = document.getElementById('outbox-container');
-  const section = document.getElementById('outbox-section');
-  const title = document.getElementById('outbox-title');
-
-  container.innerHTML = '';
-
-  if (drafts.length === 0) {
-    section.style.display = 'none';
-    return;
-  }
-
-  section.style.display = 'block';
-
-  let totalHours = 0;
-  drafts.forEach(d => {
-    totalHours += calculateHours(d.start, d.end);
-  });
-
-  title.innerText = `Dagens Utkorg (${drafts.length} pass · ${totalHours.toFixed(1)} h)`;
-
-  drafts.forEach(draft => {
-    const card = document.createElement('div');
-    card.className = 'draft-card';
-    const iconSvg = getActivityIcon(draft.activity);
-
-    card.innerHTML = `
-      <div class="card-body">
-        <div class="card-title">
-          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">
-            ${iconSvg}
-          </span>
-          <span>${draft.place}</span>
-          <span class="dot">•</span>
-          <span style="font-weight:400; color:#A1A1A6;">${draft.activity}</span>
-        </div>
-        <div class="card-meta">
-          <span>${draft.date}</span>
-          <span class="dot">•</span>
-          <span>${draft.start} – ${draft.end}</span>
-          <span class="dot">•</span>
-          <span style="color:#FFF; font-weight:500;">${calculateHours(draft.start, draft.end).toFixed(1)} h</span>
-        </div>
-        ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
+  <div class="app-container">
+    
+    <!-- HEADER -->
+    <header>
+      <h1>Tidrapport</h1>
+      <div class="header-badges">
+        <div class="user-pill">Daniel</div>
+        <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
       </div>
-      <div class="card-actions">
-        <button class="btn-action">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          Ändra
-        </button>
-        <button class="btn-action delete" onclick="deleteDraft(${draft.id})">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-          Radera
+    </header>
+
+    <!-- UTKORG / DAGENS PASS (HORISONTELL KARUSELL I TOPPEN) -->
+    <div id="outbox-section" style="display: none;">
+      <div class="outbox-header-row">
+        <span class="section-title" id="outbox-title" style="margin:0;">Dagens pass</span>
+        <button class="submit-pill-btn" onclick="submitAll()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+          Skicka in
         </button>
       </div>
-    `;
-    container.appendChild(card);
-  });
-}
+      <div id="outbox-container" class="carousel-container"></div>
+    </div>
 
-function submitAll() {
-  alert("Nu skickas " + drafts.length + " pass in till kalkylarket!");
-}
+    <!-- 1. UPPDRAG -->
+    <div class="section-title">Uppdrag</div>
+    <div class="ios-card">
+      <div class="type-control">
+        <button class="type-btn">Kalender</button>
+        <button class="type-btn active">Nya</button>
+        <button class="type-btn">ÄTA</button>
+      </div>
+
+      <div class="ios-row">
+        <span>Betalställe</span>
+        <input type="text" id="input-place" placeholder="T.ex. Coop" class="val-text">
+      </div>
+
+      <div class="ios-row" onclick="openSheet()">
+        <span>Aktivitet</span>
+        <span class="val-text" id="selected-activity">
+          Välj aktivitet
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </span>
+      </div>
+    </div>
+
+    <!-- 2. TID -->
+    <div class="section-title-row">
+      <span class="section-title">Tid</span>
+      <span id="current-duration-badge" class="duration-pill" style="display: none;">-</span>
+    </div>
+    <div class="ios-card">
+      <div class="ios-row">
+        <span>Datum</span>
+        <input type="date" id="input-date">
+      </div>
+      <div class="ios-row">
+        <span>Start</span>
+        <input type="time" id="input-start" value="07:00" onchange="updateLiveHours()">
+      </div>
+      <div class="ios-row">
+        <span>Slut</span>
+        <input type="time" id="input-end" value="" placeholder="Lämna tom för pågående" onchange="updateLiveHours()">
+      </div>
+    </div>
+
+    <!-- 3. DETALJER -->
+    <div class="section-title">Detaljer (valfritt)</div>
+    <div class="ios-card">
+      <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
+      <div class="action-row">
+        <div class="add-photo-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Bifoga bild-underlag
+        </div>
+      </div>
+    </div>
+
+    <!-- SPARA -->
+    <button class="main-btn" onclick="saveToOutbox()">Spara pass lokalt</button>
+
+  </div>
+
+  <!-- ACTION SHEET FÖR AKTIVITETER -->
+  <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
+    <div class="sheet-container" onclick="event.stopPropagation()">
+      <div class="sheet-header">
+        <div class="sheet-title">Välj Aktivitet</div>
+        <button class="sheet-close" onclick="closeSheet()">Avbryt</button>
+      </div>
+
+      <div class="sheet-item" onclick="selectActivity('Kyl- & frysflytt')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><path d="M5 17L8 4m-2-1h3M7 19h13"/><rect x="9.5" y="4" width="10.5" height="13" rx="1.5"/><path d="M14.5 4v10M13.5 7v4m2.5-4v4M11.5 15.5h6.5"/><path d="M21 2v3m-1.5-1.5h3" stroke-width="1.2"/></svg>
+        <span>Kyl- & frysflytt</span>
+      </div>
+
+      <div class="sheet-item" onclick="selectActivity('Snöröjning')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4v4m-2-2h4m-3.5-1.5l3 3m-3 0l3-3"/><path d="M12 16v-6h-4l-2-4h-4v10"/><circle cx="5" cy="16" r="2"/><circle cx="12" cy="16" r="2"/><path d="M16 19l2-8" stroke-width="2"/><path d="M17 17h4"/></svg>
+        <span>Snöröjning</span>
+      </div>
+
+      <div class="sheet-item" onclick="selectActivity('Linjemålning')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l3 5v4"/><rect x="7" y="11" width="6" height="4" rx="1"/><circle cx="8" cy="17" r="2"/><circle cx="15" cy="17" r="1.5"/><path d="M13 13h5M17 13v4M21 20H15M11 20H5" stroke-width="2"/></svg>
+        <span>Linjemålning</span>
+      </div>
+
+      <div class="sheet-item" onclick="selectActivity('Fasadmålning')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/><rect x="7" y="6" width="6" height="2.5" rx="1"/><path d="M10 8.5v3"/></svg>
+        <span>Fasadmålning</span>
+      </div>
+
+      <div class="sheet-item" onclick="selectActivity('Stalltvätt')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c-1-1-1-3 0-4l3-3 4 4-3 3c-1 1-3 1-4 0z"/><path d="M10 14l5-5M14 8l2 2M17 7l4-4M19 9l3-2M15 5l2-3"/><path d="M21 14l-1 2-2 1 2 1 1 2 1-2 2-1-2-1-1-2z" stroke-width="1"/></svg>
+        <span>Stalltvätt</span>
+      </div>
+
+      <div class="sheet-item" onclick="selectActivity('Bandgrävare')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="15" width="13" height="5" rx="2.5"/><circle cx="5.5" cy="17.5" r="1"/><circle cx="9.5" cy="17.5" r="1"/><circle cx="13.5" cy="17.5" r="1"/><path d="M5 15v-5a2 2 0 0 1 2-2h4v7M9 11l4-5 6 4-2 4M17 14h4l1-3-3-2"/></svg>
+        <span>Bandgrävare</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
