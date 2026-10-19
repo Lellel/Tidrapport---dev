@@ -17,13 +17,13 @@ function checkMagicLinkAndSetupUser() {
   // 2. Läs in sparad användare och koppla direkt
   const activeUser = localStorage.getItem(USER_KEY);
   if (activeUser) {
-    selectedUserObj = { name: activeUser };
+    selectedUserObj = { name: activeUser }; // Fylls på med roll senare när datan laddats
   }
 
   applyUserToUI(activeUser);
 }
 
-function applyUserToUI(userName) {
+function applyUserToUI(userName, role = "Förare") {
   const userDisplay = document.getElementById('userValDisplay'); 
   const profileRow = userDisplay ? userDisplay.closest('.ios-row') : null;
 
@@ -33,8 +33,8 @@ function applyUserToUI(userName) {
 
     if (profileRow) {
       profileRow.style.background = '#eef2f7';
-      profileRow.style.borderLeft = '4px solid #2980b9';
-      profileRow.innerHTML = `<span>👤 Förare</span><div id="userValDisplay" style="color:#2980b9; font-weight:bold; font-size:16px;">${userName}</div>`;
+      profileRow.style.borderLeft = role === 'Admin' ? '4px solid var(--apple-purple)' : '4px solid #2980b9';
+      profileRow.innerHTML = `<span>${role === 'Admin' ? '👑 Admin' : '👤 Förare'}</span><div id="userValDisplay" style="color:#2980b9; font-weight:bold; font-size:16px;">${userName}</div>`;
     }
   }
 }
@@ -271,11 +271,27 @@ function loadData() {
       calendarEvents = d.events || [];
       unreportedData = d.unreported || [];
       locationData = d.locations || ["Blacksta"];
+      
+      // Uppdatera vald användare med behörighet från databasen
+      if (selectedUserObj) {
+        let fullUser = staffData.find(s => s.name === selectedUserObj.name || s === selectedUserObj.name);
+        if (fullUser && typeof fullUser === 'object') {
+          selectedUserObj = fullUser;
+          applyUserToUI(selectedUserObj.name, selectedUserObj.role);
+        }
+      }
+
       buildUserWheel();
       populateEvents();
       updateBadge();
       populateLocations();
       renderNotes();
+      
+      // Rendera Admin-panel om användaren är Admin
+      if (selectedUserObj && selectedUserObj.role === 'Admin') {
+        renderAdminPanel();
+      }
+      
     }).catch(e => console.log("Fetch err:", e));
   }
 }
@@ -311,7 +327,8 @@ function populateLocations() {
 
 function buildUserWheel() { 
   let c = document.getElementById('userColumn'); 
-  c.innerHTML = staffData.map(u => `<div class="picker-item">${u.name}</div>`).join(''); 
+  // Stöd för både gamla text-strängar och nya objekt i arrayen
+  c.innerHTML = staffData.map(u => `<div class="picker-item">${u.name || u}</div>`).join(''); 
   c.addEventListener('scroll', () => { setTimeout(() => { userIndexState = Math.max(0, Math.round(c.scrollTop / 40)); }, 60); }); 
 }
 
@@ -329,10 +346,40 @@ function buildTimeWheel(id, vals, isMin) {
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function openUserPicker() { document.getElementById('overlay').classList.add('show'); document.getElementById('userPickerSheet').classList.add('open'); }
-function confirmUser() { candidateUserObj = staffData[userIndexState]; closeAllPickers(); openPin(); }
+
+function confirmUser() { 
+  candidateUserObj = typeof staffData[userIndexState] === 'object' ? staffData[userIndexState] : { name: staffData[userIndexState] };
+  closeAllPickers(); 
+  openPin(); 
+}
+
 function openPin() { document.getElementById('pinNameDisplay').textContent = candidateUserObj.name; document.getElementById('pinInput').value = ''; document.getElementById('overlay').classList.add('show'); document.getElementById('pinBox').style.display = 'block'; setTimeout(() => document.getElementById('pinInput').focus(), 100); }
 function closePin() { document.getElementById('overlay').classList.remove('show'); document.getElementById('pinBox').style.display = 'none'; }
-function verifyPin() { if (document.getElementById('pinInput').value === (candidateUserObj.pin || "0000")) { selectedUserObj = candidateUserObj; document.getElementById('userValDisplay').textContent = selectedUserObj.name; closePin(); updateBadge(); renderNotes(); } else { alert("Fel PIN"); document.getElementById('pinInput').value = ''; } }
+
+function verifyPin() { 
+  if (document.getElementById('pinInput').value === (candidateUserObj.pin || "0000")) { 
+    selectedUserObj = candidateUserObj; 
+    
+    // Spara i LocalStorage och uppdatera UI
+    localStorage.setItem(USER_KEY, selectedUserObj.name);
+    applyUserToUI(selectedUserObj.name, selectedUserObj.role);
+    
+    closePin(); 
+    updateBadge(); 
+    renderNotes(); 
+    
+    // Rendera Admin-panel om användaren är Admin
+    if (selectedUserObj.role === 'Admin') {
+      renderAdminPanel();
+    } else {
+      let adminSect = document.getElementById('adminSection');
+      if(adminSect) adminSect.style.display = 'none';
+    }
+  } else { 
+    alert("Fel PIN"); document.getElementById('pinInput').value = ''; 
+  } 
+}
+
 function closeAllPickers() { ['userPickerSheet', 'timePickerSheet'].forEach(id => document.getElementById(id).classList.remove('open')); document.getElementById('overlay').classList.remove('show'); }
 function openTimePicker(t) { activeTimeType = t; document.getElementById('timePickerTitle').innerText = t === 'start' ? "VÄLJ STARTTID" : "VÄLJ SLUTTID"; document.getElementById('overlay').classList.add('show'); document.getElementById('timePickerSheet').classList.add('open'); }
 function confirmTimePicker() { if (activeTimeType === 'start') { timeState.startH = tempTime.h; timeState.startM = tempTime.m; } else { timeState.endH = tempTime.h; timeState.endM = tempTime.m; } document.getElementById('startBadge').textContent = `${pad(timeState.startH)}:${pad(timeState.startM)}`; document.getElementById('endBadge').textContent = `${pad(timeState.endH)}:${pad(timeState.endM)}`; calcDur(); closeAllPickers(); }
@@ -372,6 +419,82 @@ function renderDashContent(reports) {
   if (!keys.length) html = `<div style="padding:16px;color:var(--ios-secondary-label);">Ingen data...</div>`;
   else keys.forEach(k => { let o = pObj[k]; html += `<div class="person-row"><div style="font-weight:600;">${k}</div><div class="person-stats"><div class="stat-box"><span class="stat-label">Klart</span><span class="stat-val" style="color:var(--apple-green);">${fmtHrs(o.d)}</span></div><div class="stat-box"><span class="stat-label">Väntar</span><span class="stat-val" style="color:var(--apple-red);">${fmtHrs(o.p)}</span></div><div class="stat-box"><span class="stat-label">ÄTA</span><span class="stat-val" style="color:var(--apple-purple);">${fmtHrs(o.a)}</span></div><div class="stat-box"><span class="stat-label">Totalt</span><span class="stat-val">${fmtHrs(o.t)}</span></div></div></div>`; });
   document.getElementById('dashPersonList').innerHTML = html;
+}
+
+// =========================================================
+// ADMIN PANEL (Visas bara för Admins)
+// =========================================================
+function renderAdminPanel() {
+  let dashView = document.getElementById('viewNotes'); 
+  if (!dashView) return;
+
+  // Ta bort gammal admin-panel om den redan finns
+  let existing = document.getElementById('adminSection');
+  if (existing) existing.remove();
+
+  let adminHtml = `
+    <div id="adminSection" style="margin-top: 30px; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
+      <h3 style="color: var(--apple-purple); margin-top: 0; font-size: 18px; margin-bottom: 15px;">👑 Admin / Personal</h3>
+  `;
+
+  staffData.forEach(p => {
+    if (typeof p !== 'object') return; // Säkerhet för gamla strängar
+    
+    // Bygg magic link
+    let appUrl = window.location.origin + window.location.pathname;
+    let magicLink = appUrl + "?user=" + encodeURIComponent(p.name);
+    
+    // Länkar för SMS och Mail
+    let smsBody = encodeURIComponent(`Hej ${p.name}! Här är din länk till LPV Tidrapport: ${magicLink}`);
+    let smsHref = `sms:${p.phone}?body=${smsBody}`; // På iOS kan man behöva använda '&' istället för '?' ibland
+    if(navigator.userAgent.match(/iPad|iPhone|iPod/i)) smsHref = `sms:${p.phone}&body=${smsBody}`;
+    
+    let mailSubject = encodeURIComponent("Inloggning LPV Tidrapport");
+    let mailBody = encodeURIComponent(`Hej ${p.name}!\n\nHär är din inloggningslänk:\n${magicLink}\n\nDin pinkod är: ${p.pin}`);
+    let mailHref = `mailto:${p.email}?subject=${mailSubject}&body=${mailBody}`;
+
+    let qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(magicLink)}`;
+
+    adminHtml += `
+      <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="font-size: 16px;">${p.name}</strong>
+          <span style="font-size: 12px; background: ${p.role === 'Admin' ? 'var(--apple-purple)' : '#555'}; padding: 2px 8px; border-radius: 10px;">${p.role}</span>
+        </div>
+        <div style="font-size: 13px; color: var(--ios-secondary-label); margin-bottom: 10px;">
+          Tel: ${p.phone || '-'} | Pin: ${p.pin}
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <a href="${smsHref}" style="flex: 1; text-align: center; background: #30D158; color: #fff; padding: 6px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold;">💬 SMS</a>
+          <a href="${mailHref}" style="flex: 1; text-align: center; background: #007AFF; color: #fff; padding: 6px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold;">✉️ Mail</a>
+          <button onclick="showQR('${qrUrl}', '${p.name}')" style="flex: 1; background: #FF9F0A; color: #fff; padding: 6px; border-radius: 6px; border: none; font-size: 13px; font-weight: bold;">📷 QR</button>
+        </div>
+      </div>
+    `;
+  });
+
+  adminHtml += `</div>`;
+  
+  // Stoppa in den längst ner i Dashboarden (Översikt)
+  dashView.insertAdjacentHTML('beforeend', adminHtml);
+}
+
+// Global funktion för att visa QR
+window.showQR = function(url, name) {
+  let existing = document.getElementById('qrModal');
+  if(existing) existing.remove();
+  
+  let modal = document.createElement('div');
+  modal.id = 'qrModal';
+  modal.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column;";
+  modal.innerHTML = `
+    <div style="background:#1c1c1e; padding: 30px; border-radius: 16px; text-align:center;">
+      <h3 style="margin-top:0; color:#fff;">Skanna länk: ${name}</h3>
+      <img src="${url}" style="width:200px; height:200px; border-radius:8px; margin-bottom: 20px;">
+      <button onclick="document.getElementById('qrModal').remove()" style="width:100%; padding:12px; background:#3a3a3c; border:none; border-radius:8px; color:#fff; font-weight:bold; font-size:16px;">Stäng</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
 }
 
 function showStatus(msg) { 
