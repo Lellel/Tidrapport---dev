@@ -2,165 +2,67 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
-  <title>Tidrapport DEV</title>
+  <title>Tidrapport</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#000000">
-
-  <!-- Anti-cache under utveckling -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-
-  <!-- Ikon & Manifest -->
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon.png">
-  
-  <!-- Koppling till stil och skript -->
   <link rel="stylesheet" href="style.css">
-  <script src="config.js"></script>
-  <script src="app.js?v=2" defer></script>
 </head>
 <body>
 
-  <div class="app-wrapper">
-    <div class="app-container">
-      <header>
-        <h1>Tidrapport</h1>
-        <div class="status-pill"><span class="status-dot" id="liveDot"></span><span id="liveText">Ansluten</span></div>
-      </header>
+  <div class="app-container">
+    
+    <header>
+      <h1>Tidrapport</h1>
+      <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
+    </header>
 
-      <div class="segmented-control">
-        <button class="seg-btn active" id="tabReportBtn" onclick="switchView('report')">Rapportera</button>
-        <button class="seg-btn" id="tabNotesBtn" onclick="switchView('notes')">Orapporterat<span class="seg-badge" id="unreportedBadge" style="display:none;">0</span></button>
+    <div class="section-title">Uppdrag</div>
+    <div class="ios-card">
+      <div class="ios-row">
+        <span>Datum</span>
+        <input type="date" id="input-date">
       </div>
-      <div id="statusBox"></div>
-
-      <!-- FLIK 1: RAPPORTERA -->
-      <div id="viewReport">
-        
-        <div class="ios-card">
-          <div class="ios-row">
-            <span>Profil</span>
-            <div class="time-badge" style="background:transparent; padding:0;" id="userValDisplay" onclick="openUserPicker()">Välj namn...</div>
-          </div>
-        </div>
-
-        <div class="section-title">Uppdrag</div>
-        <div class="ios-card">
-          
-          <div class="type-control">
-            <button class="type-btn active" id="btnKalender" onclick="setType('kalender')">Kalender</button>
-            <button class="type-btn" id="btnNya" onclick="setType('nya')">Nya</button>
-            <button class="type-btn" id="btnAta" onclick="setType('ata')">ÄTA</button>
-          </div>
-
-          <div id="blockKalender">
-            <div class="ios-row"><span>Händelse</span><select id="eventSelect" onchange="handleEventChange()"><option>Laddar...</option></select></div>
-            <div class="ios-row"><span>Datum</span><select id="dateSelect"><option>Välj händelse</option></select></div>
-          </div>
-
-          <div id="blockCustom" style="display: none;">
-            <div class="ios-row"><span>Datum</span><input type="date" id="customDate"></div>
-            
-            <div class="ios-row">
-              <span>Betalställe</span>
-              <select id="locationSelect" onchange="handleLocationChange()"><option value="Blacksta">Blacksta</option></select>
-            </div>
-            
-            <div class="ios-row" id="customLocationRow" style="display:none; background: rgba(255,255,255,0.03);">
-              <span style="color:var(--ios-secondary-label);font-size:14px;">Ny plats:</span>
-              <input type="file" id="photoInput" accept="image/*" multiple style="display:none;" onchange="compressAndSaveImage(event)">
-            </div>
-            
-            <div class="ios-row" style="border-bottom:none;">
-              <span id="customTextLabel" style="color:var(--ios-secondary-label);font-size:14px;">Vad har gjorts?</span>
-            </div>
-            <textarea id="customText" placeholder="Beskriv arbetet..."></textarea>
-            
-            <div id="photoBlock" style="display: none;">
-              <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" onchange="compressAndSaveImage(event)">
-              <div class="photo-btn" onclick="document.getElementById('photoInput').click()">
-                <svg style="width:18px;height:18px;fill:currentColor;" viewBox="0 0 24 24"><path d="M4 4h3l2-2h6l2 2h3c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm8 3c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"/></svg>
-                <span id="photoStatus">Bifoga bild-underlag</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-title">Tider</div>
-        <div class="ios-card">
-          <div class="ios-row" id="passRow">
-            <span>Pass</span>
-            <select id="passSelect">
-              <option>Pass 1</option><option>Pass 2</option><option>Pass 3</option><option>Övertid</option>
-            </select>
-          </div>
-          <div class="ios-row"><span>Start</span><div class="time-badge" id="startBadge" onclick="openTimePicker('start')">07:00</div></div>
-          <div class="ios-row"><span>Slut</span><div class="time-badge" id="endBadge" onclick="openTimePicker('end')">16:00</div></div>
-          <div class="ios-row"><span>Arbetad tid</span><span id="totalDurationText" style="font-weight: 600;">9 tim 0 min</span></div>
-        </div>
-
-        <div id="noteWrapper">
-          <button class="note-toggle-btn" id="noteToggleBtn" onclick="toggleNoteField()">+ Lägg till anteckning</button>
-          <div class="ios-card" id="noteCard" style="display: none;">
-            <textarea id="noteInput" placeholder="Anteckning..."></textarea>
-          </div>
-        </div>
-
-        <button class="ios-btn" id="submitBtn" onclick="initiateSubmit()">Skicka tidrapport</button>
+      <div class="ios-row">
+        <span>Betalställe</span>
+        <!-- Tills vi bygger Action sheet använder vi vanlig text-input -->
+        <input type="text" id="input-place" placeholder="T.ex. Coop" class="val-text">
       </div>
+      <div class="ios-row">
+        <span>Aktivitet</span>
+        <input type="text" id="input-activity" placeholder="T.ex. Snöröjning" class="val-text">
+      </div>
+      <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
+    </div>
 
-      <!-- FLIK 2: ORAPPORTERAT / FAKTURA -->
-      <div id="viewNotes" style="display: none;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; padding:0 4px;">
-          <div class="section-title" style="margin:0;">Orapporterade tider</div>
-          <button onclick="forceRefreshNotes(this)" style="background:none; border:none; color:var(--ios-accent); font-size:13px; font-weight:600; cursor:pointer; padding:4px 8px;">↻ Uppdatera</button>
-        </div>
-        <div class="ios-card" style="padding: 16px; min-height: 220px;">
-          <ul id="noteBulletList" style="list-style:none; line-height:1.6;"><li>Laddar...</li></ul>
-          <div style="border-top:0.5px solid var(--ios-separator); margin-top:14px; padding-top:12px; font-size:16px;">
-            <b>Summa:</b> <span id="noteSumText">0 tim</span>
-          </div>
-        </div>
-        <button class="ios-btn blue" onclick="sendInvoiceMail()">
-          <span id="invoiceBtnText">Klart att fakturera (Skicka underlag)</span>
-        </button>
+    <div class="section-title">Tider</div>
+    <div class="ios-card">
+      <div class="ios-row">
+        <span>Start</span>
+        <input type="time" id="input-start">
+      </div>
+      <div class="ios-row">
+        <span>Slut</span>
+        <input type="time" id="input-end">
       </div>
     </div>
 
-    <!-- HÖGER SIDA: DASHBOARD -->
-    <div id="viewDash" style="display: none;">
-      <div class="section-title">Översikt</div>
-      <div id="dashLoading" style="padding: 24px; text-align: center; color: var(--ios-accent); font-size: 14px;">Hämtar data...</div>
+    <!-- Knappen som sparar formuläret till utkorgen -->
+    <button class="main-btn" onclick="saveToOutbox()">Spara pass lokalt</button>
+
+    <!-- UTKORGEN (Hanteras av app.js) -->
+    <div id="outbox-section" style="display: none;">
+      <div class="section-title" id="outbox-title">Dagens Utkorg</div>
+      <div id="outbox-container">
+        <!-- JavaScript fyller på korten här -->
+      </div>
       
-      <div id="dashContent" style="display: none;">
-        <div class="summary-grid">
-          <div class="apple-box apple-box-yellow"><span class="box-title">Totalt</span><span class="box-val" id="dashTot">0 tim</span></div>
-          <div class="apple-box apple-box-green"><span class="box-title">Klart</span><span class="box-val" id="dashDone">0 tim</span></div>
-          <div class="apple-box apple-box-red"><span class="box-title">Väntar</span><span class="box-val" id="dashPend">0 tim</span></div>
-          <div class="apple-box apple-box-purple"><span class="box-title">ÄTA</span><span class="box-val" id="dashAta">0 tim</span></div>
-        </div>
-        <div class="section-title" style="margin-top: 10px;">Per person</div>
-        <div class="person-list" id="dashPersonList"></div>
-      </div>
-      <button class="refresh-btn" onclick="loadDashboard()">↻ Uppdatera</button>
+      <button class="submit-btn" onclick="submitAll()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+        Skicka in underlag
+      </button>
     </div>
+
   </div>
 
-  <div class="action-sheet-overlay" id="overlay" onclick="closeAllPickers()"></div>
-  <div class="action-sheet" id="userPickerSheet"><div style="padding:14px;display:flex;justify-content:space-between;border-bottom:0.5px solid var(--ios-separator);"><span style="color:var(--ios-secondary-label);font-weight:600;font-size:13px;">VÄLJ PERSON</span><button onclick="confirmUser()" style="background:none;border:none;color:var(--ios-accent);font-size:16px;font-weight:600;">Klar</button></div><div class="picker-container"><div class="picker-highlight"></div><div class="picker-column" style="width:100%" id="userColumn"></div></div></div>
-  <div class="action-sheet" id="timePickerSheet"><div style="padding:14px;display:flex;justify-content:space-between;border-bottom:0.5px solid var(--ios-separator);"><span style="color:var(--ios-secondary-label);font-weight:600;font-size:13px;" id="timePickerTitle">VÄLJ TID</span><button onclick="confirmTimePicker()" style="background:none;border:none;color:var(--ios-accent);font-size:16px;font-weight:600;">Klar</button></div><div class="picker-container"><div class="picker-highlight"></div><div class="picker-column" id="timeHours"></div><div style="font-size:22px;color:#fff;z-index:33;padding:0 8px;">:</div><div class="picker-column" id="timeMinutes"></div></div></div>
-  
-  <div class="pin-box" id="pinBox">
-    <h3 style="margin-bottom:12px;font-size:17px;">PIN för <span id="pinNameDisplay"></span></h3>
-    <input type="password" id="pinInput" class="pin-input" inputmode="numeric" maxlength="4">
-    <div class="pin-buttons"><button class="pin-btn" onclick="closePin()">Avbryt</button><button class="pin-btn" style="font-weight:bold;border-left:0.5px solid var(--ios-separator);" onclick="verifyPin()">Klar</button></div>
-  </div>
-
-  <iframe name="tank_iframe" id="tank_iframe" style="display:none;"></iframe>
-  <form id="tank_form" method="POST" target="tank_iframe" style="display:none;"></form>
-
+  <script src="app.js"></script>
 </body>
 </html>
