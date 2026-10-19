@@ -11,7 +11,7 @@ function checkMagicLinkAndSetupUser() {
   // 1. Om någon klickat på en länk med ?user=Namn
   if (userFromUrl) {
     localStorage.setItem(USER_KEY, decodeURIComponent(userFromUrl.trim()));
-    window.history.replaceState({}, document.title, window.location.pathname);
+    //window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   // 2. Läs in sparad användare och koppla direkt
