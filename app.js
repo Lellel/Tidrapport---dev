@@ -10,10 +10,20 @@ function checkMagicLinkAndSetupUser() {
   // 1. Om någon klickat på en länk med ?user=Namn
   if (userFromUrl) {
     localStorage.setItem(USER_KEY, decodeURIComponent(userFromUrl.trim()));
-    // Städa bort ?user=... från webbläsarens adressfält så det ser snyggt ut
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
+  // 2. Sätt användarobjektet direkt vid uppstart
+  const activeUser = localStorage.getItem(USER_KEY);
+  if (activeUser) {
+    selectedUserObj = { name: activeUser }; // <-- Denna rad gör att Orapporterat vet vem du är direkt!
+  }
+  
+  applyUserToUI(activeUser);
+}
+  
+  applyUserToUI(activeUser);
+}
   // 2. Kolla vem som är knuten till telefonen
   const activeUser = localStorage.getItem(USER_KEY);
   applyUserToUI(activeUser);
