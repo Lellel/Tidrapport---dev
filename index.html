@@ -71,7 +71,7 @@
             
             <div class="ios-row" id="customLocationRow" style="display:none; background: rgba(255,255,255,0.03);">
               <span style="color:var(--ios-secondary-label);font-size:14px;">Ny plats:</span>
-              <input type="text" id="customLocationInput" placeholder="T.ex. Lundby Gård">
+              <input type="file" id="photoInput" accept="image/*" multiple style="display:none;" onchange="compressAndSaveImage(event)">
             </div>
             
             <div class="ios-row" style="border-bottom:none;">
