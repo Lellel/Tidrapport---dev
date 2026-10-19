@@ -10,7 +10,7 @@ if ('serviceWorker' in navigator) {
 let drafts = JSON.parse(localStorage.getItem('tidrapport_drafts')) || [];
 let currentActivity = "";
 
-// Ikon-bibliotek med fasta mått (20x20) för Safari
+// Ikon-bibliotek med fasta mått (20x20)
 function getActivityIcon(name) {
   switch (name) {
     case 'Kyl- & frysflytt':
@@ -30,7 +30,7 @@ function getActivityIcon(name) {
   }
 }
 
-// Action Sheet-logik
+// Action Sheet-styrning
 function openSheet() {
   document.getElementById('sheetBackdrop').classList.add('active');
 }
@@ -48,13 +48,39 @@ function selectActivity(name) {
   closeSheet();
 }
 
-// Initiera datum vid start
+// Initiera datum och timberäkning vid start
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   document.getElementById('input-date').value = localDate;
+  
+  updateLiveHours();
   renderOutbox();
 });
+
+// Tidsberäkning
+function calculateHours(start, end) {
+  if (!start || !end) return 0;
+  const [startH, startM] = start.split(':').map(Number);
+  const [endH, endM] = end.split(':').map(Number);
+  let diff = (endH + endM / 60) - (startH + startM / 60);
+  if (diff < 0) diff += 24; // Nattpass
+  return diff;
+}
+
+// Uppdatera timindikatorn intill "Tid" i realtid
+function updateLiveHours() {
+  const start = document.getElementById('input-start').value;
+  const end = document.getElementById('input-end').value;
+  const badge = document.getElementById('current-duration-badge');
+  if (start && end) {
+    const hours = calculateHours(start, end);
+    badge.innerText = `${hours.toFixed(1)} h`;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
 
 // Spara till Utkorg
 function saveToOutbox() {
@@ -82,7 +108,7 @@ function saveToOutbox() {
   drafts.push(draft);
   localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
 
-  // Rensa fält
+  // Återställ formulär
   document.getElementById('input-place').value = '';
   document.getElementById('input-notes').value = '';
   document.getElementById('selected-activity').innerHTML = `
@@ -100,15 +126,7 @@ function deleteDraft(id) {
   renderOutbox();
 }
 
-function calculateHours(start, end) {
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
-  let diff = (endH + endM / 60) - (startH + startM / 60);
-  if (diff < 0) diff += 24;
-  return diff;
-}
-
-// Rita upp Utkorgen
+// Rita upp Utkorg
 function renderOutbox() {
   const container = document.getElementById('outbox-container');
   const section = document.getElementById('outbox-section');
@@ -133,8 +151,6 @@ function renderOutbox() {
   drafts.forEach(draft => {
     const card = document.createElement('div');
     card.className = 'draft-card';
-    
-    // Hämtar matchande ikon baserat på aktivitetens namn
     const iconSvg = getActivityIcon(draft.activity);
 
     card.innerHTML = `
