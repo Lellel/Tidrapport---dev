@@ -1,24 +1,21 @@
 const CACHE_NAME = 'tidrapport-v3';
+
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
-  './app.js',
-  './manifest.json',
-  './icon.png'
+  './app.js'
 ];
 
-// Installera och spara alla filer i telefonens offline-arkiv
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
-  self.skipWaiting();
 });
 
-// Rensa bort gamla versioner när du uppdaterar appen
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -34,17 +31,18 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Servera från cachen i första hand, hämta via nätet om det finns
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
+    caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request).catch(() => {
-        // Fallback om nätverk saknas och filen inte är cachad
+      return fetch(event.request).catch(async () => {
         if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
+          const cache = await caches.open(CACHE_NAME);
+          return (await cache.match('./index.html')) || (await cache.match('./'));
         }
       });
     })
