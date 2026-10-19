@@ -1,3 +1,4 @@
+JavaScript
 // =========================================================
 // ENHETSKNYTNING (MAGIC LINK)
 // =========================================================
@@ -13,12 +14,12 @@ function checkMagicLinkAndSetupUser() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // 2. Sätt användarobjektet direkt vid uppstart
+  // 2. Läs in sparad användare och koppla direkt
   const activeUser = localStorage.getItem(USER_KEY);
   if (activeUser) {
-    selectedUserObj = { name: activeUser }; // <-- Denna rad gör att Orapporterat vet vem du är direkt!
+    selectedUserObj = { name: activeUser };
   }
-  
+
   applyUserToUI(activeUser);
 }
 
