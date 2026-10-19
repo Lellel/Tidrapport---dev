@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Laddar SMS...</title>
+  <script>
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const to = urlParams.get('to') || '';
+      const body = urlParams.get('body') || '';
+      
+      // Bygg ihop och trigga SMS-appen
+      const smsLink = "sms:" + to + "?body=" + encodeURIComponent(body);
+      window.location.href = smsLink;
+    }
+  </script>
+</head>
+<body style="font-family: -apple-system, sans-serif; text-align: center; margin-top: 50px; background: #000; color: #fff;">
+  <h3>Öppnar SMS/iMessage...</h3>
+  <p style="color: #888;">Om appen inte öppnas automatiskt, godkänn i rutan som dyker upp.</p>
+</body>
+</html>
