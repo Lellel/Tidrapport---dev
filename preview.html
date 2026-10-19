@@ -2,89 +2,215 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
-  <title>Utkorg Preview</title>
+  <title>Tidrapport Full Preview</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <link rel="stylesheet" href="style.css">
   <style>
-    /* Tillfällig preview-styling för utkorgen */
-    #outboxContainer { margin-top: 24px; padding-bottom: 30px; }
-    .draft-card { background: var(--ios-card); border-radius: 14px; padding: 16px; margin-bottom: 14px; border: 0.5px solid rgba(255, 255, 255, 0.08); }
-    .draft-header { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #FFF; }
-    .draft-meta { font-size: 13px; color: var(--ios-secondary-label); margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .draft-badge { background: rgba(255, 159, 10, 0.12); color: var(--ios-accent); padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; }
-    .draft-note { font-size: 14px; font-style: italic; color: #CCC; margin-bottom: 12px; border-left: 2px solid var(--ios-separator); padding-left: 10px; line-height: 1.4; }
-    .draft-image-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 13px; color: var(--ios-secondary-label); }
-    .draft-image-preview { width: 42px; height: 42px; border-radius: 6px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--ios-accent); border: 1px solid var(--ios-separator); }
-    .draft-actions { display: flex; gap: 8px; border-top: 0.5px solid var(--ios-separator); padding-top: 12px; }
-    .btn-action { flex: 1; padding: 10px 0; background: rgba(255, 255, 255, 0.06); border: none; border-radius: 8px; color: #FFF; font-weight: 500; font-size: 13px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; }
-    .btn-action.delete { background: rgba(255, 69, 58, 0.12); color: var(--apple-red); }
+    :root {
+      --bg: #000000;
+      --card: #1C1C1E;
+      --accent: #FF9F0A;
+      --accent-bg: rgba(255, 159, 10, 0.12);
+      --separator: rgba(255, 255, 255, 0.1);
+      --text: #FFFFFF;
+      --text-muted: #8E8E93;
+      --danger: #FF453A;
+      --blue: #0A84FF;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      padding: calc(env(safe-area-inset-top) + 20px) 16px 40px 16px;
+      display: flex;
+      justify-content: center;
+    }
+    .app-container { width: 100%; max-width: 450px; }
+
+    /* HEADER */
+    header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; padding: 0 4px; }
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+    .status-pill { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #FFF; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #30D158; }
+
+    /* FLIKAR */
+    .segmented-control { display: flex; background: rgba(118, 118, 128, 0.24); border-radius: 10px; padding: 2px; margin-bottom: 24px; }
+    .seg-btn { flex: 1; border: none; background: transparent; padding: 7px 0; font-size: 13px; font-weight: 600; color: var(--text-muted); border-radius: 8px; cursor: pointer; }
+    .seg-btn.active { background: #636366; color: #FFF; }
+
+    /* KORT & RADER */
+    .section-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px 14px; }
+    .ios-card { background: var(--card); border-radius: 14px; margin-bottom: 20px; border: 0.5px solid var(--separator); overflow: hidden; }
+    .ios-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 0.5px solid var(--separator); font-size: 16px; }
+    .ios-row:last-child { border-bottom: none; }
+    .val-text { color: var(--accent); font-size: 16px; }
+
+    /* NATIVE DATUM-INPUT */
+    .date-input-wrapper { display: flex; align-items: center; gap: 6px; position: relative; }
+    input[type="date"] {
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 16px;
+      color: var(--accent);
+      outline: none;
+      text-align: right;
+      cursor: pointer;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(0.8);
+      cursor: pointer;
+      opacity: 0.4;
+      margin-left: 4px;
+    }
+
+    /* SUB-FLIKAR */
+    .type-control { display: flex; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 2px; margin: 14px; }
+    .type-btn { flex: 1; border: none; background: transparent; padding: 7px 0; font-size: 13px; font-weight: 600; color: var(--text-muted); border-radius: 6px; cursor: pointer; }
+    .type-btn.active { background: rgba(255,255,255,0.12); color: #FFF; }
+
+    .time-badge { background: var(--accent-bg); color: var(--accent); padding: 4px 10px; border-radius: 8px; font-weight: 500; font-size: 16px; }
+    textarea { width: 100%; border: none; background: transparent; color: #FFF; font-family: inherit; font-size: 15px; resize: none; min-height: 45px; padding: 14px 16px; outline: none; }
+    textarea::placeholder { color: #545458; }
+
+    .action-row { padding: 0 16px 14px 16px; }
+    .add-photo-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.04); color: var(--accent); border: 1px dashed rgba(255,159,10,0.3); font-size: 14px; font-weight: 500; }
+    .main-btn { width: 100%; background: var(--accent); color: #FFF; font-size: 16px; font-weight: 600; padding: 14px; border-radius: 12px; border: none; margin-bottom: 32px; cursor: pointer; }
+
+    /* UTKORG */
+    .draft-card { background: var(--card); border-radius: 14px; border: 0.5px solid var(--separator); overflow: hidden; margin-bottom: 12px; }
+    .card-body { padding: 14px 16px; }
+    .card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .dot { color: var(--separator); font-size: 12px; }
+    .card-meta { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .draft-badge { background: var(--accent-bg); color: var(--accent); padding: 2px 7px; border-radius: 5px; font-size: 11px; font-weight: 600; margin-left: auto; }
+    .card-note { font-size: 13px; color: #D1D1D6; border-left: 2px solid var(--separator); padding-left: 10px; margin-top: 8px; line-height: 1.4; }
+    .card-actions { display: flex; border-top: 0.5px solid var(--separator); background: rgba(255, 255, 255, 0.02); }
+    .btn-action { flex: 1; padding: 12px 0; background: transparent; border: none; color: #FFF; font-size: 13px; font-weight: 500; display: flex; justify-content: center; align-items: center; gap: 6px; border-right: 0.5px solid var(--separator); cursor: pointer; }
+    .btn-action:last-child { border-right: none; }
+    .btn-action.delete { color: var(--danger); }
+    .submit-btn { width: 100%; background: var(--blue); color: #FFF; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600; margin-top: 14px; display: flex; justify-content: center; align-items: center; gap: 8px; cursor: pointer; }
   </style>
 </head>
 <body>
-  <div class="app-wrapper">
-    <div class="app-container">
-      <header>
-        <h1>Tidrapport</h1>
-        <div class="status-pill"><span class="status-dot"></span><span>Ansluten</span></div>
-      </header>
 
-      <!-- SPARA PASS -->
-      <button class="ios-btn" style="margin-bottom: 24px;">Spara pass lokalt</button>
+  <div class="app-container">
+    
+    <header>
+      <h1>Tidrapport</h1>
+      <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
+    </header>
 
-      <!-- DAGENS UTKORG -->
-      <div id="outboxContainer">
-        <div class="section-title">Dagens Utkorg (2)</div>
+    <div class="segmented-control">
+      <button class="seg-btn active">Rapportera</button>
+      <button class="seg-btn">Orapporterat</button>
+    </div>
 
-        <!-- KORT 1 -->
-        <div class="draft-card">
-          <div class="draft-header">
-            <span>Blacksta • TV5</span>
-          </div>
-          <div class="draft-meta">
-            <span>📅 2026-10-19</span>
-            <span>⏱ 09:00 – 15:30</span>
-            <span class="draft-badge">6 tim 30 min</span>
-          </div>
-          <div class="draft-note">
-            "Hjälpte till att flytta grisarna vid fack 3."
-          </div>
-          <div class="draft-image-row">
-            <div class="draft-image-preview">FOTO</div>
-            <span>1 bild bifogad (Kamerarullen)</span>
-          </div>
-          <div class="draft-actions">
-            <button class="btn-action">✏️ Ändra</button>
-            <button class="btn-action">📸 Foto</button>
-            <button class="btn-action delete">🗑️ Ta bort</button>
-          </div>
+    <!-- PROFIL -->
+    <div class="ios-card">
+      <div class="ios-row">
+        <span>Profil</span>
+        <span class="val-text">Daniel</span>
+      </div>
+    </div>
+
+    <!-- UPPDRAG -->
+    <div class="section-title">Uppdrag</div>
+    <div class="ios-card">
+      <div class="type-control">
+        <button class="type-btn">Kalender</button>
+        <button class="type-btn active">Nya</button>
+        <button class="type-btn">ÄTA</button>
+      </div>
+      
+      <!-- INTERAKTIV DATUMRAD -->
+      <div class="ios-row">
+        <span>Datum</span>
+        <div class="date-input-wrapper">
+          <input type="date" value="2026-10-19">
         </div>
+      </div>
 
-        <!-- KORT 2 -->
-        <div class="draft-card">
-          <div class="draft-header">
-            <span>Kv. Sländan • [ÄTA] Rördragning</span>
-          </div>
-          <div class="draft-meta">
-            <span>📅 2026-10-19</span>
-            <span>⏱ 16:00 – 18:30</span>
-            <span class="draft-badge">2 tim 30 min</span>
-          </div>
-          <div class="draft-note">
-            "Grävt upp och bytt anslutning."
-          </div>
-          <div class="draft-actions">
-            <button class="btn-action">✏️ Ändra</button>
-            <button class="btn-action">📸 Foto</button>
-            <button class="btn-action delete">🗑️ Ta bort</button>
-          </div>
+      <div class="ios-row">
+        <span>Betalställe</span>
+        <span class="val-text">Blacksta</span>
+      </div>
+      
+      <textarea placeholder="Vad har gjorts?"></textarea>
+      
+      <div class="action-row">
+        <div class="add-photo-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Bifoga bild-underlag
         </div>
+      </div>
+    </div>
 
-        <!-- SKICKA IN ALLA -->
-        <button class="ios-btn blue" style="margin-top: 14px;">
-          🚀 Skicka in alla till arket (2)
+    <!-- TIDER -->
+    <div class="section-title">Tider</div>
+    <div class="ios-card">
+      <div class="ios-row">
+        <span>Pass</span>
+        <span class="val-text">Pass 1</span>
+      </div>
+      <div class="ios-row">
+        <span>Start</span>
+        <div class="time-badge">07:00</div>
+      </div>
+      <div class="ios-row">
+        <span>Slut</span>
+        <div class="time-badge">16:00</div>
+      </div>
+      <div class="ios-row">
+        <span>Arbetad tid</span>
+        <span style="font-weight: 600; color: #FFF;">9 tim 0 min</span>
+      </div>
+    </div>
+
+    <button class="main-btn">Spara pass lokalt</button>
+
+    <!-- UTKORG -->
+    <div class="section-title">Dagens Utkorg (2)</div>
+
+    <div class="draft-card">
+      <div class="card-body">
+        <div class="card-title">
+          <span>Blacksta</span>
+          <span class="dot">•</span>
+          <span style="font-weight:400; color:#A1A1A6;">TV5</span>
+        </div>
+        <div class="card-meta">
+          <span>Mån 19 okt</span>
+          <span class="dot">•</span>
+          <span>09:00 – 15:30</span>
+          <span class="draft-badge">6,5 tim</span>
+        </div>
+        <div class="card-note">
+          Hjälpte till att flytta grisarna vid fack 3.
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="btn-action">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Ändra
+        </button>
+        <button class="btn-action">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Foto
+        </button>
+        <button class="btn-action delete">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          Radera
         </button>
       </div>
     </div>
+
+    <button class="submit-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+      Skicka underlag (2)
+    </button>
+
   </div>
+
 </body>
 </html>
