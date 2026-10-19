@@ -317,9 +317,13 @@ function resetFormAfterSubmit() {
 }
 
 function initiateSubmit() {
+  const savedUser = localStorage.getItem(USER_KEY);
+  if (!selectedUserObj && savedUser) {
+    selectedUserObj = { name: savedUser };
+  }
+
   if(!selectedUserObj) return alert("Välj ditt namn först.");
   let loc = "Blacksta", akt = "", dat = "", note = "";
-
   if (currentType === 'kalender') {
     if(!selectedEvent) return alert("Välj en kalenderhändelse först.");
     dat = document.getElementById('dateSelect').value; 
