@@ -1,3 +1,12 @@
+/ Registrera Service Worker för offline-drift
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('SW redo för offline-drift:', reg.scope))
+      .catch((err) => console.error('Kunde inte starta SW:', err));
+  });
+}
+
 let drafts = JSON.parse(localStorage.getItem('tidrapport_drafts')) || [];
 
 // Action Sheet-logik
