@@ -1,4 +1,4 @@
-/ Registrera Service Worker för offline-drift
+// Registrera Service Worker för offline-drift
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
