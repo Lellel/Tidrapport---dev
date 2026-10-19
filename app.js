@@ -368,3 +368,4 @@ function sendInvoiceMail() {
     setTimeout(() => { loadData(); loadDashboard(); }, 1000);
   }
 }
+checkMagicLinkAndSetupUser();
