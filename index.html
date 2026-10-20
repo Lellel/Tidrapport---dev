@@ -2,12 +2,12 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Tidrapport</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
   <div class="app-container">
@@ -15,55 +15,58 @@
     <header>
       <h1>Tidrapport</h1>
       <div class="header-badges">
-        <span class="user-pill">Daniel</span>
-        <span class="status-pill"><span class="status-dot"></span>Ansluten</span>
+        <div class="user-pill">Daniel</div>
+        <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
       </div>
     </header>
 
-    <!-- UTKORG (Visas när sparade pass finns) -->
+    <!-- UTKORG / DAGENS PASS (KARUSELL I TOPPEN) -->
     <div id="outbox-section" style="display: none;">
       <div class="outbox-header-row">
-        <span class="section-title" id="outbox-title" style="margin: 0;">DAGENS PASS</span>
+        <span class="section-title" id="outbox-title" style="margin:0;">Dagens pass</span>
         <button class="submit-pill-btn" onclick="submitAll()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
           Skicka in
         </button>
       </div>
-      <div class="carousel-container" id="outbox-container"></div>
+      <div id="outbox-container" class="carousel-container"></div>
     </div>
 
-    <!-- UPPDRAG -->
-    <div class="section-title">UPPDRAG</div>
-    <div class="ios-card" style="padding: 12px 14px 4px 14px;">
+    <!-- 1. UPPDRAG -->
+    <div class="section-title">Uppdrag</div>
+    <div class="ios-card">
       <div class="type-control">
-        <button class="type-btn" id="btn-type-cal" onclick="setJobType('kalender')">Kalender</button>
-        <button class="type-btn active" id="btn-type-new" onclick="setJobType('nya')">Nya</button>
-        <button class="type-btn" id="btn-type-ata" onclick="setJobType('ata')">ÄTA</button>
+        <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
+        <button type="button" id="btn-type-ata" class="type-btn" onclick="setJobType('ata')">ÄTA</button>
       </div>
 
-      <div class="ios-row" id="row-ata-number" style="display: none;">
-        <span>ÄTA-nummer</span>
-        <input type="text" id="input-ata" placeholder="T.ex. ÄTA 12">
-      </div>
-
-      <div class="ios-row">
+      <div class="ios-row" id="row-place">
         <span>Betalställe</span>
-        <input type="text" id="input-place" placeholder="T.ex. Blacksta">
+        <input type="text" id="input-place" placeholder="Ange plats >" class="val-text">
       </div>
 
-      <div class="ios-row" onclick="openSheet()" style="cursor: pointer;">
+      <!-- ORANGEA SNABBVALSBUBBLOR -->
+      <div class="chips-container" id="chips-container"></div>
+
+      <!-- ÄTA-FÄLT -->
+      <div class="ios-row" id="row-ata-number" style="display: none;">
+        <span>ÄTA-nr / Ref</span>
+        <input type="text" id="input-ata" placeholder="T.ex. ÄTA 04" class="val-text">
+      </div>
+
+      <div class="ios-row" onclick="handleActivityClick()">
         <span>Aktivitet</span>
         <span class="val-text" id="selected-activity">
           Välj aktivitet
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </span>
       </div>
     </div>
 
-    <!-- TID -->
+    <!-- 2. TID -->
     <div class="section-title-row">
-      <span class="section-title">TID</span>
-      <span class="duration-pill" id="current-duration-badge" style="display: none;">0.0 h</span>
+      <span class="section-title">Tid</span>
+      <span id="current-duration-badge" class="duration-pill" style="display: none;">-</span>
     </div>
     <div class="ios-card">
       <div class="ios-row">
@@ -72,60 +75,60 @@
       </div>
       <div class="ios-row">
         <span>Start</span>
-        <input type="time" id="input-start" oninput="updateLiveHours()">
+        <input type="time" id="input-start" onchange="updateLiveHours()">
       </div>
       <div class="ios-row">
         <span>Slut</span>
-        <input type="time" id="input-end" oninput="updateLiveHours()">
+        <input type="time" id="input-end" value="" placeholder="Lämna tom för pågående" onchange="updateLiveHours()">
       </div>
     </div>
 
-    <!-- DETALJER (VALFRITT) -->
-    <div class="section-title">DETALJER (VALFRITT)</div>
+    <!-- 3. DETALJER -->
+    <div class="section-title">Detaljer (valfritt)</div>
     <div class="ios-card">
       <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
+      <div class="action-row">
+        <div class="add-photo-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Bifoga bild-underlag
+        </div>
+      </div>
     </div>
 
-    <!-- SPARA PASS -->
+    <!-- SPARA -->
     <button class="main-btn" onclick="saveToOutbox()">Spara pass lokalt</button>
   </div>
 
-  <!-- ACTION SHEET (VÄLJ AKTIVITET) -->
-  <div id="sheetBackdrop" class="sheet-backdrop" onclick="closeSheet()">
+  <!-- ACTION SHEET FÖR AKTIVITETER -->
+  <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
     <div class="sheet-container" onclick="event.stopPropagation()">
       <div class="sheet-header">
-        <span class="sheet-title">Välj aktivitet</span>
+        <div class="sheet-title">Välj Aktivitet</div>
         <button class="sheet-close" onclick="closeSheet()">Avbryt</button>
       </div>
-      <div class="sheet-list">
-        <div class="sheet-item" onclick="selectActivity('Kyl- & frysflytt')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><path d="M5 17L8 4m-2-1h3M7 19h13"/><rect x="9.5" y="4" width="10.5" height="13" rx="1.5"/><path d="M14.5 4v10M13.5 7v4m2.5-4v4M11.5 15.5h6.5"/><path d="M21 2v3m-1.5-1.5h3" stroke-width="1.2"/></svg>
-          <span>Kyl- & frysflytt</span>
-        </div>
-        <div class="sheet-item" onclick="selectActivity('Snöröjning')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4v4m-2-2h4m-3.5-1.5l3 3m-3 0l3-3"/><path d="M12 16v-6h-4l-2-4h-4v10"/><circle cx="5" cy="16" r="2"/><circle cx="12" cy="16" r="2"/><path d="M16 19l2-8" stroke-width="2"/><path d="M17 17h4"/></svg>
-          <span>Snöröjning</span>
-        </div>
-        <div class="sheet-item" onclick="selectActivity('Linjemålning')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l3 5v4"/><rect x="7" y="11" width="6" height="4" rx="1"/><circle cx="8" cy="17" r="2"/><circle cx="15" cy="17" r="1.5"/><path d="M13 13h5M17 13v4M21 20H15M11 20H5" stroke-width="2"/></svg>
-          <span>Linjemålning</span>
-        </div>
-        <div class="sheet-item" onclick="selectActivity('Fasadmålning')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/><rect x="7" y="6" width="6" height="2.5" rx="1"/><path d="M10 8.5v3"/></svg>
-          <span>Fasadmålning</span>
-        </div>
-        <div class="sheet-item" onclick="selectActivity('Stalltvätt')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c-1-1-1-3 0-4l3-3 4 4-3 3c-1 1-3 1-4 0z"/><path d="M10 14l5-5M14 8l2 2M17 7l4-4M19 9l3-2M15 5l2-3"/><path d="M21 14l-1 2-2 1 2 1 1 2 1-2 2-1-2-1-1-2z" stroke-width="1"/></svg>
-          <span>Stalltvätt</span>
-        </div>
-        <div class="sheet-item" onclick="selectActivity('Bandgrävare')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="15" width="13" height="5" rx="2.5"/><circle cx="5.5" cy="17.5" r="1"/><circle cx="9.5" cy="17.5" r="1"/><circle cx="13.5" cy="17.5" r="1"/><path d="M5 15v-5a2 2 0 0 1 2-2h4v7M9 11l4-5 6 4-2 4M17 14h4l1-3-3-2"/></svg>
-          <span>Bandgrävare</span>
-        </div>
-        <div class="sheet-item" onclick="selectActivity('Övrigt')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>Övrigt</span>
-        </div>
+      <div class="sheet-item" onclick="selectActivity('Kyl- & frysflytt')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>
+        <span>Kyl- & frysflytt</span>
+      </div>
+      <div class="sheet-item" onclick="selectActivity('Snöröjning')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16h.01"/><path d="M8 20h.01"/><path d="M12 18h.01"/><path d="M12 22h.01"/><path d="M16 16h.01"/><path d="M16 20h.01"/></svg>
+        <span>Snöröjning</span>
+      </div>
+      <div class="sheet-item" onclick="selectActivity('Linjemålning')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 19V5"/><path d="M5 12h14"/></svg>
+        <span>Linjemålning</span>
+      </div>
+      <div class="sheet-item" onclick="selectActivity('Fasadmålning')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>Fasadmålning</span>
+      </div>
+      <div class="sheet-item" onclick="selectActivity('Stalltvätt')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+        <span>Stalltvätt</span>
+      </div>
+      <div class="sheet-item" onclick="selectActivity('Bandgrävare')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 18h18"/><path d="M4 18v-5c0-2 2-3 4-3h8c2 0 4 1 4 3v5"/></svg>
+        <span>Bandgrävare</span>
       </div>
     </div>
   </div>
