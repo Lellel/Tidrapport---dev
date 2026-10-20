@@ -8,6 +8,7 @@
   --text-muted: #8E8E93;
   --danger: #FF453A;
   --blue: #0A84FF;
+  --green: #30D158;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
