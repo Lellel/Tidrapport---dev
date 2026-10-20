@@ -1,3 +1,9 @@
+// ==============================================================================
+// 1. KONFIGURATION & WEB APP URL
+// ==============================================================================
+// Byt ut texten nedan mot länken du fick från Distribution i Google Apps Script:
+const SCRIPT_URL = "https://script.google.com/a/macros/lpvab.se/s/AKfycbyn-mxt1REReA0T4UC4lmf-cbDPcDkv5X5WCJapqyZ06d76tKzxsaCBgaYqTeFfmYPekw/exec";
+
 // Registrera Service Worker för offline-drift
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -10,6 +16,10 @@ if ('serviceWorker' in navigator) {
 let drafts = JSON.parse(localStorage.getItem('tidrapport_drafts')) || [];
 let currentActivity = "";
 let currentJobType = "nya"; // 'kalender', 'nya' eller 'ata'
+
+// ==============================================================================
+// 2. FORMULÄR- & MENYSTYRNING
+// ==============================================================================
 
 // Styrning av uppdragstyp (Kalender / Nya / ÄTA)
 function setJobType(type) {
@@ -70,6 +80,10 @@ function selectActivity(name) {
   closeSheet();
 }
 
+// ==============================================================================
+// 3. DATUM, TID & BERÄKNING
+// ==============================================================================
+
 // Starta och initiera datum & tid
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
@@ -84,7 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderOutbox();
 });
 
-// Tidsberäkning
 function calculateHours(start, end) {
   if (!start || !end) return 0;
   const [startH, startM] = start.split(':').map(Number);
@@ -120,7 +133,10 @@ function clockOut(id) {
   }
 }
 
-// Spara till Utkorg
+// ==============================================================================
+// 4. UTKORGSHANTERING (LOKALT MINNE)
+// ==============================================================================
+
 function saveToOutbox() {
   const date = document.getElementById('input-date').value;
   const place = document.getElementById('input-place').value;
@@ -166,7 +182,6 @@ function saveToOutbox() {
   `;
   currentActivity = "";
   
-  // Återgå till standard 'Nya'
   setJobType('nya');
   updateLiveHours();
   renderOutbox();
@@ -178,7 +193,6 @@ function deleteDraft(id) {
   renderOutbox();
 }
 
-// Rendera utkorgskorten
 function renderOutbox() {
   const container = document.getElementById('outbox-container');
   const section = document.getElementById('outbox-section');
@@ -211,7 +225,6 @@ function renderOutbox() {
     const timeDisplay = isOngoing ? `<span class="ongoing-pulse">Pågår</span>` : `${draft.start} – ${draft.end}`;
     const hoursDisplay = isOngoing ? `-` : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
 
-    // ÄTA-bricka om passet är ett ÄTA-jobb
     const ataBadge = draft.type === 'ata' 
       ? `<span class="badge-ata">${draft.ataNumber ? draft.ataNumber : 'ÄTA'}</span>` 
       : '';
@@ -267,6 +280,65 @@ function renderOutbox() {
   });
 }
 
-function submitAll() {
-  alert("Nu skickas " + drafts.length + " pass in till kalkylarket!");
+// ==============================================================================
+// 5. SKICKA IN TILL GOOGLE KALKYLARK
+// ==============================================================================
+
+async function submitAll() {
+  if (drafts.length === 0) return;
+
+  // Kontrollera om det finns oavslutade stämplingar
+  const hasOngoing = drafts.some(d => !d.end);
+  if (hasOngoing) {
+    alert("Du har ett pågående pass i listan. Stämpla ut det innan du skickar in!");
+    return;
+  }
+
+  if (SCRIPT_URL.includes("DIN_APPS_SCRIPT_ID_HAR")) {
+    alert("Du behöver klistra in din riktiga Google Web App URL högst upp i app.js först!");
+    return;
+  }
+
+  const submitBtn = document.querySelector('.submit-pill-btn');
+  const originalText = submitBtn.innerHTML;
+  submitBtn.innerHTML = "Skickar...";
+  submitBtn.style.opacity = "0.7";
+  submitBtn.disabled = true;
+
+  const passAttSkicka = drafts.map(d => ({
+    ...d,
+    user: "Daniel",
+    totalHours: calculateHours(d.start, d.end).toFixed(1)
+  }));
+
+  const payload = {
+    action: "batchReports",
+    pass: passAttSkicka
+  };
+
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+
+    if (result && result.status === "success") {
+      alert(`Klart! ${result.count} pass har sparats i kalkylarket.`);
+      drafts = [];
+      localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+      renderOutbox();
+    } else {
+      throw new Error("Servern svarade inte med success");
+    }
+  } catch (err) {
+    console.error("Fel vid inskick:", err);
+    alert("Kunde inte nå kalkylarket just nu. Passen ligger kvar säkert i telefonen!");
+  } finally {
+    submitBtn.innerHTML = originalText;
+    submitBtn.style.opacity = "1";
+    submitBtn.disabled = false;
+  }
 }
