@@ -1,7 +1,7 @@
 // ==============================================================================
 // LPV TIDRAPPORT - SERVICE WORKER (sw.js)
 // ==============================================================================
-const CACHE_NAME = 'tidrapport-v9';
+const CACHE_NAME = 'tidrapport-v6';
 
 // Filer som ska finnas tillgängliga offline
 const ASSETS_TO_CACHE = [
