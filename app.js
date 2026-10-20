@@ -11,7 +11,7 @@ if ('serviceWorker' in navigator) {
 let drafts = loadAllDrafts();
 let currentActivity = "";
 let currentJobType = "nya";
-let currentImagesBase64 = []; // Flerbildsuppladdning
+let currentImagesBase64 = [];
 
 // Läs användare och Admin-status från URL / localStorage
 const urlParams = new URLSearchParams(window.location.search);
@@ -49,20 +49,39 @@ if (themeBtn) {
   });
 }
 
-// 3 klick för manuell admin-togglande
+// ADMIN-TOGGLE (Både 3 snabba klick OCH 1s långtryck för touchskärmar)
 let userClickCount = 0;
 let userClickTimer = null;
+let longPressTimer = null;
+
+function toggleAdminMode() {
+  isAdmin = !isAdmin;
+  localStorage.setItem('lpv_is_admin', isAdmin ? 'true' : 'false');
+  updateAdminUI();
+  alert(isAdmin ? "👑 Admin-läge aktiverat!" : "Admin-läge avstängt.");
+}
+
 function handleUserPillClick() {
   userClickCount++;
   clearTimeout(userClickTimer);
-  userClickTimer = setTimeout(() => { userClickCount = 0; }, 1000);
+  userClickTimer = setTimeout(() => { userClickCount = 0; }, 800);
   if (userClickCount >= 3) {
     userClickCount = 0;
-    isAdmin = !isAdmin;
-    localStorage.setItem('lpv_is_admin', isAdmin ? 'true' : 'false');
-    updateAdminUI();
-    alert(isAdmin ? "👑 Admin-läge aktiverat!" : "Admin-läge avstängt.");
+    toggleAdminMode();
   }
+}
+
+// Långtrycks-lyssnare på Daniel-pillret
+const userPillEl = document.getElementById('user-display');
+if (userPillEl) {
+  userPillEl.addEventListener('touchstart', () => {
+    longPressTimer = setTimeout(() => {
+      toggleAdminMode();
+    }, 1000);
+  }, { passive: true });
+
+  userPillEl.addEventListener('touchend', () => clearTimeout(longPressTimer));
+  userPillEl.addEventListener('touchmove', () => clearTimeout(longPressTimer));
 }
 
 function loadAllDrafts() {
@@ -81,7 +100,7 @@ function saveDraftsToStorage() {
   localStorage.setItem('lpv_tidrapport_drafts', json);
 }
 
-// ORIGINAL-IKONERNA DIREKT FRÅN ORIGINALKODEN
+// ORIGINAL-VEKTORIKONER FRÅN DOKUMENTATIONEN
 function getActivityIcon(name) {
   const n = (name || "").toLowerCase();
   if (n.includes('kyl') || n.includes('frys')) {
@@ -105,17 +124,21 @@ function getActivityIcon(name) {
   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
 }
 
-// Action Sheet & Aktivitetsval
-function openSheet() { document.getElementById('sheetBackdrop').classList.add('active'); }
-function closeSheet() { document.getElementById('sheetBackdrop').classList.remove('active'); }
+// Action Sheet & Aktivitetsval (Öppnas direkt utan krav på betalställe)
+function openSheet() { 
+  const sheet = document.getElementById('sheetBackdrop');
+  if (sheet) sheet.classList.add('active'); 
+}
+
+function closeSheet() { 
+  const sheet = document.getElementById('sheetBackdrop');
+  if (sheet) sheet.classList.remove('active'); 
+}
+
 function selectActivity(name) {
   currentActivity = name;
   document.getElementById('selected-activity').innerHTML = `${name} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
   closeSheet();
-}
-function handleActivityClick() {
-  if (!document.getElementById('input-place').value.trim()) triggerPlaceAlert();
-  openSheet();
 }
 
 function setJobType(type) {
@@ -230,7 +253,7 @@ function updateLiveHours() {
   }
 }
 
-// BILD-UPPLADDNING (MULTI)
+// BILD-UPPLADDNING
 document.getElementById('camera-input')?.addEventListener('change', async function(e) {
   const files = e.target.files;
   if (!files || files.length === 0) return;
@@ -372,7 +395,7 @@ function renderOutbox() {
     card.className = 'draft-card';
     const iconSvg = getActivityIcon(draft.activity);
     const isOngoing = !draft.end;
-    const timeDisplay = isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} –${draft.end}`;
+    const timeDisplay = isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} – ${draft.end}`;
     const hoursDisplay = isOngoing ? '' : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
     const ataBadge = draft.type === 'ata' ? `<span class="badge-ata">${draft.ataNumber ? draft.ataNumber : 'ÄTA'}</span>` : '';
     const photoIcon = (draft.images && draft.images.length > 0) ? `<span style="color:var(--green); margin-left:auto;">📸</span>` : '';
@@ -393,13 +416,16 @@ function renderOutbox() {
     card.innerHTML = `
       <div class="card-body">
         <div class="card-title">
-          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">${iconSvg}</span>${ataBadge}
+          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">${iconSvg}</span>
+          ${ataBadge}
           <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${draft.place}</span>
           <span class="dot">•</span>
-          <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>${photoIcon}
+          <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>
+          ${photoIcon}
         </div>
         <div class="card-meta">
-          <span>${draft.date}</span><span class="dot">•</span><span>${timeDisplay}</span>${hoursDisplay ? `<span class="dot">•</span><span style="color:var(--text); font-weight:500;">${hoursDisplay}</span>` : ''}
+          <span>${draft.date}</span><span class="dot">•</span><span>${timeDisplay}</span>
+          ${hoursDisplay ? `<span class="dot">•</span><span style="color:var(--text); font-weight:500;">${hoursDisplay}</span>` : ''}
         </div>
         ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
       </div>
@@ -477,7 +503,7 @@ async function fetchCalendarData() {
     }
   } catch (err) {
     console.error("Kalenderfel:", err);
-    alert("Kunde inte hämta kalenderdata.");
+    alert("Kunde inte hämta kalenderdata: " + err.message);
   }
 }
 
@@ -515,7 +541,7 @@ function updateDashboardData() {
   totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
 }
 
-// ADMIN-LOGIK & KONTAKTBOK MED DETALJERAD FELVISNING
+// ADMIN-LOGIK & KONTAKTBOK
 async function fetchAdminUsers() {
   const select = document.getElementById('admin-target-user');
   if (!select) return;
@@ -534,12 +560,12 @@ async function fetchAdminUsers() {
       select.innerHTML = '<option value="">Välj person...</option>';
       adminUserList.forEach(u => { select.innerHTML += `<option value="${u.name}">${u.name}</option>`; });
     } else {
-      console.error("Backend felmeddelande:", data.message);
+      console.error("Backend felmeddelande:", data);
       select.innerHTML = `<option value="">Fel: ${data.message || 'Okänt backendfel'}</option>`;
     }
   } catch (err) {
     console.error("Nätverksfel:", err);
-    select.innerHTML = '<option value="">Offline</option>';
+    select.innerHTML = '<option value="">Offline / Nätverksfel</option>';
   }
 }
 
@@ -589,4 +615,26 @@ function adminSendSMS() {
   const targetUrl = getAdminTargetUrl();
   const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
   const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
-  const message = `Hej ${targetUser}! Här är din inloggningslänk till LPV Tidrapport: ${
+  const message = `Hej ${targetUser}! Här är din inloggningslänk till LPV Tidrapport: ${targetUrl}`;
+  if (phone) window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(message)}`;
+  else window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
+}
+
+function adminSendEmail() {
+  const targetUrl = getAdminTargetUrl();
+  const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
+  const subject = "Inloggning LPV Tidrapport";
+  const body = `Hej ${targetUser}!\n\nHär är din inloggningslänk till LPV Tidrapport:\n${targetUrl}\n\nKlicka på länken från din telefon för att logga in.`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function toggleAdminQR() {
+  const qrBox = document.getElementById('admin-qr-container');
+  if (!qrBox) return;
+  if (qrBox.style.display === 'none' || qrBox.style.display === '') {
+    updateAdminTargetLink();
+    qrBox.style.display = 'block';
+  } else {
+    qrBox.style.display = 'none';
+  }
+}
