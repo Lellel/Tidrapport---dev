@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Designsystem & Komponentkatalog</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      padding: 30px 16px 80px 16px;
+      display: flex;
+      justify-content: center;
+      background: linear-gradient(135deg, #000000 0%, #161622 100%);
+    }
+    .catalog-container { width: 100%; max-width: 520px; }
+    h1 { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+    .catalog-lead { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.4; }
+
+    /* SEKTIONER */
+    .section-wrap { margin-bottom: 30px; }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--separator);
+      padding-bottom: 4px;
+    }
+
+    /* GRID FÖR ELEMENT */
+    .comp-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    .comp-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .comp-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--separator);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .comp-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+    }
+    .comp-info {
+      border-top: 0.5px solid var(--separator);
+      padding-top: 8px;
+    }
+    .comp-name { font-size: 13px; font-weight: 600; color: #FFF; }
+    .comp-class { font-size: 11px; font-family: monospace; color: var(--accent); }
+    .comp-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* SPECIALJUSTERING FÖR VISNING */
+    .preview-row-wrap { width: 100%; }
+    .chips-preview { padding: 0 !important; border: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="catalog-container">
+  <h1>Designelement & Kontroller</h1>
+  <p class="catalog-lead">Översikt över alla gränssnittskomponenter, knappar, brickor och ikoner i Tidrapport.</p>
+
+  <!-- 1. KNAPPAR & ÅTGÄRDER -->
+  <div class="section-wrap">
+    <div class="section-title">1. Knappar & Åtgärder</div>
+    <div class="comp-grid">
+      
+      <!-- Huvudknapp -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <button class="main-btn" style="margin:0;">Spara pass lokalt</button>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Primär åtgärdsknapp</div>
+          <div class="comp-class">.main-btn</div>
+          <div class="comp-desc">Används för formulärets huvudhandling i botten.</div>
+        </div>
+      </div>
+
+      <!-- Skicka in piller -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <button class="submit-pill-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            Skicka in
+          </button>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Synk-piller (Batch)</div>
+          <div class="comp-class">.submit-pill-btn</div>
+          <div class="comp-desc">Sitter i topp-headern för att skicka alla sparade pass till kalkylarket.</div>
+        </div>
+      </div>
+
+      <!-- Kamera / Bildunderlag -->
+      <div class="comp-box">
+        <div class="comp-preview" style="width:100%;">
+          <div class="add-photo-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Bifoga bild-underlag
+          </div>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Fotoknapp (Dashed border)</div>
+          <div class="comp-class">.add-photo-btn</div>
+          <div class="comp-desc">Streckad ruta för att öppna kameran och bifoga underlagsfoto.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 2. KORTKNAPPAR (KARUSELLEN) -->
+  <div class="section-wrap">
+    <div class="section-title">2. Kortåtgärder (Karusellknappar)</div>
+    <div class="comp-grid-2">
+      
+      <!-- Stämpla in -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <button class="btn-action clock-in">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+            Stämpla in
+          </button>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Stämpla in</div>
+          <div class="comp-class">.btn-action.clock-in</div>
+          <div class="comp-desc">Blå text för bokade jobb från kalendern.</div>
+        </div>
+      </div>
+
+      <!-- Stämpla ut nu -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <button class="btn-action clock-out">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+            Stämpla ut nu
+          </button>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Stämpla ut</div>
+          <div class="comp-class">.btn-action.clock-out</div>
+          <div class="comp-desc">Grön text för aktiva pågående pass.</div>
+        </div>
+      </div>
+
+      <!-- Nytt pass (Split) -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <button class="btn-action split-pass">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Nytt pass
+          </button>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Delat pass</div>
+          <div class="comp-class">.btn-action.split-pass</div>
+          <div class="comp-desc">Orange knapp för att skapa Pass 2.</div>
+        </div>
+      </div>
+
+      <!-- Radera -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <button class="btn-action delete">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            Radera
+          </button>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Papperskorg</div>
+          <div class="comp-class">.btn-action.delete</div>
+          <div class="comp-desc">Röd knapp för att slänga pass ur minnet.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3. FORMULÄRKONTROLLER & INMATNING -->
+  <div class="section-wrap">
+    <div class="section-title">3. Formulärkontroller & Rader</div>
+    <div class="comp-grid">
+
+      <!-- Segmentväljare -->
+      <div class="comp-box">
+        <div class="comp-preview" style="width:100%;">
+          <div class="type-control" style="width:100%; margin:0;">
+            <button class="type-btn active">Nya</button>
+            <button class="type-btn">ÄTA</button>
+          </div>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Segmentväljare (Toggle)</div>
+          <div class="comp-class">.type-control / .type-btn</div>
+          <div class="comp-desc">Växlar läge mellan standardpass och ÄTA-arbeten.</div>
+        </div>
+      </div>
+
+      <!-- Standard iOS Rad -->
+      <div class="comp-box">
+        <div class="preview-row-wrap">
+          <div class="ios-card" style="margin:0;">
+            <div class="ios-row">
+              <span>Betalställe</span>
+              <span class="val-text">Coop</span>
+            </div>
+            <div class="ios-row">
+              <span>Aktivitet</span>
+              <span class="val-text">Välj aktivitet <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+          </div>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">iOS Form Row & Val-text</div>
+          <div class="comp-class">.ios-card / .ios-row / .val-text</div>
+          <div class="comp-desc">Grupperade rader med etikett till vänster och orange val till höger.</div>
+        </div>
+      </div>
+
+      <!-- Snabbvalsbubblor -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <div class="chips-container chips-preview">
+            <button class="chip-btn">Blacksta</button>
+            <button class="chip-btn">Coop</button>
+            <button class="chip-btn">Testplats</button>
+          </div>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Snabbvalsbubblor (Chips)</div>
+          <div class="comp-class">.chips-container / .chip-btn</div>
+          <div class="comp-desc">Klickbara snabbknappar under textfält för att slippa tangentbordet.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 4. STATUSAR & BRICKOR -->
+  <div class="section-wrap">
+    <div class="section-title">4. Statusar & Brickor</div>
+    <div class="comp-grid-2">
+
+      <!-- Pulserande lampa -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <span class="ongoing-pulse">Pågår</span>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Pågående pass-puls</div>
+          <div class="comp-class">.ongoing-pulse</div>
+          <div class="comp-desc">Grön animerad punkt med glödeffekt för aktiv tidtagning.</div>
+        </div>
+      </div>
+
+      <!-- ÄTA-bricka -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <span class="badge-ata">ÄTA 04</span>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">ÄTA-bricka</div>
+          <div class="comp-class">.badge-ata</div>
+          <div class="comp-desc">Orange rambricka som markerar tilläggsarbeten på korten.</div>
+        </div>
+      </div>
+
+      <!-- Tidsberäknare -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <span class="duration-pill">4.5 h</span>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Tidsindikator</div>
+          <div class="comp-class">.duration-pill</div>
+          <div class="comp-desc">Kapsel som räknar ut arbetade timmar i realtid.</div>
+        </div>
+      </div>
+
+      <!-- Uppkopplings-diod -->
+      <div class="comp-box">
+        <div class="comp-preview">
+          <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Systemstatus</div>
+          <div class="comp-class">.status-pill / .status-dot</div>
+          <div class="comp-desc">Visar nätverks- och appstatus i topp-headern.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 5. VEKTORIKONER (24x24) -->
+  <div class="section-wrap">
+    <div class="section-title">5. Aktivitetsikoner (SVG 24x24)</div>
+    <div class="comp-grid-2">
+
+      <div class="comp-box" style="align-items:center; text-align:center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M3 18h18"/><path d="M4 18v-5c0-2 2-3 4-3h8c2 0 4 1 4 3v5"/></svg>
+        <div class="comp-info" style="width:100%;">
+          <div class="comp-name">Bandgrävare</div>
+        </div>
+      </div>
+
+      <div class="comp-box" style="align-items:center; text-align:center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+        <div class="comp-info" style="width:100%;">
+          <div class="comp-name">Stalltvätt</div>
+        </div>
+      </div>
+
+      <div class="comp-box" style="align-items:center; text-align:center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16h.01"/><path d="M8 20h.01"/><path d="M12 18h.01"/><path d="M12 22h.01"/><path d="M16 16h.01"/><path d="M16 20h.01"/></svg>
+        <div class="comp-info" style="width:100%;">
+          <div class="comp-name">Snöröjning</div>
+        </div>
+      </div>
+
+      <div class="comp-box" style="align-items:center; text-align:center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>
+        <div class="comp-info" style="width:100%;">
+          <div class="comp-name">Kyl- & frysflytt</div>
+        </div>
+      </div>
+
+      <div class="comp-box" style="align-items:center; text-align:center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 19V5"/><path d="M5 12h14"/></svg>
+        <div class="comp-info" style="width:100%;">
+          <div class="comp-name">Linjemålning</div>
+        </div>
+      </div>
+
+      <div class="comp-box" style="align-items:center; text-align:center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <div class="comp-info" style="width:100%;">
+          <div class="comp-name">Fasadmålning</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
