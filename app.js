@@ -81,28 +81,28 @@ function saveDraftsToStorage() {
   localStorage.setItem('lpv_tidrapport_drafts', json);
 }
 
-// IKONER MED EGNA VEKTOR-PATHS ENLIGT KRAV
+// ORIGINAL-IKONERNA DIREKT FRÅN ORIGINALKODEN
 function getActivityIcon(name) {
   const n = (name || "").toLowerCase();
-  if (n.includes('band') || n.includes('gräv')) {
-    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h8v2H4z"/><circle cx="5" cy="15" r="1"/><circle cx="8" cy="15" r="1"/><circle cx="11" cy="15" r="1"/><path d="M5 14v-4h4v4"/><path d="M9 12l4-2 3 3-1 2-2-1"/></svg>`;
-  }
-  if (n.includes('tvätt')) {
-    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-4 2 2-4 4z"/><path d="M8 16l8-8"/><path d="M16 8l2-2"/><circle cx="20" cy="4" r="1"/><circle cx="21" cy="7" r="1"/><circle cx="17" cy="3" r="1"/></svg>`;
+  if (n.includes('kyl') || n.includes('frys')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><path d="M5 17L8 4m-2-1h3M7 19h13"/><rect x="9.5" y="4" width="10.5" height="13" rx="1.5"/><path d="M14.5 4v10M13.5 7v4m2.5-4v4M11.5 15.5h6.5"/><path d="M21 2v3m-1.5-1.5h3" stroke-width="1.2"/></svg>`;
   }
   if (n.includes('snö') || n.includes('plog')) {
-    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-3h4l1 3h3"/><circle cx="7" cy="16" r="2"/><circle cx="15" cy="16" r="2"/><path d="M17 12l3 3v2"/><path d="M20 4l2 2m0-2l-2 2m1-3v4m-2-2h4"/></svg>`;
-  }
-  if (n.includes('kyl') || n.includes('frys')) {
-    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h2l2-14h-2"/><circle cx="5" cy="20" r="1"/><path d="M8 6h8v12H8z"/><path d="M8 12h8"/></svg>`;
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4v4m-2-2h4m-3.5-1.5l3 3m-3 0l3-3"/><path d="M12 16v-6h-4l-2-4h-4v10"/><circle cx="5" cy="16" r="2"/><circle cx="12" cy="16" r="2"/><path d="M16 19l2-8" stroke-width="2"/><path d="M17 17h4"/></svg>`;
   }
   if (n.includes('linje')) {
-    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h6l1-4H7z"/><circle cx="6" cy="16" r="1"/><circle cx="11" cy="16" r="1"/><path d="M11 12l3-4h3"/><path d="M14 18h8" stroke-dasharray="2 2"/></svg>`;
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l3 5v4"/><rect x="7" y="11" width="6" height="4" rx="1"/><circle cx="8" cy="17" r="2"/><circle cx="15" cy="17" r="1.5"/><path d="M13 13h5M17 13v4M21 20H15M11 20H5" stroke-width="2"/></svg>`;
   }
   if (n.includes('fasad')) {
-    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l6-6 6 6v10H3z"/><path d="M6 10h4v4H6z"/><path d="M16 20v-8h6v8M16 16h6"/></svg>`;
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/><rect x="7" y="6" width="6" height="2.5" rx="1"/><path d="M10 8.5v3"/></svg>`;
   }
-  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+  if (n.includes('stalltvätt') || n.includes('stallvätt') || n.includes('tvätt')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c-1-1-1-3 0-4l3-3 4 4-3 3c-1 1-3 1-4 0z"/><path d="M10 14l5-5M14 8l2 2M17 7l4-4M19 9l3-2M15 5l2-3"/><path d="M21 14l-1 2-2 1 2 1 1 2 1-2 2-1-2-1-1-2z" stroke-width="1"/></svg>`;
+  }
+  if (n.includes('bandgrävare') || n.includes('gräv')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="15" width="13" height="5" rx="2.5"/><circle cx="5.5" cy="17.5" r="1"/><circle cx="9.5" cy="17.5" r="1"/><circle cx="13.5" cy="17.5" r="1"/><path d="M5 15v-5a2 2 0 0 1 2-2h4v7M9 11l4-5 6 4-2 4M17 14h4l1-3-3-2"/></svg>`;
+  }
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
 }
 
 // Action Sheet & Aktivitetsval
@@ -246,7 +246,7 @@ document.getElementById('camera-input')?.addEventListener('change', async functi
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Från specifikationen
+          const MAX_WIDTH = 800;
           const scaleSize = MAX_WIDTH / img.width;
           canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
           canvas.height = (img.width > MAX_WIDTH) ? (img.height * scaleSize) : img.height;
@@ -310,7 +310,7 @@ function saveToOutbox() {
     start: start,
     end: end,
     totalHours: hours,
-    images: [...currentImagesBase64] // Sparar arrayen med bilder
+    images: [...currentImagesBase64]
   };
 
   drafts.push(draft);
@@ -372,7 +372,7 @@ function renderOutbox() {
     card.className = 'draft-card';
     const iconSvg = getActivityIcon(draft.activity);
     const isOngoing = !draft.end;
-    const timeDisplay = isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} – ${draft.end}`;
+    const timeDisplay = isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} –${draft.end}`;
     const hoursDisplay = isOngoing ? '' : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
     const ataBadge = draft.type === 'ata' ? `<span class="badge-ata">${draft.ataNumber ? draft.ataNumber : 'ÄTA'}</span>` : '';
     const photoIcon = (draft.images && draft.images.length > 0) ? `<span style="color:var(--green); margin-left:auto;">📸</span>` : '';
@@ -393,16 +393,13 @@ function renderOutbox() {
     card.innerHTML = `
       <div class="card-body">
         <div class="card-title">
-          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">${iconSvg}</span>
-          ${ataBadge}
+          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">${iconSvg}</span>${ataBadge}
           <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${draft.place}</span>
           <span class="dot">•</span>
-          <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>
-          ${photoIcon}
+          <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>${photoIcon}
         </div>
         <div class="card-meta">
-          <span>${draft.date}</span><span class="dot">•</span><span>${timeDisplay}</span>
-          ${hoursDisplay ? `<span class="dot">•</span><span style="color:var(--text); font-weight:500;">${hoursDisplay}</span>` : ''}
+          <span>${draft.date}</span><span class="dot">•</span><span>${timeDisplay}</span>${hoursDisplay ? `<span class="dot">•</span><span style="color:var(--text); font-weight:500;">${hoursDisplay}</span>` : ''}
         </div>
         ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
       </div>
@@ -518,7 +515,7 @@ function updateDashboardData() {
   totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
 }
 
-// ADMIN-LOGIK & KONTAKTBOK MED CORS-FIX
+// ADMIN-LOGIK & KONTAKTBOK MED DETALJERAD FELVISNING
 async function fetchAdminUsers() {
   const select = document.getElementById('admin-target-user');
   if (!select) return;
@@ -537,10 +534,11 @@ async function fetchAdminUsers() {
       select.innerHTML = '<option value="">Välj person...</option>';
       adminUserList.forEach(u => { select.innerHTML += `<option value="${u.name}">${u.name}</option>`; });
     } else {
-      select.innerHTML = '<option value="">Fel vid hämtning</option>';
+      console.error("Backend felmeddelande:", data.message);
+      select.innerHTML = `<option value="">Fel: ${data.message || 'Okänt backendfel'}</option>`;
     }
   } catch (err) {
-    console.error("Kunde inte hämta användare:", err);
+    console.error("Nätverksfel:", err);
     select.innerHTML = '<option value="">Offline</option>';
   }
 }
@@ -591,26 +589,4 @@ function adminSendSMS() {
   const targetUrl = getAdminTargetUrl();
   const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
   const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
-  const message = `Hej ${targetUser}! Här är din inloggningslänk till LPV Tidrapport: ${targetUrl}`;
-  if (phone) window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(message)}`;
-  else window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
-}
-
-function adminSendEmail() {
-  const targetUrl = getAdminTargetUrl();
-  const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
-  const subject = "Inloggning LPV Tidrapport";
-  const body = `Hej ${targetUser}!\n\nHär är din inloggningslänk till LPV Tidrapport:\n${targetUrl}\n\nKlicka på länken från din telefon för att logga in.`;
-  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
-function toggleAdminQR() {
-  const qrBox = document.getElementById('admin-qr-container');
-  if (!qrBox) return;
-  if (qrBox.style.display === 'none' || qrBox.style.display === '') {
-    updateAdminTargetLink();
-    qrBox.style.display = 'block';
-  } else {
-    qrBox.style.display = 'none';
-  }
-}
+  const message = `Hej ${targetUser}! Här är din inloggningslänk till LPV Tidrapport: ${
