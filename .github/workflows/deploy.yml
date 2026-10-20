@@ -14,21 +14,23 @@ jobs:
         run: |
           git clone https://${{ secrets.DEPLOY_TOKEN }}@github.com/lellel/Tidsrapportering-och-annat-LPV.git prod_repo
 
-      - name: Kopiera över logik och design
+      - name: Kopiera över logik, struktur och design
         run: |
           cp app.js prod_repo/
           cp style.css prod_repo/
+          cp index.html prod_repo/
+          cp sw.js prod_repo/
 
       - name: Skicka ändringarna till produktion
         run: |
           cd prod_repo
           git config user.name "JAS 39 Deploy Bot"
           git config user.email "deploy@tidrapport.local"
-          git add app.js style.css
+          git add app.js style.css index.html sw.js
           
           if git diff --staged --quiet; then
             echo "Inga ändringar hittades, avbryter."
           else
-            git commit -m "🚀 Auto-deploy: Uppdaterad logik och design från Dev"
+            git commit -m "🚀 Auto-deploy: Uppdaterad app, struktur och design från Dev"
             git push
           fi
