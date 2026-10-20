@@ -430,7 +430,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 14px; 
   border-radius: 12px; 
   border: none; 
-  margin-top: 4px;
+  margin-top: 4px; 
   margin-bottom: 24px; 
   cursor: pointer; 
 }
@@ -631,6 +631,56 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 14px 0;
 }
 
+/* ADMIN PANEL STYLING */
+.admin-input-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 0.5px solid var(--separator);
+}
+
+.admin-label {
+  font-size: 13px;
+  color: #EBEBF5;
+  font-weight: 500;
+}
+
+.admin-val-input {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  max-width: 170px;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.admin-val-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.admin-select {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  text-align: right;
+  direction: rtl; 
+  max-width: 170px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.admin-select option {
+  direction: ltr; 
+  background: var(--card);
+  color: #FFF;
+}
+
 .admin-actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -643,8 +693,52 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-radius: 8px;
   padding: 8px 0;
   font-weight: 600;
+  color: #FFF;
 }
 
 .admin-btn:active {
   background: rgba(255, 255, 255, 0.12);
+}
+
+/* iOS SWITCH FÖR ADMIN */
+.ios-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.ios-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(255, 255, 255, 0.15);
+  transition: .25s;
+  border-radius: 22px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .25s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--accent);
+}
+
+input:checked + .slider:before {
+  transform: translateX(18px);
 }
