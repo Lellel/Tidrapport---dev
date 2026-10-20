@@ -171,7 +171,7 @@ h1 {
   flex-shrink: 0;
 }
 
-/* STÖRRE KNAPPAR I KORTEN */
+/* KNAPPAR I KORTEN */
 .card-actions {
   display: flex;
   border-top: 0.5px solid var(--separator);
@@ -183,12 +183,13 @@ h1 {
   background: transparent;
   border: none;
   color: #FFF;
-  font-size: 15px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   cursor: pointer;
+  border-right: 0.5px solid var(--separator);
 }
 .btn-action:last-child {
   border-right: none;
@@ -207,8 +208,12 @@ h1 {
   color: var(--blue);
   font-weight: 600;
 }
+.btn-action.split-pass {
+  color: var(--accent);
+  font-weight: 600;
+}
 
-/* PULSERANDE GRÖN LAMPA FÖR PÅGÅENDE PASS */
+/* PULSERANDE GRÖN LAMPA */
 .ongoing-pulse {
   color: #30D158;
   font-weight: 600;
@@ -243,8 +248,8 @@ h1 {
   flex: 1;
   border: none;
   background: transparent;
-  padding: 7px 0;
-  font-size: 13px;
+  padding: 8px 0;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-muted);
   border-radius: 6px;
@@ -298,6 +303,7 @@ h1 {
   align-items: center;
   padding: 14px 16px;
   border-bottom: 0.5px solid var(--separator);
+  transition: all 0.2s ease;
 }
 .ios-row:last-child {
   border-bottom: none;
@@ -323,6 +329,9 @@ input, textarea {
   text-align: right;
   outline: none;
 }
+input::placeholder {
+  color: rgba(255, 159, 10, 0.45);
+}
 textarea {
   width: 100%;
   color: #FFF;
@@ -343,6 +352,49 @@ input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webk
   width: 100%;
   height: 100%;
   cursor: pointer;
+}
+
+/* ORANGEA SNABBVALSBUBBLOR */
+.chips-container {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 12px 16px;
+  overflow-x: auto;
+  border-bottom: 0.5px solid var(--separator);
+  scrollbar-width: none;
+}
+.chips-container::-webkit-scrollbar {
+  display: none;
+}
+.chip-btn {
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.4);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.15s ease;
+}
+.chip-btn:active {
+  background: var(--accent);
+  color: #000;
+  transform: scale(0.95);
+}
+
+/* VARNINGSPULS VID SAKNAT BETALSTÄLLE */
+.shake-alert {
+  animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  background: rgba(255, 159, 10, 0.15) !important;
+  border-color: rgba(255, 159, 10, 0.6) !important;
+}
+@keyframes shake {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(3px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
+  40%, 60% { transform: translate3d(5px, 0, 0); }
 }
 
 .action-row {
