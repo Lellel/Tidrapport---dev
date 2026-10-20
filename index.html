@@ -11,16 +11,19 @@
 </head>
 <body>
   <div class="app-container">
-    <!-- HEADER -->
+    <!-- HEADER MED TEMAVÄXLARE -->
     <header>
       <h1>Tidrapport</h1>
       <div class="header-badges">
+        <button id="theme-toggle" class="theme-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
         <div class="user-pill">Daniel</div>
         <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
       </div>
     </header>
 
-    <!-- UTKORG / DAGENS PASS (KARUSELL I TOPPEN) -->
+    <!-- UTKORG / DAGENS PASS -->
     <div id="outbox-section" style="display: none;">
       <div class="outbox-header-row">
         <span class="section-title" id="outbox-title" style="margin:0;">Dagens pass</span>
@@ -44,11 +47,8 @@
         <span>Betalställe</span>
         <input type="text" id="input-place" placeholder="Ange plats >" class="val-text">
       </div>
-
-      <!-- ORANGEA SNABBVALSBUBBLOR -->
       <div class="chips-container" id="chips-container"></div>
 
-      <!-- ÄTA-FÄLT -->
       <div class="ios-row" id="row-ata-number" style="display: none;">
         <span>ÄTA-nr / Ref</span>
         <input type="text" id="input-ata" placeholder="T.ex. ÄTA 04" class="val-text">
@@ -57,8 +57,7 @@
       <div class="ios-row" onclick="handleActivityClick()">
         <span>Aktivitet</span>
         <span class="val-text" id="selected-activity">
-          Välj aktivitet
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          Välj aktivitet <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </span>
       </div>
     </div>
@@ -88,14 +87,16 @@
     <div class="ios-card">
       <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
       <div class="action-row">
-        <div class="add-photo-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          Bifoga bild-underlag
+        <!-- Dold filväljare för kameran / galleriet (multiple tillåter flera bilder) -->
+        <input type="file" id="camera-input" accept="image/*" multiple style="display: none;">
+        <!-- Klickbar knapp -->
+        <div class="add-photo-btn" onclick="document.getElementById('camera-input').click()">
+          <svg id="photo-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span id="photo-label">Bifoga bild-underlag</span>
         </div>
       </div>
     </div>
 
-    <!-- SPARA -->
     <button class="main-btn" onclick="saveToOutbox()">Spara pass lokalt</button>
   </div>
 
