@@ -25,7 +25,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Network First: Hämtar alltid senaste versionen om nät finns, cache vid offline
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
