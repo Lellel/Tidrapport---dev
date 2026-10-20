@@ -128,11 +128,38 @@
         <div class="dash-empty">Inga registrerade pass än idag.</div>
       </div>
 
-      <!-- ADMIN-SEKTION -->
+      <!-- ADMIN-SEKTION MED DYNAMISKT MOTTAGARVAL -->
       <div id="admin-tools-section" style="display: none; margin-top: 16px;">
-        <div class="section-title" style="color: var(--accent); margin: 0 0 6px 0;">Administratör: Länkar & QR</div>
-        <div class="ios-card" style="padding: 12px; margin-bottom: 0;">
-          <div class="admin-actions-grid">
+        <div class="section-title" style="color: var(--accent); margin: 0 0 6px 0; display: flex; justify-content: space-between; align-items: center;">
+          <span>Administratör: Behörigheter & Länkar</span>
+          <button onclick="fetchAdminUsers()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 2.13-5.87L2 9"/></svg>
+          </button>
+        </div>
+        <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
+          
+          <div class="admin-input-row">
+            <span class="admin-label">Mottagare</span>
+            <!-- DYNAMISK DROPDOWN-LISTA -->
+            <select id="admin-target-user" class="admin-select" onchange="onAdminUserSelect()">
+              <option value="">Laddar kontakter...</option>
+            </select>
+          </div>
+
+          <div class="admin-input-row">
+            <span class="admin-label">Mobil (valfritt)</span>
+            <input type="tel" id="admin-target-phone" placeholder="070..." class="admin-val-input" oninput="updateAdminTargetLink()">
+          </div>
+
+          <div class="admin-input-row" style="border-bottom: none; padding-bottom: 8px;">
+            <span class="admin-label">Ge Admin-roll</span>
+            <label class="ios-switch">
+              <input type="checkbox" id="admin-target-is-admin" onchange="updateAdminTargetLink()">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="admin-actions-grid" style="margin-top: 6px;">
             <button type="button" class="btn-action admin-btn" onclick="adminSendSMS()">
               💬 SMS
             </button>
@@ -145,7 +172,7 @@
           </div>
 
           <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 12px; padding-top: 10px; border-top: 0.5px solid var(--separator);">
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Skanna med iPhone-kameran för direkt inloggning:</div>
+            <div id="admin-qr-caption" style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Skanna för att logga in:</div>
             <img id="admin-qr-image" src="" alt="Inloggnings-QR" style="width: 140px; height: 140px; border-radius: 10px; border: 2px solid #FFF; background: #FFF; margin: 0 auto; display: block;">
           </div>
         </div>
