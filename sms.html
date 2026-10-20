@@ -1,16 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="sv">
 <head>
   <meta charset="utf-8">
   <title>Laddar SMS...</title>
   <script>
     window.onload = function() {
       const urlParams = new URLSearchParams(window.location.search);
-      const to = urlParams.get('to') || '';
+      let to = urlParams.get('to') || '';
       const body = urlParams.get('body') || '';
+
+      // 1. Tvätta bort mellanslag, bindestreck och eventuella parenteser
+      to = to.replace(/[^0-9+]/g, '');
+
+      // 2. Om numret är lokalt svenskt (börjar på 07x) gör vi om det till +467x
+      // Detta gör att iMessage på både Mac och iPhone garanterat fattar mottagaren
+      if (to.startsWith('0')) {
+        to = '+46' + to.substring(1);
+      }
+
+      // 3. Apples iOS-quirk:
+      // När ett mottagarnummer skickas MÅSTE Apple ha '&body=' (inte '?body=')
+      // Med '&' fyller iMessage i telefonnumret korrekt!
+      const smsLink = "sms:" + to + "&body=" + encodeURIComponent(body);
       
-      // Bygg ihop och trigga SMS-appen
-      const smsLink = "sms:" + to + "?body=" + encodeURIComponent(body);
       window.location.href = smsLink;
     }
   </script>
