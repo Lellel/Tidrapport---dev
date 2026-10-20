@@ -12,7 +12,7 @@ jobs:
 
       - name: Klona produktionsrepot
         run: |
-          git clone https://${{ secrets.DEPLOY_TOKEN }}@github.com/lellel/Tidsrapportering-och-annat-LPV.git prod_repo
+          git clone https://x-access-token:${{ secrets.PROD_DEPLOY_TOKEN }}@github.com/Lellel/Tidsrapportering-och-annat-LPV.git prod_repo
 
       - name: Kopiera över logik, struktur och design
         run: |
@@ -27,11 +27,11 @@ jobs:
           cd prod_repo
           git config user.name "JAS 39 Deploy Bot"
           git config user.email "deploy@tidrapport.local"
-          git add app.js style.css index.html sw.js
+          git add app.js style.css index.html sw.js sms.html
           
           if git diff --staged --quiet; then
             echo "Inga ändringar hittades, avbryter."
           else
             git commit -m "🚀 Auto-deploy: Uppdaterad app, struktur och design från Dev"
-            git push
+            git push https://x-access-token:${{ secrets.PROD_DEPLOY_TOKEN }}@github.com/Lellel/Tidsrapportering-och-annat-LPV.git main
           fi
