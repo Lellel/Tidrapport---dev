@@ -2,7 +2,7 @@
 // 1. KONFIGURATION & WEB APP URL
 // ==============================================================================
 // Byt ut texten nedan mot länken du fick från Distribution i Google Apps Script:
-const SCRIPT_URL = "https://script.google.com/a/macros/lpvab.se/s/AKfycbyn-mxt1REReA0T4UC4lmf-cbDPcDkv5X5WCJapqyZ06d76tKzxsaCBgaYqTeFfmYPekw/exec";
+const SCRIPT_URL = const SCRIPT_URL = "https://script.google.com/macros/library/d/1gyj4MrgusfDCsshLPXMaWVuglHGIelVh9COW742cQdj1m4FO3H64Fou0/10";
 
 // Registrera Service Worker för offline-drift
 if ('serviceWorker' in navigator) {
