@@ -8,15 +8,61 @@ if ('serviceWorker' in navigator) {
 }
 
 // Global data & state
-let drafts = JSON.parse(localStorage.getItem('tidrapport_drafts')) || [];
+let drafts = loadAllDrafts();
 let currentActivity = "";
-let currentJobType = "nya"; // 'kalender', 'nya' eller 'ata'
+let currentJobType = "nya";
 let attachedPhotoBase64 = null;
 
-// Läs användare och Admin-status från URL
+// Läs användare och Admin-status från URL / localStorage
 const urlParams = new URLSearchParams(window.location.search);
-const currentUser = urlParams.get('user') || 'Daniel';
-const isAdmin = urlParams.get('admin') === 'true';
+
+if (urlParams.has('user')) {
+  localStorage.setItem('lpv_user', urlParams.get('user'));
+}
+if (urlParams.has('admin')) {
+  const isAdm = urlParams.get('admin').toLowerCase() === 'true' || urlParams.get('admin') === '1';
+  localStorage.setItem('lpv_is_admin', isAdm ? 'true' : 'false');
+}
+
+const currentUser = urlParams.get('user') || localStorage.getItem('lpv_user') || 'Daniel';
+let isAdmin = (urlParams.get('admin') && (urlParams.get('admin').toLowerCase() === 'true' || urlParams.get('admin') === '1'))
+           || localStorage.getItem('lpv_is_admin') === 'true';
+
+// Hantera klick på namn-pillret (Tryck 3 ggr för att slå på/av Admin manuellt)
+let userClickCount = 0;
+let userClickTimer = null;
+function handleUserPillClick() {
+  userClickCount++;
+  clearTimeout(userClickTimer);
+  userClickTimer = setTimeout(() => { userClickCount = 0; }, 1000);
+
+  if (userClickCount >= 3) {
+    userClickCount = 0;
+    isAdmin = !isAdmin;
+    localStorage.setItem('lpv_is_admin', isAdmin ? 'true' : 'false');
+    updateAdminUI();
+    alert(isAdmin ? "👑 Admin-läge aktiverat!" : "Admin-läge avstängt.");
+  }
+}
+
+// Hämtar pass ur båda historiska nycklarna
+function loadAllDrafts() {
+  const d1 = localStorage.getItem('tidrapport_drafts');
+  const d2 = localStorage.getItem('lpv_tidrapport_drafts');
+  try {
+    if (d1) return JSON.parse(d1);
+    if (d2) return JSON.parse(d2);
+  } catch (e) {
+    console.error("Kunde inte läsa utkast:", e);
+  }
+  return [];
+}
+
+function saveDraftsToStorage() {
+  const json = JSON.stringify(drafts);
+  localStorage.setItem('tidrapport_drafts', json);
+  localStorage.setItem('lpv_tidrapport_drafts', json);
+}
 
 // Ikon-bibliotek (SVG 20x20)
 function getActivityIcon(name) {
@@ -76,28 +122,21 @@ function setJobType(type) {
   }
 }
 
-// Initiering vid sidladdning
-document.addEventListener('DOMContentLoaded', () => {
-  // Sätt användarnamn
-  const userDisplay = document.getElementById('user-display');
-  if (userDisplay) userDisplay.innerText = currentUser;
-
+// Initiering
+function initApp() {
   // Sätt dagens datum & aktuell starttid
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-  document.getElementById('input-date').value = localDate;
+  const dateInput = document.getElementById('input-date');
+  if (dateInput) dateInput.value = localDate;
 
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  document.getElementById('input-start').value = `${hours}:${minutes}`;
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const startInput = document.getElementById('input-start');
+  if (startInput) startInput.value = `${h}:${m}`;
 
-  // Visa admin-sektionen om &admin=true finns i länken
-  const adminSection = document.getElementById('admin-tools-section');
-  if (adminSection && isAdmin) {
-    adminSection.style.display = 'block';
-  }
+  updateAdminUI();
 
-  // Lyssna på fönsterändring och rotation för dashboarden
   window.addEventListener('resize', updateDashboardData);
   window.addEventListener('orientationchange', () => {
     setTimeout(updateDashboardData, 150);
@@ -106,7 +145,26 @@ document.addEventListener('DOMContentLoaded', () => {
   updateLiveHours();
   renderOutbox();
   updateDashboardData();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+function updateAdminUI() {
+  const userDisplay = document.getElementById('user-display');
+  if (userDisplay) {
+    userDisplay.innerText = isAdmin ? `${currentUser} 👑` : currentUser;
+    userDisplay.classList.toggle('is-admin', isAdmin);
+  }
+
+  const adminSection = document.getElementById('admin-tools-section');
+  if (adminSection) {
+    adminSection.style.display = isAdmin ? 'block' : 'none';
+  }
+}
 
 // Tidsberäkning
 function calculateHours(start, end) {
@@ -166,7 +224,7 @@ function clockOut(id) {
   if (draftIndex !== -1) {
     drafts[draftIndex].end = timeString;
     drafts[draftIndex].totalHours = calculateHours(drafts[draftIndex].start, timeString).toFixed(1);
-    localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+    saveDraftsToStorage();
     renderOutbox();
     updateDashboardData();
   }
@@ -204,7 +262,7 @@ function saveToOutbox() {
   };
 
   drafts.push(draft);
-  localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+  saveDraftsToStorage();
 
   // Återställ formulär
   document.getElementById('input-place').value = '';
@@ -232,7 +290,7 @@ function saveToOutbox() {
 
 function deleteDraft(id) {
   drafts = drafts.filter(draft => draft.id !== id);
-  localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+  saveDraftsToStorage();
   renderOutbox();
   updateDashboardData();
 }
@@ -240,16 +298,27 @@ function deleteDraft(id) {
 // Rendera utkorgskorten
 function renderOutbox() {
   const container = document.getElementById('outbox-container');
-  const section = document.getElementById('outbox-section');
   const title = document.getElementById('outbox-title');
+  const submitBtn = document.getElementById('btnSubmitAll');
 
   container.innerHTML = '';
+
   if (drafts.length === 0) {
-    section.style.display = 'none';
+    title.innerText = "Dagens pass (0 st)";
+    if (submitBtn) submitBtn.style.display = 'none';
+
+    container.innerHTML = `
+      <div class="draft-card empty-placeholder">
+        <div style="font-size: 13px; color: var(--text-muted);">
+          Inga sparade pass än. Fyll i passet nedan och tryck på <strong>Spara pass lokalt</strong>.
+        </div>
+      </div>
+    `;
     return;
   }
 
-  section.style.display = 'block';
+  if (submitBtn) submitBtn.style.display = 'flex';
+
   let totalHours = 0;
   drafts.forEach(d => {
     if (d.start && d.end) {
@@ -337,7 +406,7 @@ async function submitAll() {
     if (result && result.status === 'success') {
       alert(`Klart! ${result.count || drafts.length} pass har sparats i kalkylarket.`);
       drafts = [];
-      localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+      saveDraftsToStorage();
       renderOutbox();
       updateDashboardData();
     } else {
@@ -366,7 +435,7 @@ async function fetchCalendarData() {
     });
     const data = await res.json();
     if (data.status === "success" && data.events && data.events.length > 0) {
-      const ev = data.events[0]; // Föreslå första jobbet
+      const ev = data.events[0];
       document.getElementById('input-place').value = ev.place;
       selectActivity(ev.title);
       if (!ev.isAllDay) {
@@ -446,7 +515,7 @@ function toggleAdminQR() {
   if (!qrBox || !qrImg) return;
 
   if (qrBox.style.display === 'none' || qrBox.style.display === '') {
-    const currentUrl = window.location.href;
+    const currentUrl = window.location.origin + window.location.pathname;
     qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentUrl)}`;
     qrBox.style.display = 'block';
   } else {
