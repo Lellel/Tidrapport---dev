@@ -3,30 +3,41 @@ if ('serviceWorker' in navigator) {
 }
 
 // ----------------------------------------------------
-// TEMA-VÄXLARE (LJUST / MÖRKT)
+// TEMA-VÄXLARE (LJUST / MÖRKT + STATUS BAR-STÖD)
 // ----------------------------------------------------
 const themeBtn = document.getElementById('theme-toggle');
+const themeMeta = document.getElementById('theme-color-meta');
 const currentTheme = localStorage.getItem('tidrapport_theme') || 'dark';
-if (currentTheme === 'light') document.body.classList.add('light-theme');
+
+if (currentTheme === 'light') {
+  document.body.classList.add('light-theme');
+  document.documentElement.classList.add('light-theme');
+  if (themeMeta) themeMeta.setAttribute('content', '#F2F2F7');
+}
 
 themeBtn.addEventListener('click', () => {
   document.body.classList.toggle('light-theme');
-  const newTheme = document.body.classList.contains('light-theme') ? 'light' : 'dark';
+  document.documentElement.classList.toggle('light-theme');
+  
+  const isLight = document.body.classList.contains('light-theme');
+  const newTheme = isLight ? 'light' : 'dark';
   localStorage.setItem('tidrapport_theme', newTheme);
+  
+  if (themeMeta) {
+    themeMeta.setAttribute('content', isLight ? '#F2F2F7' : '#000000');
+  }
 });
 
 // ----------------------------------------------------
-// BILDUNDERLAG (MULTIPLE - KRYMPER FLERA BILDER)
+// BILDUNDERLAG (KRYMPER FLERA BILDER LOKALT FÖR OFFLINE)
 // ----------------------------------------------------
-let currentImagesBase64 = []; // Array för att rymma flera bilder
+let currentImagesBase64 = [];
 
 document.getElementById('camera-input').addEventListener('change', async function(e) {
   const files = e.target.files;
   if (!files || files.length === 0) return;
 
-  // Max 5 bilder per pass för att skydda PWA-minnet offline
-  const maxFiles = Math.min(files.length, 5); 
-
+  const maxFiles = Math.min(files.length, 5);
   document.getElementById('photo-label').innerText = "Bearbetar bilder...";
 
   for (let i = 0; i < maxFiles; i++) {
@@ -38,7 +49,7 @@ document.getElementById('camera-input').addEventListener('change', async functio
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Krymper till 800px bredd
+          const MAX_WIDTH = 800;
           const scaleSize = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scaleSize;
@@ -46,15 +57,14 @@ document.getElementById('camera-input').addEventListener('change', async functio
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           
-          currentImagesBase64.push(canvas.toDataURL('image/jpeg', 0.7)); // 70% JPEG-kvalitet
+          currentImagesBase64.push(canvas.toDataURL('image/jpeg', 0.7));
           resolve();
-        }
+        };
       };
       reader.readAsDataURL(file);
     });
   }
   
-  // Uppdatera knappen när alla är klara
   document.getElementById('photo-label').innerText = currentImagesBase64.length + " Bilder bifogade";
   document.querySelector('.add-photo-btn').style.borderColor = "#30D158";
   document.querySelector('.add-photo-btn').style.color = "#30D158";
@@ -69,7 +79,7 @@ function resetPhotoInput() {
 }
 
 // ----------------------------------------------------
-// FORMULÄR & LOGIK
+// FORMULÄR, IKONER & LOGIK
 // ----------------------------------------------------
 let drafts = JSON.parse(localStorage.getItem('tidrapport_drafts')) || [];
 let plannedJobs = [];
@@ -92,14 +102,27 @@ function setJobType(type) {
 }
 
 function getActivityIcon(name) {
-  const p = 'width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
-  if (name.includes('Kyl- & frysflytt')) return `<svg ${p}><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>`;
-  if (name.includes('Snöröjning')) return `<svg ${p}><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16h.01"/><path d="M8 20h.01"/><path d="M12 18h.01"/><path d="M12 22h.01"/><path d="M16 16h.01"/><path d="M16 20h.01"/></svg>`;
-  if (name.includes('Linjemålning')) return `<svg ${p}><path d="M12 19V5"/><path d="M5 12h14"/></svg>`;
-  if (name.includes('Fasadmålning')) return `<svg ${p}><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
-  if (name.includes('Stalltvätt')) return `<svg ${p}><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
-  if (name.includes('Bandgrävare')) return `<svg ${p}><path d="M3 18h18"/><path d="M4 18v-5c0-2 2-3 4-3h8c2 0 4 1 4 3v5"/></svg>`;
-  return `<svg ${p}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`;
+  const n = (name || "").toLowerCase();
+
+  if (n.includes('kyl') || n.includes('frys')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><path d="M5 17L8 4m-2-1h3M7 19h13"/><rect x="9.5" y="4" width="10.5" height="13" rx="1.5"/><path d="M14.5 4v10M13.5 7v4m2.5-4v4M11.5 15.5h6.5"/><path d="M21 2v3m-1.5-1.5h3" stroke-width="1.2"/></svg>`;
+  }
+  if (n.includes('snö') || n.includes('plog')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4v4m-2-2h4m-3.5-1.5l3 3m-3 0l3-3"/><path d="M12 16v-6h-4l-2-4h-4v10"/><circle cx="5" cy="16" r="2"/><circle cx="12" cy="16" r="2"/><path d="M16 19l2-8" stroke-width="2"/><path d="M17 17h4"/></svg>`;
+  }
+  if (n.includes('linje')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l3 5v4"/><rect x="7" y="11" width="6" height="4" rx="1"/><circle cx="8" cy="17" r="2"/><circle cx="15" cy="17" r="1.5"/><path d="M13 13h5M17 13v4M21 20H15M11 20H5" stroke-width="2"/></svg>`;
+  }
+  if (n.includes('fasad')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/><rect x="7" y="6" width="6" height="2.5" rx="1"/><path d="M10 8.5v3"/></svg>`;
+  }
+  if (n.includes('stalltvätt') || n.includes('stallvätt') || n.includes('tvätt')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c-1-1-1-3 0-4l3-3 4 4-3 3c-1 1-3 1-4 0z"/><path d="M10 14l5-5M14 8l2 2M17 7l4-4M19 9l3-2M15 5l2-3"/><path d="M21 14l-1 2-2 1 2 1 1 2 1-2 2-1-2-1-1-2z" stroke-width="1"/></svg>`;
+  }
+  if (n.includes('bandgrävare') || n.includes('gräv')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="15" width="13" height="5" rx="2.5"/><circle cx="5.5" cy="17.5" r="1"/><circle cx="9.5" cy="17.5" r="1"/><circle cx="13.5" cy="17.5" r="1"/><path d="M5 15v-5a2 2 0 0 1 2-2h4v7M9 11l4-5 6 4-2 4M17 14h4l1-3-3-2"/></svg>`;
+  }
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
 }
 
 function openSheet() { document.getElementById('sheetBackdrop').classList.add('active'); }
@@ -139,7 +162,10 @@ function renderQuickChips() {
   places.forEach(place => {
     const btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'chip-btn'; btn.innerText = place;
-    btn.onclick = () => { document.getElementById('input-place').value = place; document.getElementById('row-place').classList.remove('shake-alert'); };
+    btn.onclick = () => { 
+      document.getElementById('input-place').value = place; 
+      document.getElementById('row-place').classList.remove('shake-alert'); 
+    };
     container.appendChild(btn);
   });
 }
@@ -158,7 +184,11 @@ async function fetchPlannedJobs() {
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'getCalendar', date: document.getElementById('input-date').value })
+      body: JSON.stringify({ 
+        action: 'getCalendar', 
+        date: document.getElementById('input-date').value,
+        token: API_TOKEN
+      })
     });
     const data = await res.json();
     if (data.status === 'success') { plannedJobs = data.events; renderOutbox(); }
@@ -202,7 +232,7 @@ function clockInPlannedJob(jobId) {
     id: Date.now(), calendarJobId: job.id, type: 'normal',
     date: document.getElementById('input-date').value,
     place: job.place, activity: job.title, notes: job.description,
-    start: getCurrentTimeStr(), end: '', images: [] // Kalenderjobb har inga foton från start
+    start: getCurrentTimeStr(), end: '', images: []
   });
   
   saveDrafts(); renderOutbox(); renderQuickChips();
@@ -226,7 +256,7 @@ function createSplitPass(sourceId) {
     id: Date.now(), calendarJobId: src.calendarJobId || null, type: src.type || 'normal',
     ataNumber: src.ataNumber || '', date: document.getElementById('input-date').value,
     place: src.place, activity: `${baseName} (Pass ${passNum})`, notes: src.notes || '',
-    start: getCurrentTimeStr(), end: '', images: [] // Kopierar ej över förra passets foton
+    start: getCurrentTimeStr(), end: '', images: []
   });
   saveDrafts(); renderOutbox();
 }
@@ -253,7 +283,7 @@ function saveToOutbox() {
     id: Date.now(), type: currentJobType, ataNumber: currentJobType === 'ata' ? ata : '',
     date: date, place: place, activity: currentActivity || "Övrigt",
     notes: notes, start: start, end: end,
-    images: [...currentImagesBase64] // Spara hela arrayen lokalt
+    images: [...currentImagesBase64]
   });
 
   saveDrafts();
@@ -286,7 +316,7 @@ function renderOutbox() {
     const card = document.createElement('div'); card.className = 'draft-card';
     card.innerHTML = `
       <div class="card-body">
-        <div class="card-title"><span style="color:var(--blue); margin-right:12px;">${getActivityIcon(job.title)}</span><span>${job.title}</span></div>
+        <div class="card-title"><span style="color:var(--blue); margin-right:12px; display:inline-flex;">${getActivityIcon(job.title)}</span><span>${job.title}</span></div>
         <div class="card-meta"><span>📅 Planerat</span><span class="dot">•</span><span style="color:var(--text);">${job.place}</span></div>
         ${job.description ? `<div class="card-note">${job.description}</div>` : ''}
       </div>
@@ -301,7 +331,6 @@ function renderOutbox() {
     const isOngoing = !draft.end;
     const timeDisplay = isOngoing ? `<span class="ongoing-pulse">Pågår</span>` : `${draft.start} – ${draft.end}`;
     const hDisplay = isOngoing ? '' : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
-    // Indikator om kortet innehåller bilder
     const photoIcon = (draft.images && draft.images.length > 0) ? `<span style="color:var(--green); margin-left:8px; font-size:12px;">📸 ${draft.images.length}</span>` : '';
     
     let btns = isOngoing 
@@ -313,7 +342,7 @@ function renderOutbox() {
     card.innerHTML = `
       <div class="card-body">
         <div class="card-title">
-          <span style="color:var(--accent); margin-right:12px;">${getActivityIcon(draft.activity)}</span>
+          <span style="color:var(--accent); margin-right:12px; display:inline-flex;">${getActivityIcon(draft.activity)}</span>
           ${draft.type === 'ata' ? `<span class="badge-ata">${draft.ataNumber || 'ÄTA'}</span>` : ''}
           <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span> ${photoIcon}
         </div>
@@ -330,7 +359,14 @@ async function submitAll() {
   const btn = document.querySelector('.submit-pill-btn');
   btn.innerHTML = `Skickar...`; btn.disabled = true;
   try {
-    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'batchReports', pass: drafts }) });
+    const res = await fetch(API_URL, { 
+      method: 'POST', 
+      body: JSON.stringify({ 
+        action: 'batchReports', 
+        pass: drafts,
+        token: API_TOKEN
+      }) 
+    });
     const result = await res.json();
     if (result && result.status === "success") {
       alert(`Klart! ${result.count} pass sparade i kalkylarket.`);
