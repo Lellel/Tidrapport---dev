@@ -4,14 +4,17 @@
   <meta charset="UTF-8">
   <title>Tidrapport</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
 
-  <!-- HUVUDCONTAINER -->
+  <!-- HUVUDLAYOUT -->
   <div class="app-layout-wrapper">
     <div class="app-container">
       
@@ -19,16 +22,16 @@
       <header>
         <h1>Tidrapport</h1>
         <div class="header-badges">
-          <div class="user-pill" id="user-display">Daniel</div>
+          <div class="user-pill" id="user-display" onclick="handleUserPillClick()">Daniel</div>
           <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
         </div>
       </header>
 
       <!-- UTKORG / DAGENS PASS (HORISONTELL KARUSELL) -->
-      <div id="outbox-section" style="display: none;">
+      <div id="outbox-section">
         <div class="outbox-header-row">
           <span class="section-title" id="outbox-title" style="margin: 0;">Dagens pass</span>
-          <button class="submit-pill-btn" id="btnSubmitAll" onclick="submitAll()">
+          <button class="submit-pill-btn" id="btnSubmitAll" onclick="submitAll()" style="display: none;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
             Skicka in
           </button>
@@ -50,7 +53,7 @@
           <input type="text" id="input-place" placeholder="T.ex. Blacksta" class="val-text">
         </div>
 
-        <!-- ÄTA-FÄLT (DÖLT SOM STANDARD) -->
+        <!-- ÄTA-FÄLT -->
         <div class="ios-row" id="row-ata-number" style="display: none;">
           <span>ÄTA-nr / Ref</span>
           <input type="text" id="input-ata" placeholder="T.ex. ÄTA 04" class="val-text">
@@ -120,30 +123,30 @@
         </div>
       </div>
 
-      <div class="section-title" style="margin: 14px 0 6px 0;">Dagens fördelning</div>
+      <div class="section-title" style="margin: 10px 0 6px 0;">Dagens fördelning</div>
       <div id="dash-activity-list" class="dash-list">
         <div class="dash-empty">Inga registrerade pass än idag.</div>
       </div>
 
-      <!-- ADMIN-SEKTION (SYNS BARA MED &admin=true) -->
-      <div id="admin-tools-section" style="display: none; margin-top: 20px;">
-        <div class="section-title" style="color: var(--accent); margin-bottom: 8px;">Administratör: Behörigheter & Länkar</div>
+      <!-- ADMIN-SEKTION -->
+      <div id="admin-tools-section" style="display: none; margin-top: 16px;">
+        <div class="section-title" style="color: var(--accent); margin: 0 0 6px 0;">Administratör: Länkar & QR</div>
         <div class="ios-card" style="padding: 12px; margin-bottom: 0;">
           <div class="admin-actions-grid">
-            <button type="button" class="btn-action" onclick="adminSendSMS()">
-              💬 SMS-länk
+            <button type="button" class="btn-action admin-btn" onclick="adminSendSMS()">
+              💬 SMS
             </button>
-            <button type="button" class="btn-action" onclick="adminSendEmail()">
-              ✉️ E-postlänk
+            <button type="button" class="btn-action admin-btn" onclick="adminSendEmail()">
+              ✉️ Mail
             </button>
-            <button type="button" class="btn-action" onclick="toggleAdminQR()">
-              🏁 Visa QR-kod
+            <button type="button" class="btn-action admin-btn" onclick="toggleAdminQR()">
+              🏁 QR
             </button>
           </div>
 
-          <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--separator);">
-            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Skanna med telefonens kamera för direkt inloggning:</div>
-            <img id="admin-qr-image" src="" alt="Inloggnings-QR" style="width: 160px; height: 160px; border-radius: 12px; border: 2px solid #FFF; background: #FFF; margin: 0 auto;">
+          <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 12px; padding-top: 10px; border-top: 0.5px solid var(--separator);">
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Skanna med iPhone-kameran för direkt inloggning:</div>
+            <img id="admin-qr-image" src="" alt="Inloggnings-QR" style="width: 140px; height: 140px; border-radius: 10px; border: 2px solid #FFF; background: #FFF; margin: 0 auto; display: block;">
           </div>
         </div>
       </div>
