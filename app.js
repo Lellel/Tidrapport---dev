@@ -7,13 +7,14 @@ if ('serviceWorker' in navigator) {
 }
 
 let drafts = JSON.parse(localStorage.getItem('tidrapport_drafts')) || [];
-let plannedJobs = []; // Osthyvelns jobb från Google Kalender
+let plannedJobs = [];
 let currentActivity = "";
 let currentJobType = "nya";
 
+const DEFAULT_PLACES = ["Blacksta", "Coop", "Testplats"];
+
 function setJobType(type) {
   currentJobType = type;
-  document.getElementById('btn-type-cal').classList.toggle('active', type === 'kalender');
   document.getElementById('btn-type-new').classList.toggle('active', type === 'nya');
   document.getElementById('btn-type-ata').classList.toggle('active', type === 'ata');
   
@@ -26,22 +27,38 @@ function setJobType(type) {
   }
 }
 
-// Ikon-bibliotek med 24x24 mått
+// Ikon-bibliotek (24x24)
 function getActivityIcon(name) {
   const props = 'width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
-  switch (name) {
-    case 'Kyl- & frysflytt': return `<svg ${props}><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>`;
-    case 'Snöröjning': return `<svg ${props}><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16h.01"/><path d="M8 20h.01"/><path d="M12 18h.01"/><path d="M12 22h.01"/><path d="M16 16h.01"/><path d="M16 20h.01"/></svg>`;
-    case 'Linjemålning': return `<svg ${props}><path d="M12 19V5"/><path d="M5 12h14"/></svg>`;
-    case 'Fasadmålning': return `<svg ${props}><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
-    case 'Stalltvätt': return `<svg ${props}><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
-    case 'Bandgrävare': return `<svg ${props}><path d="M3 18h18"/><path d="M4 18v-5c0-2 2-3 4-3h8c2 0 4 1 4 3v5"/></svg>`;
-    default: return `<svg ${props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`;
-  }
+  if (name.includes('Kyl- & frysflytt')) return `<svg ${props}><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>`;
+  if (name.includes('Snöröjning')) return `<svg ${props}><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16h.01"/><path d="M8 20h.01"/><path d="M12 18h.01"/><path d="M12 22h.01"/><path d="M16 16h.01"/><path d="M16 20h.01"/></svg>`;
+  if (name.includes('Linjemålning')) return `<svg ${props}><path d="M12 19V5"/><path d="M5 12h14"/></svg>`;
+  if (name.includes('Fasadmålning')) return `<svg ${props}><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+  if (name.includes('Stalltvätt')) return `<svg ${props}><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
+  if (name.includes('Bandgrävare')) return `<svg ${props}><path d="M3 18h18"/><path d="M4 18v-5c0-2 2-3 4-3h8c2 0 4 1 4 3v5"/></svg>`;
+  return `<svg ${props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`;
 }
 
 function openSheet() { document.getElementById('sheetBackdrop').classList.add('active'); }
 function closeSheet() { document.getElementById('sheetBackdrop').classList.remove('active'); }
+
+function triggerPlaceAlert() {
+  const row = document.getElementById('row-place');
+  row.classList.remove('shake-alert');
+  void row.offsetWidth; // Tvinga reflow
+  row.classList.add('shake-alert');
+  document.getElementById('input-place').focus();
+  setTimeout(() => row.classList.remove('shake-alert'), 600);
+}
+
+function handleActivityClick() {
+  const place = document.getElementById('input-place').value.trim();
+  if (!place) {
+    triggerPlaceAlert();
+  }
+  openSheet();
+}
+
 function selectActivity(name) {
   currentActivity = name;
   document.getElementById('selected-activity').innerHTML = `${name} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
@@ -53,18 +70,40 @@ function getCurrentTimeStr() {
   return String(nu.getHours()).padStart(2, '0') + ':' + String(nu.getMinutes()).padStart(2, '0');
 }
 
+// RITA UT ORANGEA BUBBLOR
+function renderQuickChips() {
+  const container = document.getElementById('chips-container');
+  container.innerHTML = '';
+  
+  const recentPlaces = drafts.map(d => d.place).filter(Boolean);
+  const places = Array.from(new Set([...DEFAULT_PLACES, ...recentPlaces])).slice(0, 5);
+
+  places.forEach(place => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip-btn';
+    btn.innerText = place;
+    btn.onclick = () => {
+      document.getElementById('input-place').value = place;
+      document.getElementById('row-place').classList.remove('shake-alert');
+    };
+    container.appendChild(btn);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   document.getElementById('input-date').value = localDate;
   document.getElementById('input-start').value = getCurrentTimeStr();
   
+  renderQuickChips();
   updateLiveHours();
   renderOutbox();
   fetchPlannedJobs();
 });
 
-// Osthyveln: Hämtar kalenderhändelser
+// Hämtar kalenderjobb
 async function fetchPlannedJobs() {
   if (!navigator.onLine) return;
   try {
@@ -102,13 +141,22 @@ function updateLiveHours() {
   }
 }
 
-// Stämpla in på planerat jobb
+// Stämpla in på planerat jobb med snabbväxlings-koll
 function clockInPlannedJob(jobId) {
   const job = plannedJobs.find(j => j.id === jobId);
   if(!job) return;
+
+  const ongoing = drafts.find(d => !d.end);
+  if (ongoing) {
+    const shouldStop = confirm(`Du har redan "${ongoing.activity}" pågående.\n\nVill du stämpla ut det förra passet nu?`);
+    if (shouldStop) {
+      ongoing.end = getCurrentTimeStr();
+    }
+  }
   
   const draft = {
     id: Date.now(),
+    calendarJobId: job.id,
     type: 'normal',
     date: document.getElementById('input-date').value,
     place: job.place,
@@ -119,8 +167,50 @@ function clockInPlannedJob(jobId) {
   };
   
   drafts.push(draft);
-  plannedJobs = plannedJobs.filter(j => j.id !== jobId);
-  localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+  saveDrafts();
+  renderOutbox();
+  renderQuickChips();
+}
+
+// Skapa delat pass (+ Nytt pass)
+function createSplitPass(sourceId) {
+  const src = drafts.find(d => d.id === sourceId);
+  if (!src) return;
+
+  const ongoing = drafts.find(d => !d.end);
+  if (ongoing) {
+    const shouldStop = confirm(`Du har redan "${ongoing.activity}" pågående.\n\nVill du stämpla ut det förra passet nu?`);
+    if (shouldStop) {
+      ongoing.end = getCurrentTimeStr();
+    }
+  }
+
+  // Räkna ut passnummer
+  let baseName = src.activity;
+  let passNum = 2;
+  const match = src.activity.match(/^(.*?)\s*\(Pass\s*(\d+)\)$/i);
+  if (match) {
+    baseName = match[1];
+    passNum = parseInt(match[2]) + 1;
+  } else {
+    src.activity = `${src.activity} (Pass 1)`;
+  }
+
+  const newDraft = {
+    id: Date.now(),
+    calendarJobId: src.calendarJobId || null,
+    type: src.type || 'normal',
+    ataNumber: src.ataNumber || '',
+    date: document.getElementById('input-date').value,
+    place: src.place,
+    activity: `${baseName} (Pass ${passNum})`,
+    notes: src.notes || '',
+    start: getCurrentTimeStr(),
+    end: ''
+  };
+
+  drafts.push(newDraft);
+  saveDrafts();
   renderOutbox();
 }
 
@@ -128,20 +218,31 @@ function clockOut(id) {
   const draftIndex = drafts.findIndex(d => d.id === id);
   if (draftIndex !== -1) {
     drafts[draftIndex].end = getCurrentTimeStr();
-    localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+    saveDrafts();
     renderOutbox();
   }
 }
 
+function saveDrafts() {
+  localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+}
+
 function saveToOutbox() {
   const date = document.getElementById('input-date').value;
-  const place = document.getElementById('input-place').value;
+  const place = document.getElementById('input-place').value.trim();
   const notes = document.getElementById('input-notes').value;
   const start = document.getElementById('input-start').value;
   const end = document.getElementById('input-end').value;
   const ata = document.getElementById('input-ata').value;
 
-  if (!place || !start) { alert("Fyll i Betalställe och Starttid!"); return; }
+  if (!place) {
+    triggerPlaceAlert();
+    return;
+  }
+  if (!start) {
+    alert("Fyll i starttid!");
+    return;
+  }
 
   const draft = {
     id: Date.now(),
@@ -156,7 +257,7 @@ function saveToOutbox() {
   };
 
   drafts.push(draft);
-  localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+  saveDrafts();
 
   document.getElementById('input-place').value = '';
   document.getElementById('input-notes').value = '';
@@ -168,12 +269,14 @@ function saveToOutbox() {
   setJobType('nya');
   updateLiveHours();
   renderOutbox();
+  renderQuickChips();
 }
 
 function deleteDraft(id) {
   drafts = drafts.filter(draft => draft.id !== id);
-  localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+  saveDrafts();
   renderOutbox();
+  renderQuickChips();
 }
 
 function renderOutbox() {
@@ -192,9 +295,9 @@ function renderOutbox() {
   drafts.forEach(d => { if (d.start && d.end) totalHours += calculateHours(d.start, d.end); });
   title.innerText = `Dagens pass (${drafts.length} st · ${totalHours.toFixed(1)} h)`;
 
-  // Planerade jobb från kalendern visas först
+  // Planerade jobb (matchar på unikt kalender-ID)
   plannedJobs.forEach(job => {
-    if(drafts.some(d => d.activity === job.title)) return; 
+    if (drafts.some(d => d.calendarJobId === job.id)) return;
 
     const card = document.createElement('div');
     card.className = 'draft-card';
@@ -222,7 +325,7 @@ function renderOutbox() {
     container.appendChild(card);
   });
 
-  // Lokala pass i telefonen
+  // Sparade pass i utkorgen
   drafts.forEach(draft => {
     const card = document.createElement('div');
     card.className = 'draft-card';
@@ -244,8 +347,8 @@ function renderOutbox() {
         </button>`;
     } else {
       actionButtons = `
-        <button class="btn-action">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Ändra
+        <button class="btn-action split-pass" onclick="createSplitPass(${draft.id})">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Nytt pass
         </button>
         <button class="btn-action delete" onclick="deleteDraft(${draft.id})">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg> Radera
@@ -286,10 +389,11 @@ async function submitAll() {
     });
     const result = await res.json();
     if (result && result.status === "success") {
-      alert(`Klart! ${result.count} pass sparade.`);
-      drafts.length = 0;
-      localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
+      alert(`Klart! ${result.count} pass sparade i kalkylarket.`);
+      drafts = [];
+      saveDrafts();
       renderOutbox();
+      renderQuickChips();
     } else {
       alert("Fel vid inskick: " + (result.message || "Okänt fel"));
     }
