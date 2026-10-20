@@ -20,6 +20,7 @@ jobs:
           cp style.css prod_repo/
           cp index.html prod_repo/
           cp sw.js prod_repo/
+          cp sms.html_prod_repo/
 
       - name: Skicka ändringarna till produktion
         run: |
