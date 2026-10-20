@@ -132,7 +132,6 @@ textarea::placeholder { color: #545458; }
 input[type="date"], input[type="time"] { cursor: pointer; }
 
 .action-row { padding: 0 16px 14px 16px; }
-.add-photo-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; background: rgba(255,255,255,0.06); border-radius: 10px; color: var(--text-muted); font-size: 14px; font-weight: 500; cursor: pointer; }
 .main-btn { width: 100%; background: var(--accent); color: #FFF; font-size: 16px; font-weight: 600; padding: 14px; border-radius: 12px; border: none; cursor: pointer; }
 .main-btn:active { opacity: 0.8; }
 
@@ -168,7 +167,6 @@ input[type="date"], input[type="time"] { cursor: pointer; }
   overflow-y: auto;
 }
 
-/* KORRIGERAT MED MELLANSLAG SÅ ATT MENYN GLIDER UPP */
 .sheet-backdrop.active .sheet-container {
   transform: translateY(0);
 }
