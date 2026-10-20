@@ -1,9 +1,3 @@
-// ==============================================================================
-// 1. KONFIGURATION & WEB APP URL
-// ==============================================================================
-// Byt ut texten nedan mot länken du fick från Distribution i Google Apps Script:
-const SCRIPT_URL = const SCRIPT_URL = "https://script.google.com/macros/library/d/1gyj4MrgusfDCsshLPXMaWVuglHGIelVh9COW742cQdj1m4FO3H64Fou0/10";
-
 // Registrera Service Worker för offline-drift
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -18,10 +12,9 @@ let currentActivity = "";
 let currentJobType = "nya"; // 'kalender', 'nya' eller 'ata'
 
 // ==============================================================================
-// 2. FORMULÄR- & MENYSTYRNING
+// FORMULÄR- & MENYSTYRNING
 // ==============================================================================
 
-// Styrning av uppdragstyp (Kalender / Nya / ÄTA)
 function setJobType(type) {
   currentJobType = type;
   
@@ -42,7 +35,6 @@ function setJobType(type) {
   }
 }
 
-// Ikon-bibliotek med fasta mått (20x20)
 function getActivityIcon(name) {
   switch (name) {
     case 'Kyl- & frysflytt':
@@ -62,7 +54,6 @@ function getActivityIcon(name) {
   }
 }
 
-// Action Sheet
 function openSheet() {
   document.getElementById('sheetBackdrop').classList.add('active');
 }
@@ -81,10 +72,9 @@ function selectActivity(name) {
 }
 
 // ==============================================================================
-// 3. DATUM, TID & BERÄKNING
+// DATUM, TID & BERÄKNING
 // ==============================================================================
 
-// Starta och initiera datum & tid
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
@@ -134,7 +124,7 @@ function clockOut(id) {
 }
 
 // ==============================================================================
-// 4. UTKORGSHANTERING (LOKALT MINNE)
+// UTKORGSHANTERING (LOKALT MINNE)
 // ==============================================================================
 
 function saveToOutbox() {
@@ -165,7 +155,6 @@ function saveToOutbox() {
   drafts.push(draft);
   localStorage.setItem('tidrapport_drafts', JSON.stringify(drafts));
 
-  // Återställ formuläret
   document.getElementById('input-place').value = '';
   document.getElementById('input-notes').value = '';
   document.getElementById('input-end').value = '';
@@ -242,12 +231,9 @@ function renderOutbox() {
       `;
     } else {
       actionButtons = `
-        <button class="btn-action">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          Ändra
-        </button>
-        <button class="btn-action delete" onclick="deleteDraft(${draft.id})">
+        <button class="btn-action delete" onclick="deleteDraft(${draft.id})" style="width:100%;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          Ta bort pass
         </button>
       `;
     }
@@ -281,21 +267,20 @@ function renderOutbox() {
 }
 
 // ==============================================================================
-// 5. SKICKA IN TILL GOOGLE KALKYLARK
+// SKICKA IN TILL GOOGLE KALKYLARK
 // ==============================================================================
 
 async function submitAll() {
   if (drafts.length === 0) return;
 
-  // Kontrollera om det finns oavslutade stämplingar
   const hasOngoing = drafts.some(d => !d.end);
   if (hasOngoing) {
     alert("Du har ett pågående pass i listan. Stämpla ut det innan du skickar in!");
     return;
   }
 
-  if (SCRIPT_URL.includes("DIN_APPS_SCRIPT_ID_HAR")) {
-    alert("Du behöver klistra in din riktiga Google Web App URL högst upp i app.js först!");
+  if (typeof API_URL === 'undefined' || API_URL.includes("DIN_APPS_SCRIPT_ID_HAR")) {
+    alert("API_URL saknas eller är felaktig i config.js!");
     return;
   }
 
@@ -317,7 +302,7 @@ async function submitAll() {
   };
 
   try {
-    const res = await fetch(SCRIPT_URL, {
+    const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
