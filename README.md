@@ -78,4 +78,4 @@ Synkronisering från DEV till PROD sker via GitHub Actions (`workflow_dispatch`)
 ---
 
 ## 5. Licens och Drift
-Utvecklat för LPV Entreprenad. Optimerat för iOS Safari och WebKit.
+Utvecklat för LPV Fastighetsservice. Optimerat för iOS Safari och WebKit.
