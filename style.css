@@ -108,6 +108,8 @@ h1 {
   color: var(--text); 
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
   border: 1px solid transparent;
   transition: all 0.2s ease;
   display: flex;
@@ -236,22 +238,28 @@ input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webk
 }
 .main-btn:active { opacity: 0.8; }
 
-/* FÄLTSTÖD (CUPERTINO APPLE-STYLE GLASSMORPHISM) */
+/* FÄLTSTÖD (STEVE JOBS CUPERTINO GLASS-CARDS) */
 .nav-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 4px; margin-bottom: 24px; }
 .nav-card {
   background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; padding: 10px 4px; display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; padding: 12px 4px 10px 4px; display: flex;
   flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none;
   color: var(--text); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s;
 }
 .nav-card:active { transform: scale(0.93); background: rgba(255, 255, 255, 0.18); }
-.nav-icon { display: flex; align-items: center; justify-content: center; color: var(--accent); }
+.nav-icon { display: flex; align-items: center; justify-content: center; color: var(--accent); height: 24px; }
 .nav-label { font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: -0.2px; text-align: center; }
 
-/* ACTION SHEET */
-.sheet-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 100; }
+/* ACTION SHEET MED HÖGSTA Z-INDEX */
+.sheet-backdrop { 
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); 
+  opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 9999; 
+}
 .sheet-backdrop.active { opacity: 1; pointer-events: auto; }
-.sheet-container { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top-left-radius: 16px; border-top-right-radius: 16px; padding: 16px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.1, 0.9, 0.2, 1); z-index: 101; }
+.sheet-container { 
+  position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top-left-radius: 20px; border-top-right-radius: 20px; 
+  padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px) 16px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.1, 0.9, 0.2, 1); z-index: 10000; 
+}
 .sheet-backdrop.active .sheet-container { transform: translateY(0); }
 .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; }
 .sheet-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -294,7 +302,7 @@ input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webk
 .admin-btn { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--separator); border-radius: 8px; padding: 8px 0; font-weight: 600; color: var(--text); }
 .admin-btn:active { background: rgba(255, 255, 255, 0.12); }
 
-/* iOS SWITCH FÖR ADMIN */
+/* iOS SWITCH */
 .ios-switch { position: relative; display: inline-block; width: 40px; height: 22px; }
 .ios-switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.15); transition: .25s; border-radius: 22px; }
