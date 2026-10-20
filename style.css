@@ -1,180 +1,43 @@
-:root {
-  --bg: #000000;
-  --card: #1C1C1E;
-  --accent: #FF9F0A;
-  --accent-bg: rgba(255, 159, 10, 0.12);
-  --separator: rgba(255, 255, 255, 0.1);
-  --text: #FFFFFF;
-  --text-muted: #8E8E93;
-  --danger: #FF453A;
-  --blue: #0A84FF;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-body {
-  background: linear-gradient(135deg, #000000 0%, #1a1a24 100%);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  padding: calc(env(safe-area-inset-top) + 20px) 16px 40px 16px;
-  display: flex;
-  justify-content: center;
-  min-height: 100vh;
-}
-
-.app-container { width: 100%; max-width: 450px; }
-
-/* HEADER */
-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; padding: 0 4px; }
-h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
-.header-badges { display: flex; align-items: center; gap: 8px; }
-.user-pill { background: rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-.status-pill { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #30D158; }
-
-/* UTKORG / KARUSELL */
-.outbox-header-row { display: flex; justify-content: space-between; align-items: center; margin: 0 4px 10px 4px; }
-.submit-pill-btn { background: var(--blue); color: #FFF; border: none; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; }
-.submit-pill-btn:active { opacity: 0.8; }
-.carousel-container {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  padding: 4px 16px 16px 16px;
-  margin: 0 -16px 8px -16px;
-  scrollbar-width: none;
-}
-.carousel-container::-webkit-scrollbar { display: none; }
-
 .draft-card {
-  flex: 0 0 250px;
+  flex: 0 0 285px; /* Bredare kort (var 250px) */
+  min-height: 165px; /* Högre kort för mer rymd */
   scroll-snap-align: start;
   border-radius: 14px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  /* GLAS-EFFEKTEN */
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
+.card-body { padding: 16px 18px; } /* Mer utfyllnad inuti kortet */
+.card-title { font-size: 17px; font-weight: 600; display: flex; align-items: center; margin-bottom: 8px; } /* Större rubrik */
+.dot { color: var(--separator); margin: 0 6px; font-size: 11px; }
+.card-meta { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; margin-bottom: 8px; }
+.card-note { font-size: 13px; color: #D1D1D6; border-left: 2px solid var(--separator); padding-left: 10px; margin-top: 6px; }
 
-.card-body { padding: 12px 14px; }
-.card-title { font-size: 15px; font-weight: 600; display: flex; align-items: center; margin-bottom: 4px; }
-.dot { color: var(--separator); margin: 0 5px; font-size: 11px; }
-.card-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; margin-bottom: 6px; }
-.card-note { font-size: 12px; color: #D1D1D6; border-left: 2px solid var(--separator); padding-left: 8px; margin-top: 6px; }
-
+/* ÄTA-TAGG PÅ KORT */
 .badge-ata {
   background: rgba(255, 159, 10, 0.2);
   color: var(--accent);
   border: 1px solid rgba(255, 159, 10, 0.4);
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  margin-right: 6px;
+  margin-right: 8px;
   flex-shrink: 0;
 }
 
+/* STÖRRE KNAPPAR I KORTEN */
 .card-actions { display: flex; border-top: 0.5px solid var(--separator); background: rgba(255, 255, 255, 0.02); }
-.btn-action { flex: 1; padding: 10px 0; background: transparent; border: none; color: #FFF; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border-right: 0.5px solid var(--separator); }
+.btn-action { flex: 1; padding: 14px 0; background: transparent; border: none; color: #FFF; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
 .btn-action:last-child { border-right: none; }
+.btn-action:active { background: rgba(255, 255, 255, 0.05); }
 .btn-action.delete { color: var(--danger); }
 .btn-action.clock-out { color: #30D158; font-weight: 600; }
-
-.ongoing-pulse { color: #30D158; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
-.ongoing-pulse::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  background: #30D158;
-  border-radius: 50%;
-  box-shadow: 0 0 8px #30D158;
-  animation: pulse 1.5s infinite ease-in-out;
-}
-@keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
-
-/* FORMULÄR */
-.type-control { display: flex; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 2px; margin-bottom: 12px; }
-.type-btn { flex: 1; border: none; background: transparent; padding: 7px 0; font-size: 13px; font-weight: 500; color: var(--text-muted); border-radius: 6px; cursor: pointer; }
-.type-btn.active { background: rgba(255,255,255,0.14); color: #FFF; }
-
-.section-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 4px 8px 4px; }
-.section-title-row { display: flex; justify-content: space-between; align-items: center; margin: 18px 14px 8px 4px; }
-.section-title-row .section-title { margin: 0; }
-.duration-pill { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-bg); padding: 3px 8px; border-radius: 6px; }
-
-.ios-card {
-  border-radius: 14px;
-  margin-bottom: 16px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
-
-.ios-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 0.5px solid var(--separator); font-size: 15px; }
-.ios-row:last-child { border-bottom: none; }
-.ios-row:active { background: rgba(255, 255, 255, 0.04); }
-
-.val-text { color: var(--accent); display: flex; align-items: center; gap: 6px; }
-input, textarea { background: transparent; border: none; color: var(--accent); font-family: inherit; font-size: 15px; text-align: right; outline: none; }
-input::placeholder { color: #545458; }
-textarea { width: 100%; color: #FFF; text-align: left; resize: none; min-height: 48px; padding: 14px 16px; font-size: 14px; }
-textarea::placeholder { color: #545458; }
-input[type="date"], input[type="time"] { cursor: pointer; }
-
-.action-row { padding: 0 16px 14px 16px; }
-.main-btn { width: 100%; background: var(--accent); color: #FFF; font-size: 16px; font-weight: 600; padding: 14px; border-radius: 12px; border: none; cursor: pointer; }
-.main-btn:active { opacity: 0.8; }
-
-/* ACTION SHEET FÖR AKTIVITETER */
-.sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  z-index: 1000;
-}
-.sheet-backdrop.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.sheet-container {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #1C1C1E;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  padding: 16px 16px calc(env(safe-area-inset-bottom) + 20px) 16px;
-  transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.sheet-backdrop.active .sheet-container {
-  transform: translateY(0);
-}
-
-.sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; }
-.sheet-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-.sheet-close { color: var(--accent); font-size: 15px; font-weight: 600; background: none; border: none; cursor: pointer; }
-.sheet-item { display: flex; align-items: center; gap: 14px; padding: 14px 12px; border-radius: 10px; cursor: pointer; }
-.sheet-item:active { background: rgba(255,255,255,0.08); }
-.sheet-item svg { width: 22px; height: 22px; color: var(--text); flex-shrink: 0; }
-.sheet-item span { font-size: 16px; font-weight: 500; color: #FFF; }
+.btn-action.clock-in { color: var(--blue); font-weight: 600; } /* Ny färg för Stämpla in (Osthyveln) */
