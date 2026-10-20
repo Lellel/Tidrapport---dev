@@ -22,7 +22,7 @@
     body {
       background: linear-gradient(135deg, #000000 0%, #12121a 100%);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
       padding: 30px 16px 60px 16px;
       display: flex;
       justify-content: center;
@@ -35,136 +35,84 @@
     .step-section { margin-bottom: 34px; }
     .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
     .step-num {
-      background: var(--accent);
-      color: #000;
-      font-size: 12px;
-      font-weight: 800;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      background: var(--accent); color: #000; font-size: 12px; font-weight: 800;
+      width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .step-title { font-size: 16px; font-weight: 600; }
     .step-desc { font-size: 13px; color: #C7C7CC; margin-bottom: 12px; line-height: 1.4; }
 
     /* RENDERADE MOCKUP-KORT */
     .mockup-frame {
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid var(--separator);
-      border-radius: 18px;
-      padding: 14px;
-      margin-bottom: 10px;
+      background: rgba(0, 0, 0, 0.6); border: 1px solid var(--separator);
+      border-radius: 18px; padding: 14px; margin-bottom: 10px;
     }
     .rendered-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+      background: var(--card-bg); backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
     }
     .card-body { padding: 14px 16px; }
     .card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .card-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-    .card-note {
-      font-size: 12px;
-      color: #D1D1D6;
-      border-left: 2px solid var(--separator);
-      padding-left: 8px;
-      margin-top: 6px;
-    }
-    .card-actions {
-      display: flex;
-      border-top: 0.5px solid var(--separator);
-      background: rgba(255, 255, 255, 0.02);
-    }
+    .card-note { font-size: 12px; color: #D1D1D6; border-left: 2px solid var(--separator); padding-left: 8px; margin-top: 6px; }
+    
+    /* KNAPPAR I KORT */
+    .card-actions { display: flex; border-top: 0.5px solid var(--separator); background: rgba(255, 255, 255, 0.02); }
     .btn-action {
-      flex: 1;
-      padding: 12px 0;
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      border: none;
-      background: transparent;
+      flex: 1; padding: 12px 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; background: transparent;
     }
     .btn-clock-in { color: var(--blue); }
     .btn-clock-out { color: var(--green); }
     .btn-split { color: var(--accent); }
     .btn-del { color: var(--danger); border-left: 0.5px solid var(--separator); flex: 0 0 50px; }
 
-    /* STATUSAR */
-    .ongoing-pulse {
-      color: var(--green);
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .ongoing-pulse::before {
-      content: '';
-      width: 6px;
-      height: 6px;
-      background: var(--green);
-      border-radius: 50%;
-      box-shadow: 0 0 8px var(--green);
-    }
-    .badge-ata {
-      background: var(--accent-bg);
-      color: var(--accent);
-      border: 1px solid rgba(255,159,10,0.4);
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-    }
+    /* STATUSAR & BRICKOR */
+    .ongoing-pulse { color: var(--green); font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+    .ongoing-pulse::before { content: ''; width: 6px; height: 6px; background: var(--green); border-radius: 50%; box-shadow: 0 0 8px var(--green); }
+    .badge-ata { background: var(--accent-bg); color: var(--accent); border: 1px solid rgba(255,159,10,0.4); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+
+    /* MOCKUP HEADER */
+    .mock-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; padding: 0 4px; }
+    .mock-header h2 { font-size: 20px; font-weight: 700; }
+    .mock-badges { display: flex; gap: 6px; }
+    .mock-pill { background: rgba(255, 255, 255, 0.1); font-size: 10px; font-weight: 500; padding: 4px 8px; border-radius: 12px; display: flex; align-items: center; }
 
     /* MOCKUP FORMULÄR */
-    .mock-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 14px;
-      border-bottom: 0.5px solid var(--separator);
-      font-size: 15px;
-    }
+    .mock-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 0.5px solid var(--separator); font-size: 15px; }
     .mock-row:last-child { border-bottom: none; }
     .mock-val { color: var(--accent); font-weight: 500; display: flex; align-items: center; gap: 4px; }
+    
     .chips-demo { display: flex; gap: 6px; padding: 8px 14px; }
-    .chip {
-      background: var(--accent-bg);
-      border: 1px solid rgba(255, 159, 10, 0.4);
-      color: var(--accent);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 10px;
-      border-radius: 12px;
+    .chip { background: var(--accent-bg); border: 1px solid rgba(255, 159, 10, 0.4); color: var(--accent); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+
+    .photo-btn-mock {
+      display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px; margin: 12px 0;
+      background: rgba(100, 100, 100, 0.15); border: 1px dashed var(--green); border-radius: 10px; color: var(--green); font-size: 13px; font-weight: 500;
     }
 
     /* FÖRKLARINGSRUTOR */
-    .callout {
-      background: rgba(255, 255, 255, 0.04);
-      border-left: 3px solid var(--accent);
-      padding: 8px 12px;
-      border-radius: 0 8px 8px 0;
-      font-size: 12px;
-      color: #A1A1A6;
-      line-height: 1.4;
-    }
+    .callout { background: rgba(255, 255, 255, 0.04); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 13px; color: #A1A1A6; line-height: 1.4; }
     .callout strong { color: #FFF; }
   </style>
 </head>
 <body>
 
 <div class="guide-container">
-  <h1>Tidrapport – Fälthandbok</h1>
-  <p class="subtitle">Snabbguide för registrering, stämpelklocka och inskick från grävmaskin och arbetsplats.</p>
+  
+  <div class="mock-header">
+    <h2>Tidrapport</h2>
+    <div class="mock-badges">
+      <!-- Temaknapp Mockup -->
+      <div class="mock-pill">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </div>
+      <div class="mock-pill">Daniel</div>
+      <div class="mock-pill" style="color:var(--text-muted);"><div style="width:5px; height:5px; background:var(--green); border-radius:50%; margin-right:4px;"></div>Ansluten</div>
+    </div>
+  </div>
+
+  <p class="subtitle" style="margin-bottom: 30px;">
+    <strong>Tips!</strong> Tryck på sol/måne-ikonen uppe till höger för att byta mellan mörkt och ljust tema. Telefonen minns ditt val till nästa gång.
+  </p>
 
   <!-- 1. BOKADE PASS (OSTHYVELN) -->
   <div class="step-section">
@@ -176,19 +124,12 @@
     <div class="mockup-frame">
       <div class="rendered-card">
         <div class="card-body">
-          <div class="card-title">
-            <span style="color:var(--blue);">🚜</span>
-            <span>Stalltvätt TV 99</span>
-          </div>
-          <div class="card-meta">
-            <span>📅 Planerat</span> • <span>Blacksta Flen</span>
-          </div>
+          <div class="card-title"><span style="color:var(--blue);">🚜</span><span>Stalltvätt TV 99</span></div>
+          <div class="card-meta"><span>📅 Planerat</span> • <span>Blacksta Flen</span></div>
           <div class="card-note">Spruta skit omkring dig!</div>
         </div>
         <div class="card-actions">
-          <button class="btn-action btn-clock-in">
-            ➔ Stämpla in
-          </button>
+          <button class="btn-action btn-clock-in">➔ Stämpla in</button>
         </div>
       </div>
     </div>
@@ -207,25 +148,14 @@
     <div class="mockup-frame">
       <div class="rendered-card">
         <div class="card-body">
-          <div class="card-title">
-            <span style="color:var(--accent);">🚜</span>
-            <span>Stalltvätt TV 99</span>
-          </div>
-          <div class="card-meta">
-            <span>20 okt</span> • <span class="ongoing-pulse">Pågår</span>
-          </div>
-          <div class="card-note">Spruta skit omkring dig!</div>
+          <div class="card-title"><span style="color:var(--accent);">🚜</span><span>Stalltvätt TV 99</span></div>
+          <div class="card-meta"><span>20 okt</span> • <span class="ongoing-pulse">Pågår</span></div>
         </div>
         <div class="card-actions">
-          <button class="btn-action btn-clock-out">
-            ⏹ Stämpla ut nu
-          </button>
+          <button class="btn-action btn-clock-out">⏹ Stämpla ut nu</button>
           <button class="btn-action btn-del">🗑</button>
         </div>
       </div>
-    </div>
-    <div class="callout">
-      <strong>Åtgärd:</strong> När passet är slut trycker du <strong>Stämpla ut nu</strong>. Sluttid sparas och timmarna summeras.
     </div>
   </div>
 
@@ -239,34 +169,27 @@
     <div class="mockup-frame">
       <div class="rendered-card">
         <div class="card-body">
-          <div class="card-title">
-            <span style="color:var(--accent);">🚜</span>
-            <span>Stalltvätt TV 99 (Pass 1)</span>
-          </div>
-          <div class="card-meta">
-            <span>20 okt</span> • <span>07:00 – 11:30</span> • <span style="color:#FFF; font-weight:600;">4.5 h</span>
-          </div>
+          <div class="card-title"><span style="color:var(--accent);">🚜</span><span>Stalltvätt TV 99 (Pass 1)</span></div>
+          <div class="card-meta"><span>20 okt</span> • <span>07:00 – 11:30</span> • <span style="color:#FFF; font-weight:600;">4.5 h</span></div>
         </div>
         <div class="card-actions">
-          <button class="btn-action btn-split">
-            + Nytt pass
-          </button>
+          <button class="btn-action btn-split">+ Nytt pass</button>
           <button class="btn-action btn-del">🗑</button>
         </div>
       </div>
     </div>
     <div class="callout">
-      <strong>Åtgärd:</strong> Klicka <strong>+ Nytt pass</strong>. Ett nytt kort (Pass 2) skapas med samma uppdrag och plats och stämplas in med aktuell tid.
+      Klicka <strong>+ Nytt pass</strong>. Ett nytt kort (Pass 2) skapas med samma uppdrag och plats och stämplas in med aktuell tid.
     </div>
   </div>
 
-  <!-- 4. MANUELL REGISTRERING & ÄTA -->
+  <!-- 4. FOTON & DOKUMENTATION -->
   <div class="step-section">
     <div class="step-header">
       <div class="step-num">4</div>
-      <div class="step-title">Oplanerade jobb & ÄTA</div>
+      <div class="step-title">Bifoga flera bilder & ÄTA</div>
     </div>
-    <div class="step-desc">För akuta utryckningar eller extraarbeten som inte fanns i kalendern.</div>
+    <div class="step-desc">För oplanerade jobb, avvikelser eller ÄTA-dokumentation.</div>
     <div class="mockup-frame">
       <div class="rendered-card">
         <div class="mock-row" style="background: rgba(255,255,255,0.03);">
@@ -277,41 +200,16 @@
           </span>
         </div>
         <div class="mock-row">
-          <span>Betalställe</span>
-          <span class="mock-val">Coop</span>
-        </div>
-        <div class="chips-demo">
-          <span class="chip">Blacksta</span>
-          <span class="chip" style="border-color:var(--accent);">Coop</span>
-          <span class="chip">Testplats</span>
-        </div>
-        <div class="mock-row">
           <span>ÄTA-nr / Ref</span>
           <span class="mock-val">ÄTA 04</span>
         </div>
-        <div class="mock-row">
-          <span>Aktivitet</span>
-          <span class="mock-val">Kyl- & frysflytt ›</span>
+        <div style="padding: 0 14px;">
+          <div class="photo-btn-mock">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            3 Bilder bifogade
+          </div>
         </div>
       </div>
     </div>
     <div class="callout">
-      <strong>Tips:</strong> Använd de orangea bubblorna för att ange betalställe med ett tryck utan att fälla upp tangentbordet.
-    </div>
-  </div>
-
-  <!-- 5. SYNK MOT KONTOR -->
-  <div class="step-section">
-    <div class="step-header">
-      <div class="step-num">5</div>
-      <div class="step-title">Skicka in dagens timmar</div>
-    </div>
-    <div class="step-desc">Vid arbetsdagens slut skickas alla sparade kort i karusellen över till kalkylarket i en enda batch.</div>
-    <div class="callout" style="border-left-color: var(--blue);">
-      Tryck på den blå knappen <strong>Skicka in</strong> högst upp. Korten töms ur telefonen och alla rader bokförs direkt i kalkylarket under fliken <em>Tidrapporter</em>.
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
+      <strong>Kameran:</strong> Du kan markera <strong>flera bilder</strong> från ditt galleri samtidigt. Telefonen krymper bilderna direkt
