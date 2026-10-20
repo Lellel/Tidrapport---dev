@@ -1,4 +1,4 @@
-// Registrera Service Worker för offline-drift
+// Registrera Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
@@ -11,14 +11,11 @@ if ('serviceWorker' in navigator) {
 let drafts = loadAllDrafts();
 let currentActivity = "";
 let currentJobType = "nya";
-let attachedPhotoBase64 = null;
+let currentImagesBase64 = []; // Flerbildsuppladdning
 
 // Läs användare och Admin-status från URL / localStorage
 const urlParams = new URLSearchParams(window.location.search);
-
-if (urlParams.has('user')) {
-  localStorage.setItem('lpv_user', urlParams.get('user'));
-}
+if (urlParams.has('user')) localStorage.setItem('lpv_user', urlParams.get('user'));
 if (urlParams.has('admin')) {
   const isAdm = urlParams.get('admin').toLowerCase() === 'true' || urlParams.get('admin') === '1';
   localStorage.setItem('lpv_is_admin', isAdm ? 'true' : 'false');
@@ -28,14 +25,37 @@ const currentUser = urlParams.get('user') || localStorage.getItem('lpv_user') ||
 let isAdmin = (urlParams.get('admin') && (urlParams.get('admin').toLowerCase() === 'true' || urlParams.get('admin') === '1'))
            || localStorage.getItem('lpv_is_admin') === 'true';
 
-// Hantera klick på namn-pillret (Tryck 3 ggr för att slå på/av Admin manuellt)
+let adminUserList = [];
+let hasFetchedUsers = false;
+
+// TEMA-VÄXLARE
+const themeBtn = document.getElementById('theme-toggle');
+const themeMeta = document.getElementById('theme-color-meta');
+const currentTheme = localStorage.getItem('tidrapport_theme') || 'dark';
+
+if (currentTheme === 'light') {
+  document.documentElement.classList.add('light-theme');
+  document.body.classList.add('light-theme');
+  if (themeMeta) themeMeta.setAttribute('content', '#F2F2F7');
+}
+
+if (themeBtn) {
+  themeBtn.addEventListener('click', () => {
+    document.documentElement.classList.toggle('light-theme');
+    document.body.classList.toggle('light-theme');
+    const isLight = document.body.classList.contains('light-theme');
+    localStorage.setItem('tidrapport_theme', isLight ? 'light' : 'dark');
+    if (themeMeta) themeMeta.setAttribute('content', isLight ? '#F2F2F7' : '#000000');
+  });
+}
+
+// 3 klick för manuell admin-togglande
 let userClickCount = 0;
 let userClickTimer = null;
 function handleUserPillClick() {
   userClickCount++;
   clearTimeout(userClickTimer);
   userClickTimer = setTimeout(() => { userClickCount = 0; }, 1000);
-
   if (userClickCount >= 3) {
     userClickCount = 0;
     isAdmin = !isAdmin;
@@ -45,16 +65,13 @@ function handleUserPillClick() {
   }
 }
 
-// Hämtar pass ur båda historiska nycklarna
 function loadAllDrafts() {
   const d1 = localStorage.getItem('tidrapport_drafts');
   const d2 = localStorage.getItem('lpv_tidrapport_drafts');
   try {
     if (d1) return JSON.parse(d1);
     if (d2) return JSON.parse(d2);
-  } catch (e) {
-    console.error("Kunde inte läsa utkast:", e);
-  }
+  } catch (e) { console.error(e); }
   return [];
 }
 
@@ -64,45 +81,43 @@ function saveDraftsToStorage() {
   localStorage.setItem('lpv_tidrapport_drafts', json);
 }
 
-// Ikon-bibliotek (SVG 20x20)
+// IKONER MED EGNA VEKTOR-PATHS ENLIGT KRAV
 function getActivityIcon(name) {
-  switch (name) {
-    case 'Bandgrävare':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18h18"/><path d="M4 18v-5c0-2 2-3 4-3h8c2 0 4 1 4 3v5"/></svg>`;
-    case 'Stalltvätt':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
-    case 'Snöröjning':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>`;
-    case 'Kyl- & frysflytt':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>`;
-    case 'Linjemålning':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5"/><path d="M5 12h14"/></svg>`;
-    case 'Fasadmålning':
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
-    default:
-      return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+  const n = (name || "").toLowerCase();
+  if (n.includes('band') || n.includes('gräv')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h8v2H4z"/><circle cx="5" cy="15" r="1"/><circle cx="8" cy="15" r="1"/><circle cx="11" cy="15" r="1"/><path d="M5 14v-4h4v4"/><path d="M9 12l4-2 3 3-1 2-2-1"/></svg>`;
   }
+  if (n.includes('tvätt')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-4 2 2-4 4z"/><path d="M8 16l8-8"/><path d="M16 8l2-2"/><circle cx="20" cy="4" r="1"/><circle cx="21" cy="7" r="1"/><circle cx="17" cy="3" r="1"/></svg>`;
+  }
+  if (n.includes('snö') || n.includes('plog')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-3h4l1 3h3"/><circle cx="7" cy="16" r="2"/><circle cx="15" cy="16" r="2"/><path d="M17 12l3 3v2"/><path d="M20 4l2 2m0-2l-2 2m1-3v4m-2-2h4"/></svg>`;
+  }
+  if (n.includes('kyl') || n.includes('frys')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h2l2-14h-2"/><circle cx="5" cy="20" r="1"/><path d="M8 6h8v12H8z"/><path d="M8 12h8"/></svg>`;
+  }
+  if (n.includes('linje')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16h6l1-4H7z"/><circle cx="6" cy="16" r="1"/><circle cx="11" cy="16" r="1"/><path d="M11 12l3-4h3"/><path d="M14 18h8" stroke-dasharray="2 2"/></svg>`;
+  }
+  if (n.includes('fasad')) {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l6-6 6 6v10H3z"/><path d="M6 10h4v4H6z"/><path d="M16 20v-8h6v8M16 16h6"/></svg>`;
+  }
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
 }
 
-// Action Sheet-kontroll
-function openSheet() {
-  document.getElementById('sheetBackdrop').classList.add('active');
-}
-
-function closeSheet() {
-  document.getElementById('sheetBackdrop').classList.remove('active');
-}
-
+// Action Sheet & Aktivitetsval
+function openSheet() { document.getElementById('sheetBackdrop').classList.add('active'); }
+function closeSheet() { document.getElementById('sheetBackdrop').classList.remove('active'); }
 function selectActivity(name) {
   currentActivity = name;
-  document.getElementById('selected-activity').innerHTML = `
-    ${name}
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-  `;
+  document.getElementById('selected-activity').innerHTML = `${name} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
   closeSheet();
 }
+function handleActivityClick() {
+  if (!document.getElementById('input-place').value.trim()) triggerPlaceAlert();
+  openSheet();
+}
 
-// Jobbtyp (Kalender / Nya / ÄTA)
 function setJobType(type) {
   currentJobType = type;
   document.getElementById('btn-type-cal').classList.toggle('active', type === 'kalender');
@@ -116,15 +131,40 @@ function setJobType(type) {
   } else {
     ataRow.style.display = 'none';
   }
-
-  if (type === 'kalender') {
-    fetchCalendarData();
-  }
+  if (type === 'kalender') fetchCalendarData();
 }
 
-// Initiering
+// CHIPS (SNABBVAL) OCH SKAK-ALERT
+const DEFAULT_PLACES = ["Blacksta", "Coop", "Testplats"];
+function renderQuickChips() {
+  const container = document.getElementById('chips-container');
+  if (!container) return;
+  container.innerHTML = '';
+  const recentPlaces = drafts.map(d => d.place).filter(Boolean);
+  const places = Array.from(new Set([...DEFAULT_PLACES, ...recentPlaces])).slice(0, 5);
+  
+  places.forEach(place => {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'chip-btn'; btn.innerText = place;
+    btn.onclick = () => {
+      document.getElementById('input-place').value = place;
+      document.getElementById('row-place').classList.remove('shake-alert');
+    };
+    container.appendChild(btn);
+  });
+}
+
+function triggerPlaceAlert() {
+  const row = document.getElementById('row-place');
+  row.classList.remove('shake-alert');
+  void row.offsetWidth;
+  row.classList.add('shake-alert');
+  document.getElementById('input-place').focus();
+  setTimeout(() => row.classList.remove('shake-alert'), 600);
+}
+
+// INITIERING
 function initApp() {
-  // Sätt dagens datum & aktuell starttid
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   const dateInput = document.getElementById('input-date');
@@ -136,13 +176,11 @@ function initApp() {
   if (startInput) startInput.value = `${h}:${m}`;
 
   updateAdminUI();
-
   window.addEventListener('resize', updateDashboardData);
-  window.addEventListener('orientationchange', () => {
-    setTimeout(updateDashboardData, 150);
-  });
+  window.addEventListener('orientationchange', () => setTimeout(updateDashboardData, 150));
 
   updateLiveHours();
+  renderQuickChips();
   renderOutbox();
   updateDashboardData();
 }
@@ -159,14 +197,17 @@ function updateAdminUI() {
     userDisplay.innerText = isAdmin ? `${currentUser} 👑` : currentUser;
     userDisplay.classList.toggle('is-admin', isAdmin);
   }
-
   const adminSection = document.getElementById('admin-tools-section');
   if (adminSection) {
-    adminSection.style.display = isAdmin ? 'block' : 'none';
+    if (isAdmin) {
+      adminSection.style.display = 'block';
+      if (!hasFetchedUsers) fetchAdminUsers();
+    } else {
+      adminSection.style.display = 'none';
+    }
   }
 }
 
-// Tidsberäkning
 function calculateHours(start, end) {
   if (!start || !end) return 0;
   const [startH, startM] = start.split(':').map(Number);
@@ -176,12 +217,10 @@ function calculateHours(start, end) {
   return diff;
 }
 
-// Live-indikator på tider
 function updateLiveHours() {
   const start = document.getElementById('input-start').value;
   const end = document.getElementById('input-end').value;
   const badge = document.getElementById('current-duration-badge');
-
   if (start && end) {
     const hours = calculateHours(start, end);
     badge.innerText = `${hours.toFixed(1)} h`;
@@ -191,35 +230,52 @@ function updateLiveHours() {
   }
 }
 
-// Bilduppladdning och komprimering till Base64
-function handlePhotoSelect(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+// BILD-UPPLADDNING (MULTI)
+document.getElementById('camera-input')?.addEventListener('change', async function(e) {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+  const maxFiles = Math.min(files.length, 5);
+  document.getElementById('photo-label').innerText = "Bearbetar bilder...";
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 1200;
-      const scaleSize = MAX_WIDTH / img.width;
-      canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
-      canvas.height = (img.width > MAX_WIDTH) ? (img.height * scaleSize) : img.height;
+  for (let i = 0; i < maxFiles; i++) {
+    const file = files[i];
+    await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; // Från specifikationen
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
+          canvas.height = (img.width > MAX_WIDTH) ? (img.height * scaleSize) : img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          currentImagesBase64.push(canvas.toDataURL('image/jpeg', 0.7));
+          resolve();
+        };
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  document.getElementById('photo-label').innerText = currentImagesBase64.length + " Bilder bifogade";
+  document.querySelector('.add-photo-btn').style.borderColor = "var(--green)";
+  document.querySelector('.add-photo-btn').style.color = "var(--green)";
+});
 
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      attachedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
-      document.getElementById('photo-label').innerText = "✓ Bild bifogad";
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+function resetPhotoInput() {
+  currentImagesBase64 = [];
+  const camInput = document.getElementById('camera-input');
+  if(camInput) camInput.value = "";
+  document.getElementById('photo-label').innerText = "Bifoga bild-underlag";
+  document.querySelector('.add-photo-btn').style.borderColor = "rgba(255, 159, 10, 0.3)";
+  document.querySelector('.add-photo-btn').style.color = "var(--accent)";
 }
 
-// Stämpla ut pågående pass
 function clockOut(id) {
   const nu = new Date();
-  const timeString = nu.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+  const timeString = String(nu.getHours()).padStart(2, '0') + ':' + String(nu.getMinutes()).padStart(2, '0');
   const draftIndex = drafts.findIndex(d => d.id === id);
   if (draftIndex !== -1) {
     drafts[draftIndex].end = timeString;
@@ -230,7 +286,6 @@ function clockOut(id) {
   }
 }
 
-// Spara till Utkorg
 function saveToOutbox() {
   const date = document.getElementById('input-date').value;
   const place = document.getElementById('input-place').value.trim();
@@ -239,13 +294,10 @@ function saveToOutbox() {
   const end = document.getElementById('input-end').value;
   const ata = document.getElementById('input-ata').value.trim();
 
-  if (!place || !start) {
-    alert("Fyll i Betalställe och Starttid!");
-    return;
-  }
+  if (!place) { triggerPlaceAlert(); return; }
+  if (!start) { alert("Fyll i starttid!"); return; }
 
   const hours = end ? calculateHours(start, end).toFixed(1) : "0.0";
-
   const draft = {
     id: Date.now(),
     type: currentJobType,
@@ -258,32 +310,28 @@ function saveToOutbox() {
     start: start,
     end: end,
     totalHours: hours,
-    photo: attachedPhotoBase64
+    images: [...currentImagesBase64] // Sparar arrayen med bilder
   };
 
   drafts.push(draft);
   saveDraftsToStorage();
 
-  // Återställ formulär
   document.getElementById('input-place').value = '';
   document.getElementById('input-notes').value = '';
   document.getElementById('input-end').value = '';
   document.getElementById('input-ata').value = '';
-  document.getElementById('photo-label').innerText = "Bifoga bild-underlag";
-  attachedPhotoBase64 = null;
+  resetPhotoInput();
 
   const nu = new Date();
   const h = String(nu.getHours()).padStart(2, '0');
   const m = String(nu.getMinutes()).padStart(2, '0');
   document.getElementById('input-start').value = `${h}:${m}`;
-  document.getElementById('selected-activity').innerHTML = `
-    Välj aktivitet
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-  `;
+  document.getElementById('selected-activity').innerHTML = `Välj aktivitet <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
   currentActivity = "";
   setJobType('nya');
 
   updateLiveHours();
+  renderQuickChips();
   renderOutbox();
   updateDashboardData();
 }
@@ -295,18 +343,15 @@ function deleteDraft(id) {
   updateDashboardData();
 }
 
-// Rendera utkorgskorten
 function renderOutbox() {
   const container = document.getElementById('outbox-container');
   const title = document.getElementById('outbox-title');
   const submitBtn = document.getElementById('btnSubmitAll');
 
   container.innerHTML = '';
-
   if (drafts.length === 0) {
     title.innerText = "Dagens pass (0 st)";
     if (submitBtn) submitBtn.style.display = 'none';
-
     container.innerHTML = `
       <div class="draft-card empty-placeholder">
         <div style="font-size: 13px; color: var(--text-muted);">
@@ -318,14 +363,8 @@ function renderOutbox() {
   }
 
   if (submitBtn) submitBtn.style.display = 'flex';
-
   let totalHours = 0;
-  drafts.forEach(d => {
-    if (d.start && d.end) {
-      totalHours += parseFloat(calculateHours(d.start, d.end));
-    }
-  });
-
+  drafts.forEach(d => { if (d.start && d.end) totalHours += parseFloat(calculateHours(d.start, d.end)); });
   title.innerText = `Dagens pass (${drafts.length} st • ${totalHours.toFixed(1)} h)`;
 
   drafts.forEach(draft => {
@@ -336,58 +375,46 @@ function renderOutbox() {
     const timeDisplay = isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} – ${draft.end}`;
     const hoursDisplay = isOngoing ? '' : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
     const ataBadge = draft.type === 'ata' ? `<span class="badge-ata">${draft.ataNumber ? draft.ataNumber : 'ÄTA'}</span>` : '';
+    const photoIcon = (draft.images && draft.images.length > 0) ? `<span style="color:var(--green); margin-left:auto;">📸</span>` : '';
 
-    let actionButtons = '';
-    if (isOngoing) {
-      actionButtons = `
-        <button class="btn-action clock-out" onclick="clockOut(${draft.id})">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
-          Stämpla ut nu
-        </button>
-        <button class="btn-action delete" onclick="deleteDraft(${draft.id})" style="flex:0 0 45px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
-        </button>
-      `;
-    } else {
-      actionButtons = `
-        <button class="btn-action delete" onclick="deleteDraft(${draft.id})">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
-          Radera
-        </button>
-      `;
-    }
+    let actionButtons = isOngoing ? `
+      <button class="btn-action clock-out" onclick="clockOut(${draft.id})">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+        Stämpla ut nu
+      </button>
+      <button class="btn-action delete" onclick="deleteDraft(${draft.id})" style="flex:0 0 45px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+    ` : `
+      <button class="btn-action delete" onclick="deleteDraft(${draft.id})">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+        Radera
+      </button>
+    `;
 
     card.innerHTML = `
       <div class="card-body">
         <div class="card-title">
-          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">
-            ${iconSvg}
-          </span>
+          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">${iconSvg}</span>
           ${ataBadge}
           <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${draft.place}</span>
           <span class="dot">•</span>
           <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>
+          ${photoIcon}
         </div>
         <div class="card-meta">
-          <span>${draft.date}</span>
-          <span class="dot">•</span>
-          <span>${timeDisplay}</span>
-          ${hoursDisplay ? `<span class="dot">•</span><span style="color:#FFF; font-weight:500;">${hoursDisplay}</span>` : ''}
+          <span>${draft.date}</span><span class="dot">•</span><span>${timeDisplay}</span>
+          ${hoursDisplay ? `<span class="dot">•</span><span style="color:var(--text); font-weight:500;">${hoursDisplay}</span>` : ''}
         </div>
         ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
       </div>
-      <div class="card-actions">
-        ${actionButtons}
-      </div>
+      <div class="card-actions">${actionButtons}</div>
     `;
     container.appendChild(card);
   });
 }
 
-// Skicka in allt till backend (Batch)
+// BATCH-RAPPORT MED CORS-FIX
 async function submitAll() {
   if (drafts.length === 0) return;
-
   const btn = document.getElementById('btnSubmitAll');
   btn.innerHTML = `<svg class="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Skickar...`;
   btn.disabled = true;
@@ -395,13 +422,14 @@ async function submitAll() {
   try {
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      redirect: 'follow',
       body: JSON.stringify({
         token: CONFIG.API_TOKEN,
         action: 'batchReports',
         pass: drafts
       })
     });
-
     const result = await res.json();
     if (result && result.status === 'success') {
       alert(`Klart! ${result.count || drafts.length} pass har sparats i kalkylarket.`);
@@ -421,12 +449,14 @@ async function submitAll() {
   }
 }
 
-// Osthyveln: Hämta jobb från Google Kalender
+// KALENDER MED CORS-FIX
 async function fetchCalendarData() {
   const chosenDate = document.getElementById('input-date').value;
   try {
     const res = await fetch(CONFIG.API_URL, {
       method: "POST",
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      redirect: 'follow',
       body: JSON.stringify({
         token: CONFIG.API_TOKEN,
         action: "getCalendar",
@@ -442,9 +472,7 @@ async function fetchCalendarData() {
         document.getElementById('input-start').value = ev.start;
         document.getElementById('input-end').value = ev.end;
       }
-      if (ev.description) {
-        document.getElementById('input-notes').value = ev.description;
-      }
+      if (ev.description) document.getElementById('input-notes').value = ev.description;
       updateLiveHours();
       alert(`Hämtade schemalagt jobb: ${ev.title} (${ev.place})`);
     } else {
@@ -456,10 +484,7 @@ async function fetchCalendarData() {
   }
 }
 
-// ==========================================
-// DASHBOARD & ADMIN-LOGIK
-// ==========================================
-
+// DASHBOARD
 function updateDashboardData() {
   const totalHoursEl = document.getElementById('dash-total-hours');
   const passCountEl = document.getElementById('dash-pass-count');
@@ -467,7 +492,6 @@ function updateDashboardData() {
   if (!totalHoursEl || !listEl) return;
 
   passCountEl.innerText = `${drafts.length} st`;
-
   let totalH = 0;
   listEl.innerHTML = '';
 
@@ -480,43 +504,111 @@ function updateDashboardData() {
   drafts.forEach(p => {
     const hours = parseFloat(p.totalHours || calculateHours(p.start, p.end) || 0);
     totalH += hours;
-
     const row = document.createElement('div');
     row.className = 'dash-row';
     row.innerHTML = `
       <div>
-        <div style="font-weight:600; color:#FFF;">${p.place || 'Uppdrag'}</div>
+        <div style="font-weight:600; color:var(--text);">${p.place || 'Uppdrag'}</div>
         <div style="font-size:11px; color:var(--text-muted);">${p.activity || 'Övrigt'} (${p.start}–${p.end || 'Pågår'})</div>
       </div>
       <div style="font-weight:600; color:var(--accent);">${hours.toFixed(1)} h</div>
     `;
     listEl.appendChild(row);
   });
-
   totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
 }
 
-// Skicka länk via SMS
-function adminSendSMS() {
-  const baseUrl = window.location.origin + window.location.pathname;
-  window.location.href = `sms:?&body=${encodeURIComponent("Här är inloggningen till LPV Tidrapport: " + baseUrl)}`;
+// ADMIN-LOGIK & KONTAKTBOK MED CORS-FIX
+async function fetchAdminUsers() {
+  const select = document.getElementById('admin-target-user');
+  if (!select) return;
+  select.innerHTML = '<option value="">Hämtar...</option>';
+  try {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      redirect: 'follow',
+      body: JSON.stringify({ token: CONFIG.API_TOKEN, action: 'getUsers' })
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
+      adminUserList = data.users;
+      hasFetchedUsers = true;
+      select.innerHTML = '<option value="">Välj person...</option>';
+      adminUserList.forEach(u => { select.innerHTML += `<option value="${u.name}">${u.name}</option>`; });
+    } else {
+      select.innerHTML = '<option value="">Fel vid hämtning</option>';
+    }
+  } catch (err) {
+    console.error("Kunde inte hämta användare:", err);
+    select.innerHTML = '<option value="">Offline</option>';
+  }
 }
 
-// Skicka länk via E-post
-function adminSendEmail() {
-  const baseUrl = window.location.origin + window.location.pathname;
-  window.location.href = `mailto:?subject=${encodeURIComponent("Inloggning LPV Tidrapport")}&body=${encodeURIComponent("Klicka här för att logga in på telefonen: " + baseUrl)}`;
+function onAdminUserSelect() {
+  const select = document.getElementById('admin-target-user');
+  const phoneInput = document.getElementById('admin-target-phone');
+  const adminCheck = document.getElementById('admin-target-is-admin');
+  if (!select || !phoneInput || !adminCheck) return;
+
+  const selectedUser = adminUserList.find(u => u.name === select.value);
+  if (selectedUser) {
+    let phoneVal = selectedUser.phone ? String(selectedUser.phone).trim() : '';
+    if (phoneVal.length === 9 && !phoneVal.startsWith('0')) phoneVal = '0' + phoneVal; 
+    phoneInput.value = phoneVal;
+    adminCheck.checked = selectedUser.isAdmin;
+  } else {
+    phoneInput.value = '';
+    adminCheck.checked = false;
+  }
+  updateAdminTargetLink();
 }
 
-// Växla QR-kodsvisning
-function toggleAdminQR() {
+function getAdminTargetUrl() {
+  const targetUser = document.getElementById('admin-target-user')?.value.trim() || '';
+  const targetIsAdmin = document.getElementById('admin-target-is-admin')?.checked;
+  const baseUrl = window.location.origin + window.location.pathname;
+  const params = new URLSearchParams();
+  if (targetUser) params.set('user', targetUser);
+  if (targetIsAdmin) params.set('admin', 'true');
+  const qs = params.toString();
+  return qs ? `${baseUrl}?${qs}` : baseUrl;
+}
+
+function updateAdminTargetLink() {
   const qrBox = document.getElementById('admin-qr-container');
   const qrImg = document.getElementById('admin-qr-image');
-  if (!qrBox || !qrImg) return;
+  const caption = document.getElementById('admin-qr-caption');
+  if (qrBox && qrBox.style.display === 'block' && qrImg) {
+    const targetUrl = getAdminTargetUrl();
+    const targetUser = document.getElementById('admin-target-user')?.value.trim() || '';
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(targetUrl)}`;
+    if (caption) caption.innerText = targetUser ? `Skanna för att logga in som ${targetUser}:` : "Skanna för att logga in:";
+  }
+}
 
+function adminSendSMS() {
+  const targetUrl = getAdminTargetUrl();
+  const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
+  const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
+  const message = `Hej ${targetUser}! Här är din inloggningslänk till LPV Tidrapport: ${targetUrl}`;
+  if (phone) window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(message)}`;
+  else window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
+}
+
+function adminSendEmail() {
+  const targetUrl = getAdminTargetUrl();
+  const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
+  const subject = "Inloggning LPV Tidrapport";
+  const body = `Hej ${targetUser}!\n\nHär är din inloggningslänk till LPV Tidrapport:\n${targetUrl}\n\nKlicka på länken från din telefon för att logga in.`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function toggleAdminQR() {
+  const qrBox = document.getElementById('admin-qr-container');
+  if (!qrBox) return;
   if (qrBox.style.display === 'none' || qrBox.style.display === '') {
-    const currentUrl = window.location.origin + window.location.pathname;
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentUrl)}`;
+    updateAdminTargetLink();
     qrBox.style.display = 'block';
   } else {
     qrBox.style.display = 'none';
