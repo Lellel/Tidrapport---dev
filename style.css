@@ -17,26 +17,34 @@
   -webkit-tap-highlight-color: transparent; 
 }
 
+html {
+  background-color: #000000 !important;
+  color-scheme: dark !important;
+}
+
 body {
-  background: linear-gradient(135deg, #000000 0%, #1a1a24 100%);
+  background: linear-gradient(135deg, #000000 0%, #1a1a24 100%) !important;
+  background-color: #000000 !important;
+  color-scheme: dark !important;
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  padding: calc(env(safe-area-inset-top) + 20px) 16px 40px 16px;
+  padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 32px) 16px;
   display: flex;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-layout-wrapper {
   width: 100%;
   display: flex;
   justify-content: center;
-  gap: 24px;
+  gap: 20px;
 }
 
 .app-container { 
   width: 100%; 
-  max-width: 450px; 
+  max-width: 440px; 
 }
 
 /* HEADER */
@@ -44,7 +52,7 @@ header {
   display: flex; 
   justify-content: space-between; 
   align-items: flex-end; 
-  margin-bottom: 20px; 
+  margin-bottom: 16px; 
   padding: 0 4px; 
 }
 
@@ -62,11 +70,21 @@ h1 {
 
 .user-pill { 
   background: rgba(255, 255, 255, 0.08); 
-  padding: 5px 10px; 
+  padding: 5px 12px; 
   border-radius: 20px; 
   font-size: 12px; 
   font-weight: 600; 
   color: #FFF; 
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.user-pill.is-admin {
+  background: rgba(255, 159, 10, 0.15);
+  border-color: rgba(255, 159, 10, 0.4);
+  color: var(--accent);
 }
 
 .status-pill { 
@@ -89,11 +107,15 @@ h1 {
 }
 
 /* UTKORG (KARUSELL) */
+#outbox-section {
+  margin-bottom: 8px;
+}
+
 .outbox-header-row { 
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  margin: 0 4px 10px 4px; 
+  margin: 0 4px 8px 4px; 
 }
 
 .submit-pill-btn { 
@@ -120,8 +142,8 @@ h1 {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
-  padding: 4px 16px 16px 16px;
-  margin: 0 -16px 8px -16px;
+  padding: 4px 16px 14px 16px;
+  margin: 0 -16px 4px -16px;
   scrollbar-width: none;
 }
 
@@ -141,6 +163,18 @@ h1 {
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.draft-card.empty-placeholder {
+  flex: 1;
+  min-height: 70px;
+  border: 1px dashed var(--separator);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 14px;
 }
 
 .card-body { 
@@ -286,7 +320,7 @@ h1 {
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  margin: 18px 14px 6px 0; 
+  margin: 16px 14px 6px 0; 
 }
 
 .section-title-row .section-title { 
@@ -304,7 +338,7 @@ h1 {
 
 .ios-card {
   border-radius: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px);
@@ -317,7 +351,7 @@ h1 {
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  padding: 14px 16px; 
+  padding: 13px 16px; 
   border-bottom: 0.5px solid var(--separator); 
   font-size: 16px; 
 }
@@ -348,8 +382,8 @@ textarea {
   color: #FFF; 
   text-align: left; 
   resize: none; 
-  min-height: 48px; 
-  padding: 14px 16px; 
+  min-height: 44px; 
+  padding: 12px 16px; 
 }
 
 textarea::placeholder { 
@@ -377,7 +411,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   justify-content: center; 
   gap: 8px; 
   width: 100%; 
-  padding: 12px; 
+  padding: 11px; 
   border-radius: 10px; 
   background: rgba(255, 255, 255, 0.04); 
   color: var(--accent); 
@@ -396,7 +430,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 14px; 
   border-radius: 12px; 
   border: none; 
-  margin-bottom: 32px; 
+  margin-top: 4px;
+  margin-bottom: 24px; 
   cursor: pointer; 
 }
 
@@ -469,7 +504,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: flex; 
   align-items: center; 
   gap: 14px; 
-  padding: 14px 12px; 
+  padding: 13px 12px; 
   border-radius: 10px; 
   cursor: pointer; 
 }
@@ -494,13 +529,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 ========================================= */
 
 .dashboard-panel {
-  display: none; /* Dold som standard i stående mobilläge */
+  display: none;
 }
 
-/* Aktiveras automatiskt vid iPad ELLER när telefonen vrids horisontellt */
-@media screen and (min-width: 768px), screen and (orientation: landscape) and (min-height: 380px) {
+@media screen and (min-width: 768px), screen and (orientation: landscape) {
+  body {
+    padding: 16px 20px;
+  }
+
   .app-layout-wrapper {
-    max-width: 1000px;
+    max-width: 980px;
     margin: 0 auto;
     flex-direction: row;
     align-items: flex-start;
@@ -508,7 +546,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
   .app-container {
     flex: 1;
-    max-width: 440px;
+    max-width: 420px;
   }
 
   .dashboard-panel {
@@ -521,8 +559,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 16px;
-    padding: 18px;
+    padding: 16px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -537,14 +578,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .stat-card {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--separator);
   border-radius: 12px;
-  padding: 12px;
+  padding: 10px;
   text-align: center;
 }
 
@@ -562,11 +603,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .dash-list {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.25);
   border-radius: 12px;
   border: 1px solid var(--separator);
-  padding: 8px 12px;
-  max-height: 220px;
+  padding: 6px 12px;
+  max-height: 180px;
   overflow-y: auto;
 }
 
@@ -587,11 +628,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-size: 12px;
   color: var(--text-muted);
   text-align: center;
-  padding: 16px 0;
+  padding: 14px 0;
 }
 
 .admin-actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
+}
+
+.admin-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+  padding: 8px 0;
+  font-weight: 600;
+}
+
+.admin-btn:active {
+  background: rgba(255, 255, 255, 0.12);
 }
