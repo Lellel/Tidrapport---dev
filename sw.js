@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-v12';
+const CACHE_NAME = 'tidrapport-v13';
 const ASSETS = [
   './',
   './index.html',
