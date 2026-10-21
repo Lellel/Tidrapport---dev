@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-prod-v2.5.2';
+const CACHE_NAME = 'tidrapport-prod-v2.5.4';
 const ASSETS = [
   './index.html',
   './style.css',
