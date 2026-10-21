@@ -9,6 +9,7 @@ if ('serviceWorker' in navigator) {
 
 // Global data & state
 let drafts = loadAllDrafts();
+let plannedJobs = []; // OSTHYVELN: Kalenderbokningar från Google Kalender
 let currentActivity = "";
 let currentJobType = "nya";
 let currentImagesBase64 = [];
@@ -49,7 +50,7 @@ if (themeBtn) {
   });
 }
 
-// ADMIN-TOGGLE (Både 3 snabba klick OCH 1s långtryck för touchskärmar)
+// ADMIN-TOGGLE (3 snabba klick eller 1s långtryck)
 let userClickCount = 0;
 let userClickTimer = null;
 let longPressTimer = null;
@@ -71,17 +72,18 @@ function handleUserPillClick() {
   }
 }
 
-// Långtrycks-lyssnare på Daniel-pillret
 const userPillEl = document.getElementById('user-display');
 if (userPillEl) {
   userPillEl.addEventListener('touchstart', () => {
-    longPressTimer = setTimeout(() => {
-      toggleAdminMode();
-    }, 1000);
+    longPressTimer = setTimeout(() => toggleAdminMode(), 1000);
   }, { passive: true });
-
   userPillEl.addEventListener('touchend', () => clearTimeout(longPressTimer));
   userPillEl.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+}
+
+function getCurrentTimeStr() {
+  const nu = new Date();
+  return String(nu.getHours()).padStart(2, '0') + ':' + String(nu.getMinutes()).padStart(2, '0');
 }
 
 function loadAllDrafts() {
@@ -124,7 +126,7 @@ function getActivityIcon(name) {
   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
 }
 
-// Action Sheet & Aktivitetsval (Öppnas direkt utan krav på betalställe)
+// Action Sheet & Aktivitetsval
 function openSheet() { 
   const sheet = document.getElementById('sheetBackdrop');
   if (sheet) sheet.classList.add('active'); 
@@ -143,7 +145,6 @@ function selectActivity(name) {
 
 function setJobType(type) {
   currentJobType = type;
-  document.getElementById('btn-type-cal').classList.toggle('active', type === 'kalender');
   document.getElementById('btn-type-new').classList.toggle('active', type === 'nya');
   document.getElementById('btn-type-ata').classList.toggle('active', type === 'ata');
 
@@ -154,7 +155,6 @@ function setJobType(type) {
   } else {
     ataRow.style.display = 'none';
   }
-  if (type === 'kalender') fetchCalendarData();
 }
 
 // CHIPS (SNABBVAL) OCH SKAK-ALERT
@@ -193,10 +193,8 @@ function initApp() {
   const dateInput = document.getElementById('input-date');
   if (dateInput) dateInput.value = localDate;
 
-  const h = String(now.getHours()).padStart(2, '0');
-  const m = String(now.getMinutes()).padStart(2, '0');
   const startInput = document.getElementById('input-start');
-  if (startInput) startInput.value = `${h}:${m}`;
+  if (startInput) startInput.value = getCurrentTimeStr();
 
   updateAdminUI();
   window.addEventListener('resize', updateDashboardData);
@@ -206,6 +204,7 @@ function initApp() {
   renderQuickChips();
   renderOutbox();
   updateDashboardData();
+  fetchPlannedJobs(); // Startar Osthyveln automatiskt vid sidladdning
 }
 
 if (document.readyState === 'loading') {
@@ -290,19 +289,120 @@ document.getElementById('camera-input')?.addEventListener('change', async functi
 function resetPhotoInput() {
   currentImagesBase64 = [];
   const camInput = document.getElementById('camera-input');
-  if(camInput) camInput.value = "";
+  if (camInput) camInput.value = "";
   document.getElementById('photo-label').innerText = "Bifoga bild-underlag";
   document.querySelector('.add-photo-btn').style.borderColor = "rgba(255, 159, 10, 0.3)";
   document.querySelector('.add-photo-btn').style.color = "var(--accent)";
 }
 
+// ==========================================
+// OSTHYVELN: HÄMTA SCHEMALAGDA KALENDERJOBB
+// ==========================================
+async function fetchPlannedJobs() {
+  if (!navigator.onLine) return;
+  const chosenDate = document.getElementById('input-date').value;
+  try {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      redirect: 'follow',
+      body: JSON.stringify({
+        token: CONFIG.API_TOKEN,
+        action: 'getCalendar',
+        date: chosenDate
+      })
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
+      plannedJobs = data.events || [];
+      renderOutbox();
+    }
+  } catch (error) {
+    console.error("Osthyveln: Kunde inte hämta kalender", error);
+  }
+}
+
+// ==========================================
+// STÄMPLA IN SCHEMALAGT JOBB FRÅN OSTHYVELN
+// ==========================================
+function clockInPlannedJob(jobId) {
+  const job = plannedJobs.find(j => j.id === jobId);
+  if (!job) return;
+
+  const ongoing = drafts.find(d => !d.end);
+  if (ongoing) {
+    if (confirm(`Du har redan "${ongoing.activity}" pågående.\n\nVill du stämpla ut det förra passet nu?`)) {
+      ongoing.end = getCurrentTimeStr();
+    }
+  }
+
+  drafts.push({
+    id: Date.now(),
+    calendarJobId: job.id,
+    type: 'normal',
+    date: document.getElementById('input-date').value,
+    user: currentUser,
+    place: job.place,
+    activity: job.title,
+    notes: job.description || '',
+    start: getCurrentTimeStr(),
+    end: '',
+    images: []
+  });
+
+  saveDraftsToStorage();
+  renderOutbox();
+  renderQuickChips();
+  updateDashboardData();
+}
+
+// ==========================================
+// SPLIT-PASS: SKAPA PASS 2, PASS 3 ETC.
+// ==========================================
+function createSplitPass(sourceId) {
+  const src = drafts.find(d => d.id === sourceId);
+  if (!src) return;
+
+  const ongoing = drafts.find(d => !d.end);
+  if (ongoing && confirm(`Du har redan "${ongoing.activity}" pågående.\n\nVill du stämpla ut det förra passet nu?`)) {
+    ongoing.end = getCurrentTimeStr();
+  }
+
+  let baseName = src.activity;
+  let passNum = 2;
+  const match = src.activity.match(/^(.*?)\s*\(Pass\s*(\d+)\)$/i);
+  if (match) {
+    baseName = match[1];
+    passNum = parseInt(match[2]) + 1;
+  } else {
+    src.activity = `${src.activity} (Pass 1)`;
+  }
+
+  drafts.push({
+    id: Date.now(),
+    calendarJobId: src.calendarJobId || null,
+    type: src.type || 'normal',
+    ataNumber: src.ataNumber || '',
+    date: document.getElementById('input-date').value,
+    user: currentUser,
+    place: src.place,
+    activity: `${baseName} (Pass ${passNum})`,
+    notes: src.notes || '',
+    start: getCurrentTimeStr(),
+    end: '',
+    images: []
+  });
+
+  saveDraftsToStorage();
+  renderOutbox();
+  updateDashboardData();
+}
+
 function clockOut(id) {
-  const nu = new Date();
-  const timeString = String(nu.getHours()).padStart(2, '0') + ':' + String(nu.getMinutes()).padStart(2, '0');
   const draftIndex = drafts.findIndex(d => d.id === id);
   if (draftIndex !== -1) {
-    drafts[draftIndex].end = timeString;
-    drafts[draftIndex].totalHours = calculateHours(drafts[draftIndex].start, timeString).toFixed(1);
+    drafts[draftIndex].end = getCurrentTimeStr();
+    drafts[draftIndex].totalHours = calculateHours(drafts[draftIndex].start, drafts[draftIndex].end).toFixed(1);
     saveDraftsToStorage();
     renderOutbox();
     updateDashboardData();
@@ -345,10 +445,7 @@ function saveToOutbox() {
   document.getElementById('input-ata').value = '';
   resetPhotoInput();
 
-  const nu = new Date();
-  const h = String(nu.getHours()).padStart(2, '0');
-  const m = String(nu.getMinutes()).padStart(2, '0');
-  document.getElementById('input-start').value = `${h}:${m}`;
+  document.getElementById('input-start').value = getCurrentTimeStr();
   document.getElementById('selected-activity').innerHTML = `Välj aktivitet <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
   currentActivity = "";
   setJobType('nya');
@@ -363,16 +460,22 @@ function deleteDraft(id) {
   drafts = drafts.filter(draft => draft.id !== id);
   saveDraftsToStorage();
   renderOutbox();
+  renderQuickChips();
   updateDashboardData();
 }
 
+// ==========================================
+// RENDERA KARUSELLEN (OSTHYVELN + ARBETSPASS)
+// ==========================================
 function renderOutbox() {
   const container = document.getElementById('outbox-container');
+  const section = document.getElementById('outbox-section');
   const title = document.getElementById('outbox-title');
   const submitBtn = document.getElementById('btnSubmitAll');
 
   container.innerHTML = '';
-  if (drafts.length === 0) {
+
+  if (drafts.length === 0 && plannedJobs.length === 0) {
     title.innerText = "Dagens pass (0 st)";
     if (submitBtn) submitBtn.style.display = 'none';
     container.innerHTML = `
@@ -385,11 +488,39 @@ function renderOutbox() {
     return;
   }
 
-  if (submitBtn) submitBtn.style.display = 'flex';
+  if (submitBtn) submitBtn.style.display = drafts.length > 0 ? 'flex' : 'none';
+
   let totalHours = 0;
   drafts.forEach(d => { if (d.start && d.end) totalHours += parseFloat(calculateHours(d.start, d.end)); });
   title.innerText = `Dagens pass (${drafts.length} st • ${totalHours.toFixed(1)} h)`;
 
+  // 1. OSTHYVELN: Rendera kalenderjobb som inte stämplats in än
+  plannedJobs.forEach(job => {
+    if (drafts.some(d => d.calendarJobId === job.id)) return;
+    const card = document.createElement('div');
+    card.className = 'draft-card';
+    card.innerHTML = `
+      <div class="card-body">
+        <div class="card-title">
+          <span style="color:var(--blue); margin-right:12px; display:inline-flex;">${getActivityIcon(job.title)}</span>
+          <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${job.title}</span>
+        </div>
+        <div class="card-meta">
+          <span>📅 Planerat</span>
+          <span class="dot">•</span>
+          <span style="color:var(--text);">${job.place}</span>
+          ${job.start ? `<span class="dot">•</span><span>${job.start}</span>` : ''}
+        </div>
+        ${job.description ? `<div class="card-note">${job.description}</div>` : ''}
+      </div>
+      <div class="card-actions">
+        <button class="btn-action clock-in" onclick="clockInPlannedJob('${job.id}')">Stämpla in</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  // 2. DRAFTS: Rendera aktiva och avslutade arbetspass
   drafts.forEach(draft => {
     const card = document.createElement('div');
     card.className = 'draft-card';
@@ -397,26 +528,24 @@ function renderOutbox() {
     const isOngoing = !draft.end;
     const timeDisplay = isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} – ${draft.end}`;
     const hoursDisplay = isOngoing ? '' : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
-    const ataBadge = draft.type === 'ata' ? `<span class="badge-ata">${draft.ataNumber ? draft.ataNumber : 'ÄTA'}</span>` : '';
-    const photoIcon = (draft.images && draft.images.length > 0) ? `<span style="color:var(--green); margin-left:auto;">📸</span>` : '';
+    const ataBadge = draft.type === 'ata' ? `<span class="badge-ata">${draft.ataNumber || 'ÄTA'}</span>` : '';
+    const photoIcon = (draft.images && draft.images.length > 0) ? `<span style="color:var(--green); margin-left:auto;">📸 ${draft.images.length}</span>` : '';
 
     let actionButtons = isOngoing ? `
       <button class="btn-action clock-out" onclick="clockOut(${draft.id})">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
         Stämpla ut nu
       </button>
-      <button class="btn-action delete" onclick="deleteDraft(${draft.id})" style="flex:0 0 45px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+      <button class="btn-action delete" onclick="deleteDraft(${draft.id})" style="flex:0 0 50px;">Radera</button>
     ` : `
-      <button class="btn-action delete" onclick="deleteDraft(${draft.id})">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
-        Radera
-      </button>
+      <button class="btn-action split-pass" onclick="createSplitPass(${draft.id})">Nytt pass</button>
+      <button class="btn-action delete" onclick="deleteDraft(${draft.id})">Radera</button>
     `;
 
     card.innerHTML = `
       <div class="card-body">
         <div class="card-title">
-          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">${iconSvg}</span>
+          <span style="color:var(--accent); margin-right:12px; display:inline-flex;">${iconSvg}</span>
           ${ataBadge}
           <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${draft.place}</span>
           <span class="dot">•</span>
@@ -424,7 +553,9 @@ function renderOutbox() {
           ${photoIcon}
         </div>
         <div class="card-meta">
-          <span>${draft.date}</span><span class="dot">•</span><span>${timeDisplay}</span>
+          <span>${draft.date}</span>
+          <span class="dot">•</span>
+          <span>${timeDisplay}</span>
           ${hoursDisplay ? `<span class="dot">•</span><span style="color:var(--text); font-weight:500;">${hoursDisplay}</span>` : ''}
         </div>
         ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
@@ -469,41 +600,6 @@ async function submitAll() {
   } finally {
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Skicka in`;
     btn.disabled = false;
-  }
-}
-
-// KALENDER MED CORS-FIX
-async function fetchCalendarData() {
-  const chosenDate = document.getElementById('input-date').value;
-  try {
-    const res = await fetch(CONFIG.API_URL, {
-      method: "POST",
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      redirect: 'follow',
-      body: JSON.stringify({
-        token: CONFIG.API_TOKEN,
-        action: "getCalendar",
-        date: chosenDate
-      })
-    });
-    const data = await res.json();
-    if (data.status === "success" && data.events && data.events.length > 0) {
-      const ev = data.events[0];
-      document.getElementById('input-place').value = ev.place;
-      selectActivity(ev.title);
-      if (!ev.isAllDay) {
-        document.getElementById('input-start').value = ev.start;
-        document.getElementById('input-end').value = ev.end;
-      }
-      if (ev.description) document.getElementById('input-notes').value = ev.description;
-      updateLiveHours();
-      alert(`Hämtade schemalagt jobb: ${ev.title} (${ev.place})`);
-    } else {
-      alert("Inga kalenderjobb hittades för valt datum.");
-    }
-  } catch (err) {
-    console.error("Kalenderfel:", err);
-    alert("Kunde inte hämta kalenderdata: " + err.message);
   }
 }
 
