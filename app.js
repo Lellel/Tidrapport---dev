@@ -176,19 +176,23 @@ function toggleCRMModal() {
   const backdrop = document.getElementById('crm-modal-backdrop');
   if (backdrop) {
     backdrop.classList.toggle('active');
-    if (backdrop.classList.contains('active')) fetchCRMData();
+    if (backdrop.classList.contains('active')) {
+      renderCustomerSidebar();
+      fetchCRMData();
+    }
   }
 }
 
 function switchCRMTab(tab) {
-  document.getElementById('tab-btn-kundbild').classList.toggle('active', tab === 'kundbild');
-  document.getElementById('tab-btn-offert').classList.toggle('active', tab === 'offert');
+  document.getElementById('tab-btn-kundbild')?.classList.toggle('active', tab === 'kundbild');
+  document.getElementById('tab-btn-offert')?.classList.toggle('active', tab === 'offert');
   
   if (tab === 'offert') renderOffertBuilderView();
   else renderCustomerDetailView();
 }
 
 async function fetchCRMData(autoSearchPhone = null) {
+  renderCustomerSidebar();
   if (!navigator.onLine) return;
   try {
     const res = await fetch(CONFIG.API_URL, {
@@ -210,25 +214,38 @@ async function fetchCRMData(autoSearchPhone = null) {
         }
       }
     }
-  } catch (err) { console.error("CRM Fel:", err); }
+  } catch (err) { 
+    console.error("CRM Fel:", err); 
+    renderCustomerSidebar();
+  }
 }
 
 function renderCustomerSidebar() {
   const container = document.getElementById('crm-customer-list');
   if (!container) return;
+  
   container.innerHTML = `
-    <div style="padding:12px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:center;">
+    <div style="padding:12px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02);">
       <span style="font-size:12px; font-weight:700; color:var(--text-muted);">KUNDER (${customersList.length})</span>
-      <button class="btn-action" style="padding:4px 8px; font-size:11px;" onclick="promptAddCustomer()">+ Ny</button>
+      <button class="btn-action" style="padding:4px 10px; font-size:12px; background:var(--accent-green); color:#fff; font-weight:bold; border-radius:6px;" onclick="promptAddCustomer()">+ Ny kund</button>
     </div>
   `;
+
+  if (customersList.length === 0) {
+    const emptyMsg = document.createElement('div');
+    emptyMsg.style.cssText = "padding:20px 12px; text-align:center; color:var(--text-muted); font-size:12px; line-height:1.5;";
+    emptyMsg.innerHTML = "Inga kunder inlästa än.<br><br>Klicka på <strong style='color:#fff;'>+ Ny kund</strong> ovan för att skapa en kund!";
+    container.appendChild(emptyMsg);
+    return;
+  }
+
   customersList.forEach(c => {
     const item = document.createElement('div');
     item.className = `customer-item ${selectedCustomer && selectedCustomer.id === c.id ? 'active' : ''}`;
     item.onclick = () => {
       selectedCustomer = c;
       renderCustomerSidebar();
-      const isOffertActive = document.getElementById('tab-btn-offert').classList.contains('active');
+      const isOffertActive = document.getElementById('tab-btn-offert')?.classList.contains('active');
       if (isOffertActive) renderOffertBuilderView();
       else renderCustomerDetailView();
     };
@@ -247,7 +264,7 @@ function renderOffertBuilderView() {
   const main = document.getElementById('crm-main-content');
   if (!main) return;
   if (!selectedCustomer) {
-    main.innerHTML = `<div style="color:var(--text-muted); text-align:center; margin-top:50px;">Välj en kund till vänster för att skapa en offert.</div>`;
+    main.innerHTML = `<div style="color:var(--text-muted); text-align:center; margin-top:50px;">Välj en kund i listan till vänster för att skapa en offert.</div>`;
     return;
   }
 
@@ -455,8 +472,9 @@ function renderCustomerDetailView() {
       <button class="btn-action" style="background:var(--accent-green);" onclick="promptAddDecision('${selectedCustomer.name}')">📌 Logga Beslut / ÄTA</button>
     </div>
     <div style="display:flex; gap:20px; align-items:center; background:rgba(255,255,255,0.03); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); margin-top:12px;">
-      <div><strong>Kontakt:</strong> ${selectedCustomer.contact} (${selectedCustomer.phone})</div>
-      <div><strong>E-post:</strong> ${selectedCustomer.email}</div>
+      <div><strong>Kontakt:</strong> ${selectedCustomer.contact}</div>
+      <div><strong>Telefon:</strong> ${selectedCustomer.phone}</div>
+      <div><strong>E-post:</strong> ${selectedCustomer.email || 'Ej angiven'}</div>
       <div><strong>Adress:</strong> ${selectedCustomer.address} ${addrNav}</div>
     </div>
     <h3 style="margin-top:20px; font-size:16px;">Tidslinje & Historik</h3>
@@ -499,26 +517,43 @@ async function fetchCustomerTimeline(customerName) {
 }
 
 async function promptAddCustomer() {
-  const name = prompt("Kundens namn (t.ex. Ica Maxi):");
-  if (!name) return;
+  const name = prompt("Kundens namn (t.ex. Ica Maxi eller Familjen Svensson):");
+  if (!name || !name.trim()) return;
   const contact = prompt("Kontaktperson:") || "";
   const phone = prompt("Telefonnummer:") || "";
   const address = prompt("Adress för navigering:") || "";
-  
+
+  const newCustLocally = {
+    id: 'K-' + Math.floor(1000 + Math.random() * 9000),
+    name: name.trim(),
+    contact: contact.trim(),
+    phone: phone.trim(),
+    address: address.trim(),
+    email: '',
+    org: ''
+  };
+
+  customersList.unshift(newCustLocally);
+  selectedCustomer = newCustLocally;
+  renderCustomerSidebar();
+  renderCustomerDetailView();
+
   try {
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',
       body: JSON.stringify({
         token: CONFIG.API_TOKEN, action: 'addCustomer',
-        customerData: { name, contact, phone, org: '', email: '', address }
+        customerData: { name: newCustLocally.name, contact: newCustLocally.contact, phone: newCustLocally.phone, org: '', email: '', address: newCustLocally.address }
       })
     });
     const result = await res.json();
     if (result.status === 'success') {
-      alert("✅ Kund skapad med unikt ID!");
+      alert(`✅ Kund "${newCustLocally.name}" sparad i kalkylarket!`);
       fetchCRMData();
     }
-  } catch (err) { alert("Fel vid skapande av kund."); }
+  } catch (err) { 
+    console.log("Kund sparades lokalt i vyn."); 
+  }
 }
 
 async function promptAddDecision(customerName) {
