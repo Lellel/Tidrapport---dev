@@ -1,14 +1,37 @@
-// Registrera Service Worker
+// Registrera Service Worker och Background Sync
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
       .then((reg) => console.log('SW aktiv:', reg.scope))
       .catch((err) => console.error('Kunde inte starta SW:', err));
   });
+
+  // Lyssna på meddelanden från Service Workern (När auto-synk är klar)
+  navigator.serviceWorker.addEventListener('message', async (event) => {
+    if (event.data && event.data.type === 'SYNC_COMPLETE') {
+      console.log('Background Sync lyckades! Uppdaterar gränssnittet...');
+      drafts = await loadAllDrafts();
+      renderOutbox();
+      updateDashboardData();
+    }
+  });
+}
+
+// Ber webbläsaren att synka så fort den är online
+async function requestBackgroundSync() {
+  if ('serviceWorker' in navigator && 'SyncManager' in window) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.sync.register('sync-drafts');
+      console.log('Background Sync registrerad för: sync-drafts');
+    } catch (err) {
+      console.error('Kunde inte registrera Background Sync:', err);
+    }
+  }
 }
 
 // Global data & state
-let drafts = loadAllDrafts();
+let drafts = [];
 let plannedJobs = []; // OSTHYVELN: Kalenderbokningar från Google Kalender
 let currentActivity = "";
 let currentJobType = "nya";
@@ -83,9 +106,40 @@ async function saveDraftsToStorage() {
   drafts.forEach(draft => store.put(draft));
   
   return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
+    transaction.oncomplete = () => {
+      requestBackgroundSync();
+      resolve();
+    };
     transaction.onerror = (e) => reject(e);
   });
+}
+
+// ==========================================
+// UTSTÄMPLINGSVARNING (NOTISER)
+// ==========================================
+function checkForgottenClockOuts() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = new Date();
+  let notified = localStorage.getItem('lpv_notified_drafts') ? JSON.parse(localStorage.getItem('lpv_notified_drafts')) : [];
+
+  drafts.forEach(draft => {
+    if (!draft.end && draft.start && draft.date) {
+      const [h, m] = draft.start.split(':').map(Number);
+      const draftDate = new Date(draft.date);
+      draftDate.setHours(h, m, 0, 0);
+
+      const diffHours = (now - draftDate) / (1000 * 60 * 60);
+
+      if (diffHours >= 12 && !notified.includes(draft.id)) {
+        new Notification('⚠️ Pågående pass', {
+          body: `Passet "${draft.activity}" har varit igång i över 12 timmar. Har du glömt att stämpla ut?`,
+          icon: 'icon.png'
+        });
+        notified.push(draft.id);
+      }
+    }
+  });
+  localStorage.setItem('lpv_notified_drafts', JSON.stringify(notified));
 }
 
 // ORIGINAL-VEKTORIKONER FRÅN DOKUMENTATIONEN
@@ -110,6 +164,11 @@ function getActivityIcon(name) {
     return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="15" width="13" height="5" rx="2.5"/><circle cx="5.5" cy="17.5" r="1"/><circle cx="9.5" cy="17.5" r="1"/><circle cx="13.5" cy="17.5" r="1"/><path d="M5 15v-5a2 2 0 0 1 2-2h4v7M9 11l4-5 6 4-2 4M17 14h4l1-3-3-2"/></svg>`;
   }
   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+}
+
+function getCurrentTimeStr() {
+  const now = new Date();
+  return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
 }
 
 // Action Sheet & Aktivitetsval
@@ -193,7 +252,10 @@ async function initApp() {
   renderQuickChips();
   renderOutbox();
   updateDashboardData();
-  fetchPlannedJobs(); // Startar Osthyveln automatiskt vid sidladdning
+  fetchPlannedJobs();
+  
+  checkForgottenClockOuts();
+  setInterval(checkForgottenClockOuts, 60 * 60 * 1000);
 }
 
 if (document.readyState === 'loading') {
@@ -315,6 +377,10 @@ async function fetchPlannedJobs() {
 // STÄMPLA IN SCHEMALAGT JOBB FRÅN OSTHYVELN
 // ==========================================
 function clockInPlannedJob(jobId) {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
   const job = plannedJobs.find(j => j.id === jobId);
   if (!job) return;
 
@@ -399,6 +465,10 @@ function clockOut(id) {
 }
 
 function saveToOutbox() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
   const date = document.getElementById('input-date').value;
   const place = document.getElementById('input-place').value.trim();
   const notes = document.getElementById('input-notes').value.trim();
@@ -477,13 +547,13 @@ function renderOutbox() {
     return;
   }
 
-  if (submitBtn) submitBtn.style.display = drafts.length > 0 ? 'flex' : 'none';
+  const readyToSend = drafts.filter(d => d.start && d.end);
+  if (submitBtn) submitBtn.style.display = readyToSend.length > 0 ? 'flex' : 'none';
 
   let totalHours = 0;
   drafts.forEach(d => { if (d.start && d.end) totalHours += parseFloat(calculateHours(d.start, d.end)); });
   title.innerText = `Dagens pass (${drafts.length} st • ${totalHours.toFixed(1)} h)`;
 
-  // 1. OSTHYVELN: Rendera kalenderjobb som inte stämplats in än
   plannedJobs.forEach(job => {
     if (drafts.some(d => d.calendarJobId === job.id)) return;
     const card = document.createElement('div');
@@ -509,7 +579,6 @@ function renderOutbox() {
     container.appendChild(card);
   });
 
-  // 2. DRAFTS: Rendera aktiva och avslutade arbetspass
   drafts.forEach(draft => {
     const card = document.createElement('div');
     card.className = 'draft-card';
@@ -557,7 +626,9 @@ function renderOutbox() {
 
 // BATCH-RAPPORT MED CORS-FIX
 async function submitAll() {
-  if (drafts.length === 0) return;
+  const readyToSend = drafts.filter(d => d.start && d.end);
+  if (readyToSend.length === 0) return;
+
   const btn = document.getElementById('btnSubmitAll');
   btn.innerHTML = `<svg class="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Skickar...`;
   btn.disabled = true;
@@ -570,13 +641,14 @@ async function submitAll() {
       body: JSON.stringify({
         token: CONFIG.API_TOKEN,
         action: 'batchReports',
-        pass: drafts
+        pass: readyToSend
       })
     });
     const result = await res.json();
     if (result && result.status === 'success') {
-      alert(`Klart! ${result.count || drafts.length} pass har sparats i kalkylarket.`);
-      drafts = [];
+      alert(`Klart! ${result.count || readyToSend.length} pass har sparats i kalkylarket.`);
+      const idsToRemove = readyToSend.map(d => d.id);
+      drafts = drafts.filter(d => !idsToRemove.includes(d.id));
       saveDraftsToStorage();
       renderOutbox();
       updateDashboardData();
@@ -584,8 +656,9 @@ async function submitAll() {
       alert("Fel vid inskickning: " + (result.message || "Okänt fel"));
     }
   } catch (err) {
-    alert("Kunde inte nå kalkylarket just nu. Passen ligger kvar säkert i telefonen!");
+    alert("Kunde inte nå kalkylarket just nu. Passen ligger kvar säkert i telefonen och synkas när du får nät!");
     console.error(err);
+    requestBackgroundSync();
   } finally {
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Skicka in`;
     btn.disabled = false;
