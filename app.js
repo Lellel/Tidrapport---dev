@@ -615,6 +615,40 @@ function renderOutbox() {
   });
 }
 
+// DASHBOARD
+function updateDashboardData() {
+  const totalHoursEl = document.getElementById('dash-total-hours');
+  const passCountEl = document.getElementById('dash-pass-count');
+  const listEl = document.getElementById('dash-activity-list');
+  if (!totalHoursEl || !listEl) return;
+
+  passCountEl.innerText = `${drafts.length} st`;
+  let totalH = 0;
+  listEl.innerHTML = '';
+
+  if (drafts.length === 0) {
+    listEl.innerHTML = '<div class="dash-empty">Inga registrerade pass än idag.</div>';
+    totalHoursEl.innerText = '0.0 h';
+    return;
+  }
+
+  drafts.forEach(p => {
+    const hours = parseFloat(p.totalHours || calculateHours(p.start, p.end) || 0);
+    totalH += hours;
+    const row = document.createElement('div');
+    row.className = 'dash-row';
+    row.innerHTML = `
+      <div>
+        <div style="font-weight:600; color:var(--text);">${p.place || 'Uppdrag'}</div>
+        <div style="font-size:11px; color:var(--text-muted);">${p.activity || 'Övrigt'} (${p.start}–${p.end || 'Pågår'})</div>
+      </div>
+      <div style="font-weight:600; color:var(--accent);">${hours.toFixed(1)} h</div>
+    `;
+    listEl.appendChild(row);
+  });
+  totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
+}
+
 // BATCH-RAPPORT MED SKARPT DUBBELSLÅS
 async function submitAll(silent = false) {
   if (isSubmitting) return;
