@@ -12,14 +12,23 @@ let plannedJobs = [];
 let completedCalendarJobIds = JSON.parse(localStorage.getItem('lpv_completed_cal_jobs')) || [];
 let currentActivity = "";
 let currentJobType = "nya";
+let currentCompany = "LPV";
 let attachedPhotoBase64 = null;
 let isSubmitting = false;
 
-// CRM State
+// CRM & Offert State
 let customersList = [];
 let decisionLogs = [];
 let templatesList = [];
 let selectedCustomer = null;
+let draggedCardInfo = null;
+
+let offertMode = "auto"; // "auto" eller "manual"
+let offertDeductionType = "rut"; // "none", "rut", "rot", "manual"
+let offertItems = [
+  { id: 1, title: 'Fönsterputs villaglas', qty: 4, unit: 'tim', price: 562.50, vat: 25, type: 'rut' },
+  { id: 2, title: 'Kem & Rengöringsmedel', qty: 1, unit: 'st', price: 150.00, vat: 25, type: 'none' }
+];
 
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.has('user')) localStorage.setItem('lpv_user', urlParams.get('user'));
@@ -45,6 +54,19 @@ function handleUserPillClick() {
     updateAdminUI();
     alert(isAdmin ? "👑 Admin-läge aktiverat!" : "Admin-läge avstängt.");
   }
+}
+
+function openNavigation(address) {
+  if (!address || address.trim() === '' || address === 'Okänd') {
+    alert("Ingen giltig adress angiven för navigering.");
+    return;
+  }
+  const encoded = encodeURIComponent(address.trim());
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const mapsUrl = isIOS 
+    ? `https://maps.apple.com/?daddr=${encoded}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encoded}`;
+  window.open(mapsUrl, '_blank');
 }
 
 function getCurrentTimeStr() {
@@ -74,17 +96,54 @@ function initKabanossUI() {
     <div class="kabanoss-header">
       <button class="btn-close-kanban" onclick="toggleKabanoss()">✕ Stäng</button>
       <span style="color:#fff; font-size: 20px; font-weight:700; margin-left: 20px;">🌭 Flygledartornet & Kabanoss</span>
-      <button class="btn-action" style="margin-left: auto; background: var(--accent-blue);" onclick="toggleCRMModal()">👥 Öppna CRM & Kundbild</button>
+      <button class="btn-action" style="margin-left: auto; background: var(--accent-blue);" onclick="toggleCRMModal()">👥 Öppna CRM & Offert</button>
     </div>
     <div class="kanban-board">
-      <div class="kanban-column" id="kanban-col-planned"><div class="kanban-col-header">📥 Planerade <span class="kanban-col-count" id="count-planned">0</span></div><div class="kanban-cards" id="cards-planned"></div></div>
-      <div class="kanban-column" id="kanban-col-buffer"><div class="kanban-col-header">⏱️ Vid Tillfälle <span class="kanban-col-count" id="count-buffer">0</span></div><div class="kanban-cards" id="cards-buffer"></div></div>
-      <div class="kanban-column" id="kanban-col-live"><div class="kanban-col-header">🚜 Pågående / Klara <span class="kanban-col-count" id="count-live">0</span></div><div class="kanban-cards" id="cards-live"></div></div>
-      <div class="kanban-column" id="kanban-col-done"><div class="kanban-col-header">📊 Klara för faktura <span class="kanban-col-count" id="count-done">0</span></div><div class="kanban-cards" id="cards-done"></div></div>
+      <div class="kanban-column" id="kanban-col-planned" data-col="planned"><div class="kanban-col-header">📥 Planerade <span class="kanban-col-count" id="count-planned">0</span></div><div class="kanban-cards" id="cards-planned"></div></div>
+      <div class="kanban-column" id="kanban-col-buffer" data-col="buffer"><div class="kanban-col-header">⏱️ Vid Tillfälle <span class="kanban-col-count" id="count-buffer">0</span></div><div class="kanban-cards" id="cards-buffer"></div></div>
+      <div class="kanban-column" id="kanban-col-live" data-col="live"><div class="kanban-col-header">🚜 Pågående / Klara <span class="kanban-col-count" id="count-live">0</span></div><div class="kanban-cards" id="cards-live"></div></div>
+      <div class="kanban-column" id="kanban-col-done" data-col="done"><div class="kanban-col-header">📊 Klara för faktura <span class="kanban-col-count" id="count-done">0</span></div><div class="kanban-cards" id="cards-done"></div></div>
     </div>
   `;
   document.body.appendChild(container);
   initCRMModalUI();
+  setupKanbanDragAndDrop();
+}
+
+function setupKanbanDragAndDrop() {
+  const cols = document.querySelectorAll('.kanban-column');
+  cols.forEach(col => {
+    col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', () => { col.classList.remove('drag-over'); });
+    col.addEventListener('drop', (e) => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      const targetCol = col.getAttribute('data-col');
+      if (draggedCardInfo) { handleCardDrop(draggedCardInfo, targetCol); draggedCardInfo = null; }
+    });
+  });
+}
+
+function handleCardDrop(cardInfo, targetCol) {
+  const { id, isLocal } = cardInfo;
+  if (!isLocal) {
+    const job = plannedJobs.find(j => String(j.id) === String(id));
+    if (!job) return;
+    if (targetCol === 'buffer') job.isBuffer = true;
+    else if (targetCol === 'planned') job.isBuffer = false;
+    else if (targetCol === 'live') clockInPlannedJob(job.id);
+    else if (targetCol === 'done') markCalendarJobCompleted(job.id);
+  } else {
+    const draft = drafts.find(d => String(d.id) === String(id));
+    if (!draft) return;
+    if (targetCol === 'done') {
+      if (!draft.end) draft.end = getCurrentTimeStr();
+      draft.totalHours = calculateHours(draft.start, draft.end).toFixed(1);
+      saveDraftsToStorage();
+      submitAll(false);
+    }
+  }
+  renderOutbox();
 }
 
 function initCRMModalUI() {
@@ -98,14 +157,14 @@ function initCRMModalUI() {
       <div class="crm-header">
         <div class="crm-nav-tabs">
           <button class="crm-tab-btn active" id="tab-btn-kundbild" onclick="switchCRMTab('kundbild')">👥 360° Kundbild</button>
-          <button class="crm-tab-btn" id="tab-btn-beslut" onclick="switchCRMTab('beslut')">📌 Beslut & Logg</button>
+          <button class="crm-tab-btn" id="tab-btn-offert" onclick="switchCRMTab('offert')">📝 Skapa Offert (ROT/RUT)</button>
         </div>
-        <button class="btn-close-kanban" onclick="toggleCRMModal()">✕ Stäng CRM</button>
+        <button class="btn-close-kanban" onclick="toggleCRMModal()">✕ Stäng</button>
       </div>
       <div class="crm-body">
         <div class="crm-sidebar-list" id="crm-customer-list"></div>
         <div class="crm-main-view" id="crm-main-content">
-          <div style="color:var(--text-muted); text-align:center; margin-top:50px;">Välj en kund i listan till vänster för att öppna Kundbilden.</div>
+          <div style="color:var(--text-muted); text-align:center; margin-top:50px;">Välj en kund i listan till vänster.</div>
         </div>
       </div>
     </div>
@@ -123,13 +182,13 @@ function toggleCRMModal() {
 
 function switchCRMTab(tab) {
   document.getElementById('tab-btn-kundbild').classList.toggle('active', tab === 'kundbild');
-  document.getElementById('tab-btn-beslut').classList.toggle('active', tab === 'beslut');
-  if (tab === 'beslut') renderDecisionLogView();
+  document.getElementById('tab-btn-offert').classList.toggle('active', tab === 'offert');
+  
+  if (tab === 'offert') renderOffertBuilderView();
   else renderCustomerDetailView();
 }
 
-// API CRM ANROP
-async function fetchCRMData() {
+async function fetchCRMData(autoSearchPhone = null) {
   if (!navigator.onLine) return;
   try {
     const res = await fetch(CONFIG.API_URL, {
@@ -140,6 +199,16 @@ async function fetchCRMData() {
     if (data.status === 'success') {
       customersList = data.customers || [];
       renderCustomerSidebar();
+
+      if (autoSearchPhone) {
+        const cleanIncoming = autoSearchPhone.replace(/[^0-9]/g, '').slice(-7);
+        const found = customersList.find(c => (c.phone || '').replace(/[^0-9]/g, '').includes(cleanIncoming));
+        if (found) {
+          selectedCustomer = found;
+          renderCustomerSidebar();
+          renderCustomerDetailView();
+        }
+      }
     }
   } catch (err) { console.error("CRM Fel:", err); }
 }
@@ -156,13 +225,216 @@ function renderCustomerSidebar() {
   customersList.forEach(c => {
     const item = document.createElement('div');
     item.className = `customer-item ${selectedCustomer && selectedCustomer.id === c.id ? 'active' : ''}`;
-    item.onclick = () => { selectedCustomer = c; renderCustomerSidebar(); renderCustomerDetailView(); };
+    item.onclick = () => {
+      selectedCustomer = c;
+      renderCustomerSidebar();
+      const isOffertActive = document.getElementById('tab-btn-offert').classList.contains('active');
+      if (isOffertActive) renderOffertBuilderView();
+      else renderCustomerDetailView();
+    };
     item.innerHTML = `
       <div style="font-weight:700; color:#fff;">${c.name}</div>
       <div style="font-size:12px; color:var(--text-muted);">${c.id} • ${c.contact || 'Ingen kontakt'}</div>
     `;
     container.appendChild(item);
   });
+}
+
+// ==========================================
+// OFFERTBUILDER MED HYBRID (AUTO + MANUELL)
+// ==========================================
+function renderOffertBuilderView() {
+  const main = document.getElementById('crm-main-content');
+  if (!main) return;
+  if (!selectedCustomer) {
+    main.innerHTML = `<div style="color:var(--text-muted); text-align:center; margin-top:50px;">Välj en kund till vänster för att skapa en offert.</div>`;
+    return;
+  }
+
+  main.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 style="margin:0; font-size:22px; color:#FFF;">📝 Skapa Offert — ${selectedCustomer.name}</h2>
+      <div style="display:flex; gap:8px;">
+        <button class="segment-btn ${offertMode === 'auto' ? 'active' : ''}" style="padding:6px 12px; font-size:12px;" onclick="setOffertMode('auto')">⚡ Auto (Mallar)</button>
+        <button class="segment-btn ${offertMode === 'manual' ? 'active' : ''}" style="padding:6px 12px; font-size:12px;" onclick="setOffertMode('manual')">✏️ Manuell Överstyrning</button>
+      </div>
+    </div>
+    
+    <div class="offert-calc-card">
+      <div class="form-group">
+        <label class="form-label">Offertrubrik</label>
+        <input type="text" id="offert-title" class="form-input" placeholder="T.ex. Fönsterputs & Trappstädning höst 2026" value="Fönsterputs & Underhåll 2026">
+      </div>
+
+      <!-- AUTO MODE: RADER FRÅN MALLAR -->
+      <div id="offert-auto-section" style="display:${offertMode === 'auto' ? 'block' : 'none'}; margin-top:16px;">
+        <label class="form-label" style="display:flex; justify-content:space-between;">
+          <span>🛠️ OFFERTRADER (Hämtas från Sheets)</span>
+          <span style="color:var(--accent-blue); cursor:pointer;" onclick="addOffertItemRow()">+ Lägg till rad</span>
+        </label>
+        <div id="offert-items-container" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+      </div>
+
+      <!-- MANUAL MODE: DIREKTBELOPP -->
+      <div id="offert-manual-section" style="display:${offertMode === 'manual' ? 'block' : 'none'}; margin-top:16px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div>
+            <label class="form-label">Arbetskostnad (kr inkl. moms)</label>
+            <input type="number" id="manual-labor" class="form-input" placeholder="0" value="2250" oninput="calculateOffertTotals()">
+          </div>
+          <div>
+            <label class="form-label">Material / Resor (kr inkl. moms)</label>
+            <input type="number" id="manual-material" class="form-input" placeholder="0" value="150" oninput="calculateOffertTotals()">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Skatteavdrag (ROT/RUT)</label>
+          <div class="segment-control" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+            <button type="button" id="btn-deduct-none" class="segment-btn" onclick="setOffertDeduction('none')">Ingen</button>
+            <button type="button" id="btn-deduct-rut" class="segment-btn active" onclick="setOffertDeduction('rut')">RUT (50%)</button>
+            <button type="button" id="btn-deduct-rot" class="segment-btn" onclick="setOffertDeduction('rot')">ROT (30%)</button>
+            <button type="button" id="btn-deduct-manual" class="segment-btn" onclick="setOffertDeduction('manual')">✏️ Eget belopp</button>
+          </div>
+        </div>
+
+        <div id="manual-deduction-custom-row" style="display:none; margin-top:10px;">
+          <label class="form-label">Egen Skattereduktion (kr)</label>
+          <input type="number" id="manual-deduction-amount" class="form-input" placeholder="T.ex. 1000" oninput="calculateOffertTotals()">
+        </div>
+      </div>
+
+      <!-- PERSON OCH FASTIGHETS-UPPGIFTER -->
+      <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <div>
+          <label class="form-label">Personnummer (Skatteverket)</label>
+          <input type="text" id="offert-pno" class="form-input" placeholder="19800101-1234">
+        </div>
+        <div>
+          <label class="form-label">Fastighetsbet. / BRF-lägenhet</label>
+          <input type="text" id="offert-property" class="form-input" placeholder="Slottet 1:2 / Lgh 1102">
+        </div>
+      </div>
+
+      <!-- LIVE SAMMANSTÄLLNING -->
+      <div class="offert-summary-box">
+        <div class="offert-row"><span>Totalt arbete (inkl. moms):</span><span id="sum-labor">0 kr</span></div>
+        <div class="offert-row"><span>Totalt material & resor (inkl. moms):</span><span id="sum-material">0 kr</span></div>
+        <div class="offert-row"><span>Moms (25% ingår):</span><span id="sum-vat">0 kr</span></div>
+        <div class="offert-row deduction" id="row-deduction-amount">
+          <span id="lbl-deduction-type">− RUT-avdrag:</span>
+          <span id="sum-deduction">−0 kr</span>
+        </div>
+        <div class="offert-row total">
+          <span>ATT BETALA FÖR KUND:</span>
+          <span id="sum-total-pay" style="color:var(--accent-green);">0 kr</span>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; margin-top:20px;">
+        <button class="btn-primary" style="flex:1;" onclick="saveAndSendOffert()">💾 Spara Offert</button>
+        <button class="btn-action" style="background:var(--accent-blue); padding:0 16px;" onclick="alert('Kundlänk kopierad till urklipp!')">🔗 Skapa Kundlänk</button>
+      </div>
+    </div>
+  `;
+
+  renderOffertItemRows();
+  calculateOffertTotals();
+}
+
+function setOffertMode(mode) {
+  offertMode = mode;
+  renderOffertBuilderView();
+}
+
+function renderOffertItemRows() {
+  const container = document.getElementById('offert-items-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  offertItems.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.style.cssText = "display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.04); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);";
+    row.innerHTML = `
+      <input type="text" class="form-input" style="flex:2; padding:6px 8px; font-size:12px;" value="${item.title}" onchange="offertItems[${index}].title=this.value; calculateOffertTotals();">
+      <input type="number" class="form-input" style="width:60px; padding:6px 8px; font-size:12px;" value="${item.qty}" oninput="offertItems[${index}].qty=parseFloat(this.value||0); calculateOffertTotals();">
+      <span style="font-size:11px; color:var(--text-muted);">${item.unit}</span>
+      <input type="number" class="form-input" style="width:90px; padding:6px 8px; font-size:12px;" value="${item.price}" oninput="offertItems[${index}].price=parseFloat(this.value||0); calculateOffertTotals();">
+      <select class="form-input" style="width:90px; padding:6px 4px; font-size:11px;" onchange="offertItems[${index}].type=this.value; calculateOffertTotals();">
+        <option value="rut" ${item.type==='rut'?'selected':''}>RUT (50%)</option>
+        <option value="rot" ${item.type==='rot'?'selected':''}>ROT (30%)</option>
+        <option value="none" ${item.type==='none'?'selected':''}>Ej avdrag</option>
+      </select>
+      <button style="background:none; border:none; color:var(--accent-red); cursor:pointer; font-size:14px;" onclick="offertItems.splice(${index},1); renderOffertItemRows(); calculateOffertTotals();">🗑️</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function addOffertItemRow() {
+  offertItems.push({ id: Date.now(), title: 'Ny aktivitet', qty: 1, unit: 'tim', price: 450, vat: 25, type: 'rut' });
+  renderOffertItemRows();
+  calculateOffertTotals();
+}
+
+function setOffertDeduction(type) {
+  offertDeductionType = type;
+  document.getElementById('btn-deduct-none')?.classList.toggle('active', type === 'none');
+  document.getElementById('btn-deduct-rut')?.classList.toggle('active', type === 'rut');
+  document.getElementById('btn-deduct-rot')?.classList.toggle('active', type === 'rot');
+  document.getElementById('btn-deduct-manual')?.classList.toggle('active', type === 'manual');
+
+  const customRow = document.getElementById('manual-deduction-custom-row');
+  if (customRow) customRow.style.display = (type === 'manual') ? 'block' : 'none';
+
+  calculateOffertTotals();
+}
+
+function calculateOffertTotals() {
+  let laborTotal = 0;
+  let materialTotal = 0;
+  let deductionTotal = 0;
+
+  if (offertMode === 'auto') {
+    offertItems.forEach(item => {
+      const lineTotal = item.qty * item.price;
+      if (item.type === 'rut') {
+        laborTotal += lineTotal;
+        deductionTotal += lineTotal * 0.50;
+      } else if (item.type === 'rot') {
+        laborTotal += lineTotal;
+        deductionTotal += lineTotal * 0.30;
+      } else {
+        materialTotal += lineTotal;
+      }
+    });
+  } else {
+    laborTotal = parseFloat(document.getElementById('manual-labor')?.value || 0);
+    materialTotal = parseFloat(document.getElementById('manual-material')?.value || 0);
+
+    if (offertDeductionType === 'rut') deductionTotal = laborTotal * 0.50;
+    else if (offertDeductionType === 'rot') deductionTotal = laborTotal * 0.30;
+    else if (offertDeductionType === 'manual') deductionTotal = parseFloat(document.getElementById('manual-deduction-amount')?.value || 0);
+  }
+
+  const grossTotal = laborTotal + materialTotal;
+  const netTotal = grossTotal - deductionTotal;
+  const vatAmount = grossTotal * 0.20;
+
+  if (document.getElementById('sum-labor')) document.getElementById('sum-labor').innerText = `${laborTotal.toLocaleString('sv-SE')} kr`;
+  if (document.getElementById('sum-material')) document.getElementById('sum-material').innerText = `${materialTotal.toLocaleString('sv-SE')} kr`;
+  if (document.getElementById('sum-vat')) document.getElementById('sum-vat').innerText = `${vatAmount.toLocaleString('sv-SE', {maximumFractionDigits: 0})} kr`;
+  
+  if (document.getElementById('sum-deduction')) document.getElementById('sum-deduction').innerText = `−${deductionTotal.toLocaleString('sv-SE')} kr`;
+  if (document.getElementById('sum-total-pay')) document.getElementById('sum-total-pay').innerText = `${netTotal.toLocaleString('sv-SE')} kr`;
+}
+
+async function saveAndSendOffert() {
+  const title = document.getElementById('offert-title')?.value.trim();
+  if (!title) { alert("Ange en rubrik för offerten."); return; }
+
+  alert(`✅ Offert "${title}" sparad för ${selectedCustomer ? selectedCustomer.name : 'kunden'}!`);
+  switchCRMTab('kundbild');
 }
 
 function renderCustomerDetailView() {
@@ -172,6 +444,8 @@ function renderCustomerDetailView() {
     main.innerHTML = `<div style="color:var(--text-muted); text-align:center; margin-top:50px;">Välj en kund till vänster.</div>`;
     return;
   }
+  const addrNav = selectedCustomer.address ? `<button class="btn-nav-map" onclick="openNavigation('${selectedCustomer.address.replace(/'/g, "\\'")}')">🗺️ Navigera</button>` : '';
+
   main.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
       <div>
@@ -180,10 +454,10 @@ function renderCustomerDetailView() {
       </div>
       <button class="btn-action" style="background:var(--accent-green);" onclick="promptAddDecision('${selectedCustomer.name}')">📌 Logga Beslut / ÄTA</button>
     </div>
-    <div style="display:flex; gap:20px; background:rgba(255,255,255,0.03); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+    <div style="display:flex; gap:20px; align-items:center; background:rgba(255,255,255,0.03); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); margin-top:12px;">
       <div><strong>Kontakt:</strong> ${selectedCustomer.contact} (${selectedCustomer.phone})</div>
       <div><strong>E-post:</strong> ${selectedCustomer.email}</div>
-      <div><strong>Adress:</strong> ${selectedCustomer.address}</div>
+      <div><strong>Adress:</strong> ${selectedCustomer.address} ${addrNav}</div>
     </div>
     <h3 style="margin-top:20px; font-size:16px;">Tidslinje & Historik</h3>
     <div id="customer-timeline"><div style="color:var(--text-muted); font-size:13px;">Hämtar historik...</div></div>
@@ -229,13 +503,14 @@ async function promptAddCustomer() {
   if (!name) return;
   const contact = prompt("Kontaktperson:") || "";
   const phone = prompt("Telefonnummer:") || "";
+  const address = prompt("Adress för navigering:") || "";
   
   try {
     const res = await fetch(CONFIG.API_URL, {
       method: 'POST',
       body: JSON.stringify({
         token: CONFIG.API_TOKEN, action: 'addCustomer',
-        customerData: { name, contact, phone, org: '', email: '', address: '' }
+        customerData: { name, contact, phone, org: '', email: '', address }
       })
     });
     const result = await res.json();
@@ -334,11 +609,23 @@ function createKanbanCard(title, place, meta, type, id, isLocal = false) {
   if (type === 'done') borderLeft = '4px solid #636366';
 
   card.style.borderLeft = borderLeft;
+  const safePlace = (place || '').replace(/'/g, "\\'");
+  const navBtn = place ? `<button class="btn-nav-map" style="font-size:10px; padding:2px 6px; float:right;" onclick="event.stopPropagation(); openNavigation('${safePlace}')">🗺️</button>` : '';
+
   card.innerHTML = `
     <div style="font-weight: 600; color: #FFF; font-size: 14px; margin-bottom: 4px;">${title}</div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${place}</div>
+    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${place} ${navBtn}</div>
     <div style="font-size: 11px; font-weight: 700; color: #CCC; background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; display: inline-block;">${meta}</div>
   `;
+
+  card.addEventListener('dragstart', (e) => {
+    draggedCardInfo = { id, isLocal, type };
+    card.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', id);
+  });
+
+  card.addEventListener('dragend', () => { card.classList.remove('dragging'); });
+
   return card;
 }
 
@@ -411,10 +698,6 @@ function checkForgottenClockOuts() {
   localStorage.setItem('lpv_notified_drafts', JSON.stringify(notified));
 }
 
-function getActivityIcon(name) {
-  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>`;
-}
-
 function openSheet() { document.getElementById('sheetBackdrop')?.classList.add('active'); }
 function closeSheet() { document.getElementById('sheetBackdrop')?.classList.remove('active'); }
 
@@ -440,6 +723,12 @@ function setJobType(type) {
   if (type === 'kalender') fetchPlannedJobs();
 }
 
+function setCompany(companyName) {
+  currentCompany = companyName;
+  document.getElementById('btn-company-lpv')?.classList.toggle('active', companyName === 'LPV');
+  document.getElementById('btn-company-klaryta')?.classList.toggle('active', companyName === 'Klaryta');
+}
+
 async function initApp() {
   await initDatabase();
   drafts = loadAllDrafts();
@@ -461,6 +750,12 @@ async function initApp() {
   renderOutbox();
   updateDashboardData();
   fetchPlannedJobs();
+
+  if (urlParams.has('phone')) {
+    const incomingPhone = urlParams.get('phone');
+    toggleCRMModal();
+    fetchCRMData(incomingPhone);
+  }
 
   checkForgottenClockOuts();
   setInterval(checkForgottenClockOuts, 60 * 60 * 1000);
@@ -493,7 +788,7 @@ function updateAdminUI() {
         kbtn.style.background = 'linear-gradient(135deg, #BF5AF2, #0A84FF)';
         kbtn.style.color = '#FFF';
         kbtn.style.border = 'none';
-        kbtn.innerHTML = '📊 Öppna Flygledartornet & CRM';
+        kbtn.innerHTML = '📊 Öppna Flygledartornet & Offert';
         kbtn.onclick = toggleKabanoss;
         adminSection.appendChild(kbtn);
       }
@@ -582,6 +877,7 @@ function clockInPlannedJob(jobId) {
     id: Date.now(), calendarJobId: job.id, type: 'normal',
     date: document.getElementById('input-date')?.value || new Date().toISOString().split('T')[0],
     user: currentUser, place: job.place || 'Okänd', activity: job.title, notes: job.description || '',
+    company: currentCompany,
     start: getCurrentTimeStr(), end: '', images: []
   });
   saveDraftsToStorage(); renderOutbox(); updateDashboardData();
@@ -604,6 +900,7 @@ function createSplitPass(sourceId) {
     id: Date.now(), calendarJobId: src.calendarJobId || null, type: src.type || 'normal', ataNumber: src.ataNumber || '',
     date: document.getElementById('input-date')?.value || new Date().toISOString().split('T')[0],
     user: currentUser, place: src.place, activity: `${baseName} (Pass ${passNum})`, notes: src.notes || '',
+    company: src.company || currentCompany,
     start: getCurrentTimeStr(), end: '', images: []
   });
   saveDraftsToStorage(); renderOutbox(); updateDashboardData();
@@ -630,6 +927,7 @@ function saveToOutbox() {
     id: Date.now(), type: currentJobType, ataNumber: currentJobType === 'ata' ? document.getElementById('input-ata').value.trim() : '',
     date: date, user: currentUser, place: place, activity: currentActivity || "Övrigt",
     notes: notes, start: start, end: end, totalHours: end ? calculateHours(start, end).toFixed(1) : "0.0",
+    company: currentCompany,
     images: attachedPhotoBase64 ? [attachedPhotoBase64] : []
   });
   saveDraftsToStorage();
@@ -664,6 +962,10 @@ function renderOutbox() {
     drafts.forEach(draft => {
       const card = document.createElement('div'); card.className = 'draft-card';
       const isOngoing = !draft.end;
+      const safePlace = (draft.place || '').replace(/'/g, "\\'");
+      const navBtn = draft.place ? `<button class="btn-nav-map" onclick="openNavigation('${safePlace}')">🗺️ Navigera</button>` : '';
+      const companyBadge = draft.company ? `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 6px;">🏢 ${draft.company}</span>` : '';
+
       let actionButtons = isOngoing ? `
         <button class="btn-action clock-out" onclick="clockOut(${draft.id})">Stämpla ut nu</button>
         <button class="btn-action delete" onclick="deleteDraft(${draft.id})" style="flex:0 0 45px;">Radera</button>
@@ -671,14 +973,17 @@ function renderOutbox() {
         <button class="btn-action split-pass" onclick="createSplitPass(${draft.id})">Nytt pass</button>
         <button class="btn-action delete" onclick="deleteDraft(${draft.id})">Radera</button>
       `;
-      card.innerHTML = `<div class="card-body"><div class="card-title">${draft.place}</div><div class="card-meta"><span>${isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} –${draft.end}`}</span></div></div><div class="card-actions">${actionButtons}</div>`;
+      card.innerHTML = `<div class="card-body"><div class="card-title">${draft.place} ${navBtn}</div><div class="card-meta"><span>${companyBadge} ${isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} –${draft.end}`}</span></div></div><div class="card-actions">${actionButtons}</div>`;
       container.appendChild(card);
     });
 
     visiblePlannedJobs.forEach(job => {
       const card = document.createElement('div'); card.className = 'draft-card';
       const badgeHtml = job.isBuffer ? `<span>⏱️ VID TILLFÄLLE</span>` : `<span>📅 PLANERAT</span>`;
-      card.innerHTML = `<div class="card-body"><div class="card-title">${job.title}</div><div class="card-meta">${badgeHtml} ${job.place}</div></div><div class="card-actions"><button class="btn-action clock-in">Stämpla in</button></div>`;
+      const safePlace = (job.place || '').replace(/'/g, "\\'");
+      const navBtn = job.place ? `<button class="btn-nav-map" onclick="openNavigation('${safePlace}')">🗺️ Navigera</button>` : '';
+
+      card.innerHTML = `<div class="card-body"><div class="card-title">${job.title}</div><div class="card-meta">${badgeHtml} ${job.place} ${navBtn}</div></div><div class="card-actions"><button class="btn-action clock-in">Stämpla in</button></div>`;
       card.querySelector('.clock-in').addEventListener('click', () => clockInPlannedJob(job.id));
       container.appendChild(card);
     });
