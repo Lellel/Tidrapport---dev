@@ -1,33 +1,10 @@
-// Registrera Service Worker och Background Sync
+// Registrera Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
       .then((reg) => console.log('SW aktiv:', reg.scope))
       .catch((err) => console.error('Kunde inte starta SW:', err));
   });
-
-  // Lyssna på meddelanden från Service Workern (När auto-synk är klar)
-  navigator.serviceWorker.addEventListener('message', async (event) => {
-    if (event.data && event.data.type === 'SYNC_COMPLETE') {
-      console.log('Background Sync lyckades! Uppdaterar gränssnittet...');
-      drafts = await loadAllDrafts();
-      renderOutbox();
-      updateDashboardData();
-    }
-  });
-}
-
-// Ber webbläsaren att synka så fort den är online
-async function requestBackgroundSync() {
-  if ('serviceWorker' in navigator && 'SyncManager' in window) {
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.sync.register('sync-drafts');
-      console.log('Background Sync registrerad för: sync-drafts');
-    } catch (err) {
-      console.error('Kunde inte registrera Background Sync:', err);
-    }
-  }
 }
 
 // Global data & state
@@ -106,13 +83,25 @@ async function saveDraftsToStorage() {
   drafts.forEach(draft => store.put(draft));
   
   return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => {
-      requestBackgroundSync();
-      resolve();
-    };
+    transaction.oncomplete = () => resolve();
     transaction.onerror = (e) => reject(e);
   });
 }
+
+// ==========================================
+// AUTOMATISK SYNK FÖR iOS SAFARI & NÄTVERK
+// ==========================================
+window.addEventListener('online', () => {
+  console.log('🌐 Nätverk tillbaka! Utför automatisk bakgrundssynk...');
+  submitAll(true); // Silent mode = true
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && navigator.onLine) {
+    console.log('📱 Appen aktiv och online, kollar efter osynkade pass...');
+    submitAll(true);
+  }
+});
 
 // ==========================================
 // UTSTÄMPLINGSVARNING (NOTISER)
@@ -142,7 +131,7 @@ function checkForgottenClockOuts() {
   localStorage.setItem('lpv_notified_drafts', JSON.stringify(notified));
 }
 
-// ORIGINAL-VEKTORIKONER FRÅN DOKUMENTATIONEN
+// MASKINIKONER
 function getActivityIcon(name) {
   const n = (name || "").toLowerCase();
   if (n.includes('kyl') || n.includes('frys')) {
@@ -256,6 +245,11 @@ async function initApp() {
   
   checkForgottenClockOuts();
   setInterval(checkForgottenClockOuts, 60 * 60 * 1000);
+
+  // Om det finns osynkade färdiga pass vid start, försök synka tyst
+  if (navigator.onLine) {
+    submitAll(true);
+  }
 }
 
 if (document.readyState === 'loading') {
@@ -346,9 +340,7 @@ function resetPhotoInput() {
   document.querySelector('.add-photo-btn').style.color = "var(--accent)";
 }
 
-// ==========================================
-// OSTHYVELN: HÄMTA SCHEMALAGDA KALENDERJOBB
-// ==========================================
+// OSTHYVELN
 async function fetchPlannedJobs() {
   if (!navigator.onLine) return;
   const chosenDate = document.getElementById('input-date').value;
@@ -373,9 +365,6 @@ async function fetchPlannedJobs() {
   }
 }
 
-// ==========================================
-// STÄMPLA IN SCHEMALAGT JOBB FRÅN OSTHYVELN
-// ==========================================
 function clockInPlannedJob(jobId) {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
@@ -411,9 +400,6 @@ function clockInPlannedJob(jobId) {
   updateDashboardData();
 }
 
-// ==========================================
-// SPLIT-PASS: SKAPA PASS 2, PASS 3 ETC.
-// ==========================================
 function createSplitPass(sourceId) {
   const src = drafts.find(d => d.id === sourceId);
   if (!src) return;
@@ -461,6 +447,10 @@ function clockOut(id) {
     saveDraftsToStorage();
     renderOutbox();
     updateDashboardData();
+
+    if (navigator.onLine) {
+      submitAll(true);
+    }
   }
 }
 
@@ -513,6 +503,10 @@ function saveToOutbox() {
   renderQuickChips();
   renderOutbox();
   updateDashboardData();
+
+  if (navigator.onLine && end) {
+    submitAll(true);
+  }
 }
 
 function deleteDraft(id) {
@@ -523,9 +517,6 @@ function deleteDraft(id) {
   updateDashboardData();
 }
 
-// ==========================================
-// RENDERA KARUSELLEN (OSTHYVELN + ARBETSPASS)
-// ==========================================
 function renderOutbox() {
   const container = document.getElementById('outbox-container');
   const section = document.getElementById('outbox-section');
@@ -624,14 +615,16 @@ function renderOutbox() {
   });
 }
 
-// BATCH-RAPPORT MED CORS-FIX
-async function submitAll() {
+// BATCH-RAPPORT (MÖJLIGHET TILL TYST BAKGRUNDSSYNK)
+async function submitAll(silent = false) {
   const readyToSend = drafts.filter(d => d.start && d.end);
   if (readyToSend.length === 0) return;
 
   const btn = document.getElementById('btnSubmitAll');
-  btn.innerHTML = `<svg class="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Skickar...`;
-  btn.disabled = true;
+  if (btn) {
+    btn.innerHTML = `<svg class="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Skickar...`;
+    btn.disabled = true;
+  }
 
   try {
     const res = await fetch(CONFIG.API_URL, {
@@ -646,22 +639,27 @@ async function submitAll() {
     });
     const result = await res.json();
     if (result && result.status === 'success') {
-      alert(`Klart! ${result.count || readyToSend.length} pass har sparats i kalkylarket.`);
+      if (!silent) {
+        alert(`Klart! ${result.count || readyToSend.length} pass har sparats i kalkylarket.`);
+      }
       const idsToRemove = readyToSend.map(d => d.id);
       drafts = drafts.filter(d => !idsToRemove.includes(d.id));
-      saveDraftsToStorage();
+      await saveDraftsToStorage();
       renderOutbox();
       updateDashboardData();
-    } else {
+    } else if (!silent) {
       alert("Fel vid inskickning: " + (result.message || "Okänt fel"));
     }
   } catch (err) {
-    alert("Kunde inte nå kalkylarket just nu. Passen ligger kvar säkert i telefonen och synkas när du får nät!");
+    if (!silent) {
+      alert("Kunde inte nå kalkylarket just nu. Passen ligger kvar säkert i telefonen och synkas när du får nät!");
+    }
     console.error(err);
-    requestBackgroundSync();
   } finally {
-    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Skicka in`;
-    btn.disabled = false;
+    if (btn) {
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Skicka in`;
+      btn.disabled = false;
+    }
   }
 }
 
@@ -699,7 +697,7 @@ function updateDashboardData() {
   totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
 }
 
-// ADMIN-LOGIK & KONTAKTBOK
+// ADMIN-LOGIK
 async function fetchAdminUsers() {
   const select = document.getElementById('admin-target-user');
   if (!select) return;
