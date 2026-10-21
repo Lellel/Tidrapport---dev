@@ -14,7 +14,9 @@ let currentActivity = "";
 let currentJobType = "nya";
 let currentImagesBase64 = [];
 
-// Läs användare och Admin-status från URL / localStorage
+// ==========================================
+// 1. URL & ANVÄNDARHANTERING
+// ==========================================
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.has('user')) localStorage.setItem('lpv_user', urlParams.get('user'));
 if (urlParams.has('admin')) {
@@ -29,77 +31,61 @@ let isAdmin = (urlParams.get('admin') && (urlParams.get('admin').toLowerCase() =
 let adminUserList = [];
 let hasFetchedUsers = false;
 
-// TEMA-VÄXLARE
-const themeBtn = document.getElementById('theme-toggle');
-const themeMeta = document.getElementById('theme-color-meta');
-const currentTheme = localStorage.getItem('tidrapport_theme') || 'dark';
+// ==========================================
+// 2. INDEXED DB (OFFLINE-VALVET)
+// ==========================================
+const DB_NAME = "LPV_Tidrapport_DB";
+const DB_VERSION = 1;
+const STORE_NAME = "drafts";
+let db;
 
-if (currentTheme === 'light') {
-  document.documentElement.classList.add('light-theme');
-  document.body.classList.add('light-theme');
-  if (themeMeta) themeMeta.setAttribute('content', '#F2F2F7');
-}
-
-if (themeBtn) {
-  themeBtn.addEventListener('click', () => {
-    document.documentElement.classList.toggle('light-theme');
-    document.body.classList.toggle('light-theme');
-    const isLight = document.body.classList.contains('light-theme');
-    localStorage.setItem('tidrapport_theme', isLight ? 'light' : 'dark');
-    if (themeMeta) themeMeta.setAttribute('content', isLight ? '#F2F2F7' : '#000000');
+function initDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onupgradeneeded = (event) => {
+      const database = event.target.result;
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        database.createObjectStore(STORE_NAME, { keyPath: "id" });
+      }
+    };
+    
+    request.onsuccess = (event) => {
+      db = event.target.result;
+      resolve(db);
+    };
+    
+    request.onerror = (event) => {
+      console.error("IndexedDB fel:", event.target.errorCode);
+      reject(event.target.errorCode);
+    };
   });
 }
 
-// ADMIN-TOGGLE (3 snabba klick eller 1s långtryck)
-let userClickCount = 0;
-let userClickTimer = null;
-let longPressTimer = null;
-
-function toggleAdminMode() {
-  isAdmin = !isAdmin;
-  localStorage.setItem('lpv_is_admin', isAdmin ? 'true' : 'false');
-  updateAdminUI();
-  alert(isAdmin ? "👑 Admin-läge aktiverat!" : "Admin-läge avstängt.");
+async function loadAllDrafts() {
+  return new Promise((resolve) => {
+    if (!db) return resolve([]);
+    const transaction = db.transaction([STORE_NAME], "readonly");
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+    
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => resolve([]);
+  });
 }
 
-function handleUserPillClick() {
-  userClickCount++;
-  clearTimeout(userClickTimer);
-  userClickTimer = setTimeout(() => { userClickCount = 0; }, 800);
-  if (userClickCount >= 3) {
-    userClickCount = 0;
-    toggleAdminMode();
-  }
-}
-
-const userPillEl = document.getElementById('user-display');
-if (userPillEl) {
-  userPillEl.addEventListener('touchstart', () => {
-    longPressTimer = setTimeout(() => toggleAdminMode(), 1000);
-  }, { passive: true });
-  userPillEl.addEventListener('touchend', () => clearTimeout(longPressTimer));
-  userPillEl.addEventListener('touchmove', () => clearTimeout(longPressTimer));
-}
-
-function getCurrentTimeStr() {
-  const nu = new Date();
-  return String(nu.getHours()).padStart(2, '0') + ':' + String(nu.getMinutes()).padStart(2, '0');
-}
-
-function loadAllDrafts() {
-  const d1 = localStorage.getItem('tidrapport_drafts');
-  const d2 = localStorage.getItem('lpv_tidrapport_drafts');
-  try {
-    if (d1) return JSON.parse(d1);
-    if (d2) return JSON.parse(d2);
-  } catch (e) { console.error(e); }
-  return [];
-}
-
-function saveDraftsToStorage() {
-  const json = JSON.stringify(drafts);
-  localStorage.setItem('tidrapport_drafts', json);
-  localStorage.setItem('lpv_tidrapport_drafts', json);
+async function saveDraftsToStorage() {
+  if (!db) return;
+  const transaction = db.transaction([STORE_NAME], "readwrite");
+  const store = transaction.objectStore(STORE_NAME);
+  
+  store.clear();
+  drafts.forEach(draft => store.put(draft));
+  
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = (e) => reject(e);
+  });
 }
 
 // ORIGINAL-VEKTORIKONER FRÅN DOKUMENTATIONEN
@@ -187,7 +173,10 @@ function triggerPlaceAlert() {
 }
 
 // INITIERING
-function initApp() {
+async function initApp() {
+  await initDatabase();
+  drafts = await loadAllDrafts();
+
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   const dateInput = document.getElementById('input-date');
