@@ -319,3 +319,104 @@ input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webk
 .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .25s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--accent); }
 input:checked + .slider:before { transform: translateX(18px); }
+
+/* ==========================================
+   KABANOSS (FLYGLEDARTORNET) - Mac/PC Vy
+   ========================================== */
+.kabanoss-container {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: var(--bg-base);
+  z-index: 9999;
+  box-sizing: border-box;
+}
+.kabanoss-container.active {
+  display: flex;
+}
+.kabanoss-header {
+  padding: 20px 30px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(28, 28, 30, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.btn-close-kanban {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.btn-close-kanban:hover {
+  background: rgba(255,255,255,0.2);
+}
+.kanban-board {
+  display: flex;
+  gap: 20px;
+  padding: 20px 30px;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.kanban-column {
+  flex: 1;
+  min-width: 300px;
+  max-width: 400px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.kanban-col-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.kanban-col-count {
+  background: rgba(255,255,255,0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #fff;
+}
+.kanban-cards {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 20px;
+}
+.kanban-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: grab;
+  transition: transform 0.15s, border-color 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.kanban-card:hover {
+  border-color: rgba(255,255,255,0.2);
+}
+.kanban-card:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
