@@ -479,3 +479,44 @@ input:checked + .slider:before { transform: translateX(18px); }
 }
 .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 .gallery-thumb { width: 100%; height: 110px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); }
+
+/* ==========================================
+   FIX: SOLID BAKGRUND FÖR FLYGLEDARTORNET
+   ========================================== */
+.kabanoss-container {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: #0b0b0e !important; /* Helt täckande mörk bakgrund */
+  z-index: 999999 !important; /* Ligger garanterat överst */
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.kabanoss-container.active {
+  display: flex !important;
+}
+.kanban-board {
+  display: flex;
+  gap: 20px;
+  padding: 20px 30px;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background-color: #0b0b0e !important;
+}
+.kanban-column {
+  flex: 1;
+  min-width: 280px;
+  max-width: 380px;
+  background: rgba(28, 28, 30, 0.95) !important;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
