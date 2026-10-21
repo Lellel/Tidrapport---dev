@@ -14,9 +14,11 @@ if [ ! -d "$PROD_DIR" ]; then
   exit 1
 fi
 
-echo "🔄 [2/4] Synkar PROD med remote..."
+echo "🔄 [2/4] Säkerställer ren main-gren i PROD..."
 cd "$PROD_DIR"
-git pull --rebase origin main || true
+git checkout main
+git fetch origin main
+git reset --hard origin/main
 cd ~/Desktop/LPV_Backup/Tidrapport---dev
 
 echo "📦 [3/4] Kopierar till PROD (skyddar config.js)..."
