@@ -13,6 +13,7 @@ let plannedJobs = []; // OSTHYVELN: Kalenderbokningar från Google Kalender
 let currentActivity = "";
 let currentJobType = "nya";
 let currentImagesBase64 = [];
+let isSubmitting = false; // Lås mot dubbelinskick
 
 // ==========================================
 // 1. URL & ANVÄNDARHANTERING
@@ -93,7 +94,7 @@ async function saveDraftsToStorage() {
 // ==========================================
 window.addEventListener('online', () => {
   console.log('🌐 Nätverk tillbaka! Utför automatisk bakgrundssynk...');
-  submitAll(true); // Silent mode = true
+  submitAll(true);
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -191,7 +192,7 @@ function setJobType(type) {
   }
 }
 
-// CHIPS (SNABBVAL) OCH SKAK-ALERT
+// CHIPS & ALERT
 const DEFAULT_PLACES = ["Blacksta", "Coop", "Testplats"];
 function renderQuickChips() {
   const container = document.getElementById('chips-container');
@@ -246,7 +247,6 @@ async function initApp() {
   checkForgottenClockOuts();
   setInterval(checkForgottenClockOuts, 60 * 60 * 1000);
 
-  // Om det finns osynkade färdiga pass vid start, försök synka tyst
   if (navigator.onLine) {
     submitAll(true);
   }
@@ -615,10 +615,14 @@ function renderOutbox() {
   });
 }
 
-// BATCH-RAPPORT (MÖJLIGHET TILL TYST BAKGRUNDSSYNK)
+// BATCH-RAPPORT MED SKARPT DUBBELSLÅS
 async function submitAll(silent = false) {
+  if (isSubmitting) return;
+
   const readyToSend = drafts.filter(d => d.start && d.end);
   if (readyToSend.length === 0) return;
+
+  isSubmitting = true;
 
   const btn = document.getElementById('btnSubmitAll');
   if (btn) {
@@ -656,45 +660,12 @@ async function submitAll(silent = false) {
     }
     console.error(err);
   } finally {
+    isSubmitting = false;
     if (btn) {
       btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Skicka in`;
       btn.disabled = false;
     }
   }
-}
-
-// DASHBOARD
-function updateDashboardData() {
-  const totalHoursEl = document.getElementById('dash-total-hours');
-  const passCountEl = document.getElementById('dash-pass-count');
-  const listEl = document.getElementById('dash-activity-list');
-  if (!totalHoursEl || !listEl) return;
-
-  passCountEl.innerText = `${drafts.length} st`;
-  let totalH = 0;
-  listEl.innerHTML = '';
-
-  if (drafts.length === 0) {
-    listEl.innerHTML = '<div class="dash-empty">Inga registrerade pass än idag.</div>';
-    totalHoursEl.innerText = '0.0 h';
-    return;
-  }
-
-  drafts.forEach(p => {
-    const hours = parseFloat(p.totalHours || calculateHours(p.start, p.end) || 0);
-    totalH += hours;
-    const row = document.createElement('div');
-    row.className = 'dash-row';
-    row.innerHTML = `
-      <div>
-        <div style="font-weight:600; color:var(--text);">${p.place || 'Uppdrag'}</div>
-        <div style="font-size:11px; color:var(--text-muted);">${p.activity || 'Övrigt'} (${p.start}–${p.end || 'Pågår'})</div>
-      </div>
-      <div style="font-weight:600; color:var(--accent);">${hours.toFixed(1)} h</div>
-    `;
-    listEl.appendChild(row);
-  });
-  totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
 }
 
 // ADMIN-LOGIK
