@@ -10,6 +10,7 @@ if ('serviceWorker' in navigator) {
 // Global data & state
 let drafts = loadAllDrafts();
 let plannedJobs = []; // Hybrid Osthyvel (Kalender + Kalkylark)
+let completedCalendarJobIds = JSON.parse(localStorage.getItem('lpv_completed_cal_jobs')) || [];
 let currentActivity = "";
 let currentJobType = "nya";
 let attachedPhotoBase64 = null;
@@ -50,6 +51,15 @@ function handleUserPillClick() {
 function getCurrentTimeStr() {
   const now = new Date();
   return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+}
+
+function markCalendarJobCompleted(jobId) {
+  if (!jobId) return;
+  const strId = String(jobId);
+  if (!completedCalendarJobIds.includes(strId)) {
+    completedCalendarJobIds.push(strId);
+    localStorage.setItem('lpv_completed_cal_jobs', JSON.stringify(completedCalendarJobIds));
+  }
 }
 
 // ==========================================
@@ -391,7 +401,7 @@ function createSplitPass(sourceId) {
     date: document.getElementById('input-date')?.value || new Date().toISOString().split('T')[0],
     user: currentUser,
     place: src.place,
-    activity: `${baseName} (Pass ${passNum})`,
+    activity: `${baseName} (Pass${passNum})`,
     notes: src.notes || '',
     start: getCurrentTimeStr(),
     end: '',
@@ -403,6 +413,7 @@ function createSplitPass(sourceId) {
   updateDashboardData();
 }
 
+// STÄMPLA UT (LIGGER KVAR I UTKORGEN TILLS MAN SKICKAR IN)
 function clockOut(id) {
   const draftIndex = drafts.findIndex(d => d.id === id);
   if (draftIndex !== -1) {
@@ -411,7 +422,6 @@ function clockOut(id) {
     saveDraftsToStorage();
     renderOutbox();
     updateDashboardData();
-    if (navigator.onLine) submitAll(true);
   }
 }
 
@@ -466,10 +476,6 @@ function saveToOutbox() {
   updateLiveHours();
   renderOutbox();
   updateDashboardData();
-
-  if (navigator.onLine && end) {
-    submitAll(true);
-  }
 }
 
 function deleteDraft(id) {
@@ -508,9 +514,12 @@ function renderOutbox() {
   drafts.forEach(d => { if (d.start && d.end) totalHours += parseFloat(calculateHours(d.start, d.end)); });
   title.innerText = `Dagens pass (${drafts.length} st • ${totalHours.toFixed(1)} h)`;
 
-  // Rendera Buffert och Planerade jobb
+  // Rendera Buffert och Planerade jobb (Filteras om de redan finns i drafts ELLER i completedCalendarJobIds)
   plannedJobs.forEach(job => {
-    if (drafts.some(d => String(d.calendarJobId) === String(job.id))) return;
+    const isDrafted = drafts.some(d => String(d.calendarJobId) === String(job.id));
+    const isCompleted = completedCalendarJobIds.includes(String(job.id));
+    if (isDrafted || isCompleted) return;
+
     const card = document.createElement('div');
     card.className = 'draft-card';
     
@@ -526,8 +535,7 @@ function renderOutbox() {
         </div>
         <div class="card-meta" style="margin-top:6px;">
           ${badgeHtml}
-          <span style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;">${job.place}</span>
-          ${job.start ? `<span class="dot">•</span><span>${job.start}</span>` : ''}
+          <span style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;">${job.place}</span>${job.start ? `<span class="dot">•</span><span>${job.start}</span>` : ''}
         </div>
         ${job.description ? `<div class="card-note">${job.description}</div>` : ''}
       </div>
@@ -546,13 +554,13 @@ function renderOutbox() {
     container.appendChild(card);
   });
 
-  // Rendera lokala pass
+  // Rendera lokala pass i utkorgen
   drafts.forEach(draft => {
     const card = document.createElement('div');
     card.className = 'draft-card';
     const iconSvg = getActivityIcon(draft.activity);
     const isOngoing = !draft.end;
-    const timeDisplay = isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} – ${draft.end}`;
+    const timeDisplay = isOngoing ? '<span class="ongoing-pulse">Pågår</span>' : `${draft.start} –${draft.end}`;
     const hoursDisplay = isOngoing ? '' : `${calculateHours(draft.start, draft.end).toFixed(1)} h`;
     const ataBadge = draft.type === 'ata' ? `<span class="badge-ata">${draft.ataNumber || 'ÄTA'}</span>` : '';
     const photoIcon = (draft.images && draft.images.length > 0) ? `<span style="color:var(--green); margin-left:auto;">📸</span>` : '';
@@ -573,8 +581,7 @@ function renderOutbox() {
     card.innerHTML = `
       <div class="card-body">
         <div class="card-title">
-          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">${iconSvg}</span>
-          ${ataBadge}
+          <span style="display:inline-flex; align-items:center; color:var(--accent); margin-right:8px; flex-shrink:0;">${iconSvg}</span>${ataBadge}
           <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${draft.place}</span>
           <span class="dot">•</span>
           <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>
@@ -582,8 +589,7 @@ function renderOutbox() {
         <div class="card-meta">
           <span>${draft.date}</span>
           <span class="dot">•</span>
-          <span>${timeDisplay}</span>
-          ${hoursDisplay ? `<span class="dot">•</span><span style="color:#FFF; font-weight:500;">${hoursDisplay}</span>` : ''}
+          <span>${timeDisplay}</span>${hoursDisplay ? `<span class="dot">•</span><span style="color:#FFF; font-weight:500;">${hoursDisplay}</span>` : ''}
           ${photoIcon}
         </div>
         ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
@@ -594,6 +600,7 @@ function renderOutbox() {
   });
 }
 
+// BATCH-RAPPORT (SKICKAR PASS OCH MARKERAR KALENDERPASS SOM SLUTFÖRDA)
 async function submitAll(silent = false) {
   if (isSubmitting) return;
 
@@ -619,7 +626,15 @@ async function submitAll(silent = false) {
     });
     const result = await res.json();
     if (result && result.status === 'success') {
-      if (!silent) alert(`Klart! ${result.count || readyToSend.length} pass har sparats.`);
+      if (!silent) alert(`Klart! ${result.count || readyToSend.length} pass har sparats i kalkylarket.`);
+      
+      // Markera kalenderjobb som permanent slutförda
+      readyToSend.forEach(d => {
+        if (d.calendarJobId) {
+          markCalendarJobCompleted(d.calendarJobId);
+        }
+      });
+
       const idsToRemove = readyToSend.map(d => d.id);
       drafts = drafts.filter(d => !idsToRemove.includes(d.id));
       saveDraftsToStorage();
@@ -665,113 +680,45 @@ function updateDashboardData() {
     row.innerHTML = `
       <div>
         <div style="font-weight:600; color:#FFF;">${p.place || 'Uppdrag'}</div>
-        <div style="font-size:11px; color:var(--text-muted);">${p.activity || 'Övrigt'} (${p.start}–${p.end || 'Pågår'})</div>
-      </div>
-      <div style="font-weight:600; color:var(--accent);">${hours.toFixed(1)} h</div>
-    `;
-    listEl.appendChild(row);
-  });
-  totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
-}
+        <div style="font-size:
+cd ~/Desktop/LPV_Backup/Tidrapport---dev
 
-async function fetchAdminUsers() {
-  const select = document.getElementById('admin-target-user');
-  if (!select) return;
-  select.innerHTML = '<option value="">Hämtar...</option>';
-  try {
-    const res = await fetch(CONFIG.API_URL, {
-      method: 'POST',
-      body: JSON.stringify({ token: CONFIG.API_TOKEN, action: 'getUsers' })
-    });
-    const data = await res.json();
-    if (data.status === 'success') {
-      adminUserList = data.users;
-      hasFetchedUsers = true;
-      select.innerHTML = '<option value="">Välj person...</option>';
-      adminUserList.forEach(u => {
-        select.innerHTML += `<option value="${u.name}">${u.name}</option>`;
-      });
-    } else {
-      select.innerHTML = '<option value="">Fel vid hämtning</option>';
-    }
-  } catch (err) {
-    select.innerHTML = '<option value="">Offline</option>';
-  }
-}
+cat << 'EOF' > sw.js
+const CACHE_NAME = 'tidrapport-prod-v2.4.1';
+const ASSETS = [
+  './index.html',
+  './style.css',
+  './app.js',
+  './config.js',
+  './manifest.json',
+  './icon.png'
+];
 
-function onAdminUserSelect() {
-  const select = document.getElementById('admin-target-user');
-  const phoneInput = document.getElementById('admin-target-phone');
-  const adminCheck = document.getElementById('admin-target-is-admin');
-  
-  if (!select || !phoneInput || !adminCheck) return;
-  const selectedUser = adminUserList.find(u => u.name === select.value);
-  if (selectedUser) {
-    let phoneVal = selectedUser.phone ? String(selectedUser.phone).trim() : '';
-    if (phoneVal.length === 9 && !phoneVal.startsWith('0')) phoneVal = '0' + phoneVal; 
-    phoneInput.value = phoneVal;
-    adminCheck.checked = selectedUser.isAdmin;
-  } else {
-    phoneInput.value = '';
-    adminCheck.checked = false;
-  }
-  updateAdminTargetLink();
-}
+importScripts('./config.js');
 
-function getAdminTargetUrl() {
-  const targetUser = document.getElementById('admin-target-user')?.value.trim();
-  const targetIsAdmin = document.getElementById('admin-target-is-admin')?.checked;
-  const baseUrl = window.location.origin + window.location.pathname;
-  const params = new URLSearchParams();
-  if (targetUser) params.set('user', targetUser);
-  if (targetIsAdmin) params.set('admin', 'true');
-  const queryString = params.toString();
-  return queryString ? `${baseUrl}?${queryString}` : baseUrl;
-}
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+  );
+  self.skipWaiting();
+});
 
-function updateAdminTargetLink() {
-  const qrBox = document.getElementById('admin-qr-container');
-  const qrImg = document.getElementById('admin-qr-image');
-  const caption = document.getElementById('admin-qr-caption');
-  if (qrBox && qrBox.style.display === 'block' && qrImg) {
-    const targetUrl = getAdminTargetUrl();
-    const targetUser = document.getElementById('admin-target-user')?.value.trim();
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(targetUrl)}`;
-    if (caption) {
-      caption.innerText = targetUser ? `Skanna för att logga in som ${targetUser}:` : "Skanna för att logga in:";
-    }
-  }
-}
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) return caches.delete(key);
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
 
-function adminSendSMS() {
-  const targetUrl = getAdminTargetUrl();
-  const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
-  const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
-  const message = `Hej ${targetUser}! Här är din inloggningslänk till LPV Tidrapport: ${targetUrl}`;
-  if (phone) window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(message)}`;
-  else window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
-}
-
-function adminSendEmail() {
-  const targetUrl = getAdminTargetUrl();
-  const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
-  const subject = "Inloggning LPV Tidrapport";
-  const body = `Hej ${targetUser}!\n\nHär är din inloggningslänk till LPV Tidrapport:\n${targetUrl}\n\nKlicka på länken från din telefon för att logga in.`;
-  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
-function toggleAdminQR() {
-  const qrBox = document.getElementById('admin-qr-container');
-  const qrImg = document.getElementById('admin-qr-image');
-  const caption = document.getElementById('admin-qr-caption');
-  if (!qrBox || !qrImg) return;
-  if (qrBox.style.display === 'none' || qrBox.style.display === '') {
-    const targetUrl = getAdminTargetUrl();
-    const targetUser = document.getElementById('admin-target-user')?.value.trim();
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(targetUrl)}`;
-    if (caption) caption.innerText = targetUser ? `Skanna för att logga in som ${targetUser}:` : "Skanna för att logga in:";
-    qrBox.style.display = 'block';
-  } else {
-    qrBox.style.display = 'none';
-  }
-}
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request).catch(() => caches.match(e.request))
+  );
+});
