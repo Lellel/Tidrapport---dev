@@ -23,14 +23,14 @@
         <h1>Tidrapport</h1>
         <div class="header-badges">
           <button id="theme-toggle" class="theme-btn" aria-label="Växla tema">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M18.36 5.64l1.42-1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M18 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           </button>
           <div class="user-pill" id="user-display" onclick="handleUserPillClick()">Daniel</div>
           <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
         </div>
       </header>
 
-      <!-- UTKORG / DAGENS PASS (HORISONTELL KARUSELL) -->
+      <!-- UTKORG / OSTHYVELN (HORISONTELL KARUSELL) -->
       <div id="outbox-section">
         <div class="outbox-header-row">
           <span class="section-title" id="outbox-title" style="margin: 0;">Dagens pass</span>
@@ -46,7 +46,6 @@
       <div class="section-title">Uppdrag</div>
       <div class="ios-card">
         <div class="type-control">
-          <button type="button" id="btn-type-cal" class="type-btn" onclick="setJobType('kalender')">Kalender</button>
           <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
           <button type="button" id="btn-type-ata" class="type-btn" onclick="setJobType('ata')">ÄTA</button>
         </div>
@@ -81,7 +80,7 @@
       <div class="ios-card">
         <div class="ios-row">
           <span>Datum</span>
-          <input type="date" id="input-date">
+          <input type="date" id="input-date" onchange="fetchPlannedJobs()">
         </div>
         <div class="ios-row">
           <span>Start</span>
@@ -109,10 +108,9 @@
       <!-- SPARA PASS -->
       <button class="main-btn" onclick="saveToOutbox()">Spara pass lokalt</button>
 
-      <!-- 4. SNABBNAVIGATION / FÄLTSTÖD (STEVE JOBS-IFIERADE APPLE-STYLE VEKTORIKONER) -->
+      <!-- 4. SNABBNAVIGATION / FÄLTSTÖD -->
       <div class="section-title">Fältstöd (Närmsta)</div>
       <div class="nav-grid">
-        <!-- SNABBMAT (Apple SF Symbol Burger) -->
         <a href="https://maps.apple.com/?q=Snabbmat" class="nav-card" target="_blank">
           <span class="nav-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -124,7 +122,6 @@
           <span class="nav-label">Snabbmat</span>
         </a>
 
-        <!-- BYGGVARUHUS (Apple SF Construction Hammer) -->
         <a href="https://maps.apple.com/?q=Byggvaruhus" class="nav-card" target="_blank">
           <span class="nav-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -136,11 +133,9 @@
           <span class="nav-label">Byggvaruhus</span>
         </a>
 
-        <!-- BILTEMA (Vektoriserad Cupertino Checkered 'B' Glyph) -->
         <a href="https://maps.apple.com/?q=Biltema" class="nav-card" target="_blank">
           <span class="nav-icon">
             <svg width="24" height="20" viewBox="0 0 28 20" fill="currentColor">
-              <!-- Biltemas schackmönster till vänster -->
               <rect x="5" y="2" width="3" height="3" rx="0.5"/>
               <rect x="11" y="2" width="3" height="3" rx="0.5"/>
               <rect x="2" y="5.5" width="3" height="3" rx="0.5"/>
@@ -151,14 +146,12 @@
               <rect x="8" y="12.5" width="3" height="3" rx="0.5"/>
               <rect x="5" y="16" width="3" height="3" rx="0.5"/>
               <rect x="11" y="16" width="3" height="3" rx="0.5"/>
-              <!-- Biltemas B med rena hål -->
               <path fill-rule="evenodd" d="M14 2h7a5 5 0 0 1 4.2 7.7A5.5 5.5 0 0 1 21.5 19H14V2zm4 3.5v3.5h3a1.75 1.75 0 0 0 0-3.5h-3zm0 6.5v4h3.5a2 2 0 0 0 0-4H18z"/>
             </svg>
           </span>
           <span class="nav-label">Biltema</span>
         </a>
 
-        <!-- JULA (Vektoriserad Cupertino Stadium Badge med kursiv JULA) -->
         <a href="https://maps.apple.com/?q=Jula" class="nav-card" target="_blank">
           <span class="nav-icon">
             <svg width="26" height="20" viewBox="0 0 32 18" fill="none">
@@ -169,10 +162,6 @@
           <span class="nav-label">Jula</span>
         </a>
       </div>
-
-      <!-- PORTRAIT FALLBACK FÖR ADMIN-VERKTYG -->
-      <div id="admin-tools-portrait" class="admin-portrait-container" style="display: none;"></div>
-
     </div>
 
     <!-- ADAPTIV LANDSKAP & IPAD DASHBOARD -->
@@ -189,7 +178,7 @@
         </div>
         <div class="stat-card">
           <div class="stat-val" id="dash-pass-count">0 st</div>
-          <div class="stat-lbl">Sparade pass</div>
+          <div class="stat-lbl">Registrerade pass</div>
         </div>
       </div>
 
@@ -243,7 +232,7 @@
     </aside>
   </div>
 
-  <!-- ACTION SHEET FÖR AKTIVITETER (ORIGINAL-VEKTORIKONER FRÅN PDF) -->
+  <!-- ACTION SHEET FÖR AKTIVITETER -->
   <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
     <div class="sheet-container" onclick="event.stopPropagation()">
       <div class="sheet-header">
