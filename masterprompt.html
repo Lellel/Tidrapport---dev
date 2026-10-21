@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>JAS 39 Gripen – Masterprompt & Systemdoktrin v2.5</title>
+</head>
+<body>
+<pre>
+# SYSTEMKONTEXT & SYSTEMDOKTRIN: JAS 39 GRIPEN (LPV TIDRAPPORT) – v2.5
+
+================================================================================
+0. UPPSTARTS- OCH SYNK-PROTOKOLL (OFRÅNKOMLIG REGEL)
+================================================================================
+- Kanariefågel: AI:n SKA ALLTID inleda varje enskilt svar med en lämplig smiley (t.ex. 🛩️, 🚜, 🛡️, ⚙️). Utebliven smiley är en direkt varningslampa för minnesförlust.
+- Start av ny session: Vid varje ny session SKA AI:n som allra första åtgärd läsa in denna fil eller kräva följande terminalkommando:
+  cat ~/Desktop/LPV_Backup/Tidrapport---dev/masterprompt.html | pbcopy
+- Läs innan rendering: AI:n måste hålla hela projektkoden i minnet och ENDAST justera den specifika funktion som diskuteras. Alla tidigare funktioner (vektorikoner, CORS-headers, Osthyveln, auto-synk) MÅSTE bevaras intakta.
+- Avslut av session: När en session avslutas eller visas för paus ska AI:n generera ett terminalskript för att uppdatera `masterprompt.html` med nya vägval och ändringar.
+
+================================================================================
+1. PROJEKTÖVERSIKT & FILOSOFI
+================================================================================
+- Applikation: "JAS 39 Gripen" (LPV Cupertino Tidrapport). En PWA i iOS/Cupertino-design (Dark/Light mode) för maskinförare i fält.
+- Kärnfilosofi: "Fält-först". Minimal skärmtid i maskinhytten. Systemet ska kräva minsta möjliga antal tryck och fungera 100 % offline i källare, betonggarage eller djupa skogar utan nät.
+
+================================================================================
+2. MILJÖISOLERING & PUBLICEINGSPROTOKOLL
+================================================================================
+- Två helt isolerade miljöer:
+  1. DEV: `Tidrapport---dev` – All utveckling, redigering och testning sker EXKLUSIVT här.
+  2. PROD: `Tidsrapportering-och-annat-LPV` – Skarp miljö för förare. Rör ALDRIG denna mapp direkt!
+- Terminalen först: AI:n ska alltid generera kod som körbara terminalskript (`cat << 'EOF' > ...`) för 100 % kompletta filer för att undvika manuell klipp-och-klistra.
+- Ett-klicks-publicering: Överföring från DEV till PROD görs uteslutande via:
+  ~/Desktop/LPV_Backup/Tidrapport---dev/publish.sh "<meddelande>"
+- Konfigurationsisolering: `config.js` (frontend) och `Config.gs` (backend) är miljöspecifika och skrivs ALDRIG över vid publicering.
+
+================================================================================
+3. TEKNISK STACK & ARKITEKTUR
+================================================================================
+- Frontend: Vanilla HTML5, CSS3 (Cupertino Glassmorphism, CSS Grid/Flexbox), Vanilla JS, Service Worker.
+- Offline-valv: IndexedDB (`LPV_Tidrapport_DB`) för säker offline-lagring av drafts och Base64-bilder.
+- Backend: Google Apps Script (GAS) Web App (`doPost`, `doGet`) med CORS-header (`text/plain;charset=utf-8`), LockService (`tryLock(15000)`).
+- Databas & Logg: Google Kalkylark (Fliken `Tidrapporter` A–J, Fliken `Personal` A–H).
+- Bildarkiv: Google Drive API via Apps Script. Skapar undermappar per pass: `YYYY-MM-DD Plats (Aktivitet)` i `FOLDER_ID_ROOT_IMAGES`.
+- Planering: Google Kalender ("Osthyveln") via `CONFIG.CALENDAR_ID`.
+- QR-kodsmotor: Extern API-rendering via `api.qrserver.com`.
+
+================================================================================
+4. DATABASSTRUKTUR (GOOGLE SHEETS)
+================================================================================
+Fliken "Tidrapporter":
+  A: Datum (YYYY-MM-DD)
+  B: Fakturerad (Kryssruta, false = Ej fakturerad)
+  C: Plats / Betalställe
+  D: Aktivitet & Pass ([ÄTA xx] prefix alt. Aktivitet (Pass X))
+  E: Starttid (HH:mm)
+  F: Sluttid (HH:mm)
+  G: Total tid ("X tim Y min" via formatDuration)
+  H: Tidsstämpel (YYYY-MM-DD HH:mm:ss)
+  I: Användare (t.ex. Daniel)
+  J: Anteckning + länk till Drive-bildmapp
+
+Fliken "Personal":
+  A: Användare (Namn)
+  B: Pinkod
+  C: Telefon (Mobilnummer i format 07xxxxxxxx)
+  D: E-Post
+  E: Behörighet ("Admin" eller tomt)
+  F: Skicka SMS (=HYPERLINK("https://.../sms.html?to=" & C2 & "&body=" & ENCODEURL(...)); "Skicka SMS")
+  G: Skicka Mail (=HYPERLINK("mailto:" & D2 & "?subject=" & ENCODEURL(...) & "&body=" & ENCODEURL(...)); "Skicka Mail")
+  H: QR-Kod (=IMAGE("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" & ENCODEURL(...)))
+
+================================================================================
+5. NYCKELFUNKTIONER & IMPLEMENTERADE VÄGVAL (MED MOTIVERINGAR)
+================================================================================
+1. iOS Safari-anpassad Auto-synk:
+   - Motivering: iOS Safari/WebKit stödjer INTE W3C `SyncManager` (Background Sync).
+   - Lösning: Auto-synk styrs via `window.addEventListener('online')` samt `document.addEventListener('visibilitychange')`.
+   - Inskicks-lås: Flaggan `isSubmitting = true` förhindrar kapplöpning (race conditions) och dubbla rader i Google Sheets vid nätverksskiften.
+
+2. Glömt-utstämplingsvarning (Cron-bevakning i appen):
+   - Motivering: Förare glömmer ibland att stämpla ut vid passets slut.
+   - Lösning: `checkForgottenClockOuts()` körs vid start och varje timme. Om ett pass saknar sluttid och pågått > 12 timmar triggas en native browser-notis (`Notification`).
+
+3. Bildkomprimering på klientsidan:
+   - Motivering: Tunga mobilfoton spräcker webbläsarens lagringsminne.
+   - Lösning: Bilder komprimeras direkt via HTML5 Canvas till max 800px bredd och 70% JPEG-kvalitet innan Base64-lagring i IndexedDB. Up till 5 bilder per pass.
+
+4. Osthyveln (Google Kalender-integration):
+   - Motivering: Minska inmatning för förbokade jobb.
+   - Lösning: Hämtar dagens kalenderevents via `getCalendar` och renderar blå kort i karusellen. Klick på "Stämpla in" konverterar bokningen till ett aktivt pass.
+
+5. Split-pass:
+   - Motivering: Dela upp avbrutna/uppdelade arbetsdagar.
+   - Lösning: "Nytt pass"-knapp skapar automatiskt "Pass 2", "Pass 3" etc. med bibehållen information från föregående pass.
+
+6. Onboarding via SMS-brygga (`sms.html`):
+   - Motivering: Google Sheets blockerar direktlänkar som börjar på `sms:`. Apple iMessage raderar mottagarnumret om `?body=` används med telefonnummer.
+   - Lösning: Sheets länkar till `sms.html` som tvättar numret till `+46`-format och öppnar iMessage via `sms:<nummer>&body=<text>`.
+
+7. Adaptiv iPad & Landskaps-Dashboard:
+   - Motivering: Ledningscentral och administratörer behöver storskärmsöversikt på Mac/PC/iPad.
+   - Lösning: Liggande läge eller skärmbredd >= 768px fäller ut en högerspalt i Cupertino Glassmorphism med timstatistik, dagens fördelning och kontakt-dropdown (`getUsers`) för onboarding via SMS, Mail och QR-kod.
+
+8. Fältstöd (Snabbnavigation):
+   - Motivering: Snabb tillgång till närmsta service utan GPS-tillstånd.
+   - Lösning: Djuplänkar till Apple Maps (`maps.apple.com/?q=...`) för Snabbmat, Byggvaruhus, Biltema, Jula.
+
+9. Säkerhet & Datahygien:
+   - Token-autentisering (`API_TOKEN = "Gravmaskin2026Secure!"`).
+   - Anti-Formula Injection: Funktionen `sanitize()` i `Kod.gs` tvättar inkommande text mot skadliga tecken (`=`, `+`, `-`, `@`).
+
+================================================================================
+6. MASKINIKONER (FAST VEKTORREFERENS – EMOJIS FÖRBJUDNA)
+================================================================================
+Endast följande specialritade SVG-vektorer (20x20 / 24x24) får användas:
+- Bandgrävare: Grävare med larvband (3 hjul) och skopa.
+- Stalltvätt: Högtryckstvätt med lans och vattenstänk.
+- Snöröjning: Kramer-hjullastare med snöplog och snöflinga.
+- Kyl- & frysflytt: Magasinkärra/pirra med kylskåp.
+- Linjemålning: Graco-linjemålare med hjul och linje.
+- Fasadmålning: Husfasad med byggställning.
+
+================================================================================
+7. CRON-BEVAKNING & LOKAL BACKUP
+================================================================================
+- AI:n fungerar som ett virtuellt cron-jobb och påminner varannan timme under aktiva utvecklingssessioner om lokal backup via:
+  cd ~/Desktop/LPV_Backup/Tidrapport---dev && git pull && cd ../Tidsrapportering-och-annat-LPV && git pull
+- System Check: I samband med påminnelsen stämmer AI:n av om `masterprompt.html` behöver uppdateras med ny arkitektur eller logik.
+</pre>
+</body>
+</html>
