@@ -1,4 +1,3 @@
-// Registrera Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
@@ -7,7 +6,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Global data & state
+// Global state
 let drafts = loadAllDrafts();
 let plannedJobs = []; 
 let completedCalendarJobIds = JSON.parse(localStorage.getItem('lpv_completed_cal_jobs')) || [];
@@ -16,11 +15,12 @@ let currentJobType = "nya";
 let attachedPhotoBase64 = null;
 let isSubmitting = false;
 
-// Hämta kontaktboken från Sheets
-let adminUserList = [];
-let hasFetchedUsers = false;
+// CRM State
+let customersList = [];
+let decisionLogs = [];
+let templatesList = [];
+let selectedCustomer = null;
 
-// Läs användare och Admin-status från URL / localStorage
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.has('user')) localStorage.setItem('lpv_user', urlParams.get('user'));
 if (urlParams.has('admin')) {
@@ -32,7 +32,6 @@ const currentUser = urlParams.get('user') || localStorage.getItem('lpv_user') ||
 let isAdmin = (urlParams.get('admin') && (urlParams.get('admin').toLowerCase() === 'true' || urlParams.get('admin') === '1'))
            || localStorage.getItem('lpv_is_admin') === 'true';
 
-// Hantera klick på namn-pillret
 let userClickCount = 0;
 let userClickTimer = null;
 function handleUserPillClick() {
@@ -63,7 +62,7 @@ function markCalendarJobCompleted(jobId) {
 }
 
 // ==========================================
-// KABANOSS (FLYGLEDARTORNET) - Mac / PC
+// KABANOSS (FLYGLEDARTORNET) & CRM MODAL
 // ==========================================
 function initKabanossUI() {
   if (document.getElementById('kabanoss-container')) return;
@@ -73,38 +72,198 @@ function initKabanossUI() {
   container.className = 'kabanoss-container';
   container.innerHTML = `
     <div class="kabanoss-header">
-      <button class="btn-close-kanban" onclick="toggleKabanoss()">✕ Stäng Flygledartornet</button>
-      <span style="color:#fff; font-size: 20px; font-weight:700; margin-left: 20px;">🌭 Kabanoss-Vy (Realtid)</span>
+      <button class="btn-close-kanban" onclick="toggleKabanoss()">✕ Stäng</button>
+      <span style="color:#fff; font-size: 20px; font-weight:700; margin-left: 20px;">🌭 Flygledartornet & Kabanoss</span>
+      <button class="btn-action" style="margin-left: auto; background: var(--accent-blue);" onclick="toggleCRMModal()">👥 Öppna CRM & Kundbild</button>
     </div>
     <div class="kanban-board">
-      
-      <!-- Kolumn 1: Planerade -->
-      <div class="kanban-column" id="kanban-col-planned" ondragover="allowDrop(event)" ondrop="drop(event, 'planned')">
-        <div class="kanban-col-header">📥 Planerade <span class="kanban-col-count" id="count-planned">0</span></div>
-        <div class="kanban-cards" id="cards-planned"></div>
-      </div>
-      
-      <!-- Kolumn 2: Buffert -->
-      <div class="kanban-column" id="kanban-col-buffer" ondragover="allowDrop(event)" ondrop="drop(event, 'buffer')">
-        <div class="kanban-col-header">⏱️ Vid Tillfälle <span class="kanban-col-count" id="count-buffer">0</span></div>
-        <div class="kanban-cards" id="cards-buffer"></div>
-      </div>
-      
-      <!-- Kolumn 3: Live / Pågående -->
-      <div class="kanban-column" id="kanban-col-live" ondragover="allowDrop(event)" ondrop="drop(event, 'live')">
-        <div class="kanban-col-header">🚜 Pågående / Klára <span class="kanban-col-count" id="count-live">0</span></div>
-        <div class="kanban-cards" id="cards-live"></div>
-      </div>
-      
-      <!-- Kolumn 4: Klart -->
-      <div class="kanban-column" id="kanban-col-done" ondragover="allowDrop(event)" ondrop="drop(event, 'done')">
-        <div class="kanban-col-header">📊 Klara för faktura <span class="kanban-col-count" id="count-done">0</span></div>
-        <div class="kanban-cards" id="cards-done"></div>
-      </div>
-      
+      <div class="kanban-column" id="kanban-col-planned"><div class="kanban-col-header">📥 Planerade <span class="kanban-col-count" id="count-planned">0</span></div><div class="kanban-cards" id="cards-planned"></div></div>
+      <div class="kanban-column" id="kanban-col-buffer"><div class="kanban-col-header">⏱️ Vid Tillfälle <span class="kanban-col-count" id="count-buffer">0</span></div><div class="kanban-cards" id="cards-buffer"></div></div>
+      <div class="kanban-column" id="kanban-col-live"><div class="kanban-col-header">🚜 Pågående / Klara <span class="kanban-col-count" id="count-live">0</span></div><div class="kanban-cards" id="cards-live"></div></div>
+      <div class="kanban-column" id="kanban-col-done"><div class="kanban-col-header">📊 Klara för faktura <span class="kanban-col-count" id="count-done">0</span></div><div class="kanban-cards" id="cards-done"></div></div>
     </div>
   `;
   document.body.appendChild(container);
+  initCRMModalUI();
+}
+
+function initCRMModalUI() {
+  if (document.getElementById('crm-modal-backdrop')) return;
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'crm-modal-backdrop';
+  backdrop.className = 'crm-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="crm-window">
+      <div class="crm-header">
+        <div class="crm-nav-tabs">
+          <button class="crm-tab-btn active" id="tab-btn-kundbild" onclick="switchCRMTab('kundbild')">👥 360° Kundbild</button>
+          <button class="crm-tab-btn" id="tab-btn-beslut" onclick="switchCRMTab('beslut')">📌 Beslut & Logg</button>
+        </div>
+        <button class="btn-close-kanban" onclick="toggleCRMModal()">✕ Stäng CRM</button>
+      </div>
+      <div class="crm-body">
+        <div class="crm-sidebar-list" id="crm-customer-list"></div>
+        <div class="crm-main-view" id="crm-main-content">
+          <div style="color:var(--text-muted); text-align:center; margin-top:50px;">Välj en kund i listan till vänster för att öppna Kundbilden.</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+}
+
+function toggleCRMModal() {
+  const backdrop = document.getElementById('crm-modal-backdrop');
+  if (backdrop) {
+    backdrop.classList.toggle('active');
+    if (backdrop.classList.contains('active')) fetchCRMData();
+  }
+}
+
+function switchCRMTab(tab) {
+  document.getElementById('tab-btn-kundbild').classList.toggle('active', tab === 'kundbild');
+  document.getElementById('tab-btn-beslut').classList.toggle('active', tab === 'beslut');
+  if (tab === 'beslut') renderDecisionLogView();
+  else renderCustomerDetailView();
+}
+
+// API CRM ANROP
+async function fetchCRMData() {
+  if (!navigator.onLine) return;
+  try {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ token: CONFIG.API_TOKEN, action: 'getCustomers' })
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
+      customersList = data.customers || [];
+      renderCustomerSidebar();
+    }
+  } catch (err) { console.error("CRM Fel:", err); }
+}
+
+function renderCustomerSidebar() {
+  const container = document.getElementById('crm-customer-list');
+  if (!container) return;
+  container.innerHTML = `
+    <div style="padding:12px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:12px; font-weight:700; color:var(--text-muted);">KUNDER (${customersList.length})</span>
+      <button class="btn-action" style="padding:4px 8px; font-size:11px;" onclick="promptAddCustomer()">+ Ny</button>
+    </div>
+  `;
+  customersList.forEach(c => {
+    const item = document.createElement('div');
+    item.className = `customer-item ${selectedCustomer && selectedCustomer.id === c.id ? 'active' : ''}`;
+    item.onclick = () => { selectedCustomer = c; renderCustomerSidebar(); renderCustomerDetailView(); };
+    item.innerHTML = `
+      <div style="font-weight:700; color:#fff;">${c.name}</div>
+      <div style="font-size:12px; color:var(--text-muted);">${c.id} • ${c.contact || 'Ingen kontakt'}</div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function renderCustomerDetailView() {
+  const main = document.getElementById('crm-main-content');
+  if (!main) return;
+  if (!selectedCustomer) {
+    main.innerHTML = `<div style="color:var(--text-muted); text-align:center; margin-top:50px;">Välj en kund till vänster.</div>`;
+    return;
+  }
+  main.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h2 style="margin:0; font-size:24px;">${selectedCustomer.name}</h2>
+        <div style="color:var(--text-muted); font-size:13px; margin-top:4px;">ID: ${selectedCustomer.id} | Org.nr: ${selectedCustomer.org || 'Ej angivet'}</div>
+      </div>
+      <button class="btn-action" style="background:var(--accent-green);" onclick="promptAddDecision('${selectedCustomer.name}')">📌 Logga Beslut / ÄTA</button>
+    </div>
+    <div style="display:flex; gap:20px; background:rgba(255,255,255,0.03); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+      <div><strong>Kontakt:</strong> ${selectedCustomer.contact} (${selectedCustomer.phone})</div>
+      <div><strong>E-post:</strong> ${selectedCustomer.email}</div>
+      <div><strong>Adress:</strong> ${selectedCustomer.address}</div>
+    </div>
+    <h3 style="margin-top:20px; font-size:16px;">Tidslinje & Historik</h3>
+    <div id="customer-timeline"><div style="color:var(--text-muted); font-size:13px;">Hämtar historik...</div></div>
+  `;
+  fetchCustomerTimeline(selectedCustomer.name);
+}
+
+async function fetchCustomerTimeline(customerName) {
+  if (!navigator.onLine) return;
+  try {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ token: CONFIG.API_TOKEN, action: 'getDecisionLog' })
+    });
+    const data = await res.json();
+    const container = document.getElementById('customer-timeline');
+    if (!container) return;
+    if (data.status === 'success') {
+      const logs = (data.decisions || []).filter(d => d.customer.toLowerCase() === customerName.toLowerCase());
+      if (logs.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-muted); font-size:13px;">Inga loggade beslut eller ÄTOr för denna kund än.</div>`;
+        return;
+      }
+      container.innerHTML = '';
+      logs.forEach(l => {
+        const card = document.createElement('div');
+        card.className = 'timeline-card';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:6px;">
+            <span style="color:var(--accent-orange); font-weight:700;">${l.category}</span>
+            <span>${l.date} • Av ${l.user}</span>
+          </div>
+          <div style="font-size:14px; color:#FFF;">${l.note}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+  } catch (err) { console.error(err); }
+}
+
+async function promptAddCustomer() {
+  const name = prompt("Kundens namn (t.ex. Ica Maxi):");
+  if (!name) return;
+  const contact = prompt("Kontaktperson:") || "";
+  const phone = prompt("Telefonnummer:") || "";
+  
+  try {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        token: CONFIG.API_TOKEN, action: 'addCustomer',
+        customerData: { name, contact, phone, org: '', email: '', address: '' }
+      })
+    });
+    const result = await res.json();
+    if (result.status === 'success') {
+      alert("✅ Kund skapad med unikt ID!");
+      fetchCRMData();
+    }
+  } catch (err) { alert("Fel vid skapande av kund."); }
+}
+
+async function promptAddDecision(customerName) {
+  const note = prompt(`Vad har bestämts / kommit överens om för ${customerName}?`);
+  if (!note) return;
+  
+  try {
+    const res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        token: CONFIG.API_TOKEN, action: 'addDecision',
+        decisionData: { customer: customerName, place: '', category: '📌 Spikat Beslut', note, user: currentUser }
+      })
+    });
+    const result = await res.json();
+    if (result.status === 'success') {
+      alert("✅ Beslut loggat i tidslinjen!");
+      fetchCustomerTimeline(customerName);
+    }
+  } catch (err) { alert("Fel vid sparning av beslut."); }
 }
 
 function toggleKabanoss() {
@@ -113,9 +272,9 @@ function toggleKabanoss() {
     container.classList.toggle('active');
     if (container.classList.contains('active')) {
       renderKabanoss();
-      document.body.style.overflow = 'hidden'; // Förhindra scroll i bakgrunden
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = ''; // Återställ scroll
+      document.body.style.overflow = '';
     }
   }
 }
@@ -126,16 +285,11 @@ function renderKabanoss() {
   const colLive = document.getElementById('cards-live');
   const colDone = document.getElementById('cards-done');
 
-  if (!colPlanned) return; // UI ej skapat än
+  if (!colPlanned) return;
 
-  colPlanned.innerHTML = '';
-  colBuffer.innerHTML = '';
-  colLive.innerHTML = '';
-  colDone.innerHTML = '';
-
+  colPlanned.innerHTML = ''; colBuffer.innerHTML = ''; colLive.innerHTML = ''; colDone.innerHTML = '';
   let cPlan = 0, cBuff = 0, cLive = 0, cDone = 0;
 
-  // 1. Planerade och Buffert
   plannedJobs.forEach(job => {
     const isDrafted = drafts.some(d => String(d.calendarJobId) === String(job.id));
     const isCompleted = completedCalendarJobIds.includes(String(job.id));
@@ -154,10 +308,9 @@ function renderKabanoss() {
     }
   });
 
-  // 2. Drafts (Pågående eller avslutade lokalt)
   drafts.forEach(draft => {
     cLive++;
-    const status = draft.end ? \`Klar lokalt: \${calculateHours(draft.start, draft.end).toFixed(1)} h\` : \`🔴 PÅGÅR: Start \${draft.start}\`;
+    const status = draft.end ? `Klar lokalt: ${calculateHours(draft.start, draft.end).toFixed(1)} h` : `🔴 PÅGÅR: Start ${draft.start}`;
     colLive.appendChild(createKanbanCard(draft.activity, draft.place, status, draft.end ? "local-done" : "live", draft.id, true));
   });
 
@@ -172,37 +325,24 @@ function createKanbanCard(title, place, meta, type, id, isLocal = false) {
   card.className = 'kanban-card';
   card.draggable = true;
   card.id = 'kb-' + (isLocal ? 'draft-' : 'job-') + id;
-  card.ondragstart = drag;
 
   let borderLeft = '4px solid #444';
-  if (type === 'buffer') borderLeft = '4px solid #BF5AF2'; // Lila
-  if (type === 'planned') borderLeft = '4px solid #0A84FF'; // Blå
-  if (type === 'live') borderLeft = '4px solid #FF375F'; // Röd (Pågår)
-  if (type === 'local-done') borderLeft = '4px solid #30D158'; // Grön (Stämplat ut)
-  if (type === 'done') borderLeft = '4px solid #636366'; // Grå (Insänt)
+  if (type === 'buffer') borderLeft = '4px solid #BF5AF2';
+  if (type === 'planned') borderLeft = '4px solid #0A84FF';
+  if (type === 'live') borderLeft = '4px solid #FF375F';
+  if (type === 'local-done') borderLeft = '4px solid #30D158';
+  if (type === 'done') borderLeft = '4px solid #636366';
 
   card.style.borderLeft = borderLeft;
-
   card.innerHTML = `
-    <div style="font-weight: 600; color: #FFF; font-size: 14px; margin-bottom: 4px;">\${title}</div>
-    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">\${place}</div>
-    <div style="font-size: 11px; font-weight: 700; color: #CCC; background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; display: inline-block;">\${meta}</div>
+    <div style="font-weight: 600; color: #FFF; font-size: 14px; margin-bottom: 4px;">${title}</div>
+    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">${place}</div>
+    <div style="font-size: 11px; font-weight: 700; color: #CCC; background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; display: inline-block;">${meta}</div>
   `;
   return card;
 }
 
-// Drag & Drop händelser
-function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
-function allowDrop(ev) { ev.preventDefault(); }
-function drop(ev, column) {
-  ev.preventDefault();
-  const data = ev.dataTransfer.getData("text");
-  console.log("Framtida funktion: Flyttade kort", data, "till kolumn", column);
-}
-
-// ==========================================
-// INDEXED DB & LOCALSTORAGE VALV
-// ==========================================
+// INDEXEDDB & BASE APP LOGIC
 let db;
 function initDatabase() {
   return new Promise((resolve) => {
@@ -213,14 +353,8 @@ function initDatabase() {
         database.createObjectStore("drafts", { keyPath: "id" });
       }
     };
-    request.onsuccess = (event) => {
-      db = event.target.result;
-      resolve(db);
-    };
-    request.onerror = (event) => {
-      console.error("IndexedDB fel:", event.target.errorCode);
-      resolve(null);
-    };
+    request.onsuccess = (event) => { db = event.target.result; resolve(db); };
+    request.onerror = (event) => { resolve(null); };
   });
 }
 
@@ -230,9 +364,7 @@ function loadAllDrafts() {
   try {
     if (d1) return JSON.parse(d1);
     if (d2) return JSON.parse(d2);
-  } catch (e) {
-    console.error("Kunde inte läsa utkast:", e);
-  }
+  } catch (e) {}
   return [];
 }
 
@@ -241,18 +373,14 @@ function saveDraftsToStorage() {
     const json = JSON.stringify(drafts);
     localStorage.setItem('tidrapport_drafts', json);
     localStorage.setItem('lpv_tidrapport_drafts', json);
-  } catch (e) {
-    console.error("LocalStorage-fel:", e);
-  }
+  } catch (e) {}
   if (db) {
     try {
       const transaction = db.transaction(["drafts"], "readwrite");
       const store = transaction.objectStore("drafts");
       store.clear();
       drafts.forEach(draft => store.put(draft));
-    } catch (e) {
-      console.error("IndexedDB-fel:", e);
-    }
+    } catch (e) {}
   }
 }
 
@@ -284,14 +412,7 @@ function checkForgottenClockOuts() {
 }
 
 function getActivityIcon(name) {
-  const n = (name || "").toLowerCase();
-  if (n.includes('kyl') || n.includes('frys')) return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><path d="M5 17L8 4m-2-1h3M7 19h13"/><rect x="9.5" y="4" width="10.5" height="13" rx="1.5"/><path d="M14.5 4v10M13.5 7v4m2.5-4v4M11.5 15.5h6.5"/><path d="M21 2v3m-1.5-1.5h3" stroke-width="1.2"/></svg>`;
-  if (n.includes('snö') || n.includes('plog')) return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4v4m-2-2h4m-3.5-1.5l3 3m-3 0l3-3"/><path d="M12 16v-6h-4l-2-4h-4v10"/><circle cx="5" cy="16" r="2"/><circle cx="12" cy="16" r="2"/><path d="M16 19l2-8" stroke-width="2"/><path d="M17 17h4"/></svg>`;
-  if (n.includes('linje')) return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l3 5v4"/><rect x="7" y="11" width="6" height="4" rx="1"/><circle cx="8" cy="17" r="2"/><circle cx="15" cy="17" r="1.5"/><path d="M13 13h5M17 13v4M21 20H15M11 20H5" stroke-width="2"/></svg>`;
-  if (n.includes('fasad')) return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/><rect x="7" y="6" width="6" height="2.5" rx="1"/><path d="M10 8.5v3"/></svg>`;
-  if (n.includes('stalltvätt') || n.includes('stallvätt') || n.includes('tvätt')) return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c-1-1-1-3 0-4l3-3 4 4-3 3c-1 1-3 1-4 0z"/><path d="M10 14l5-5M14 8l2 2M17 7l4-4M19 9l3-2M15 5l2-3"/><path d="M21 14l-1 2-2 1 2 1 1 2 1-2 2-1-2-1-1-2z" stroke-width="1"/></svg>`;
-  if (n.includes('bandgrävare') || n.includes('gräv')) return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="15" width="13" height="5" rx="2.5"/><circle cx="5.5" cy="17.5" r="1"/><circle cx="9.5" cy="17.5" r="1"/><circle cx="13.5" cy="17.5" r="1"/><path d="M5 15v-5a2 2 0 0 1 2-2h4v7M9 11l4-5 6 4-2 4M17 14h4l1-3-3-2"/></svg>`;
-  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>`;
 }
 
 function openSheet() { document.getElementById('sheetBackdrop')?.classList.add('active'); }
@@ -316,17 +437,14 @@ function setJobType(type) {
   } else {
     if (ataRow) ataRow.style.display = 'none';
   }
-  if (type === 'kalender') {
-    fetchPlannedJobs();
-  }
+  if (type === 'kalender') fetchPlannedJobs();
 }
 
-// INITIERING
 async function initApp() {
   await initDatabase();
   drafts = loadAllDrafts();
 
-  initKabanossUI(); // Ladda in Flygledartornet i bakgrunden!
+  initKabanossUI();
 
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
@@ -339,9 +457,6 @@ async function initApp() {
   if (startInput) startInput.value = `${h}:${m}`;
 
   updateAdminUI();
-  window.addEventListener('resize', updateDashboardData);
-  window.addEventListener('orientationchange', () => setTimeout(updateDashboardData, 150));
-
   updateLiveHours();
   renderOutbox();
   updateDashboardData();
@@ -369,9 +484,6 @@ function updateAdminUI() {
   if (adminSection) {
     if (isAdmin) {
       adminSection.style.display = 'block';
-      if (!hasFetchedUsers) fetchAdminUsers();
-
-      // Lägg till Kabanoss-knappen i Adminpanelen!
       if (!document.getElementById('btn-kanban-trigger')) {
         const kbtn = document.createElement('button');
         kbtn.id = 'btn-kanban-trigger';
@@ -381,7 +493,7 @@ function updateAdminUI() {
         kbtn.style.background = 'linear-gradient(135deg, #BF5AF2, #0A84FF)';
         kbtn.style.color = '#FFF';
         kbtn.style.border = 'none';
-        kbtn.innerHTML = '📊 Öppna Flygledartornet';
+        kbtn.innerHTML = '📊 Öppna Flygledartornet & CRM';
         kbtn.onclick = toggleKabanoss;
         adminSection.appendChild(kbtn);
       }
@@ -437,7 +549,6 @@ function handlePhotoSelect(event) {
   reader.readAsDataURL(file);
 }
 
-// HYBRID-OSTHYVELN
 async function fetchPlannedJobs() {
   if (!navigator.onLine) return;
   const chosenDate = document.getElementById('input-date')?.value || new Date().toISOString().split('T')[0];
@@ -451,7 +562,7 @@ async function fetchPlannedJobs() {
       plannedJobs = data.events || [];
       renderOutbox();
     }
-  } catch (error) { console.error("Fel:", error); }
+  } catch (error) {}
 }
 
 function clockInPlannedJob(jobId) {
@@ -572,8 +683,6 @@ function renderOutbox() {
       container.appendChild(card);
     });
   }
-  
-  // Synka Kabanoss-tavlan varje gång vi ritar om utkorgen!
   renderKabanoss();
 }
 
@@ -595,7 +704,7 @@ async function submitAll(silent = false) {
       drafts = drafts.filter(d => !idsToRemove.includes(d.id));
       saveDraftsToStorage(); renderOutbox(); updateDashboardData();
     }
-  } catch (err) { console.error(err); } finally {
+  } catch (err) {} finally {
     isSubmitting = false;
     if (btn) { btn.innerHTML = `Skicka in`; btn.disabled = false; }
   }
@@ -609,5 +718,3 @@ function updateDashboardData() {
   let totalH = 0; drafts.forEach(p => { totalH += parseFloat(p.totalHours || calculateHours(p.start, p.end) || 0); });
   totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
 }
-
-async function fetchAdminUsers() { /* ... admin users func ... */ }
