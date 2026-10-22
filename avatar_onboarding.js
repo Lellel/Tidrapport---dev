@@ -326,3 +326,16 @@ window.triggerAvatarUpload = window.triggerAvatarUpload || function() {
     if (inp) inp.click();
   }
 };
+
+
+// FORCE AVATAR CLICK TO OPEN POSTIS PER AI MODAL
+document.addEventListener('click', function(e) {
+  const target = e.target.closest('#app-user-pill, .glass-avatar-card, .avatar-3d-sphere, .user-avatar-bubble, [data-avatar]');
+  if (target) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof openPostmanPatModal === 'function') {
+      openPostmanPatModal();
+    }
+  }
+}, true);
