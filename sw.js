@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v3.0.5-light-blue-glass';
+const CACHE_NAME = 'tidrapport-dev-v3.0.6-kabanoss-btn';
 const ASSETS = [
   './index.html',
   './style.css',
@@ -11,20 +11,14 @@ const ASSETS = [
 importScripts('./config.js');
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
+  e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key);
-        })
-      );
+      return Promise.all(keys.map((key) => { if (key !== CACHE_NAME) return caches.delete(key); }));
     })
   );
   self.clients.claim();
@@ -32,7 +26,5 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
-  );
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });

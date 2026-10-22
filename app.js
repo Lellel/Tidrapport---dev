@@ -386,3 +386,12 @@ window.clockOut = clockOut;
 window.deleteDraft = deleteDraft;
 window.submitAll = submitAll;
 window.handleUserPillClick = handleUserPillClick;
+
+function openKabanossModal() {
+  if (typeof initAdminViews === 'function') {
+    initAdminViews();
+  } else {
+    alert("Kabanoss-motorn öppnas! (Skrolla ned eller växla vy)");
+  }
+}
+window.openKabanossModal = openKabanossModal;
