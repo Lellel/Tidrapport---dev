@@ -126,11 +126,13 @@ window.toggleDarkMode = toggleDarkMode;
 
 // AVATAR DIRECT TRIGGER (v3.9.1)
 function triggerAvatarUpload() {
-  const input = document.getElementById('avatar-upload');
-  if (input) {
-    input.click();
+  if (typeof window.openPostmanPatModal === 'function') {
+    window.openPostmanPatModal();
+  } else if (typeof openPostmanPatModal === 'function') {
+    openPostmanPatModal();
   } else {
-    alert("Kunde inte öppna kameran. Vänligen ladda om sidan.");
+    const input = document.getElementById('avatar-upload');
+    if (input) input.click();
   }
 }
 
