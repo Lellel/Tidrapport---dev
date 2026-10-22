@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.3.1-user-pill-fix';
+const CACHE_NAME = 'tidrapport-dev-v4.4-full-render-contrast-fix';
 const ASSETS = [
   './index.html',
   './style.css',

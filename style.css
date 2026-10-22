@@ -572,3 +572,48 @@ body.dark-mode small {
 #kabanoss-view, #radar-view, #crm-view, #offert-view {
   width: 100%;
 }
+
+/* V4.4 TOTAL KONTRAST OCH RENDER-FIX */
+:root {
+  --text-main: #0f172a !important;
+  --text-muted: #334155 !important;
+  --card-bg: #ffffff !important;
+  --glass-border: #cbd5e1 !important;
+  --input-bg: #f1f5f9 !important;
+}
+
+body.dark-mode {
+  --text-main: #f8fafc !important;
+  --text-muted: #94a3b8 !important;
+  --card-bg: #0f172a !important;
+  --glass-border: #334155 !important;
+  --input-bg: #1e293b !important;
+}
+
+.kabanoss-modal-content, .view-container, .glass-card, .cupertino-card {
+  color: var(--text-main) !important;
+  background: var(--card-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+}
+
+.kabanoss-column {
+  background: var(--input-bg) !important;
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 400px;
+}
+
+.kabanoss-card {
+  background: var(--card-bg) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.gantt-grid, .crm-card, .offert-box {
+  background: var(--input-bg);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 12px;
+  color: var(--text-main);
+}
