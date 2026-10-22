@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.7.0-version-badge';
+const CACHE_NAME = 'tidrapport-dev-v4.7.1';
 const ASSETS = [
   './index.html',
   './style.css',
