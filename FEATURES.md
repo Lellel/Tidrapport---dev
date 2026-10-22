@@ -1,0 +1,12 @@
+# JAS 39 Gripen - Låst Kravmatris (Nolläge V4.7)
+
+1. [x] iMessage-integration (sendAtaViaIMessage, sendOffertViaIMessage)
+2. [x] Inloggningsfri Kundportal & Signering (approveAta, approveOffert)
+3. [x] Profil- & Användarväljare (handleUserPillClick)
+4. [x] 3D-Glasbubblor (glass-bubble, Postis Per Edition)
+5. [x] Offertbesök & Dynamiska LiDAR-mallar (renderOffertTemplate, handleActivityChange)
+6. [x] UE-begränsningar & Fotokrav (applyUEConstraints, isUserUE)
+7. [x] 360° CRM & Auto-logotyp (renderCRMView, Clearbit API)
+8. [x] Fullständiga Programgolv (renderKabanossBoard, renderRadarGantt, renderOffertView)
+9. [x] Dark/Light Mode Kontrast & Obsidian Glass (style.css vars)
+10. [x] Backend Apps Script Router (Kod.gs doPost)
