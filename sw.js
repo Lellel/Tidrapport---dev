@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lpv-cache-v4.7.1-purge';
+const CACHE_NAME = 'lpv-cache-v4.7.1';
 const ASSETS = [
   './index.html',
   './style.css',
