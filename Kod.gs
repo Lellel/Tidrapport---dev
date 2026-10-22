@@ -1,0 +1,168 @@
+// ==========================================
+// LPV & KLARYTA BACKEND MOTOR v3.0 (Kod.gs)
+// Handles: Batch-rapportering, Drive-mappar, Platsbesök, Karantän & DB-Setup
+// ==========================================
+
+function sanitize(input) {
+  if (!input) return "";
+  let str = String(input).trim();
+  if (/^[=+\-@]/.test(str)) return "'" + str; // Skydd mot Formula Injection
+  return str;
+}
+
+// 🚀 ENKLICKS-SETUP: Bygger upp hela databasen för v3.0
+function setupDatabase() {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  
+  // 1. Kunder (CRM)
+  let sheetKunder = ss.getSheetByName("Kunder");
+  if (!sheetKunder) {
+    sheetKunder = ss.insertSheet("Kunder");
+    sheetKunder.appendRow(["Kund-ID", "Kundnamn/Bolag", "Adress", "Kontakt", "Telefon", "Org.nr/Personnr", "Fastighetsbeteckning"]);
+  }
+  sheetKunder.getRange("A1:G1").setFontWeight("bold").setBackground("#f3f3f3");
+  
+  // 2. Projekt & Kabanoss
+  let sheetProjekt = ss.getSheetByName("Projekt");
+  if (!sheetProjekt) {
+    sheetProjekt = ss.insertSheet("Projekt");
+    sheetProjekt.appendRow(["Projekt-ID", "Kund-ID", "Bolag (LPV/Klaryta)", "Status", "Startdatum", "Slutdatum", "Resurskrav", "Bemannade Avatarer", "Budget/Tid"]);
+  }
+  sheetProjekt.getRange("A1:I1").setFontWeight("bold").setBackground("#f3f3f3");
+  
+  // 3. Personal & UE (Inkluderar Karantän & Avatar)
+  let sheetPersonal = ss.getSheetByName("Personal");
+  if (!sheetPersonal) sheetPersonal = ss.insertSheet("Personal");
+  
+  // Säkerställer att alla nödvändiga v3.0-kolumner finns i Personal
+  const personalHeaders = ["Namn", "E-post", "Telefon", "Roll", "Admin (Sant/Falskt)", "Avatar-Länk (Base64)", "Typ (Anställd/UE)", "Status (Aktiv/Karantän)", "F-Skatt (Drive)", "Försäkring (Drive)", "Senast Inloggad"];
+  sheetPersonal.getRange(1, 1, 1, personalHeaders.length).setValues([personalHeaders]).setFontWeight("bold").setBackground("#f3f3f3");
+  
+  // 4. Tidrapporter (Utökad med Bolag och m2)
+  let sheetRapporter = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  if (!sheetRapporter) {
+    sheetRapporter = ss.insertSheet(CONFIG.SHEET_REPORTS || "Tidrapporter");
+    const reportHeaders = ["Datum", "Fakturerad", "Plats", "Aktivitet", "Start", "Slut", "Total Tid", "Stämpel", "Användare", "Anteckningar", "Bolag (LPV/Klaryta)", "Uppmätt Yta (m2)"];
+    sheetRapporter.appendRow(reportHeaders);
+    sheetRapporter.getRange("A1:L1").setFontWeight("bold").setBackground("#f3f3f3");
+  }
+
+  Logger.log("✅ SETUP SLUTFÖRD! Databasen är nu 100% redo för v3.0");
+  return "Setup slutförd framgångsrikt!";
+}
+
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(15000);
+  
+  if (!hasLock) {
+    return createJsonResponse({ status: "error", message: "Servern var upptagen, försök igen." });
+  }
+
+  try {
+    const data = JSON.parse(e.postData.contents);
+
+    // Säkerhetskontroll
+    if (data.token !== CONFIG.API_TOKEN) {
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig säkerhetstoken." });
+    }
+
+    // BEHANDLA TIDS- & MÅTTRAPPORTER
+    if (data.action === "batchReports") {
+      const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      const sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+      const passList = data.pass || [];
+      const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+      const nowFormatted = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd HH:mm:ss");
+
+      passList.forEach(p => {
+        let activityLabel = sanitize(p.activity || "Övrigt");
+        if (p.type === "ata") activityLabel = "[" + (sanitize(p.ataNumber) || "ÄTA") + "] " + activityLabel;
+        let finalNotes = sanitize(p.notes) || "";
+
+        // SPARA BILDER OCH RITADE PLOGKARTOR
+        const allImages = [...(p.images || [])];
+        if (p.snowMapImage) allImages.push(p.snowMapImage);
+
+        if (allImages.length > 0) {
+          try {
+            const rootFolder = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
+            let folderName = p.date + " " + sanitize(p.place || "Okänd plats") + " (" + activityLabel + ")";
+            const subFolder = rootFolder.createFolder(folderName);
+
+            allImages.forEach((imgBase64, index) => {
+              const base64Data = imgBase64.split(',')[1];
+              const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), 'image/jpeg', 'Underlag_' + (index + 1) + '.jpg');
+              subFolder.createFile(blob);
+            });
+            finalNotes += (finalNotes ? "\n\n" : "") + "Drive-mapp: " + subFolder.getUrl();
+          } catch (imgErr) {
+            finalNotes += (finalNotes ? "\n\n" : "") + "[Drive-fel: " + imgErr.message + "]";
+          }
+        }
+
+        // Tidsuträkning
+        const formattedDuration = formatDuration(p.start, p.end, p.totalHours);
+
+        // Skriv till arket (A-L)
+        sheet.appendRow([
+          p.date,                                     // A: Datum
+          false,                                      // B: Fakturerad
+          sanitize(p.place) || "",                    // C: Plats
+          activityLabel,                              // D: Aktivitet
+          p.start || "",                              // E: Starttid
+          p.end || "",                                // F: Sluttid
+          formattedDuration,                          // G: Total tid
+          nowFormatted,                               // H: Tidsstämpel
+          sanitize(p.user || "Okänd"),                // I: Användare
+          finalNotes,                                 // J: Anteckningar + Drive-länk
+          sanitize(p.companyId) || "LPV",             // K: Bolag (Ny)
+          sanitize(p.measuredArea) || ""              // L: Uppmätt Yta (Ny för Mätblocket)
+        ]);
+      });
+
+      return createJsonResponse({ status: "success", count: passList.length });
+    }
+
+    // HÄMTA KONTAKTER OCH UE-STATUS
+    if (data.action === "getUsers") {
+      const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      const personalSheet = ss.getSheetByName("Personal");
+      const sheetData = personalSheet.getDataRange().getValues();
+      const users = [];
+
+      for (let i = 1; i < sheetData.length; i++) {
+        if (sheetData[i][0] !== "") {
+          users.push({
+            name: String(sheetData[i][0]),
+            phone: String(sheetData[i][2] || ""),
+            isAdmin: String(sheetData[i][4] || "").trim().toLowerCase() === "true",
+            avatarBase64: String(sheetData[i][5] || ""),
+            type: String(sheetData[i][6] || "Anställd"),
+            status: String(sheetData[i][7] || "Aktiv") // Om "Karantän" visas spärr-skärmen i appen
+          });
+        }
+      }
+      return createJsonResponse({ status: "success", users: users });
+    }
+
+    return createJsonResponse({ status: "error", message: "Okänd åtgärd" });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: err.toString() });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function formatDuration(start, end, fallbackHours) {
+  if (!start || !end) return fallbackHours ? fallbackHours + " tim 0 min" : "0 tim 0 min";
+  const [sH, sM] = start.split(":").map(Number);
+  const [eH, eM] = end.split(":").map(Number);
+  let diffMin = (eH * 60 + eM) - (sH * 60 + sM);
+  if (diffMin < 0) diffMin += 24 * 60;
+  return Math.floor(diffMin / 60) + " tim " + (diffMin % 60) + " min";
+}
+
+function createJsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
