@@ -165,39 +165,40 @@ function openPostmanPatModal() {
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'postman-pat-modal';
-    modal.className = 'glass-modal-overlay';
-    modal.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(10px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:15px;';
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15, 23, 42, 0.75); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); z-index:99999; display:flex !important; align-items:center !important; justify-content:center !important; padding:16px; box-sizing:border-box;';
+    
     modal.innerHTML = `
-      <div class="glass-bubble" style="background:rgba(255,255,255,0.95); max-width:420px; width:100%; border-radius:24px; padding:24px; text-align:center; position:relative; box-shadow:0 20px 40px rgba(0,0,0,0.3); border:2px solid rgba(255,255,255,0.8);">
-        <button onclick="closePostmanPatModal()" style="position:absolute; top:16px; right:16px; border:none; background:none; font-size:22px; cursor:pointer; color:#666;">✕</button>
-        <h2 style="font-size:22px; font-weight:800; color:#1e293b; margin-bottom:8px;">Postis Per-ifiera din selfie! 📬</h2>
-        <p style="font-size:13px; color:#64748b; margin-bottom:20px;">Omvandla ditt foto till en unikt designad 3D-figur i klassisk lera-stil.</p>
+      <div style="background:#ffffff !important; color:#0f172a !important; max-width:400px; width:100%; border-radius:24px; padding:24px; text-align:center; position:relative; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); border:1px solid #e2e8f0; display:flex !important; flex-direction:column !important; box-sizing:border-box !important;">
+        <button onclick="closePostmanPatModal()" style="position:absolute; top:16px; right:16px; border:none; background:#f1f5f9; width:32px; height:32px; border-radius:50%; font-size:18px; cursor:pointer; color:#475569; display:flex; align-items:center; justify-content:center; line-height:1;">✕</button>
+        
+        <h2 style="font-size:20px; font-weight:800; color:#0f172a !important; margin:0 0 6px 0 !important; text-align:center;">Postis Per-ifiera din selfie! 📬</h2>
+        <p style="font-size:13px; color:#475569 !important; margin:0 0 16px 0 !important; line-height:1.4; text-align:center;">Omvandla ditt foto till en 3D-figur i klassisk lera-stil via AI.</p>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(241,245,249,0.8); padding:12px; border-radius:16px; margin-bottom:20px;">
+        <div style="display:flex !important; flex-direction:row !important; justify-content:space-between; align-items:center; background:#f8fafc; padding:10px 14px; border-radius:16px; margin-bottom:16px; border:1px solid #e2e8f0;">
           <div style="flex:1; text-align:center;">
-            <div style="width:48px; height:48px; margin:0 auto; background:#e2e8f0; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px;">📸</div>
-            <span style="font-size:10px; font-weight:600; color:#475569; display:block; margin-top:4px;">1. Selfie</span>
+            <div style="width:40px; height:40px; margin:0 auto; background:#e2e8f0; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px;">📸</div>
+            <span style="font-size:10px; font-weight:700; color:#475569 !important; display:block; margin-top:4px;">1. Selfie</span>
           </div>
-          <div style="font-size:14px; color:#94a3b8;">➔</div>
+          <div style="font-size:12px; color:#94a3b8; padding:0 4px;">➔</div>
           <div style="flex:1; text-align:center;">
-            <div style="width:48px; height:48px; margin:0 auto; background:#e2e8f0; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px;">🎨</div>
-            <span style="font-size:10px; font-weight:600; color:#475569; display:block; margin-top:4px;">2. Ler-stil</span>
+            <div style="width:40px; height:40px; margin:0 auto; background:#e2e8f0; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px;">🎨</div>
+            <span style="font-size:10px; font-weight:700; color:#475569 !important; display:block; margin-top:4px;">2. Ler-stil</span>
           </div>
-          <div style="font-size:14px; color:#94a3b8;">➔</div>
+          <div style="font-size:12px; color:#94a3b8; padding:0 4px;">➔</div>
           <div style="flex:1; text-align:center;">
-            <div style="width:48px; height:48px; margin:0 auto; background:#3b82f6; color:white; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px;">👷</div>
-            <span style="font-size:10px; font-weight:600; color:#2563eb; display:block; margin-top:4px;">3. 3D-Figur</span>
+            <div style="width:40px; height:40px; margin:0 auto; background:#2563eb; color:#ffffff; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px;">👷</div>
+            <span style="font-size:10px; font-weight:700; color:#2563eb !important; display:block; margin-top:4px;">3. 3D-Figur</span>
           </div>
         </div>
 
         <input type="file" id="postman-photo-input" accept="image/*" capture="user" style="display:none;" onchange="handlePostmanPhoto(event)">
         
-        <div id="postman-preview-area" onclick="document.getElementById('postman-photo-input').click()" style="border:2px dashed #cbd5e1; border-radius:16px; padding:20px; cursor:pointer; background:#f8fafc; margin-bottom:20px;">
-          <p id="postman-preview-text" style="font-size:13px; color:#64748b; margin:0;">Klicka här för att ta en selfie eller välja bild 📷</p>
-          <img id="postman-preview-img" style="max-height:180px; border-radius:12px; display:none; margin:0 auto; box-shadow:0 8px 16px rgba(0,0,0,0.15);">
+        <div id="postman-preview-area" onclick="document.getElementById('postman-photo-input').click()" style="border:2px dashed #cbd5e1; border-radius:16px; padding:16px; cursor:pointer; background:#f8fafc; margin-bottom:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:110px; box-sizing:border-box;">
+          <p id="postman-preview-text" style="font-size:13px; font-weight:600; color:#475569 !important; margin:0; text-align:center;">Klicka här för att ta en selfie eller välja bild 📷</p>
+          <img id="postman-preview-img" style="max-height:160px; max-width:100%; border-radius:12px; display:none; margin:0 auto; box-shadow:0 4px 12px rgba(0,0,0,0.15); object-fit:contain;">
         </div>
 
-        <button id="postman-generate-btn" onclick="generatePostmanPatAvatar()" style="width:100%; padding:14px; background:linear-gradient(135deg, #2563eb, #1d4ed8); color:white; border:none; border-radius:14px; font-weight:700; font-size:15px; cursor:pointer; box-shadow:0 4px 12px rgba(37,99,235,0.3);" disabled>
+        <button id="postman-generate-btn" onclick="generatePostmanPatAvatar()" style="width:100% !important; padding:14px; background:linear-gradient(135deg, #2563eb, #1d4ed8); color:#ffffff !important; border:none; border-radius:14px; font-weight:700; font-size:15px; cursor:pointer; box-shadow:0 4px 12px rgba(37,99,235,0.3); opacity:0.5; box-sizing:border-box !important;" disabled>
           Generera min Postis Per-gubbe! 📸✨
         </button>
       </div>
