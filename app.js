@@ -59,3 +59,33 @@ window.openKabanossModal = openKabanossModal;
 window.closeKabanossModal = closeKabanossModal;
 window.openKabanossModalWithTab = openKabanossModalWithTab;
 window.switchAdminTab = switchAdminTab;
+
+// ==========================================
+// DARK MODE / TEMA-HANTÉRING (v3.8)
+// ==========================================
+function toggleDarkMode() {
+  const isDark = document.body.classList.toggle('dark-mode');
+  localStorage.setItem('lpv_theme', isDark ? 'dark' : 'light');
+  updateThemeIcon(isDark);
+}
+
+function initTheme() {
+  const savedTheme = localStorage.getItem('lpv_theme');
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  
+  if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+    document.body.classList.add('dark-mode');
+    updateThemeIcon(true);
+  } else {
+    document.body.classList.remove('dark-mode');
+    updateThemeIcon(false);
+  }
+}
+
+function updateThemeIcon(isDark) {
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.innerText = isDark ? '☀️' : '🌙';
+}
+
+document.addEventListener('DOMContentLoaded', initTheme);
+window.toggleDarkMode = toggleDarkMode;
