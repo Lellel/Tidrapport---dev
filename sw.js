@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v3.6-handskottning';
+const CACHE_NAME = 'tidrapport-dev-v3.8-dark-mode';
 const ASSETS = [
   './index.html',
   './style.css',
