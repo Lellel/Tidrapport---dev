@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.7-nollage-faststallt';
+const CACHE_NAME = 'tidrapport-dev-v4.7.0-version-badge';
 const ASSETS = [
   './index.html',
   './style.css',
