@@ -483,3 +483,75 @@ async function processAvatarUpload(event) {
 
 window.openAvatarModal = openAvatarModal;
 window.processAvatarUpload = processAvatarUpload;
+
+// ==========================================
+// AVATAR & SELFIE UPLOAD (v3.3)
+// ==========================================
+function openAvatarModal() {
+  const fileInput = document.getElementById('avatar-upload');
+  if (fileInput) fileInput.click();
+}
+
+async function processAvatarUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const titleEl = document.getElementById('welcome-title');
+  const oldTitle = titleEl ? titleEl.innerText : "God dag!";
+  if (titleEl) titleEl.innerText = "Laddar in AI-Avatar...";
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = async function() {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 400; // Kvadratisk storlek i px
+
+      // Centrerad kvadratisk beskärning
+      const size = Math.min(img.width, img.height);
+      const offsetX = (img.width - size) / 2;
+      const offsetY = (img.height - size) / 2;
+
+      canvas.width = MAX_SIZE;
+      canvas.height = MAX_SIZE;
+      const ctx = canvas.getContext('2d');
+      
+      ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, MAX_SIZE, MAX_SIZE);
+
+      const base64Avatar = canvas.toDataURL('image/jpeg', 0.8);
+
+      // Uppdatera gränssnittet och lokal lagring
+      const avatarImg = document.getElementById('user-pat-avatar');
+      if (avatarImg) avatarImg.src = base64Avatar;
+      localStorage.setItem('lpv_user_avatar', base64Avatar);
+
+      // Synka till Google Sheets
+      try {
+        const res = await fetch(CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          body: JSON.stringify({
+            token: CONFIG.API_TOKEN,
+            action: 'updateAvatar',
+            user: currentUser,
+            avatar: base64Avatar
+          })
+        });
+        const result = await res.json();
+        if (result && result.status === 'success') {
+          if (titleEl) titleEl.innerText = "Avatar sparad! ✅";
+          setTimeout(() => { if (titleEl) titleEl.innerText = oldTitle; }, 2500);
+        }
+      } catch (err) {
+        console.error("Fel vid avatar-synk:", err);
+        if (titleEl) titleEl.innerText = "Sparad lokalt!";
+        setTimeout(() => { if (titleEl) titleEl.innerText = oldTitle; }, 2500);
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+window.openAvatarModal = openAvatarModal;
+window.processAvatarUpload = processAvatarUpload;
