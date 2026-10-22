@@ -162,3 +162,15 @@ function processAvatarUpload(event) {
 
 window.triggerAvatarUpload = triggerAvatarUpload;
 window.processAvatarUpload = processAvatarUpload;
+
+// ALIAS FÖR AVATAR-KLICK (v4.1)
+function openAvatarModal() {
+  const input = document.getElementById('avatar-upload');
+  if (input) {
+    input.click();
+  } else if (typeof triggerAvatarUpload === 'function') {
+    triggerAvatarUpload();
+  }
+}
+
+window.openAvatarModal = openAvatarModal;

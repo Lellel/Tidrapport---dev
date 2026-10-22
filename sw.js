@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.0-force-purge';
+const CACHE_NAME = 'tidrapport-dev-v4.1-avatar-error-fix';
 const ASSETS = [
   './index.html',
   './style.css',
@@ -25,7 +25,5 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
-  );
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
