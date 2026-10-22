@@ -207,3 +207,193 @@ function handleUserPillClick() {
 }
 
 window.handleUserPillClick = handleUserPillClick;
+
+// ==========================================
+// FULL VYY-RENDERING OCH RESURSER (v4.4)
+// ==========================================
+
+function switchAdminTab(tab) {
+  const views = ['kabanoss', 'radar', 'crm', 'offert'];
+  views.forEach(v => {
+    const el = document.getElementById(v + '-view');
+    if (el) {
+      if (v === tab) {
+        el.style.display = 'block';
+        el.classList.add('view-container');
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  });
+
+  if (tab === 'kabanoss') renderKabanossBoard();
+  if (tab === 'radar') renderRadarGantt();
+  if (tab === 'crm') renderCRMView();
+  if (tab === 'offert') renderOffertView();
+}
+
+// 1. KABANOSS MED FALLBACK-RESURSER
+async function renderKabanossBoard() {
+  const cols = document.querySelectorAll('.kabanoss-column');
+  if (cols.length === 0) return;
+
+  const sampleJobs = [
+    { id: 'j101', title: 'Coop Kylflytt', time: 'Mån 08:00', vehicle: 'Kramer Hjullastare (Svart huv)', driver: 'Daniel', status: 'planned' },
+    { id: 'j102', title: 'Snöröjning Blacksta', time: 'Tis 04:00', vehicle: 'John Deere 3520 (Grön)', driver: 'UE Johanssons', status: 'planned' },
+    { id: 'j103', title: 'Byggställning ICA', time: 'Ons 07:00', vehicle: 'Kärra m. Byggställning', driver: 'Personal', status: 'opportunity' },
+    { id: 'j104', title: 'Handskottning & Sandning', time: 'Tor 06:00', vehicle: 'Ford Transit Flak (Silver)', driver: 'Mikael', status: 'in_progress' }
+  ];
+
+  cols.forEach(col => col.innerHTML = '');
+
+  sampleJobs.forEach(job => {
+    const card = document.createElement('div');
+    card.className = 'kabanoss-card';
+    card.dataset.id = job.id;
+    card.dataset.status = job.status;
+    card.style.cssText = 'padding: 14px; margin-bottom: 12px; border-radius: 14px; cursor: grab;';
+    
+    card.innerHTML = `
+      <div style="font-weight:800; font-size:15px; color:var(--text-main);">${job.title}</div>
+      <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">⏱️ ${job.time}</div>
+      <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
+        <span style="background:rgba(2,132,199,0.15); border:1px solid #0284c7; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700;">🚜 ${job.vehicle}</span>
+        <span style="background:rgba(16,185,129,0.15); border:1px solid #10b981; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700;">👤 ${job.driver}</span>
+      </div>
+    `;
+
+    const targetCol = document.querySelector(`.kabanoss-column[data-status="${job.status}"]`) || document.getElementById('col-planned');
+    if (targetCol) targetCol.appendChild(card);
+  });
+
+  if (typeof initKabanossDrag === 'function') initKabanossDrag();
+}
+
+// 2. FRAMTIDSRADARN (GANTT)
+function renderRadarGantt() {
+  const container = document.getElementById('radar-view');
+  if (!container) return;
+
+  container.innerHTML = `
+    <h2 style="margin:0 0 12px 0; font-size:18px; color:var(--text-main);">🔭 Framtidsradarn (7-Dagars Resursöversikt)</h2>
+    <div class="gantt-grid">
+      <div style="display:grid; grid-template-columns: 180px repeat(7, 1fr); gap:8px; font-weight:700; font-size:12px; margin-bottom:12px; border-bottom:1px solid var(--glass-border); padding-bottom:8px;">
+        <div>Resurs / Maskin</div>
+        <div>Mån</div><div>Tis</div><div>Ons</div><div>Tor</div><div>Fre</div><div>Lör</div><div>Sön</div>
+      </div>
+      <div style="display:grid; grid-template-columns: 180px repeat(7, 1fr); gap:8px; font-size:12px; align-items:center; margin-bottom:8px;">
+        <div>🚜 Kramer (Svart huv)</div>
+        <div style="background:#0284c7; color:#fff; padding:4px; border-radius:6px; text-align:center;">Coop</div>
+        <div>-</div>
+        <div style="background:#0284c7; color:#fff; padding:4px; border-radius:6px; text-align:center;">ICA</div>
+        <div>-</div><div>-</div><div>-</div><div>-</div>
+      </div>
+      <div style="display:grid; grid-template-columns: 180px repeat(7, 1fr); gap:8px; font-size:12px; align-items:center; margin-bottom:8px;">
+        <div>🚜 John Deere 3520</div>
+        <div>-</div>
+        <div style="background:#10b981; color:#fff; padding:4px; border-radius:6px; text-align:center;">Blacksta</div>
+        <div>-</div>
+        <div style="background:#10b981; color:#fff; padding:4px; border-radius:6px; text-align:center;">Handskottning</div>
+        <div>-</div><div>-</div><div>-</div>
+      </div>
+      <div style="display:grid; grid-template-columns: 180px repeat(7, 1fr); gap:8px; font-size:12px; align-items:center;">
+        <div>🚚 Ford Transit Flak</div>
+        <div style="background:#f59e0b; color:#fff; padding:4px; border-radius:6px; text-align:center;">Byggställn.</div>
+        <div>-</div><div>-</div><div>-</div><div>-</div><div>-</div><div>-</div>
+      </div>
+    </div>
+  `;
+}
+
+// 3. CRM & KUNDBILD (MED KARTNÅL)
+function renderCRMView() {
+  const container = document.getElementById('crm-view');
+  if (!container) return;
+
+  const customers = [
+    { name: 'Coop Fastigheter AB', id: 'K-1001', address: 'Storgatan 12, Katrineholm', activeJob: 'Kylflytt & Snöröjning' },
+    { name: 'Blacksta Vägförening', id: 'K-1002', address: 'Blacksta Väg 4, Katrineholm', activeJob: 'Snöröjning & Handskottning' },
+    { name: 'ICA Supermarket', id: 'K-1003', address: 'Torget 1, Katrineholm', activeJob: 'Byggställning & Underhåll' }
+  ];
+
+  let html = `<h2 style="margin:0 0 12px 0; font-size:18px; color:var(--text-main);">💼 360° Kundbild & CRM</h2>`;
+  customers.forEach(c => {
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`;
+    html += `
+      <div class="crm-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:800; font-size:16px;">${c.name} <small style="color:var(--text-muted);">(${c.id})</small></div>
+            <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">📍 ${c.address}</div>
+          </div>
+          <a href="${mapsUrl}" target="_blank" style="background:#0284c7; color:#fff; text-decoration:none; padding:8px 14px; border-radius:10px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+            📍 Kartnål & Vägbeskrivning
+          </a>
+        </div>
+        <div style="margin-top:10px; font-size:12px; background:rgba(0,0,0,0.05); padding:8px; border-radius:8px;">
+          <strong>Aktivt uppdrag:</strong> ${c.activeJob}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+// 4. SMART OFFERTMOTOR (HYBRID ROT/RUT)
+function renderOffertView() {
+  const container = document.getElementById('offert-view');
+  if (!container) return;
+
+  container.innerHTML = `
+    <h2 style="margin:0 0 12px 0; font-size:18px; color:var(--text-main);">📄 Smart Offertmotor (ROT/RUT & Restid)</h2>
+    <div class="offert-box">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:12px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Arbetstimmar (h):</label>
+          <input type="number" id="offert-hours" value="8" oninput="calcOffert()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:var(--card-bg); color:var(--text-main);">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Körtid Garaget T/R (min):</label>
+          <input type="number" id="offert-travel" value="30" oninput="calcOffert()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:var(--card-bg); color:var(--text-main);">
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Skatteavdrag:</label>
+        <select id="offert-deduction" onchange="calcOffert()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:var(--card-bg); color:var(--text-main);">
+          <option value="none">Inget avdrag</option>
+          <option value="rot">ROT (30% på arbete)</option>
+          <option value="rut">RUT (50% på arbete)</option>
+        </select>
+      </div>
+      <div id="offert-result" style="background:#0284c7; color:#fff; padding:14px; border-radius:10px; font-weight:800; text-align:center; font-size:16px; margin-top:12px;">
+        Totalt kund att betala: 5 150 kr (inkl. moms)
+      </div>
+    </div>
+  `;
+}
+
+function calcOffert() {
+  const h = parseFloat(document.getElementById('offert-hours')?.value || 0);
+  const t = parseFloat(document.getElementById('offert-travel')?.value || 0);
+  const ded = document.getElementById('offert-deduction')?.value || 'none';
+
+  const hourlyRate = 650;
+  const travelRate = 450;
+
+  let workCost = h * hourlyRate;
+  let travelCost = (t / 60) * travelRate;
+
+  let discount = 0;
+  if (ded === 'rot') discount = workCost * 0.30;
+  if (ded === 'rut') discount = workCost * 0.50;
+
+  let total = (workCost - discount) + travelCost;
+  const res = document.getElementById('offert-result');
+  if (res) {
+    res.innerText = `Totalt kund att betala: ${Math.round(total * 1.25).toLocaleString('sv-SE')} kr (exkl. ev. milersättning, inkl. moms)`;
+  }
+}
+
+window.switchAdminTab = switchAdminTab;
+window.calcOffert = calcOffert;
