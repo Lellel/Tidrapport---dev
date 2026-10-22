@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v3.5-vehicle-bubbles';
+const CACHE_NAME = 'tidrapport-dev-v3.5.1-full-fleet';
 const ASSETS = [
   './index.html',
   './style.css',
