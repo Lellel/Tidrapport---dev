@@ -134,11 +134,10 @@ function updateAvatarDisplays(base64Data) {
   });
 }
 
-function handleSelfieCapture(file) {
-  const evt = file || window.event;
-  const file = (evt && evt.target && evt.target.files) ? evt.target.files[0] : null;
-  if (!file) return;
-  if (!file) return;
+function handleSelfieCapture(e) {
+  const evt = e || window.event;
+  const selectedFile = (evt && evt.target && evt.target.files) ? evt.target.files[0] : (e instanceof File ? e : null);
+  if (!selectedFile) return;
   const reader = new FileReader();
   reader.onload = function(evt) {
     const base64 = evt.target.result;
