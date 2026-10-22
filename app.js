@@ -1,6 +1,6 @@
-// GLOBAL GUARD
-if (typeof window.applyUEConstraints !== 'function') {
-  window.applyUEConstraints = function() {
+window.applyUEConstraints = window.applyUEConstraints || function(){};
+var applyUEConstraints = window.applyUEConstraints;
+
     if (window.console) console.log('UE-spärr redo');
   };
 }
