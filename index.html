@@ -11,6 +11,27 @@
   <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
+
+  <!-- GLIDANDE VÄNSTERMENY (SIDE-DRAWER FÖR ADMIN & VYER) -->
+  <nav class="side-nav-drawer" id="sideNav">
+    <div class="side-nav-item" onclick="openKabanossModalWithTab('kabanoss')">
+      <span class="side-nav-icon">🌭</span>
+      <span class="side-nav-text">Kabanossen</span>
+    </div>
+    <div class="side-nav-item" onclick="openKabanossModalWithTab('radar')">
+      <span class="side-nav-icon">🔭</span>
+      <span class="side-nav-text">Framtidsradarn</span>
+    </div>
+    <div class="side-nav-item" onclick="openKabanossModalWithTab('crm')">
+      <span class="side-nav-icon">💼</span>
+      <span class="side-nav-text">CRM & Kundbild</span>
+    </div>
+    <div class="side-nav-item" onclick="openKabanossModalWithTab('offert')">
+      <span class="side-nav-icon">📄</span>
+      <span class="side-nav-text">Smart Offert</span>
+    </div>
+  </nav>
+
   <div class="app-layout-wrapper">
     <div class="app-container">
       
@@ -28,24 +49,24 @@
       <!-- KARUSELLEN HÖGST UPP -->
       <div id="outbox-section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <span id="outbox-title" style="font-size:12px; font-weight:800; color:var(--accent-blue, #5AC8FA); text-transform:uppercase; letter-spacing:0.8px;">Dagens pass</span>
+          <span id="outbox-title" style="font-size:12px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase; letter-spacing:0.8px;">Dagens pass</span>
           <button id="btnSubmitAll" class="submit-pill-btn" onclick="submitAll()" style="display:none; min-height:36px; padding:0 12px;">Skicka in</button>
         </div>
         <div id="outbox-container" class="carousel-container"></div>
       </div>
 
-      <!-- AVATAR & PACKLISTA (STEG 1) -->
+      <!-- AVATAR & PACKLISTA -->
       <div class="packing-card-glass" id="packing-section">
         <div class="postman-pat-bubble" onclick="openAvatarModal()">
           <img id="user-pat-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar">
         </div>
         
         <div style="text-align:center; margin-bottom:14px;">
-          <div style="font-size:11px; font-weight:800; color:var(--accent-blue, #5AC8FA); text-transform:uppercase;">Postis Per 3D Edition</div>
-          <div style="font-size:18px; font-weight:800; color:#FFF;" id="welcome-title">God dag!</div>
+          <div style="font-size:11px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase;">Postis Per 3D Edition</div>
+          <div style="font-size:18px; font-weight:800; color:var(--text-main);" id="welcome-title">God dag!</div>
         </div>
 
-        <div style="font-size:13px; font-weight:700; color:var(--text-muted, #8E8E93); margin-bottom:8px; text-transform:uppercase;">📦 Fordonscheck & Packlista</div>
+        <div style="font-size:13px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">📦 Fordonscheck & Packlista</div>
         
         <div class="checklist-item">
           <input type="checkbox" id="chk-1" onchange="checkPackProgress()">
@@ -67,7 +88,7 @@
 
       <!-- TRANSFORMERAD MENY & FORMULÄR -->
       <div class="field-tools-grid" id="field-tools-menu">
-        <div class="section-title" style="grid-column: 1 / -1; font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Uppdrag & Formulär</div>
+        <div style="grid-column: 1 / -1; font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Uppdrag & Formulär</div>
         
         <div class="ios-card" style="grid-column: 1 / -1;">
           <div class="type-control">
@@ -86,7 +107,7 @@
           <div class="ios-row" onclick="openSheet()" style="cursor: pointer;">
             <span>Aktivitet</span>
             <span class="val-text" id="selected-activity">
-              Välj aktivitet <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+              Välj aktivitet ›
             </span>
           </div>
         </div>
@@ -115,11 +136,11 @@
 
     </div>
 
-    <!-- ADAPTIV LANDSKAP & IPAD DASHBOARD -->
+    <!-- DASHBOARD PANEL -->
     <aside id="landscape-dashboard" class="dashboard-panel">
       <div class="dashboard-header">
-        <div class="section-title" style="margin: 0;">Översikt & Tider</div>
-        <span id="dash-date-badge" class="duration-pill">Idag</span>
+        <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Översikt & Tider</div>
+        <span id="dash-date-badge" class="duration-pill" style="font-size:12px; font-weight:700; color:var(--accent-darkblue); background:rgba(2,132,199,0.12); padding:2px 8px; border-radius:6px;">Idag</span>
       </div>
       <div class="dash-stats-grid">
         <div class="stat-card">
@@ -131,16 +152,14 @@
           <div class="stat-lbl">Sparade pass</div>
         </div>
       </div>
-      <div class="section-title" style="margin: 10px 0 6px 0;">Dagens fördelning</div>
+      <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin:10px 0 6px 0;">Dagens fördelning</div>
       <div id="dash-activity-list" class="dash-list">
         <div class="dash-empty">Inga registrerade pass än idag.</div>
       </div>
 
       <!-- ADMIN-SEKTION -->
       <div id="admin-tools-section" style="display: none; margin-top: 16px;">
-        <div class="section-title" style="color: var(--accent-glow, #0A84FF); margin: 0 0 6px 0; display: flex; justify-content: space-between; align-items: center;">
-          <span>Administratör: Behörigheter & Länkar</span>
-        </div>
+        <div style="font-size:12px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase; margin-bottom:6px;">Administratör: Behörigheter & Länkar</div>
         <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
           <div class="admin-input-row">
             <span class="admin-label">Mottagare</span>
@@ -148,45 +167,92 @@
               <option value="">Laddar kontakter...</option>
             </select>
           </div>
-          <div class="admin-input-row">
-            <span class="admin-label">Mobil (valfritt)</span>
-            <input type="tel" id="admin-target-phone" placeholder="070..." class="admin-val-input">
-          </div>
-          <div class="admin-input-row" style="border-bottom: none; padding-bottom: 8px;">
-            <span class="admin-label">Ge Admin-roll</span>
-            <label class="ios-switch">
-              <input type="checkbox" id="admin-target-is-admin" onchange="updateAdminTargetLink()">
-              <span class="slider"></span>
-            </label>
-          </div>
-          <div class="admin-actions-grid" style="margin-top: 6px;">
-            <button type="button" class="btn-action admin-btn" onclick="adminSendSMS()">SMS</button>
-            <button type="button" class="btn-action admin-btn" onclick="adminSendEmail()">Mail</button>
-            <button type="button" class="btn-action admin-btn" onclick="toggleAdminQR()">QR</button>
-            <button type="button" class="btn-action admin-btn" style="grid-column: 1 / -1; background: var(--orange); color: #FFF;" onclick="openKabanossModal()">🌭 Öppna Kabanossen</button>
-          </div>
-          <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 12px; padding-top: 10px; border-top: 0.5px solid rgba(255,255,255,0.1);">
-            <div id="admin-qr-caption" style="font-size: 11px; color: var(--text-muted, #8E8E93); margin-bottom: 6px;">Skanna för att logga in:</div>
-            <img id="admin-qr-image" src="" alt="Inloggnings-QR" style="width: 140px; height: 140px; border-radius: 10px; border: 2px solid #FFF; background: #FFF; margin: 0 auto; display: block;">
-          </div>
+          <button type="button" class="main-btn" style="width:100%; margin-top:10px; background:var(--orange); color:#FFF; min-height:48px;" onclick="openKabanossModal()">
+            🌭 Öppna Flygledartornet
+          </button>
         </div>
       </div>
     </aside>
   </div>
 
-  <!-- ACTION SHEET FÖR AKTIVITETER -->
+  <!-- ACTION SHEET FÖR AKTIVITETER (DOLD TILLS MAN KLICKAR) -->
   <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
     <div class="sheet-container" onclick="event.stopPropagation()">
       <div class="sheet-header">
-        <div class="sheet-title">Välj Aktivitet</div>
-        <button class="sheet-close" onclick="closeSheet()">Avbryt</button>
+        <div style="font-size:13px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Välj Aktivitet</div>
+        <button class="sheet-close" style="background:none; border:none; color:var(--accent-blue); font-size:15px; font-weight:700; cursor:pointer;" onclick="closeSheet()">Avbryt</button>
       </div>
-      <div class="sheet-item" onclick="selectActivity('Bandgrävare')"><span>Bandgrävare</span></div>
-      <div class="sheet-item" onclick="selectActivity('Stalltvätt')"><span>Stalltvätt</span></div>
-      <div class="sheet-item" onclick="selectActivity('Snöröjning')"><span>Snöröjning</span></div>
-      <div class="sheet-item" onclick="selectActivity('Kyl- & frysflytt')"><span>Kyl- & frysflytt</span></div>
-      <div class="sheet-item" onclick="selectActivity('Linjemålning')"><span>Linjemålning</span></div>
-      <div class="sheet-item" onclick="selectActivity('Fasadmålning')"><span>Fasadmålning</span></div>
+      <div class="sheet-item" onclick="selectActivity('Bandgrävare')">Bandgrävare</div>
+      <div class="sheet-item" onclick="selectActivity('Stalltvätt')">Stalltvätt</div>
+      <div class="sheet-item" onclick="selectActivity('Snöröjning')">Snöröjning</div>
+      <div class="sheet-item" onclick="selectActivity('Kyl- & frysflytt')">Kyl- & frysflytt</div>
+      <div class="sheet-item" onclick="selectActivity('Linjemålning')">Linjemålning</div>
+      <div class="sheet-item" onclick="selectActivity('Fasadmålning')">Fasadmålning</div>
+    </div>
+  </div>
+
+  <!-- FLYGLEDARTORNET / KABANOSS MODAL -->
+  <div class="kabanoss-backdrop" id="kabanossModal" onclick="closeKabanossModal()">
+    <div class="kabanoss-modal" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="display:flex; gap:8px;">
+          <button class="main-btn main-btn-blue" style="min-height:36px; padding:0 14px; font-size:13px;" onclick="switchAdminTab('kabanoss')">🌭 Kabanossen</button>
+          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('radar')">🔭 Radarn</button>
+          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('crm')">💼 CRM</button>
+          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('offert')">📄 Offert</button>
+        </div>
+        <button style="background:none; border:none; font-size:16px; font-weight:700; color:var(--orange); cursor:pointer;" onclick="closeKabanossModal()">✕ Stäng</button>
+      </div>
+      
+      <!-- VY 1: KABANOSSEN -->
+      <div id="kabanoss-view" class="kabanoss-grid">
+        <div class="kabanoss-col">
+          <div class="kabanoss-col-title">📌 Planerade</div>
+          <div class="kabanoss-item-card">Coop Kylflytt - Mån 08:00</div>
+        </div>
+        <div class="kabanoss-col"><div class="kabanoss-col-title">⏳ Vid Tillfälle</div></div>
+        <div class="kabanoss-col"><div class="kabanoss-col-title">⚡ Pågående / Klara</div></div>
+        <div class="kabanoss-col"><div class="kabanoss-col-title">💰 Klara för Faktura</div></div>
+      </div>
+
+      <!-- VY 2: RADARN -->
+      <div id="radar-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
+        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">🔭 Framtidsradarn (Gantt)</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">7-dagars tidslinje och resursbemanning.</p>
+      </div>
+
+      <!-- VY 3: CRM -->
+      <div id="crm-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
+        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">💼 360° Kundbild & CRM</h3>
+        <div class="kabanoss-item-card" style="margin-top:12px;">K-1001 Coop Sverige AB (Aktiv)</div>
+      </div>
+
+      <!-- VY 4: OFFERTMOTOR -->
+      <div id="offert-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
+        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">📄 Smart Offertmotor (ROT/RUT & Restid)</h3>
+        <div class="ios-card" style="margin-top:12px; padding:12px;">
+          <div class="ios-row">
+            <span>Arbetstimmar (h)</span>
+            <input type="number" id="offert-hours" placeholder="0" class="val-text" oninput="calculateOffert()" style="width:60px;">
+          </div>
+          <div class="ios-row">
+            <span>Körtid Garaget Tur/Retur (min)</span>
+            <input type="number" id="offert-travel" placeholder="0" class="val-text" oninput="calculateOffert()" style="width:60px;">
+          </div>
+          <div class="ios-row">
+            <span>Avdrag</span>
+            <select id="offert-avdrag" class="val-text" style="background:transparent; border:none;" onchange="calculateOffert()">
+              <option value="none">Inget</option>
+              <option value="rot">ROT (30%)</option>
+              <option value="rut">RUT (50%)</option>
+            </select>
+          </div>
+          <div style="margin-top:10px; padding:10px; background:rgba(255,255,255,0.6); border-radius:10px; font-size:13px;">
+            <div style="display:flex; justify-content:space-between;"><span>Totalt att betala:</span><strong id="offert-total-val" style="color:var(--accent-darkblue);">0 kr</strong></div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -200,7 +266,7 @@
       const btn = document.getElementById('unlock-menu-btn');
       
       if (btn && c1 && c2 && c3) {
-        btn.style.background = "linear-gradient(135deg, #30D158 0%, #34C759 100%)";
+        btn.style.background = "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)";
         btn.innerText = "✅ Allt Packat – Öppna Verktyg";
       }
     }
