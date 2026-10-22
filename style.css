@@ -533,3 +533,25 @@ body {
 .theme-toggle-btn:active {
   transform: scale(0.9);
 }
+
+/* TEXTKONTRAST OCH LÄSBARHET I DARK MODE */
+body.dark-mode {
+  --text-main: #f8fafc !important;
+  --text-muted: #cbd5e1 !important;
+}
+
+body.dark-mode .cupertino-card,
+body.dark-mode .glass-card,
+body.dark-mode div,
+body.dark-mode span,
+body.dark-mode label,
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3 {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .text-muted,
+body.dark-mode small {
+  color: #94a3b8 !important;
+}
