@@ -516,9 +516,9 @@ window.applyUEConstraints = function() {
 };
 
 // ==========================================
-// DYNAMISK VERSIONSMÄRKNING (v4.7.0)
+// DYNAMISK VERSIONSMÄRKNING (v4.7.1)
 // ==========================================
-const CURRENT_APP_VERSION = 'DEV v4.7.0';
+const CURRENT_APP_VERSION = 'DEV v4.7.1';
 
 function updateVersionBadge() {
   const badge = document.getElementById('app-version-tag');
@@ -529,3 +529,65 @@ function updateVersionBadge() {
 
 document.addEventListener('DOMContentLoaded', updateVersionBadge);
 window.updateVersionBadge = updateVersionBadge;
+
+// ==========================================
+// OFFERTBESÖK & DYNAMISKA MALLAR (ÅTERSTÄLLDA)
+// ==========================================
+function handleActivityChange() {
+  const activitySelect = document.getElementById('activity-select');
+  if (!activitySelect) return;
+  const activity = activitySelect.value;
+  let templateContainer = document.getElementById('offert-template-container');
+  
+  if (!templateContainer) {
+    templateContainer = document.createElement('div');
+    templateContainer.id = 'offert-template-container';
+    activitySelect.parentNode.insertBefore(templateContainer, activitySelect.nextSibling);
+  }
+  
+  if (activity === 'offertbesok') {
+    templateContainer.style.display = 'block';
+    templateContainer.innerHTML = `
+      <div style="background:var(--input-bg); padding:16px; border-radius:12px; margin-top:12px; border:1px solid var(--glass-border);">
+        <label style="font-weight:800; font-size:13px; color:var(--text-main);">Välj typ av Offertbesök:</label>
+        <select id="offert-type" onchange="renderOffertTemplate()" style="width:100%; padding:12px; border-radius:8px; margin-top:6px; background:var(--card-bg); color:var(--text-main); border:1px solid var(--glass-border);">
+          <option value="">-- Välj mall --</option>
+          <option value="sno">❄️ Snöröjning & Halkbekämpning</option>
+          <option value="bygg">🏗️ Byggställning</option>
+          <option value="mark">🚧 Markarbete / Sopning</option>
+        </select>
+        <div id="dynamic-template-content" style="margin-top:12px;"></div>
+      </div>
+    `;
+  } else {
+    templateContainer.style.display = 'none';
+  }
+}
+
+function renderOffertTemplate() {
+  const type = document.getElementById('offert-type')?.value;
+  const content = document.getElementById('dynamic-template-content');
+  if (!content) return;
+  
+  if (type === 'sno') {
+    content.innerHTML = `
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">📱 Använd telefonens Mät-app (LiDAR)</div>
+      <input type="number" placeholder="Total yta (m²)" style="width:100%; padding:12px; margin-bottom:8px; border-radius:8px; border:1px solid var(--glass-border); background:var(--card-bg); color:var(--text-main);">
+      <label style="font-size:13px; font-weight:700;"><input type="checkbox"> Snöupplag fotat</label>
+    `;
+  } else if (type === 'bygg') {
+    content.innerHTML = `
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">📱 Använd telefonens Mät-app (LiDAR)</div>
+      <input type="number" placeholder="Längd på fasad (m)" style="width:100%; padding:12px; margin-bottom:8px; border-radius:8px; border:1px solid var(--glass-border); background:var(--card-bg); color:var(--text-main);">
+    `;
+  } else if (type === 'mark') {
+    content.innerHTML = `
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">📱 Använd telefonens Mät-app (LiDAR)</div>
+      <input type="number" placeholder="Total yta (m²)" style="width:100%; padding:12px; margin-bottom:8px; border-radius:8px; border:1px solid var(--glass-border); background:var(--card-bg); color:var(--text-main);">
+    `;
+  } else {
+    content.innerHTML = '';
+  }
+}
+window.renderOffertTemplate = renderOffertTemplate;
+window.handleActivityChange = handleActivityChange;
