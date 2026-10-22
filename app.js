@@ -1,5 +1,9 @@
+/* RAD 1: GLOBAL GUARD */
+var applyUEConstraints = window.applyUEConstraints || function() { if (window.console) console.log('UE-spärr redo'); };
+window.applyUEConstraints = applyUEConstraints;
+
 // Säkerställ UE-spärrfunktion om den saknas
-if (typeof applyUEConstraints !== 'function') {
+// {
   window.applyUEConstraints = function() {
     console.log('UE-spärr verifierad');
   };
