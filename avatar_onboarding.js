@@ -1,3 +1,4 @@
+window.GAS_API_URL = window.GAS_API_URL || (window.CONFIG && window.CONFIG.API_URL) || 'https://script.google.com/macros/s/AKfycbyn-mxt1REReA0T4UC4lmf-cbDPcDkv5X5WCJapqyZ06d76tKzxsaCBgaYqTeFfmYPekw/exec';
 window.currentUser = window.currentUser || localStorage.getItem('lpv_user_name') || 'Daniel';
 var currentUser = window.currentUser;
 
@@ -101,7 +102,7 @@ function handleSelfieCapture(e) {
     document.getElementById('avatar-preview-img').src = base64;
     checkAvatarOnboarding();
   };
-  reader.readAsDataURL(selectedFile);
+  reader.readAsDataURL(file);
 }
 
 window.checkAvatarOnboarding = checkAvatarOnboarding;
@@ -145,7 +146,7 @@ function handleSelfieCapture(e) {
     updateAvatarDisplays(base64);
     if (typeof closeAvatarModal === 'function') closeAvatarModal();
   };
-  reader.readAsDataURL(selectedFile);
+  reader.readAsDataURL(file);
 }
 
 window.updateAvatarDisplays = updateAvatarDisplays;
@@ -231,7 +232,7 @@ function handlePostmanPhoto(evt) {
       btn.style.opacity = '1';
     }
   };
-  reader.readAsDataURL(selectedFile);
+  reader.readAsDataURL(file);
 }
 
 function generatePostmanPatAvatar() {
