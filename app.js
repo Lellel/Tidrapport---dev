@@ -1,12 +1,12 @@
-/* GLOBAL GUARD */
-window.applyUEConstraints = window.applyUEConstraints || function() { if (window.console) console.log('UE-spärr redo'); };
+// GLOBAL GUARD
+if (typeof window.applyUEConstraints !== 'function') {
+  window.applyUEConstraints = function() {
+    if (window.console) console.log('UE-spärr redo');
+  };
+}
 var applyUEConstraints = window.applyUEConstraints;
 
-var applyUEConstraints = window.applyUEConstraints || function() { if (window.console) console.log('UE-spärr redo'); };
-window.applyUEConstraints = applyUEConstraints;
-
 // Säkerställ UE-spärrfunktion om den saknas
-  window.applyUEConstraints = function() {
     console.log('UE-spärr verifierad');
   };
 }
@@ -506,8 +506,6 @@ window.sendOffertViaIMessage = sendOffertViaIMessage;
 window.approveCustomerDocument = approveCustomerDocument;
 
 // Lås maskinparken för UE (Inga tunga LPV-maskiner, och inga Admin-bubblor)
-const originalApplyUE = window.applyUEConstraints || applyUEConstraints;
-window.applyUEConstraints = function() {
   if (originalApplyUE) originalApplyUE();
   const isUE = window.isUserUE;
   
