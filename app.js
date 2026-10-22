@@ -497,7 +497,7 @@ window.sendOffertViaIMessage = sendOffertViaIMessage;
 window.approveCustomerDocument = approveCustomerDocument;
 
 // Lås maskinparken för UE (Inga tunga LPV-maskiner, och inga Admin-bubblor)
-  if (originalApplyUE) originalApplyUE();
+  if (typeof window.originalApplyUE === 'function') window.originalApplyUE();
   const isUE = window.isUserUE;
   
   const bubbles = document.querySelectorAll('#vehicle-bubbles-container .glass-bubble');
