@@ -58,10 +58,8 @@
 
       <!-- AVATAR & PACKLISTA -->
       <div class="packing-card-glass" id="packing-section">
-        <input type="file" id="avatar-upload" accept="image/*" onchange="processAvatarUpload(event)" style="display:none;">
-        <input type="file" id="avatar-upload" accept="image/*" onchange="processAvatarUpload(event)" style="display:none;">
-        <div class="postman-pat-bubble" onclick="triggerAvatarUpload()">
-          <img id="user-pat-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar">
+        <div class="postman-pat-bubble" onclick="openPostmanPatModal()" style="width:110px; height:110px; margin:0 auto 12px auto; border-radius:50%; overflow:hidden; border:3px solid rgba(255,255,255,0.8); box-shadow:0 8px 20px rgba(0,0,0,0.2); cursor:pointer; background:#e2e8f0; display:flex; align-items:center; justify-content:center;">
+          <img id="user-pat-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar" style="width:100%; height:100%; object-fit:cover; display:block;">
         </div>
         
         <div style="text-align:center; margin-bottom:14px;">

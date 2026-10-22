@@ -134,7 +134,7 @@ function updateAvatarDisplays(base64Data) {
   });
 
   // Direct <img>-element
-  document.querySelectorAll('#user-avatar-img, .avatar-img, img[data-avatar-img]').forEach(img => {
+  document.querySelectorAll('#user-avatar-img, #user-pat-avatar, .avatar-img, img[data-avatar-img]').forEach(img => {
     img.src = imgData;
   });
 }
