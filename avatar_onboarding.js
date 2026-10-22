@@ -43,10 +43,10 @@ function renderMorningGreeting() {
   }
 
   greetingHtml.innerHTML = `
-    <div class="morning-avatar-slot" onclick="openAvatarModal()" title="Klicka för att ändra selfie">
-      <img src="${savedAvatar}" alt="Avatar">
+    <div class="morning-avatar-slot" onclick="if(typeof openPostmanPatModal === 'function') openPostmanPatModal();" title="Klicka för att ändra selfie" style="width:40px; height:40px; border-radius:50%; overflow:hidden; flex-shrink:0; border:2px solid rgba(255,255,255,0.2); cursor:pointer;">
+      <img src="${savedAvatar}" alt="Avatar" style="width:100%; height:100%; object-fit:cover; display:block;">
     </div>
-    <div>
+    <div style="flex:1;">
       <div style="font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px;">LPV & Klaryta v3.0</div>
       <div style="font-size: 16px; font-weight: 700; color: #FFF;">${greeting}, ${currentUser}!</div>
     </div>
@@ -134,7 +134,7 @@ function updateAvatarDisplays(base64Data) {
   });
 
   // Direct <img>-element
-  document.querySelectorAll('#user-avatar-img, #user-pat-avatar, .avatar-img, img[data-avatar-img]').forEach(img => {
+  document.querySelectorAll('#user-avatar-img, #user-pat-avatar, .morning-avatar-slot img, .avatar-img, img[data-avatar-img]').forEach(img => {
     img.src = imgData;
   });
 }
