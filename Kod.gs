@@ -166,3 +166,25 @@ function formatDuration(start, end, fallbackHours) {
 function createJsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
+
+// ==========================================
+// GODKÄNNANDE-BACKEND FÖR ÄTA & OFFERT (v4.5)
+// ==========================================
+function approveAta(ataId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetOrCreate(ss, "ÄTA_Godkännanden", ["ÄTA_ID", "Status", "Datum"]);
+  sheet.appendRow([ataId, "GODKÄND_AV_KUND", new Date()]);
+  return createJsonResponse({ success: true, ataId: ataId });
+}
+
+function approveOffert(offertId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetOrCreate(ss, "Offert_Godkännanden", ["Offert_ID", "Status", "Datum"]);
+  sheet.appendRow([offertId, "GODKÄND_AV_KUND", new Date()]);
+  
+  // Skapa automatiskt jobb i Kabanossen
+  var planSheet = getSheetOrCreate(ss, "Planering", ["ID", "Titel", "Tid", "Fordon", "Förare", "Status"]);
+  planSheet.appendRow(["J-" + Math.floor(Math.random()*1000), "Godkänd Offert " + offertId, "Återkommande", "Kramer (Svart huv)", "Personal", "planned"]);
+  
+  return createJsonResponse({ success: true, offertId: offertId });
+}
