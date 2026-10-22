@@ -1,13 +1,8 @@
 window.applyUEConstraints = window.applyUEConstraints || function(){};
 var applyUEConstraints = window.applyUEConstraints;
 
-    if (window.console) console.log('UE-spärr redo');
-  };
-}
 var applyUEConstraints = window.applyUEConstraints;
 
-// Säkerställ UE-spärrfunktion om den saknas
-    console.log('UE-spärr verifierad');
   };
 }
 
