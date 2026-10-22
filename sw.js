@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v3.2-side-nav-drawer';
+const CACHE_NAME = 'tidrapport-dev-v3.3-avatar-upload';
 const ASSETS = [
   './index.html',
   './style.css',

@@ -411,3 +411,75 @@ function switchAdminTab(tab) {
 
 window.openKabanossModalWithTab = openKabanossModalWithTab;
 window.switchAdminTab = switchAdminTab;
+
+// ==========================================
+// AVATAR & SELFIE UPLOAD
+// ==========================================
+function openAvatarModal() {
+  const fileInput = document.getElementById('avatar-upload');
+  if (fileInput) fileInput.click();
+}
+
+async function processAvatarUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const titleEl = document.getElementById('welcome-title');
+  const oldTitle = titleEl.innerText;
+  titleEl.innerText = "Laddar in AI-Avatar...";
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = async function() {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 400; // Optimal storlek för Base64 avatar
+
+      // Kvadratisk beskärning i mitten
+      const size = Math.min(img.width, img.height);
+      const offsetX = (img.width - size) / 2;
+      const offsetY = (img.height - size) / 2;
+
+      canvas.width = MAX_SIZE;
+      canvas.height = MAX_SIZE;
+      const ctx = canvas.getContext('2d');
+      
+      // Rita in bilden centrerad och krympt
+      ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, MAX_SIZE, MAX_SIZE);
+
+      const base64Avatar = canvas.toDataURL('image/jpeg', 0.8);
+
+      // Uppdatera gränssnittet direkt
+      document.getElementById('user-pat-avatar').src = base64Avatar;
+      localStorage.setItem('lpv_user_avatar', base64Avatar);
+
+      // Synka till databasen
+      try {
+        const res = await fetch(CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          body: JSON.stringify({
+            token: CONFIG.API_TOKEN,
+            action: 'updateAvatar',
+            user: currentUser,
+            avatar: base64Avatar
+          })
+        });
+        const result = await res.json();
+        if (result && result.status === 'success') {
+          titleEl.innerText = "Avatar sparad! ✅";
+          setTimeout(() => { titleEl.innerText = oldTitle; }, 2500);
+        }
+      } catch (err) {
+        console.error("Fel vid avatar-synk:", err);
+        titleEl.innerText = "Sparad lokalt!";
+        setTimeout(() => { titleEl.innerText = oldTitle; }, 2500);
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+window.openAvatarModal = openAvatarModal;
+window.processAvatarUpload = processAvatarUpload;
