@@ -253,3 +253,14 @@ window.openPostmanPatModal = openPostmanPatModal;
 window.closePostmanPatModal = closePostmanPatModal;
 window.handlePostmanPhoto = handlePostmanPhoto;
 window.generatePostmanPatAvatar = generatePostmanPatAvatar;
+
+
+// GLOBAL KLICK-LYSSNARE FÖR POSTIS PER MODAL
+document.addEventListener('click', (e) => {
+  const avatarEl = e.target.closest('.avatar-3d-sphere, .user-avatar-bubble, .glass-avatar-card, #app-user-pill, [data-avatar]');
+  if (avatarEl) {
+    if (typeof openPostmanPatModal === 'function') {
+      openPostmanPatModal();
+    }
+  }
+});
