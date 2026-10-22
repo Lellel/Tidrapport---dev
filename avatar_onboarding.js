@@ -145,3 +145,111 @@ window.handleSelfieCapture = handleSelfieCapture;
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => updateAvatarDisplays(), 400);
 });
+
+
+// ==========================================
+// POSTIS PER-IFIERA SELFIE MODAL & AI FLOW
+// ==========================================
+function openPostmanPatModal() {
+  let modal = document.getElementById('postman-pat-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'postman-pat-modal';
+    modal.className = 'glass-modal-overlay';
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); backdrop-filter:blur(10px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:15px;';
+    modal.innerHTML = `
+      <div class="glass-bubble" style="background:rgba(255,255,255,0.95); max-width:420px; width:100%; border-radius:24px; padding:24px; text-align:center; position:relative; box-shadow:0 20px 40px rgba(0,0,0,0.3); border:2px solid rgba(255,255,255,0.8);">
+        <button onclick="closePostmanPatModal()" style="position:absolute; top:16px; right:16px; border:none; background:none; font-size:22px; cursor:pointer; color:#666;">✕</button>
+        <h2 style="font-size:22px; font-weight:800; color:#1e293b; margin-bottom:8px;">Postis Per-ifiera din selfie! 📬</h2>
+        <p style="font-size:13px; color:#64748b; margin-bottom:20px;">Omvandla ditt foto till en unikt designad 3D-figur i klassisk lera-stil.</p>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(241,245,249,0.8); padding:12px; border-radius:16px; margin-bottom:20px;">
+          <div style="flex:1; text-align:center;">
+            <div style="width:48px; height:48px; margin:0 auto; background:#e2e8f0; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px;">📸</div>
+            <span style="font-size:10px; font-weight:600; color:#475569; display:block; margin-top:4px;">1. Selfie</span>
+          </div>
+          <div style="font-size:14px; color:#94a3b8;">➔</div>
+          <div style="flex:1; text-align:center;">
+            <div style="width:48px; height:48px; margin:0 auto; background:#e2e8f0; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px;">🎨</div>
+            <span style="font-size:10px; font-weight:600; color:#475569; display:block; margin-top:4px;">2. Ler-stil</span>
+          </div>
+          <div style="font-size:14px; color:#94a3b8;">➔</div>
+          <div style="flex:1; text-align:center;">
+            <div style="width:48px; height:48px; margin:0 auto; background:#3b82f6; color:white; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px;">👷</div>
+            <span style="font-size:10px; font-weight:600; color:#2563eb; display:block; margin-top:4px;">3. 3D-Figur</span>
+          </div>
+        </div>
+
+        <input type="file" id="postman-photo-input" accept="image/*" capture="user" style="display:none;" onchange="handlePostmanPhoto(event)">
+        
+        <div id="postman-preview-area" onclick="document.getElementById('postman-photo-input').click()" style="border:2px dashed #cbd5e1; border-radius:16px; padding:20px; cursor:pointer; background:#f8fafc; margin-bottom:20px;">
+          <p id="postman-preview-text" style="font-size:13px; color:#64748b; margin:0;">Klicka här för att ta en selfie eller välja bild 📷</p>
+          <img id="postman-preview-img" style="max-height:180px; border-radius:12px; display:none; margin:0 auto; box-shadow:0 8px 16px rgba(0,0,0,0.15);">
+        </div>
+
+        <button id="postman-generate-btn" onclick="generatePostmanPatAvatar()" style="width:100%; padding:14px; background:linear-gradient(135deg, #2563eb, #1d4ed8); color:white; border:none; border-radius:14px; font-weight:700; font-size:15px; cursor:pointer; box-shadow:0 4px 12px rgba(37,99,235,0.3);" disabled>
+          Generera min Postis Per-gubbe! 📸✨
+        </button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+}
+
+function closePostmanPatModal() {
+  const modal = document.getElementById('postman-pat-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+let selectedPostmanFile = null;
+
+function handlePostmanPhoto(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  selectedPostmanFile = file;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = document.getElementById('postman-preview-img');
+    const txt = document.getElementById('postman-preview-text');
+    const btn = document.getElementById('postman-generate-btn');
+    if (img && txt && btn) {
+      img.src = e.target.result;
+      img.style.display = 'block';
+      txt.style.display = 'none';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function generatePostmanPatAvatar() {
+  const btn = document.getElementById('postman-generate-btn');
+  if (btn) {
+    btn.innerHTML = 'Skapar 3D-lera-figur... ⏳';
+    btn.disabled = true;
+  }
+  
+  // Simulering/sparning av transformering (kopplas till AI-endspoint i Kod.gs)
+  setTimeout(() => {
+    const img = document.getElementById('postman-preview-img');
+    if (img && img.src) {
+      localStorage.setItem('lpv_user_avatar', img.src);
+      if (typeof updateAvatarDisplays === 'function') {
+        updateAvatarDisplays(img.src);
+      }
+    }
+    if (btn) {
+      btn.innerHTML = 'Generera min Postis Per-gubbe! 📸✨';
+      btn.disabled = false;
+    }
+    closePostmanPatModal();
+  }, 1200);
+}
+
+window.openPostmanPatModal = openPostmanPatModal;
+window.closePostmanPatModal = closePostmanPatModal;
+window.handlePostmanPhoto = handlePostmanPhoto;
+window.generatePostmanPatAvatar = generatePostmanPatAvatar;
