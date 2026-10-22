@@ -105,3 +105,43 @@ window.handleSelfieCapture = handleSelfieCapture;
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(checkAvatarOnboarding, 300);
 });
+
+
+// ==========================================
+// KIRURGISK FIX: AVATAR & SELFIE RENDERING
+// ==========================================
+function updateAvatarDisplays(base64Data) {
+  const imgData = base64Data || localStorage.getItem('lpv_user_avatar');
+  if (!imgData) return;
+
+  // 1. Förhandsgranskning i modal
+  const previewImg = document.getElementById('avatar-preview-img');
+  if (previewImg) previewImg.src = imgData;
+
+  // 2. Alla 3D-sfärer och avatarbubblor på skärmen
+  document.querySelectorAll('.avatar-3d-sphere, .user-avatar-bubble, .glass-avatar-card').forEach(el => {
+    el.style.backgroundImage = `url("${imgData}")`;
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center';
+    el.style.border = '2px solid rgba(255, 255, 255, 0.6)';
+  });
+}
+
+function handleSelfieCapture(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const base64 = evt.target.result;
+    localStorage.setItem('lpv_user_avatar', base64);
+    updateAvatarDisplays(base64);
+    if (typeof closeAvatarModal === 'function') closeAvatarModal();
+  };
+  reader.readAsDataURL(file);
+}
+
+window.updateAvatarDisplays = updateAvatarDisplays;
+window.handleSelfieCapture = handleSelfieCapture;
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => updateAvatarDisplays(), 400);
+});
