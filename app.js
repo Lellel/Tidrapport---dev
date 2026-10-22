@@ -1,10 +1,7 @@
 window.applyUEConstraints = window.applyUEConstraints || function(){};
 var applyUEConstraints = window.applyUEConstraints;
 
-var applyUEConstraints = window.applyUEConstraints;
 
-  };
-}
 
 // Registrera Service Worker
 if ('serviceWorker' in navigator) {
