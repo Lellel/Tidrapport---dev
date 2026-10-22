@@ -101,7 +101,7 @@ function handleSelfieCapture(e) {
     document.getElementById('avatar-preview-img').src = base64;
     checkAvatarOnboarding();
   };
-  reader.readAsDataURL(file);
+  reader.readAsDataURL(selectedFile);
 }
 
 window.checkAvatarOnboarding = checkAvatarOnboarding;
@@ -145,7 +145,7 @@ function handleSelfieCapture(e) {
     updateAvatarDisplays(base64);
     if (typeof closeAvatarModal === 'function') closeAvatarModal();
   };
-  reader.readAsDataURL(file);
+  reader.readAsDataURL(selectedFile);
 }
 
 window.updateAvatarDisplays = updateAvatarDisplays;
@@ -231,7 +231,7 @@ function handlePostmanPhoto(evt) {
       btn.style.opacity = '1';
     }
   };
-  reader.readAsDataURL(file);
+  reader.readAsDataURL(selectedFile);
 }
 
 function generatePostmanPatAvatar() {
