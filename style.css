@@ -1,14 +1,14 @@
 :root {
-  --bg: #000000;
-  --card-glass: rgba(10, 132, 255, 0.08);
-  --card-border: rgba(120, 200, 255, 0.25);
-  --accent-blue: #5AC8FA;
-  --accent-glow: #0A84FF;
-  --text: #FFFFFF;
-  --text-muted: #8E8E93;
-  --green: #30D158;
-  --orange: #FF9F0A;
-  --danger: #FF453A;
+  --bg-gradient: linear-gradient(135deg, #cbe8ff 0%, #92cdff 40%, #e8f4ff 100%);
+  --card-glass: rgba(255, 255, 255, 0.52);
+  --card-border: rgba(255, 255, 255, 0.85);
+  --accent-blue: #0284c7;
+  --accent-darkblue: #0369a1;
+  --text-main: #0f172a;
+  --text-muted: #334155;
+  --green: #16a34a;
+  --orange: #ea580c;
+  --danger: #dc2626;
 }
 
 * {
@@ -19,11 +19,19 @@
 }
 
 html, body {
-  background: radial-gradient(circle at 50% 0%, #0d1b2a 0%, #000000 70%) !important;
-  color: var(--text);
+  background: var(--bg-gradient) !important;
+  background-attachment: fixed !important;
+  color: var(--text-main) !important;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
   min-height: 100vh;
   padding: calc(env(safe-area-inset-top) + 12px) 14px 40px 14px;
+}
+
+.app-layout-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
 }
 
 .app-container {
@@ -37,7 +45,7 @@ button, .main-btn, .glove-btn {
   min-height: 58px;
   font-size: 17px;
   font-weight: 700;
-  border-radius: 16px;
+  border-radius: 18px;
   border: none;
   cursor: pointer;
   display: flex;
@@ -52,20 +60,51 @@ button:active {
 }
 
 .main-btn-blue {
-  background: linear-gradient(135deg, #0A84FF 0%, #5AC8FA 100%);
-  color: #FFF;
-  box-shadow: 0 8px 24px rgba(10, 132, 255, 0.35);
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  color: #FFFFFF;
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35);
 }
 
-/* 3D POSTIS PER GLASS BUBBLE AVATAR */
+/* LJUSBLÅ FROSTADE GLASS-KORT */
+.packing-card-glass, .ios-card, .draft-card, .dashboard-panel {
+  background: var(--card-glass) !important;
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 20px !important;
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08) !important;
+  color: var(--text-main) !important;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 28px;
+  height: 28px;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+}
+
+/* 3D POSTIS PER AVATAR BUBBLE */
 .postman-pat-bubble {
-  width: 88px;
-  height: 88px;
+  width: 92px;
+  height: 92px;
   margin: 0 auto 12px auto;
   border-radius: 50%;
   position: relative;
-  background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.9) 0%, rgba(90,200,250,0.5) 50%, rgba(10,132,255,0.9) 100%);
-  box-shadow: 0 10px 30px rgba(10, 132, 255, 0.4), inset 0 2px 6px rgba(255,255,255,0.8);
+  background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95) 0%, rgba(56,189,248,0.6) 50%, rgba(2,132,199,0.9) 100%);
+  box-shadow: 0 10px 30px rgba(2, 132, 199, 0.35), inset 0 2px 6px rgba(255,255,255,0.9);
   padding: 4px;
   display: flex;
   align-items: center;
@@ -77,39 +116,34 @@ button:active {
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
-  filter: contrast(1.1) saturate(1.2);
 }
 
-/* PACKLISTA GLASKORT */
-.packing-card-glass {
-  background: var(--card-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--card-border);
-  border-radius: 20px;
-  padding: 18px;
-  margin-bottom: 16px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-}
-
-.checklist-item {
+/* FORMULÄR & INMATNINGSFÄLT */
+.ios-row {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  font-size: 15px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: 16px;
   font-weight: 600;
+  color: var(--text-main);
 }
 
-.checklist-item input[type="checkbox"] {
-  width: 26px;
-  height: 26px;
-  accent-color: var(--accent-glow);
-  cursor: pointer;
+.val-text, input, select, textarea {
+  color: var(--accent-darkblue) !important;
+  font-weight: 700;
 }
 
-/* MENY-MORFNING: DÖLD TILLS PACKLISTAN ÄR AVBOCKAD */
+input[type="text"], input[type="date"], input[type="time"], input[type="tel"], textarea, select {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border-radius: 12px;
+  padding: 8px 12px;
+  outline: none;
+}
+
+/* MENY-MORFNING */
 .field-tools-grid {
   display: none;
   grid-template-columns: 1fr 1fr;
@@ -124,26 +158,167 @@ button:active {
 
 .tool-glass-block {
   background: var(--card-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
   border: 1px solid var(--card-border);
   border-radius: 18px;
   padding: 20px 14px;
   text-align: center;
-  color: #FFF;
-  text-decoration: none;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  color: var(--text-main);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
+  font-weight: 700;
 }
 
-.tool-icon-large {
-  font-size: 32px;
+/* HEADER PILLS */
+.user-pill, .status-pill {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  color: var(--text-main) !important;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
 }
 
-@keyframes fadeInDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.user-pill.is-admin {
+  background: rgba(234, 88, 12, 0.15) !important;
+  border-color: rgba(234, 88, 12, 0.5) !important;
+  color: var(--orange) !important;
+}
+
+.carousel-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 0 14px 0;
+  scrollbar-width: none;
+}
+
+.draft-card {
+  flex: 0 0 260px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.card-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.dashboard-panel {
+  display: none;
+}
+
+@media screen and (min-width: 768px), screen and (orientation: landscape) {
+  .app-layout-wrapper {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .app-container {
+    flex: 1;
+    max-width: 420px;
+  }
+  .dashboard-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    max-width: 480px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+
+.dash-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+}
+
+.stat-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--accent-darkblue);
+}
+
+.stat-lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dash-list {
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  padding: 8px 12px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.dash-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.admin-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.admin-btn {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  padding: 8px 0;
+  font-weight: 700;
+  color: var(--text-main);
+  min-height: 44px;
+}
+
+.type-control {
+  display: flex;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 12px;
+}
+
+.type-btn {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 8px;
+  font-size: 14px;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.type-btn.active {
+  background: #FFFFFF;
+  color: var(--accent-darkblue);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
