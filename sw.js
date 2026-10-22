@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.5-imessage-ata-offert';
+const CACHE_NAME = 'tidrapport-dev-v4.7-nollage-faststallt';
 const ASSETS = [
   './index.html',
   './style.css',
