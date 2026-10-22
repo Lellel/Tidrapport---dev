@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.2-programgolv-all-views';
+const CACHE_NAME = 'tidrapport-dev-v4.3-live-kabanoss';
 const ASSETS = [
   './index.html',
   './style.css',
