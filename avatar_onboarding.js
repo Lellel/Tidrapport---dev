@@ -1,3 +1,9 @@
+// Säkerställ global variabel för användarnamn
+if (typeof currentUser === 'undefined') {
+  window.currentUser = localStorage.getItem('lpv_user_name') || 'Daniel';
+  var currentUser = window.currentUser;
+}
+
 // ==========================================
 // AVATAR ONBOARDING & SELFIE RENDERER v3.0
 // ==========================================

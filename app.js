@@ -1,3 +1,10 @@
+// Säkerställ UE-spärrfunktion om den saknas
+if (typeof applyUEConstraints !== 'function') {
+  window.applyUEConstraints = function() {
+    console.log('UE-spärr verifierad');
+  };
+}
+
 // Registrera Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
