@@ -1,7 +1,4 @@
-// GLOBAL GUARD
-if (!window.currentUser) {
-  window.currentUser = localStorage.getItem('lpv_user_name') || 'Daniel';
-}
+window.currentUser = window.currentUser || localStorage.getItem('lpv_user_name') || 'Daniel';
 var currentUser = window.currentUser;
 
 // Säkerställ global variabel för användarnamn
