@@ -590,5 +590,6 @@ function renderOffertTemplate() {
   } else {
     content.innerHTML = '';
   }
+}
 window.renderOffertTemplate = renderOffertTemplate;
 window.handleActivityChange = handleActivityChange;
