@@ -2,249 +2,271 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
-  <title>Tidrapport v3.0</title>
+  <title>LPV & Klaryta v3.0</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#000000" id="theme-color-meta">
-  <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
-  <div class="app-layout-wrapper">
-    <div class="app-container">
+  <div class="app-container">
+    
+    <!-- KARUSELLEN HÖGST UPP -->
+    <div id="outbox-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:12px; font-weight:800; color:var(--accent-blue); text-transform:uppercase; letter-spacing:0.8px;">Dagens Uppdrag</span>
+        <button id="btnSubmitAll" class="submit-pill-btn" onclick="submitAll()" style="display:none; min-height:36px; padding:0 12px;">Skicka in</button>
+      </div>
+      <div id="outbox-container" class="carousel-container"></div>
+    </div>
+
+    <!-- AVATAR & PACKLISTA (STEG 1) -->
+    <div class="packing-card-glass" id="packing-section">
+      <div class="postman-pat-bubble" onclick="openAvatarModal()">
+        <img id="user-pat-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar">
+      </div>
       
-      <!-- HEADER -->
-      <header>
-        <h1>Tidrapport</h1>
-        <div class="header-badges">
-          <button id="theme-toggle" class="theme-btn" aria-label="Växla tema">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M18 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-          </button>
-          <div class="user-pill" id="user-display" onclick="handleUserPillClick()">Daniel</div>
-          <div class="status-pill"><div class="status-dot"></div>Ansluten</div>
-        </div>
-      </header>
-
-      <!-- UTKORG / KARUSELL -->
-      <div id="outbox-section">
-        <div class="outbox-header-row">
-          <span class="section-title" id="outbox-title" style="margin: 0;">Dagens pass</span>
-          <button class="submit-pill-btn" id="btnSubmitAll" onclick="submitAll()" style="display: none;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-            Skicka in
-          </button>
-        </div>
-        <div id="outbox-container" class="carousel-container"></div>
+      <div style="text-align:center; margin-bottom:14px;">
+        <div style="font-size:11px; font-weight:800; color:var(--accent-blue); text-transform:uppercase;">Postis Per 3D Edition</div>
+        <div style="font-size:18px; font-weight:800; color:#FFF;" id="welcome-title">God dag!</div>
       </div>
 
-      <!-- 1. UPPDRAG & MALLAR -->
-      <div class="section-title">Uppdrag & Mall</div>
-      <div class="ios-card">
-        <div class="type-control">
-          <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
-          <button type="button" id="btn-type-ata" class="type-btn" onclick="setJobType('ata')">ÄTA</button>
-        </div>
-        <div class="ios-row" id="row-place">
-          <span>Betalställe</span>
-          <input type="text" id="input-place" placeholder="T.ex. Storgatan 12" class="val-text">
-        </div>
-        <div class="chips-container" id="chips-container"></div>
-        
-        <div class="ios-row" id="row-ata-number" style="display: none;">
-          <span>ÄTA-nr / Ref</span>
-          <input type="text" id="input-ata" placeholder="T.ex. ÄTA 04" class="val-text">
-        </div>
-
-        <div class="ios-row" onclick="openSheet()" style="cursor: pointer;">
-          <span>Aktivitet / Mall</span>
-          <span class="val-text" id="selected-activity">
-            Välj mall
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-          </span>
-        </div>
+      <div style="font-size:13px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">📦 Fordonscheck & Packlista</div>
+      
+      <div class="checklist-item">
+        <input type="checkbox" id="chk-1" onchange="checkPackProgress()">
+        <label for="chk-1">Skyddsskor & LPV-Väst</label>
+      </div>
+      <div class="checklist-item">
+        <input type="checkbox" id="chk-2" onchange="checkPackProgress()">
+        <label for="chk-2">Mätband / Laser & Mätblock</label>
+      </div>
+      <div class="checklist-item">
+        <input type="checkbox" id="chk-3" onchange="checkPackProgress()">
+        <label for="chk-3">Plogblad & Sandspridare checkad</label>
       </div>
 
-      <!-- SPECIFIKA FÄLTYTOR FÖR PLATSBESÖK -->
-      <div id="platsbesok-fields" class="ios-card" style="display: none; padding: 14px;">
-        <div class="section-title" style="margin:0 0 10px 0; color:var(--accent);">Mätblock (Platsbesök)</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-          <div>
-            <span style="font-size: 11px; color: var(--text-muted);">Längd (m)</span>
-            <input type="number" id="measure-length" placeholder="0" class="admin-val-input" style="width:100%; text-align:left; font-size:16px;" oninput="calcArea()">
-          </div>
-          <div>
-            <span style="font-size: 11px; color: var(--text-muted);">Bredd/Höjd (m)</span>
-            <input type="number" id="measure-width" placeholder="0" class="admin-val-input" style="width:100%; text-align:left; font-size:16px;" oninput="calcArea()">
-          </div>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 10px;">
-          <span style="font-size: 13px; font-weight: 600;">Beräknad yta:</span>
-          <span id="calculated-area" class="duration-pill" style="font-size: 15px;">0 m²</span>
-        </div>
-      </div>
-
-      <!-- SPECIFIKA FÄLTYTOR FÖR PLOGKARTA -->
-      <div id="plogkarta-trigger" class="ios-card" style="display: none; padding: 14px; text-align: center;">
-        <button type="button" class="main-btn" style="margin: 0; background: rgba(10, 132, 255, 0.2); border: 1px solid var(--blue); color: #FFF;" onclick="openPlogMapModal()">
-          🗺️ Öppna & Rita Plogkarta
-        </button>
-      </div>
-
-      <!-- 2. TID -->
-      <div class="section-title-row">
-        <span class="section-title">Tid</span>
-        <span id="current-duration-badge" class="duration-pill" style="display: none;">-</span>
-      </div>
-      <div class="ios-card">
-        <div class="ios-row">
-          <span>Datum</span>
-          <input type="date" id="input-date" onchange="fetchPlannedJobs()">
-        </div>
-        <div class="ios-row">
-          <span>Start</span>
-          <input type="time" id="input-start" onchange="updateLiveHours()">
-        </div>
-        <div class="ios-row">
-          <span>Slut</span>
-          <input type="time" id="input-end" placeholder="Lämna tom för pågående" onchange="updateLiveHours()">
-        </div>
-      </div>
-
-      <!-- 3. DETALJER & KAMERA -->
-      <div class="section-title">Detaljer (valfritt)</div>
-      <div class="ios-card">
-        <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
-        <div class="action-row">
-          <input type="file" id="camera-input" accept="image/*" multiple style="display: none;">
-          <div class="add-photo-btn" onclick="document.getElementById('camera-input').click()">
-            <svg id="photo-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            <span id="photo-label">Bifoga bild-underlag</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- SPARA PASS -->
-      <button class="main-btn" onclick="saveToOutbox()">Spara pass lokalt</button>
-
-      <!-- 4. FÄLTSTÖD -->
-      <div class="section-title">Fältstöd (Närmsta)</div>
-      <div class="nav-grid">
-        <a href="https://maps.apple.com/?q=Snabbmat" class="nav-card" target="_blank">
-          <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11h16a1 1 0 0 1 1 1v1H3v-1a1 1 0 0 1 1-1z"/><path d="M4 15h16"/><path d="M4 19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1H4v1z"/></svg></span>
-          <span class="nav-label">Snabbmat</span>
-        </a>
-        <a href="https://maps.apple.com/?q=Byggvaruhus" class="nav-card" target="_blank">
-          <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m15 12-8.5 8.5c-.83.83-2.17.83-3 0a2.12 2.12 0 0 1 0-3L12 9"/><path d="M17.64 15 22 10.64"/></svg></span>
-          <span class="nav-label">Byggvaruhus</span>
-        </a>
-        <a href="https://maps.apple.com/?q=Biltema" class="nav-card" target="_blank">
-          <span class="nav-icon"><svg width="24" height="20" viewBox="0 0 28 20" fill="currentColor"><rect x="5" y="2" width="3" height="3" rx="0.5"/><rect x="11" y="2" width="3" height="3" rx="0.5"/><rect x="2" y="5.5" width="3" height="3" rx="0.5"/><rect x="5" y="9" width="3" height="3" rx="0.5"/><rect x="11" y="9" width="3" height="3" rx="0.5"/></svg></span>
-          <span class="nav-label">Biltema</span>
-        </a>
-        <a href="https://maps.apple.com/?q=Jula" class="nav-card" target="_blank">
-          <span class="nav-icon"><svg width="26" height="20" viewBox="0 0 32 18" fill="none"><rect x="1" y="1" width="30" height="16" rx="5" stroke="currentColor" stroke-width="1.8"/><text x="16" y="12.5" font-family="-apple-system" font-size="9.5" font-weight="900" font-style="italic" fill="currentColor" text-anchor="middle">JULA</text></svg></span>
-          <span class="nav-label">Jula</span>
-        </a>
-      </div>
-
+      <button type="button" id="unlock-menu-btn" class="main-btn main-btn-blue" style="width:100%; margin-top:16px;" onclick="unlockFullMenu()">
+         Visat & Packat – Lås upp Dagen
+      </button>
     </div>
 
-    <!-- LANDSKAP / IPAD DASHBOARD -->
-    <aside id="landscape-dashboard" class="dashboard-panel">
-      <div class="dashboard-header">
-        <div class="section-title" style="margin: 0;">Översikt & Tider</div>
-        <span id="dash-date-badge" class="duration-pill">Idag</span>
+    <!-- TRANSFORMERAD MENY (ÖPPNAS NÄR PACKLISTAN ÄR BOCKAD) -->
+    <div class="field-tools-grid" id="field-tools-menu">
+      <div class="tool-glass-block" onclick="alert('Öppnar Mätblock...')">
+        <span class="tool-icon-large">📐</span>
+        <span>Mätblock (m²)</span>
       </div>
-      <div class="dash-stats-grid">
-        <div class="stat-card">
-          <div class="stat-val" id="dash-total-hours">0.0 h</div>
-          <div class="stat-lbl">Totalt idag</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val" id="dash-pass-count">0 st</div>
-          <div class="stat-lbl">Registrerade pass</div>
-        </div>
+      <div class="tool-glass-block" onclick="alert('Öppnar Plogkarta...')">
+        <span class="tool-icon-large">🗺️</span>
+        <span>Plogkarta</span>
       </div>
-      <div class="section-title" style="margin: 10px 0 6px 0;">Dagens fördelning</div>
-      <div id="dash-activity-list" class="dash-list">
-        <div class="dash-empty">Inga registrerade pass än idag.</div>
+      <div class="tool-glass-block" onclick="alert('Öppnar Stämpling...')">
+        <span class="tool-icon-large">⏱️</span>
+        <span>Stämpla Pass</span>
       </div>
-
-      <!-- ADMIN PANEL -->
-      <div id="admin-tools-section" style="display: none; margin-top: 16px;">
-        <div class="section-title" style="color: var(--accent); margin: 0 0 6px 0; display: flex; justify-content: space-between; align-items: center;">
-          <span>Administratör: Länkar & QR</span>
-          <button onclick="fetchAdminUsers()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">🔄</button>
-        </div>
-        <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
-          <div class="admin-input-row">
-            <span class="admin-label">Mottagare</span>
-            <select id="admin-target-user" class="admin-select" onchange="onAdminUserSelect()">
-              <option value="">Laddar kontakter...</option>
-            </select>
-          </div>
-          <div class="admin-input-row">
-            <span class="admin-label">Mobil</span>
-            <input type="tel" id="admin-target-phone" placeholder="070..." class="admin-val-input" oninput="updateAdminTargetLink()">
-          </div>
-          <div class="admin-input-row" style="border-bottom: none; padding-bottom: 8px;">
-            <span class="admin-label">Admin-roll</span>
-            <label class="ios-switch">
-              <input type="checkbox" id="admin-target-is-admin" onchange="updateAdminTargetLink()">
-              <span class="slider"></span>
-            </label>
-          </div>
-          <div class="admin-actions-grid" style="margin-top: 6px;">
-            <button type="button" class="btn-action admin-btn" onclick="adminSendSMS()">SMS</button>
-            <button type="button" class="btn-action admin-btn" onclick="adminSendEmail()">Mail</button>
-            <button type="button" class="btn-action admin-btn" onclick="toggleAdminQR()">QR</button>
-          </div>
-          <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 12px; padding-top: 10px; border-top: 0.5px solid var(--separator);">
-            <div id="admin-qr-caption" style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Skanna för inloggning:</div>
-            <img id="admin-qr-image" src="" alt="QR" style="width: 140px; height: 140px; border-radius: 10px; border: 2px solid #FFF; background: #FFF; margin: 0 auto; display: block;">
-          </div>
-        </div>
+      <div class="tool-glass-block" onclick="window.open('https://maps.apple.com/?q=Snabbmat', '_blank')">
+        <span class="tool-icon-large">🍔</span>
+        <span>Närmsta Mat</span>
       </div>
-    </aside>
-
-  </div>
-
-  <!-- MODAL: PLOGKARTA (CANVAS) -->
-  <div class="sheet-backdrop" id="plogmap-modal" onclick="closePlogMapModal()">
-    <div class="sheet-container" onclick="event.stopPropagation()" style="max-width: 500px; margin: 0 auto; border-radius: 20px;">
-      <div class="sheet-header">
-        <div class="sheet-title">Plog- & Zonritare</div>
-        <button class="sheet-close" onclick="closePlogMapModal()">Spara & Stäng</button>
-      </div>
-      <div style="margin-bottom: 10px; display: flex; gap: 6px; justify-content: center;">
-        <button type="button" onclick="setMapTool('machine')" class="chip-btn" style="background: rgba(10, 132, 255, 0.3); border-color: var(--blue); color: #FFF;">🟦 Plog (Maskin)</button>
-        <button type="button" onclick="setMapTool('hand')" class="chip-btn" style="background: rgba(255, 159, 10, 0.3); border-color: var(--accent); color: #FFF;">🟧 Handskottning</button>
-        <button type="button" onclick="setMapTool('warning')" class="chip-btn" style="background: rgba(255, 69, 58, 0.3); border-color: var(--danger); color: #FFF;">⚠️ Hinder</button>
-      </div>
-      <div style="position: relative; width: 100%; height: 260px; background: #111 url('https://images.unsplash.com/photo-1524661135-423995f22d0b?w=600&auto=format&fit=crop&q=60') center/cover; border-radius: 14px; overflow: hidden; border: 1px solid var(--separator);">
-        <canvas id="plog-canvas" width="460" height="260" style="width: 100%; height: 100%; cursor: crosshair;"></canvas>
-      </div>
-      <button type="button" class="btn-action delete" style="margin-top: 10px; width: 100%; text-align: center;" onclick="clearPlogCanvas()">Rensa alla zoner</button>
     </div>
-  </div>
 
-  <!-- ACTION SHEET FÖR AKTIVITETER -->
-  <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
-    <div class="sheet-container" onclick="event.stopPropagation()">
-      <div class="sheet-header">
-        <div class="sheet-title">Välj Aktivitet / Mall</div>
-        <button class="sheet-close" onclick="closeSheet()">Avbryt</button>
-      </div>
-      <div id="activity-sheet-list"></div>
-    </div>
   </div>
 
   <script src="config.js"></script>
-  <script src="job_templates.js"></script>
-  <script src="avatar_onboarding.js"></script>
   <script src="app.js"></script>
+  <script>
+    function checkPackProgress() {
+      const c1 = document.getElementById('chk-1').checked;
+      const c2 = document.getElementById('chk-2').checked;
+      const c3 = document.getElementById('chk-3').checked;
+      const btn = document.getElementById('unlock-menu-btn');
+      
+      if (c1 && c2 && c3) {
+        btn.style.background = "linear-gradient(135deg, #30D158 0%, #34C759 100%)";
+        btn.innerText = "✅ Allt Packat – Öppna Verktyg";
+      }
+    }
+
+    function unlockFullMenu() {
+      document.getElementById('field-tools-menu').classList.add('unlocked');
+      document.getElementById('unlock-menu-btn').style.display = 'none';
+    }
+  </script>
 </body>
 </html>
+
+git add .
+git commit -m "DEV v3.0: Ljusblå handskvänlig glassmorphism & packlist-morfning"
+git push origin main
+cd ~/Desktop/LPV_Backup/Tidrapport---dev
+
+cat << 'EOF' > Kod.gs
+// ==========================================
+// LPV & KLARYTA BACKEND MOTOR v3.0 (Kod.gs)
+// Handles: Batch-rapportering, Drive-mappar, Platsbesök, Karantän & DB-Setup
+// ==========================================
+
+function sanitize(input) {
+  if (!input) return "";
+  let str = String(input).trim();
+  if (/^[=+\-@]/.test(str)) return "'" + str; // Skydd mot Formula Injection
+  return str;
+}
+
+// 🚀 ENKLICKS-SETUP: Bygger upp hela databasen för v3.0
+function setupDatabase() {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  
+  // 1. Kunder (CRM)
+  let sheetKunder = ss.getSheetByName("Kunder");
+  if (!sheetKunder) {
+    sheetKunder = ss.insertSheet("Kunder");
+    sheetKunder.appendRow(["Kund-ID", "Kundnamn/Bolag", "Adress", "Kontakt", "Telefon", "Org.nr/Personnr", "Fastighetsbeteckning"]);
+  }
+  sheetKunder.getRange("A1:G1").setFontWeight("bold").setBackground("#f3f3f3");
+  
+  // 2. Projekt & Kabanoss
+  let sheetProjekt = ss.getSheetByName("Projekt");
+  if (!sheetProjekt) {
+    sheetProjekt = ss.insertSheet("Projekt");
+    sheetProjekt.appendRow(["Projekt-ID", "Kund-ID", "Bolag (LPV/Klaryta)", "Status", "Startdatum", "Slutdatum", "Resurskrav", "Bemannade Avatarer", "Budget/Tid"]);
+  }
+  sheetProjekt.getRange("A1:I1").setFontWeight("bold").setBackground("#f3f3f3");
+  
+  // 3. Personal & UE (Inkluderar Karantän & Avatar)
+  let sheetPersonal = ss.getSheetByName("Personal");
+  if (!sheetPersonal) sheetPersonal = ss.insertSheet("Personal");
+  
+  // Säkerställer att alla nödvändiga v3.0-kolumner finns i Personal
+  const personalHeaders = ["Namn", "E-post", "Telefon", "Roll", "Admin (Sant/Falskt)", "Avatar-Länk (Base64)", "Typ (Anställd/UE)", "Status (Aktiv/Karantän)", "F-Skatt (Drive)", "Försäkring (Drive)", "Senast Inloggad"];
+  sheetPersonal.getRange(1, 1, 1, personalHeaders.length).setValues([personalHeaders]).setFontWeight("bold").setBackground("#f3f3f3");
+  
+  // 4. Tidrapporter (Utökad med Bolag och m2)
+  let sheetRapporter = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  if (!sheetRapporter) {
+    sheetRapporter = ss.insertSheet(CONFIG.SHEET_REPORTS || "Tidrapporter");
+    const reportHeaders = ["Datum", "Fakturerad", "Plats", "Aktivitet", "Start", "Slut", "Total Tid", "Stämpel", "Användare", "Anteckningar", "Bolag (LPV/Klaryta)", "Uppmätt Yta (m2)"];
+    sheetRapporter.appendRow(reportHeaders);
+    sheetRapporter.getRange("A1:L1").setFontWeight("bold").setBackground("#f3f3f3");
+  }
+
+  Logger.log("✅ SETUP SLUTFÖRD! Databasen är nu 100% redo för v3.0");
+  return "Setup slutförd framgångsrikt!";
+}
+
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(15000);
+  
+  if (!hasLock) {
+    return createJsonResponse({ status: "error", message: "Servern var upptagen, försök igen." });
+  }
+
+  try {
+    const data = JSON.parse(e.postData.contents);
+
+    // Säkerhetskontroll
+    if (data.token !== CONFIG.API_TOKEN) {
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig säkerhetstoken." });
+    }
+
+    // BEHANDLA TIDS- & MÅTTRAPPORTER
+    if (data.action === "batchReports") {
+      const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      const sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+      const passList = data.pass || [];
+      const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+      const nowFormatted = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd HH:mm:ss");
+
+      passList.forEach(p => {
+        let activityLabel = sanitize(p.activity || "Övrigt");
+        if (p.type === "ata") activityLabel = "[" + (sanitize(p.ataNumber) || "ÄTA") + "] " + activityLabel;
+        let finalNotes = sanitize(p.notes) || "";
+
+        // SPARA BILDER OCH RITADE PLOGKARTOR
+        const allImages = [...(p.images || [])];
+        if (p.snowMapImage) allImages.push(p.snowMapImage);
+
+        if (allImages.length > 0) {
+          try {
+            const rootFolder = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
+            let folderName = p.date + " " + sanitize(p.place || "Okänd plats") + " (" + activityLabel + ")";
+            const subFolder = rootFolder.createFolder(folderName);
+
+            allImages.forEach((imgBase64, index) => {
+              const base64Data = imgBase64.split(',')[1];
+              const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), 'image/jpeg', 'Underlag_' + (index + 1) + '.jpg');
+              subFolder.createFile(blob);
+            });
+            finalNotes += (finalNotes ? "\n\n" : "") + "Drive-mapp: " + subFolder.getUrl();
+          } catch (imgErr) {
+            finalNotes += (finalNotes ? "\n\n" : "") + "[Drive-fel: " + imgErr.message + "]";
+          }
+        }
+
+        // Tidsuträkning
+        const formattedDuration = formatDuration(p.start, p.end, p.totalHours);
+
+        // Skriv till arket (A-L)
+        sheet.appendRow([
+          p.date,                                     // A: Datum
+          false,                                      // B: Fakturerad
+          sanitize(p.place) || "",                    // C: Plats
+          activityLabel,                              // D: Aktivitet
+          p.start || "",                              // E: Starttid
+          p.end || "",                                // F: Sluttid
+          formattedDuration,                          // G: Total tid
+          nowFormatted,                               // H: Tidsstämpel
+          sanitize(p.user || "Okänd"),                // I: Användare
+          finalNotes,                                 // J: Anteckningar + Drive-länk
+          sanitize(p.companyId) || "LPV",             // K: Bolag (Ny)
+          sanitize(p.measuredArea) || ""              // L: Uppmätt Yta (Ny för Mätblocket)
+        ]);
+      });
+
+      return createJsonResponse({ status: "success", count: passList.length });
+    }
+
+    // HÄMTA KONTAKTER OCH UE-STATUS
+    if (data.action === "getUsers") {
+      const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      const personalSheet = ss.getSheetByName("Personal");
+      const sheetData = personalSheet.getDataRange().getValues();
+      const users = [];
+
+      for (let i = 1; i < sheetData.length; i++) {
+        if (sheetData[i][0] !== "") {
+          users.push({
+            name: String(sheetData[i][0]),
+            phone: String(sheetData[i][2] || ""),
+            isAdmin: String(sheetData[i][4] || "").trim().toLowerCase() === "true",
+            avatarBase64: String(sheetData[i][5] || ""),
+            type: String(sheetData[i][6] || "Anställd"),
+            status: String(sheetData[i][7] || "Aktiv") // Om "Karantän" visas spärr-skärmen i appen
+          });
+        }
+      }
+      return createJsonResponse({ status: "success", users: users });
+    }
+
+    return createJsonResponse({ status: "error", message: "Okänd åtgärd" });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: err.toString() });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function formatDuration(start, end, fallbackHours) {
+  if (!start || !end) return fallbackHours ? fallbackHours + " tim 0 min" : "0 tim 0 min";
+  const [sH, sM] = start.split(":").map(Number);
+  const [eH, eM] = end.split(":").map(Number);
+  let diffMin = (eH * 60 + eM) - (sH * 60 + sM);
+  if (diffMin < 0) diffMin += 24 * 60;
+  return Math.floor(diffMin / 60) + " tim " + (diffMin % 60) + " min";
+}
+
+function createJsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
