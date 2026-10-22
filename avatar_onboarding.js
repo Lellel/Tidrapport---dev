@@ -227,26 +227,69 @@ function handlePostmanPhoto(evt) {
 
 function generatePostmanPatAvatar() {
   const btn = document.getElementById('postman-generate-btn');
+  const img = document.getElementById('postman-preview-img');
+
+  if (!img || !img.src) {
+    alert('Ta en selfie eller välj en bild först!');
+    return;
+  }
+
   if (btn) {
-    btn.innerHTML = 'Skapar 3D-lera-figur... ⏳';
+    btn.innerHTML = 'Formar 3D-lera via AI... 🎨✨';
     btn.disabled = true;
   }
-  
-  // Simulering/sparning av transformering (kopplas till AI-endspoint i Kod.gs)
-  setTimeout(() => {
-    const img = document.getElementById('postman-preview-img');
-    if (img && img.src) {
-      localStorage.setItem('lpv_user_avatar', img.src);
-      if (typeof updateAvatarDisplays === 'function') {
-        updateAvatarDisplays(img.src);
+
+  const base64Data = img.src;
+  const gasUrl = window.GAS_API_URL || localStorage.getItem('lpv_gas_url');
+
+  if (!gasUrl) {
+    console.warn('Ingen Apps Script URL angiven, kör lokalt sparad bild som reserv.');
+    setTimeout(() => {
+      localStorage.setItem('lpv_user_avatar', base64Data);
+      if (typeof updateAvatarDisplays === 'function') updateAvatarDisplays(base64Data);
+      if (btn) {
+        btn.innerHTML = 'Generera min Postis Per-gubbe! 📸✨';
+        btn.disabled = false;
       }
+      closePostmanPatModal();
+    }, 1000);
+    return;
+  }
+
+  fetch(gasUrl, {
+    method: 'POST',
+    mode: 'cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'transform_to_clay',
+      imageBase64: base64Data
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'success' && data.clayAvatarBase64) {
+      localStorage.setItem('lpv_user_avatar', data.clayAvatarBase64);
+      if (typeof updateAvatarDisplays === 'function') {
+        updateAvatarDisplays(data.clayAvatarBase64);
+      }
+    } else {
+      console.error('AI-transformering misslyckades:', data.message);
+      localStorage.setItem('lpv_user_avatar', base64Data);
+      if (typeof updateAvatarDisplays === 'function') updateAvatarDisplays(base64Data);
     }
+  })
+  .catch(err => {
+    console.error('Nätverksfel vid AI-anrop:', err);
+    localStorage.setItem('lpv_user_avatar', base64Data);
+    if (typeof updateAvatarDisplays === 'function') updateAvatarDisplays(base64Data);
+  })
+  .finally(() => {
     if (btn) {
       btn.innerHTML = 'Generera min Postis Per-gubbe! 📸✨';
       btn.disabled = false;
     }
     closePostmanPatModal();
-  }, 1200);
+  });
 }
 
 window.openPostmanPatModal = openPostmanPatModal;
