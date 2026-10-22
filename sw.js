@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v3.0.6-kabanoss-btn';
+const CACHE_NAME = 'tidrapport-dev-v3.2-side-nav-drawer';
 const ASSETS = [
   './index.html',
   './style.css',
@@ -16,11 +16,9 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(keys.map((key) => { if (key !== CACHE_NAME) return caches.delete(key); }));
-    })
-  );
+  e.waitUntil(caches.keys().then((keys) => {
+    return Promise.all(keys.map((key) => { if (key !== CACHE_NAME) return caches.delete(key); }));
+  }));
   self.clients.claim();
 });
 

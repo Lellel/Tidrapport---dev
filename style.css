@@ -1,6 +1,6 @@
 :root {
   --bg-gradient: linear-gradient(135deg, #cbe8ff 0%, #92cdff 40%, #e8f4ff 100%);
-  --card-glass: rgba(255, 255, 255, 0.52);
+  --card-glass: rgba(255, 255, 255, 0.55);
   --card-border: rgba(255, 255, 255, 0.85);
   --accent-blue: #0284c7;
   --accent-darkblue: #0369a1;
@@ -27,6 +27,70 @@ html, body {
   padding: calc(env(safe-area-inset-top) + 12px) 14px 40px 14px;
 }
 
+/* SVÄVANDE GLIDANDE VÄNSTERMENY (HOVER/CLICK) */
+.side-nav-drawer {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 0;
+  width: 52px;
+  height: auto;
+  max-height: 80vh;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid var(--card-border);
+  border-left: none;
+  border-radius: 0 20px 20px 0;
+  box-shadow: 4px 10px 30px rgba(15, 23, 42, 0.12);
+  z-index: 10005;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  gap: 6px;
+}
+
+.side-nav-drawer:hover {
+  width: 240px;
+}
+
+.side-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease;
+  border-radius: 12px;
+  margin: 0 6px;
+}
+
+.side-nav-item:hover {
+  background: rgba(2, 132, 199, 0.12);
+  color: var(--accent-darkblue);
+}
+
+.side-nav-icon {
+  font-size: 20px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.side-nav-text {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.side-nav-drawer:hover .side-nav-text {
+  opacity: 1;
+}
+
 .app-layout-wrapper {
   width: 100%;
   display: flex;
@@ -40,18 +104,18 @@ html, body {
   margin: 0 auto;
 }
 
-/* HANDSKVÄNLIGA KNAPPAR (MIN HÖJD 58PX) */
+/* HANDSKVÄNLIGA KNAPPAR */
 button, .main-btn, .glove-btn {
-  min-height: 58px;
-  font-size: 17px;
+  min-height: 52px;
+  font-size: 16px;
   font-weight: 700;
-  border-radius: 18px;
+  border-radius: 16px;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   transition: transform 0.15s ease, background 0.2s ease;
 }
 
@@ -84,22 +148,22 @@ button:active {
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-main);
 }
 
 .checklist-item input[type="checkbox"] {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   accent-color: var(--accent-blue);
   cursor: pointer;
 }
 
 /* 3D POSTIS PER AVATAR BUBBLE */
 .postman-pat-bubble {
-  width: 92px;
-  height: 92px;
+  width: 90px;
+  height: 90px;
   margin: 0 auto 12px auto;
   border-radius: 50%;
   position: relative;
@@ -123,9 +187,9 @@ button:active {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-main);
 }
@@ -135,9 +199,9 @@ button:active {
   font-weight: 700;
 }
 
-input[type="text"], input[type="date"], input[type="time"], input[type="tel"], textarea, select {
-  background: rgba(255, 255, 255, 0.6) !important;
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="tel"], textarea, select {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
   border-radius: 12px;
   padding: 8px 12px;
   outline: none;
@@ -154,24 +218,6 @@ input[type="text"], input[type="date"], input[type="time"], input[type="tel"], t
 .field-tools-grid.unlocked {
   display: grid;
   animation: fadeInDown 0.4s ease forwards;
-}
-
-.tool-glass-block {
-  background: var(--card-glass);
-  backdrop-filter: blur(25px) saturate(180%);
-  -webkit-backdrop-filter: blur(25px) saturate(180%);
-  border: 1px solid var(--card-border);
-  border-radius: 18px;
-  padding: 20px 14px;
-  text-align: center;
-  color: var(--text-main);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-weight: 700;
 }
 
 /* HEADER PILLS */
@@ -200,16 +246,6 @@ input[type="text"], input[type="date"], input[type="time"], input[type="tel"], t
 
 .draft-card {
   flex: 0 0 260px;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.card-meta {
-  font-size: 13px;
-  color: var(--text-muted);
 }
 
 .dashboard-panel {
@@ -250,12 +286,12 @@ input[type="text"], input[type="date"], input[type="time"], input[type="tel"], t
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 12px;
-  padding: 12px;
+  padding: 10px;
   text-align: center;
 }
 
 .stat-val {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--accent-darkblue);
 }
@@ -284,41 +320,104 @@ input[type="text"], input[type="date"], input[type="time"], input[type="tel"], t
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
-.admin-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+/* TOTAL STÄDNING AV DOLD AKTIVITETSMENY (GÖM TEXT NERE TILL VÄNSTER) */
+.sheet-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.5) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  display: none !important;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 9999 !important;
 }
 
-.admin-btn {
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  border-radius: 10px;
-  padding: 8px 0;
+.sheet-backdrop.active {
+  display: flex !important;
+}
+
+.sheet-container {
+  width: 100%;
+  max-width: 460px;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+}
+
+.sheet-item {
+  padding: 14px 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-main);
-  min-height: 44px;
+  cursor: pointer;
 }
 
-.type-control {
-  display: flex;
-  background: rgba(15, 23, 42, 0.08);
-  border-radius: 10px;
-  padding: 3px;
-  margin-bottom: 12px;
+/* KABANOSS & ADMIN MODAL (FLYGLEDARTORNET) */
+.kabanoss-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  display: none !important;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000 !important;
+  padding: 20px;
 }
 
-.type-btn {
-  flex: 1;
-  min-height: 40px;
-  border-radius: 8px;
-  font-size: 14px;
-  background: transparent;
-  color: var(--text-muted);
+.kabanoss-backdrop.active {
+  display: flex !important;
 }
 
-.type-btn.active {
-  background: #FFFFFF;
+.kabanoss-modal {
+  width: 100%;
+  max-width: 1100px;
+  max-height: 90vh;
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  overflow-y: auto;
+  color: var(--text-main);
+}
+
+.kabanoss-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.kabanoss-col {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  padding: 14px;
+  min-height: 280px;
+}
+
+.kabanoss-col-title {
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
   color: var(--accent-darkblue);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--accent-blue);
+}
+
+.kabanoss-item-card {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+  font-size: 13px;
+  font-weight: 700;
 }

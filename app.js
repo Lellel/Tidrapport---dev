@@ -395,3 +395,19 @@ function openKabanossModal() {
   }
 }
 window.openKabanossModal = openKabanossModal;
+
+function openKabanossModalWithTab(tab) {
+  openKabanossModal();
+  switchAdminTab(tab);
+}
+
+function switchAdminTab(tab) {
+  const views = ['kabanoss', 'radar', 'crm', 'offert'];
+  views.forEach(v => {
+    const el = document.getElementById(v + '-view');
+    if (el) el.style.display = (v === tab) ? (v === 'kabanoss' ? 'grid' : 'block') : 'none';
+  });
+}
+
+window.openKabanossModalWithTab = openKabanossModalWithTab;
+window.switchAdminTab = switchAdminTab;
