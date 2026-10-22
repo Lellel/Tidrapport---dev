@@ -312,3 +312,12 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+
+window.triggerAvatarUpload = window.triggerAvatarUpload || function() {
+  if (typeof openPostmanPatModal === 'function') {
+    openPostmanPatModal();
+  } else {
+    const inp = document.getElementById('postman-photo-input') || document.getElementById('avatar-input');
+    if (inp) inp.click();
+  }
+};
