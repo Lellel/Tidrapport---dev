@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.4-full-render-contrast-fix';
+const CACHE_NAME = 'tidrapport-dev-v4.5-imessage-ata-offert';
 const ASSETS = [
   './index.html',
   './style.css',

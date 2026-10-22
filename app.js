@@ -397,3 +397,86 @@ function calcOffert() {
 
 window.switchAdminTab = switchAdminTab;
 window.calcOffert = calcOffert;
+
+// ==========================================
+// iMESSAGE & KUNDPORTAL LOGIK (v4.5)
+// ==========================================
+
+function checkCustomerUrlParams() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const ataId = urlParams.get('ata');
+  const offertId = urlParams.get('offert');
+
+  if (ataId) {
+    renderPublicCustomerView('ata', ataId);
+  } else if (offertId) {
+    renderPublicCustomerView('offert', offertId);
+  }
+}
+
+function sendAtaViaIMessage(ataId, phone, title) {
+  const customerPhone = phone || prompt("Ange kundens mobilnummer:", "0701234567");
+  if (!customerPhone) return;
+  const baseUrl = window.location.origin + window.location.pathname;
+  const link = `${baseUrl}?ata=${ataId}`;
+  const text = `Hej! Ett tilläggsarbete (${ataId}) har registrerats för ${title || 'ert projekt'}. Klicka på länken för att se foton och godkänna: ${link}`;
+  window.open(`sms:${customerPhone}?&body=${encodeURIComponent(text)}`, '_self');
+}
+
+function sendOffertViaIMessage(offertId, phone, title, total) {
+  const customerPhone = phone || prompt("Ange kundens mobilnummer:", "0701234567");
+  if (!customerPhone) return;
+  const baseUrl = window.location.origin + window.location.pathname;
+  const link = `${baseUrl}?offert=${offertId}`;
+  const text = `Hej! Här kommer er offert (${offertId}) på ${total || 'överenskommet arbete'} för ${title || 'ert projekt'}. Klicka för att granska och godkänna: ${link}`;
+  window.open(`sms:${customerPhone}?&body=${encodeURIComponent(text)}`, '_self');
+}
+
+function renderPublicCustomerView(type, id) {
+  document.body.innerHTML = `
+    <div style="max-width:500px; margin:30px auto; padding:24px; font-family:sans-serif; background:#ffffff; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.15); color:#0f172a;">
+      <div style="text-align:center; margin-bottom:20px;">
+        <h1 style="font-size:22px; margin:0; color:#0284c7;">LPV & Klaryta</h1>
+        <p style="font-size:13px; color:#64748b; margin-top:4px;">Digitalt godkännande av ${type === 'ata' ? 'Tilläggsarbete (ÄTA)' : 'Offert'}</p>
+      </div>
+      <div style="background:#f1f5f9; padding:16px; border-radius:12px; margin-bottom:20px;">
+        <div style="font-weight:800; font-size:16px;">${type.toUpperCase()}-${id}</div>
+        <p style="font-size:14px; color:#334155; margin-top:8px;">
+          ${type === 'ata' ? 'Snöröjning & Handskottning av tillkommande yta bakom kylanläggning.' : 'Bortforsling av kylaggregat samt 8 timmar maskinarbete m. Kramer.'}
+        </p>
+        <div style="font-size:18px; font-weight:800; color:#0284c7; margin-top:12px;">
+          ${type === 'ata' ? 'Totalt: 2 450 kr (exkl. moms)' : 'Totalt: 6 438 kr (inkl. moms & ROT/RUT)'}
+        </div>
+      </div>
+      <button onclick="approveCustomerDocument('${type}', '${id}')" style="width:100%; padding:16px; background:#10b981; color:#ffffff; font-size:16px; font-weight:800; border:none; border-radius:12px; cursor:pointer;">
+        ✅ Godkänn & Signera ${type.toUpperCase()}
+      </button>
+      <div id="approval-status" style="margin-top:14px; text-align:center; font-weight:700;"></div>
+    </div>
+  `;
+}
+
+async function approveCustomerDocument(type, id) {
+  const statusDiv = document.getElementById('approval-status');
+  if (statusDiv) statusDiv.innerHTML = "Sparar godkännande... ⏳";
+
+  try {
+    await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body: JSON.stringify({
+        token: CONFIG.API_TOKEN,
+        action: type === 'ata' ? 'approveAta' : 'approveOffert',
+        documentId: id
+      })
+    });
+    if (statusDiv) statusDiv.innerHTML = "<span style='color:#10b981;'>🎉 Tack! Dokumentet är nu godkänt och signerat.</span>";
+  } catch (err) {
+    if (statusDiv) statusDiv.innerHTML = "<span style='color:#ef4444;'>❌ Kunde inte spara. Försök igen.</span>";
+  }
+}
+
+document.addEventListener('DOMContentLoaded', checkCustomerUrlParams);
+window.sendAtaViaIMessage = sendAtaViaIMessage;
+window.sendOffertViaIMessage = sendOffertViaIMessage;
+window.approveCustomerDocument = approveCustomerDocument;
