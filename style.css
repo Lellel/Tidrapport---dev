@@ -652,3 +652,96 @@ body.dark-mode .glass-bubble {
   border: 1px dashed #10b981 !important;
   color: #10b981 !important;
 }
+
+
+/* ==========================================
+   LPV & KLARYTA - AUTHENTIC FROSTED GLASS THEME
+   DEV v4.7.1
+   ========================================== */
+
+/* Bakgrund och Huvudcontainer */
+body {
+  background: radial-gradient(circle at top right, #1e293b, #0f172a, #020617) !important;
+  color: #f8fafc !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+/* Äkta Glastema för alla Huvudkort & Paneler */
+.card, 
+.dashboard-card, 
+.main-widget, 
+.hero-card, 
+.inner-card, 
+.status-card, 
+.grey-box, 
+.panel-grey,
+div[class*="card"],
+div[class*="panel"] {
+  background: rgba(15, 23, 42, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  backdrop-filter: blur(16px) -webkit-backdrop-filter: blur(16px) !important;
+  border-radius: 20px !important;
+  color: #f8fafc !important;
+}
+
+/* Inre Mätarrutor & Stat-piller i Glas */
+.stat-pill, 
+.summary-box, 
+.stat-box,
+div[class*="stat"] {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(8px) !important;
+  border-radius: 14px !important;
+  color: #ffffff !important;
+}
+
+/* Snygga glasrader i checklistan */
+.check-item, 
+.list-row, 
+label[class*="check"] {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  margin-bottom: 10px !important;
+  color: #e2e8f0 !important;
+  transition: all 0.2s ease !important;
+}
+
+.check-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Avatarcirkel med blåskimrande neonglöd */
+.avatar-ring-container, 
+.avatar-wrapper {
+  padding: 3px !important;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
+}
+
+/* Knappar med modern glas- och accentkänsla */
+button.btn-primary, 
+.action-button,
+.btn-blue {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+  border-radius: 14px !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Texttoner för hög kontrast mot mörkt glas */
+h1, h2, h3, h4, strong {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+}
+
+p, span, sub, small {
+  color: #cbd5e1 !important;
+}
