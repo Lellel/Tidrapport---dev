@@ -1,9 +1,11 @@
-/* RAD 1: GLOBAL GUARD */
+/* GLOBAL GUARD */
+window.currentUser = window.currentUser || localStorage.getItem('lpv_user_name') || 'Daniel';
+var currentUser = window.currentUser;
+
 var currentUser = window.currentUser || localStorage.getItem('lpv_user_name') || 'Daniel';
 window.currentUser = currentUser;
 
 // Säkerställ global variabel för användarnamn
-// {
   window.currentUser = localStorage.getItem('lpv_user_name') || 'Daniel';
   var currentUser = window.currentUser;
 }
