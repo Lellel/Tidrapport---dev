@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.3-live-kabanoss';
+const CACHE_NAME = 'tidrapport-dev-v4.3.1-user-pill-fix';
 const ASSETS = [
   './index.html',
   './style.css',

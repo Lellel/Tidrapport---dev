@@ -192,3 +192,18 @@ function switchAdminTab(tab) {
 }
 
 window.switchAdminTab = switchAdminTab;
+
+// ==========================================
+// USER PILL CLICK FIX (v4.3.1)
+// ==========================================
+function handleUserPillClick() {
+  const currentUser = localStorage.getItem('lpv_user_name') || 'Daniel';
+  const newUser = prompt('Ändra inloggad användare / profil:', currentUser);
+  
+  if (newUser && newUser.trim() !== '') {
+    localStorage.setItem('lpv_user_name', newUser.trim());
+    location.reload();
+  }
+}
+
+window.handleUserPillClick = handleUserPillClick;
