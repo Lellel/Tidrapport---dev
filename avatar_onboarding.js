@@ -2,7 +2,6 @@ window.currentUser = window.currentUser || localStorage.getItem('lpv_user_name')
 var currentUser = window.currentUser;
 
 // Säkerställ global variabel för användarnamn
-}
 
 // ==========================================
 // AVATAR ONBOARDING & SELFIE RENDERER v3.0
