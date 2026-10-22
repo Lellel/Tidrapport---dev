@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v3.0.2-outbox-fix';
+const CACHE_NAME = 'tidrapport-dev-v3.0.5-light-blue-glass';
 const ASSETS = [
   './index.html',
   './style.css',
