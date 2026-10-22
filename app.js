@@ -253,14 +253,16 @@ async function renderKabanossBoard() {
     card.dataset.status = job.status;
     card.style.cssText = 'padding: 14px; margin-bottom: 12px; border-radius: 14px; cursor: grab;';
     
+    
     card.innerHTML = `
       <div style="font-weight:800; font-size:15px; color:var(--text-main);">${job.title}</div>
       <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">⏱️ ${job.time}</div>
-      <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
-        <span style="background:rgba(2,132,199,0.15); border:1px solid #0284c7; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700;">🚜 ${job.vehicle}</span>
-        <span style="background:rgba(16,185,129,0.15); border:1px solid #10b981; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700;">👤 ${job.driver}</span>
+      <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:4px;">
+        <span class="glass-bubble" style="font-size:11px; padding:4px 8px; margin:0;">🚜 ${job.vehicle}</span>
+        <span class="glass-bubble" style="font-size:11px; padding:4px 8px; margin:0;">👤 ${job.driver}</span>
       </div>
     `;
+
 
     const targetCol = document.querySelector(`.kabanoss-column[data-status="${job.status}"]`) || document.getElementById('col-planned');
     if (targetCol) targetCol.appendChild(card);
@@ -305,33 +307,41 @@ function renderRadarGantt() {
   `;
 }
 
-// 3. CRM & KUNDBILD (MED KARTNÅL)
+
+// 3. CRM & KUNDBILD (MED KARTNÅL OCH AUTO-LOGGA)
 function renderCRMView() {
   const container = document.getElementById('crm-view');
   if (!container) return;
 
   const customers = [
-    { name: 'Coop Fastigheter AB', id: 'K-1001', address: 'Storgatan 12, Katrineholm', activeJob: 'Kylflytt & Snöröjning' },
-    { name: 'Blacksta Vägförening', id: 'K-1002', address: 'Blacksta Väg 4, Katrineholm', activeJob: 'Snöröjning & Handskottning' },
-    { name: 'ICA Supermarket', id: 'K-1003', address: 'Torget 1, Katrineholm', activeJob: 'Byggställning & Underhåll' }
+    { name: 'Coop Fastigheter AB', id: 'K-1001', address: 'Storgatan 12, Katrineholm', email: 'info@coop.se', activeJob: 'Kylflytt & Snöröjning', offertData: 'Underlag: Snöröjning (450 m²)' },
+    { name: 'Blacksta Vägförening', id: 'K-1002', address: 'Blacksta Väg 4, Katrineholm', email: 'kontakt@blacksta.se', activeJob: 'Snöröjning & Handskottning', offertData: 'Inget aktivt offertunderlag' },
+    { name: 'ICA Supermarket', id: 'K-1003', address: 'Torget 1, Katrineholm', email: 'info@ica.se', activeJob: 'Byggställning & Underhåll', offertData: 'Skickad Offert: Byggställning - VÄNTAR' }
   ];
 
   let html = `<h2 style="margin:0 0 12px 0; font-size:18px; color:var(--text-main);">💼 360° Kundbild & CRM</h2>`;
   customers.forEach(c => {
+    const domain = c.email.split('@')[1];
+    const logoUrl = `https://logo.clearbit.com/${domain}`;
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`;
+    
     html += `
-      <div class="crm-card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-weight:800; font-size:16px;">${c.name} <small style="color:var(--text-muted);">(${c.id})</small></div>
-            <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">📍 ${c.address}</div>
+      <div class="crm-card" style="background:var(--input-bg); border-radius:14px; padding:16px; margin-top:12px; color:var(--text-main);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div style="display:flex; gap:12px; align-items:center;">
+            <img src="${logoUrl}" onerror="this.outerHTML='<div class=\'glass-bubble\' style=\'margin:0;\'>🏢</div>'" style="width:40px; height:40px; border-radius:10px; object-fit:contain; background:#fff; padding:2px; border:1px solid var(--glass-border);">
+            <div>
+              <div style="font-weight:800; font-size:16px;">${c.name} <small style="color:var(--text-muted);">(${c.id})</small></div>
+              <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">📍 ${c.address}</div>
+            </div>
           </div>
           <a href="${mapsUrl}" target="_blank" style="background:#0284c7; color:#fff; text-decoration:none; padding:8px 14px; border-radius:10px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
-            📍 Kartnål & Vägbeskrivning
+            📍 Kartnål
           </a>
         </div>
-        <div style="margin-top:10px; font-size:12px; background:rgba(0,0,0,0.05); padding:8px; border-radius:8px;">
-          <strong>Aktivt uppdrag:</strong> ${c.activeJob}
+        <div style="margin-top:12px; font-size:12px; background:rgba(0,0,0,0.05); padding:10px; border-radius:8px;">
+          <strong>Aktivt uppdrag:</strong> ${c.activeJob}<br>
+          <strong style="color:#0284c7; display:inline-block; margin-top:4px;">📄 Offertstatus:</strong> ${c.offertData}
         </div>
       </div>
     `;
@@ -339,6 +349,7 @@ function renderCRMView() {
 
   container.innerHTML = html;
 }
+
 
 // 4. SMART OFFERTMOTOR (HYBRID ROT/RUT)
 function renderOffertView() {
@@ -480,3 +491,26 @@ document.addEventListener('DOMContentLoaded', checkCustomerUrlParams);
 window.sendAtaViaIMessage = sendAtaViaIMessage;
 window.sendOffertViaIMessage = sendOffertViaIMessage;
 window.approveCustomerDocument = approveCustomerDocument;
+
+// Lås maskinparken för UE (Inga tunga LPV-maskiner, och inga Admin-bubblor)
+const originalApplyUE = window.applyUEConstraints || applyUEConstraints;
+window.applyUEConstraints = function() {
+  if (originalApplyUE) originalApplyUE();
+  const isUE = window.isUserUE;
+  
+  const bubbles = document.querySelectorAll('#vehicle-bubbles-container .glass-bubble');
+  bubbles.forEach(bubble => {
+    const text = bubble.innerText.toUpperCase();
+    const isInternal = text.includes('KRAMER') || text.includes('JOHN DEERE') || text.includes('TRANSIT');
+    if (isUE && isInternal) {
+      bubble.style.display = 'none'; // Göm LPV-maskiner för UE
+    } else {
+      bubble.style.display = 'inline-flex';
+    }
+  });
+
+  const addBtn = document.querySelector('.add-bubble-btn');
+  if (addBtn) {
+    addBtn.style.display = isUE ? 'none' : 'inline-flex';
+  }
+};
