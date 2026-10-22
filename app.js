@@ -10,7 +10,6 @@ if ('serviceWorker' in navigator) {
       .then((reg) => console.log('SW aktiv:', reg.scope))
       .catch((err) => console.error('Kunde inte starta SW:', err));
   });
-}
 
 // FORDONSPARK & UTRUSTNING (v3.5 Postis Per 3D-Glas)
 const VEHICLE_PARK = [

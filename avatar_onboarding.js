@@ -92,7 +92,6 @@ function handleSelfieCapture(e) {
   const evt = e || window.event;
   const file = (evt && evt.target && evt.target.files) ? evt.target.files[0] : null;
   if (!file) return;
-  const file = e.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
