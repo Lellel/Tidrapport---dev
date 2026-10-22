@@ -652,3 +652,67 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 .avatar-name { font-size: 12px; font-weight: 700; color: #FFF; }
 .avatar-role { font-size: 10px; color: var(--text-muted); }
+
+/* ONBOARDING & AVATAR BUBBLE v3.0 */
+.avatar-onboarding-card {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+.avatar-preview-bubble {
+  width: 96px;
+  height: 96px;
+  margin: 16px auto;
+  border-radius: 50%;
+  position: relative;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(10,132,255,0.4));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255,255,255,0.8);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.avatar-preview-bubble img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  filter: contrast(1.05) saturate(1.1);
+}
+
+.morning-header-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.morning-avatar-slot {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), rgba(255,159,10,0.4));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  padding: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.morning-avatar-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
