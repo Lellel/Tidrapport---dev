@@ -555,3 +555,20 @@ body.dark-mode .text-muted,
 body.dark-mode small {
   color: #94a3b8 !important;
 }
+
+/* PROGRAMGOLV FÖR SAMTLIGA MODULER */
+.view-container {
+  width: 100%;
+  min-height: calc(100vh - 140px);
+  background: var(--card-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 24px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 32px var(--shadow-color);
+  margin-top: 16px;
+}
+
+#kabanoss-view, #radar-view, #crm-view, #offert-view {
+  width: 100%;
+}

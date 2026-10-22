@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v4.1-avatar-error-fix';
+const CACHE_NAME = 'tidrapport-dev-v4.2-programgolv-all-views';
 const ASSETS = [
   './index.html',
   './style.css',

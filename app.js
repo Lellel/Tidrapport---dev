@@ -174,3 +174,21 @@ function openAvatarModal() {
 }
 
 window.openAvatarModal = openAvatarModal;
+
+// SWITCH TAB MED PROGRAMGOLVS-SUPPORT (v4.2)
+function switchAdminTab(tab) {
+  const views = ['kabanoss', 'radar', 'crm', 'offert'];
+  views.forEach(v => {
+    const el = document.getElementById(v + '-view');
+    if (el) {
+      if (v === tab) {
+        el.style.display = (v === 'kabanoss') ? 'grid' : 'block';
+        el.classList.add('view-container');
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  });
+}
+
+window.switchAdminTab = switchAdminTab;
