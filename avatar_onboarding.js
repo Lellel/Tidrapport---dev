@@ -89,6 +89,9 @@ function closeAvatarModal() {
 }
 
 function handleSelfieCapture(e) {
+  const evt = e || window.event;
+  const file = (evt && evt.target && evt.target.files) ? evt.target.files[0] : null;
+  if (!file) return;
   const file = e.target.files[0];
   if (!file) return;
 
@@ -133,6 +136,9 @@ function updateAvatarDisplays(base64Data) {
 }
 
 function handleSelfieCapture(file) {
+  const evt = file || window.event;
+  const file = (evt && evt.target && evt.target.files) ? evt.target.files[0] : null;
+  if (!file) return;
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(evt) {
