@@ -514,3 +514,18 @@ window.applyUEConstraints = function() {
     addBtn.style.display = isUE ? 'none' : 'inline-flex';
   }
 };
+
+// ==========================================
+// DYNAMISK VERSIONSMÄRKNING (v4.7.0)
+// ==========================================
+const CURRENT_APP_VERSION = 'DEV v4.7.0';
+
+function updateVersionBadge() {
+  const badge = document.getElementById('app-version-tag');
+  if (badge) {
+    badge.innerText = CURRENT_APP_VERSION;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', updateVersionBadge);
+window.updateVersionBadge = updateVersionBadge;
