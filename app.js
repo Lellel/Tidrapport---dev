@@ -555,3 +555,38 @@ async function processAvatarUpload(event) {
 
 window.openAvatarModal = openAvatarModal;
 window.processAvatarUpload = processAvatarUpload;
+
+// ==========================================
+// FLYGLEDARTORNET / KABANOSS MODAL (v3.4 - Utan Popups)
+// ==========================================
+function openKabanossModal() {
+  const modal = document.getElementById('kabanossModal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+}
+
+function closeKabanossModal() {
+  const modal = document.getElementById('kabanossModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+function openKabanossModalWithTab(tab) {
+  openKabanossModal();
+  switchAdminTab(tab);
+}
+
+function switchAdminTab(tab) {
+  const views = ['kabanoss', 'radar', 'crm', 'offert'];
+  views.forEach(v => {
+    const el = document.getElementById(v + '-view');
+    if (el) el.style.display = (v === tab) ? (v === 'kabanoss' ? 'grid' : 'block') : 'none';
+  });
+}
+
+window.openKabanossModal = openKabanossModal;
+window.closeKabanossModal = closeKabanossModal;
+window.openKabanossModalWithTab = openKabanossModalWithTab;
+window.switchAdminTab = switchAdminTab;

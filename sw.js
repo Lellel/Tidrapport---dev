@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v3.3-avatar-upload';
+const CACHE_NAME = 'tidrapport-dev-v3.4-no-popups';
 const ASSETS = [
   './index.html',
   './style.css',
