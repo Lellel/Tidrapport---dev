@@ -119,3 +119,46 @@ function updateThemeIcon(isDark) {
 
 document.addEventListener('DOMContentLoaded', initTheme);
 window.toggleDarkMode = toggleDarkMode;
+
+// AVATAR DIRECT TRIGGER (v3.9.1)
+function triggerAvatarUpload() {
+  const input = document.getElementById('avatar-upload');
+  if (input) {
+    input.click();
+  } else {
+    alert("Kunde inte öppna kameran. Vänligen ladda om sidan.");
+  }
+}
+
+function processAvatarUpload(event) {
+  const file = event.target && event.target.files ? event.target.files[0] : null;
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d');
+
+      const minDim = Math.min(img.width, img.height);
+      const sx = (img.width - minDim) / 2;
+      const sy = (img.height - minDim) / 2;
+
+      ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, 400, 400);
+      const base64Avatar = canvas.toDataURL('image/jpeg', 0.85);
+
+      const avatarImg = document.getElementById('user-avatar-img');
+      if (avatarImg) avatarImg.src = base64Avatar;
+
+      localStorage.setItem('lpv_user_avatar', base64Avatar);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+window.triggerAvatarUpload = triggerAvatarUpload;
+window.processAvatarUpload = processAvatarUpload;

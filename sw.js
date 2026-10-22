@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tidrapport-dev-v3.8-dark-mode';
+const CACHE_NAME = 'tidrapport-dev-v3.9.1-avatar-direct-click';
 const ASSETS = [
   './index.html',
   './style.css',
