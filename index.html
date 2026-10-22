@@ -7,266 +7,209 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
-  <div class="app-container">
-    
-    <!-- KARUSELLEN HÖGST UPP -->
-    <div id="outbox-section">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <span style="font-size:12px; font-weight:800; color:var(--accent-blue); text-transform:uppercase; letter-spacing:0.8px;">Dagens Uppdrag</span>
-        <button id="btnSubmitAll" class="submit-pill-btn" onclick="submitAll()" style="display:none; min-height:36px; padding:0 12px;">Skicka in</button>
-      </div>
-      <div id="outbox-container" class="carousel-container"></div>
-    </div>
-
-    <!-- AVATAR & PACKLISTA (STEG 1) -->
-    <div class="packing-card-glass" id="packing-section">
-      <div class="postman-pat-bubble" onclick="openAvatarModal()">
-        <img id="user-pat-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar">
-      </div>
+  <div class="app-layout-wrapper">
+    <div class="app-container">
       
-      <div style="text-align:center; margin-bottom:14px;">
-        <div style="font-size:11px; font-weight:800; color:var(--accent-blue); text-transform:uppercase;">Postis Per 3D Edition</div>
-        <div style="font-size:18px; font-weight:800; color:#FFF;" id="welcome-title">God dag!</div>
+      <!-- HEADER -->
+      <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h1 style="font-size:28px; font-weight:700;">Tidrapport</h1>
+        <div class="header-badges" style="display:flex; gap:8px;">
+          <div class="user-pill" id="user-display" onclick="handleUserPillClick()">Daniel</div>
+          <div class="status-pill" style="display:flex; align-items:center; gap:6px;">
+            <div class="status-dot" style="width:6px; height:6px; border-radius:50%; background:#30D158;"></div>Ansluten
+          </div>
+        </div>
+      </header>
+
+      <!-- KARUSELLEN HÖGST UPP -->
+      <div id="outbox-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span id="outbox-title" style="font-size:12px; font-weight:800; color:var(--accent-blue, #5AC8FA); text-transform:uppercase; letter-spacing:0.8px;">Dagens pass</span>
+          <button id="btnSubmitAll" class="submit-pill-btn" onclick="submitAll()" style="display:none; min-height:36px; padding:0 12px;">Skicka in</button>
+        </div>
+        <div id="outbox-container" class="carousel-container"></div>
       </div>
 
-      <div style="font-size:13px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">📦 Fordonscheck & Packlista</div>
-      
-      <div class="checklist-item">
-        <input type="checkbox" id="chk-1" onchange="checkPackProgress()">
-        <label for="chk-1">Skyddsskor & LPV-Väst</label>
-      </div>
-      <div class="checklist-item">
-        <input type="checkbox" id="chk-2" onchange="checkPackProgress()">
-        <label for="chk-2">Mätband / Laser & Mätblock</label>
-      </div>
-      <div class="checklist-item">
-        <input type="checkbox" id="chk-3" onchange="checkPackProgress()">
-        <label for="chk-3">Plogblad & Sandspridare checkad</label>
+      <!-- AVATAR & PACKLISTA (STEG 1) -->
+      <div class="packing-card-glass" id="packing-section">
+        <div class="postman-pat-bubble" onclick="openAvatarModal()">
+          <img id="user-pat-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar">
+        </div>
+        
+        <div style="text-align:center; margin-bottom:14px;">
+          <div style="font-size:11px; font-weight:800; color:var(--accent-blue, #5AC8FA); text-transform:uppercase;">Postis Per 3D Edition</div>
+          <div style="font-size:18px; font-weight:800; color:#FFF;" id="welcome-title">God dag!</div>
+        </div>
+
+        <div style="font-size:13px; font-weight:700; color:var(--text-muted, #8E8E93); margin-bottom:8px; text-transform:uppercase;">📦 Fordonscheck & Packlista</div>
+        
+        <div class="checklist-item">
+          <input type="checkbox" id="chk-1" onchange="checkPackProgress()">
+          <label for="chk-1">Skyddsskor & LPV-Väst</label>
+        </div>
+        <div class="checklist-item">
+          <input type="checkbox" id="chk-2" onchange="checkPackProgress()">
+          <label for="chk-2">Mätband / Laser & Mätblock</label>
+        </div>
+        <div class="checklist-item">
+          <input type="checkbox" id="chk-3" onchange="checkPackProgress()">
+          <label for="chk-3">Plogblad & Sandspridare checkad</label>
+        </div>
+
+        <button type="button" id="unlock-menu-btn" class="main-btn main-btn-blue" style="width:100%; margin-top:16px;" onclick="unlockFullMenu()">
+           Visat & Packat – Lås upp Dagen
+        </button>
       </div>
 
-      <button type="button" id="unlock-menu-btn" class="main-btn main-btn-blue" style="width:100%; margin-top:16px;" onclick="unlockFullMenu()">
-         Visat & Packat – Lås upp Dagen
-      </button>
+      <!-- TRANSFORMERAD MENY & FORMULÄR -->
+      <div class="field-tools-grid" id="field-tools-menu">
+        <div class="section-title" style="grid-column: 1 / -1; font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Uppdrag & Formulär</div>
+        
+        <div class="ios-card" style="grid-column: 1 / -1;">
+          <div class="type-control">
+            <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
+            <button type="button" id="btn-type-ata" class="type-btn" onclick="setJobType('ata')">ÄTA</button>
+          </div>
+          <div class="ios-row" id="row-place">
+            <span>Betalställe</span>
+            <input type="text" id="input-place" placeholder="T.ex. Blacksta" class="val-text">
+          </div>
+          <div class="chips-container" id="chips-container"></div>
+          <div class="ios-row" id="row-ata-number" style="display: none;">
+            <span>ÄTA-nr / Ref</span>
+            <input type="text" id="input-ata" placeholder="T.ex. ÄTA 04" class="val-text">
+          </div>
+          <div class="ios-row" onclick="openSheet()" style="cursor: pointer;">
+            <span>Aktivitet</span>
+            <span class="val-text" id="selected-activity">
+              Välj aktivitet <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="ios-card" style="grid-column: 1 / -1;">
+          <div class="ios-row">
+            <span>Datum</span>
+            <input type="date" id="input-date">
+          </div>
+          <div class="ios-row">
+            <span>Start</span>
+            <input type="time" id="input-start" onchange="updateLiveHours()">
+          </div>
+          <div class="ios-row">
+            <span>Slut</span>
+            <input type="time" id="input-end" placeholder="Lämna tom för pågående" onchange="updateLiveHours()">
+          </div>
+        </div>
+
+        <div class="ios-card" style="grid-column: 1 / -1;">
+          <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
+        </div>
+
+        <button class="main-btn main-btn-blue" style="grid-column: 1 / -1;" onclick="saveToOutbox()">Spara pass lokalt</button>
+      </div>
+
     </div>
 
-    <!-- TRANSFORMERAD MENY (ÖPPNAS NÄR PACKLISTAN ÄR BOCKAD) -->
-    <div class="field-tools-grid" id="field-tools-menu">
-      <div class="tool-glass-block" onclick="alert('Öppnar Mätblock...')">
-        <span class="tool-icon-large">📐</span>
-        <span>Mätblock (m²)</span>
+    <!-- ADAPTIV LANDSKAP & IPAD DASHBOARD -->
+    <aside id="landscape-dashboard" class="dashboard-panel">
+      <div class="dashboard-header">
+        <div class="section-title" style="margin: 0;">Översikt & Tider</div>
+        <span id="dash-date-badge" class="duration-pill">Idag</span>
       </div>
-      <div class="tool-glass-block" onclick="alert('Öppnar Plogkarta...')">
-        <span class="tool-icon-large">🗺️</span>
-        <span>Plogkarta</span>
+      <div class="dash-stats-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="dash-total-hours">0.0 h</div>
+          <div class="stat-lbl">Totalt idag</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="dash-pass-count">0 st</div>
+          <div class="stat-lbl">Sparade pass</div>
+        </div>
       </div>
-      <div class="tool-glass-block" onclick="alert('Öppnar Stämpling...')">
-        <span class="tool-icon-large">⏱️</span>
-        <span>Stämpla Pass</span>
+      <div class="section-title" style="margin: 10px 0 6px 0;">Dagens fördelning</div>
+      <div id="dash-activity-list" class="dash-list">
+        <div class="dash-empty">Inga registrerade pass än idag.</div>
       </div>
-      <div class="tool-glass-block" onclick="window.open('https://maps.apple.com/?q=Snabbmat', '_blank')">
-        <span class="tool-icon-large">🍔</span>
-        <span>Närmsta Mat</span>
-      </div>
-    </div>
 
+      <!-- ADMIN-SEKTION -->
+      <div id="admin-tools-section" style="display: none; margin-top: 16px;">
+        <div class="section-title" style="color: var(--accent-glow, #0A84FF); margin: 0 0 6px 0; display: flex; justify-content: space-between; align-items: center;">
+          <span>Administratör: Behörigheter & Länkar</span>
+        </div>
+        <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
+          <div class="admin-input-row">
+            <span class="admin-label">Mottagare</span>
+            <select id="admin-target-user" class="admin-select" onchange="onAdminUserSelect()">
+              <option value="">Laddar kontakter...</option>
+            </select>
+          </div>
+          <div class="admin-input-row">
+            <span class="admin-label">Mobil (valfritt)</span>
+            <input type="tel" id="admin-target-phone" placeholder="070..." class="admin-val-input">
+          </div>
+          <div class="admin-input-row" style="border-bottom: none; padding-bottom: 8px;">
+            <span class="admin-label">Ge Admin-roll</span>
+            <label class="ios-switch">
+              <input type="checkbox" id="admin-target-is-admin" onchange="updateAdminTargetLink()">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="admin-actions-grid" style="margin-top: 6px;">
+            <button type="button" class="btn-action admin-btn" onclick="adminSendSMS()">SMS</button>
+            <button type="button" class="btn-action admin-btn" onclick="adminSendEmail()">Mail</button>
+            <button type="button" class="btn-action admin-btn" onclick="toggleAdminQR()">QR</button>
+          </div>
+          <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 12px; padding-top: 10px; border-top: 0.5px solid rgba(255,255,255,0.1);">
+            <div id="admin-qr-caption" style="font-size: 11px; color: var(--text-muted, #8E8E93); margin-bottom: 6px;">Skanna för att logga in:</div>
+            <img id="admin-qr-image" src="" alt="Inloggnings-QR" style="width: 140px; height: 140px; border-radius: 10px; border: 2px solid #FFF; background: #FFF; margin: 0 auto; display: block;">
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ACTION SHEET FÖR AKTIVITETER -->
+  <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
+    <div class="sheet-container" onclick="event.stopPropagation()">
+      <div class="sheet-header">
+        <div class="sheet-title">Välj Aktivitet</div>
+        <button class="sheet-close" onclick="closeSheet()">Avbryt</button>
+      </div>
+      <div class="sheet-item" onclick="selectActivity('Bandgrävare')"><span>Bandgrävare</span></div>
+      <div class="sheet-item" onclick="selectActivity('Stalltvätt')"><span>Stalltvätt</span></div>
+      <div class="sheet-item" onclick="selectActivity('Snöröjning')"><span>Snöröjning</span></div>
+      <div class="sheet-item" onclick="selectActivity('Kyl- & frysflytt')"><span>Kyl- & frysflytt</span></div>
+      <div class="sheet-item" onclick="selectActivity('Linjemålning')"><span>Linjemålning</span></div>
+      <div class="sheet-item" onclick="selectActivity('Fasadmålning')"><span>Fasadmålning</span></div>
+    </div>
   </div>
 
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>
     function checkPackProgress() {
-      const c1 = document.getElementById('chk-1').checked;
-      const c2 = document.getElementById('chk-2').checked;
-      const c3 = document.getElementById('chk-3').checked;
+      const c1 = document.getElementById('chk-1')?.checked;
+      const c2 = document.getElementById('chk-2')?.checked;
+      const c3 = document.getElementById('chk-3')?.checked;
       const btn = document.getElementById('unlock-menu-btn');
       
-      if (c1 && c2 && c3) {
+      if (btn && c1 && c2 && c3) {
         btn.style.background = "linear-gradient(135deg, #30D158 0%, #34C759 100%)";
         btn.innerText = "✅ Allt Packat – Öppna Verktyg";
       }
     }
 
     function unlockFullMenu() {
-      document.getElementById('field-tools-menu').classList.add('unlocked');
-      document.getElementById('unlock-menu-btn').style.display = 'none';
+      const menu = document.getElementById('field-tools-menu');
+      const btn = document.getElementById('unlock-menu-btn');
+      if (menu) menu.classList.add('unlocked');
+      if (btn) btn.style.display = 'none';
     }
   </script>
 </body>
 </html>
-
-git add .
-git commit -m "DEV v3.0: Ljusblå handskvänlig glassmorphism & packlist-morfning"
-git push origin main
-cd ~/Desktop/LPV_Backup/Tidrapport---dev
-
-cat << 'EOF' > Kod.gs
-// ==========================================
-// LPV & KLARYTA BACKEND MOTOR v3.0 (Kod.gs)
-// Handles: Batch-rapportering, Drive-mappar, Platsbesök, Karantän & DB-Setup
-// ==========================================
-
-function sanitize(input) {
-  if (!input) return "";
-  let str = String(input).trim();
-  if (/^[=+\-@]/.test(str)) return "'" + str; // Skydd mot Formula Injection
-  return str;
-}
-
-// 🚀 ENKLICKS-SETUP: Bygger upp hela databasen för v3.0
-function setupDatabase() {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  
-  // 1. Kunder (CRM)
-  let sheetKunder = ss.getSheetByName("Kunder");
-  if (!sheetKunder) {
-    sheetKunder = ss.insertSheet("Kunder");
-    sheetKunder.appendRow(["Kund-ID", "Kundnamn/Bolag", "Adress", "Kontakt", "Telefon", "Org.nr/Personnr", "Fastighetsbeteckning"]);
-  }
-  sheetKunder.getRange("A1:G1").setFontWeight("bold").setBackground("#f3f3f3");
-  
-  // 2. Projekt & Kabanoss
-  let sheetProjekt = ss.getSheetByName("Projekt");
-  if (!sheetProjekt) {
-    sheetProjekt = ss.insertSheet("Projekt");
-    sheetProjekt.appendRow(["Projekt-ID", "Kund-ID", "Bolag (LPV/Klaryta)", "Status", "Startdatum", "Slutdatum", "Resurskrav", "Bemannade Avatarer", "Budget/Tid"]);
-  }
-  sheetProjekt.getRange("A1:I1").setFontWeight("bold").setBackground("#f3f3f3");
-  
-  // 3. Personal & UE (Inkluderar Karantän & Avatar)
-  let sheetPersonal = ss.getSheetByName("Personal");
-  if (!sheetPersonal) sheetPersonal = ss.insertSheet("Personal");
-  
-  // Säkerställer att alla nödvändiga v3.0-kolumner finns i Personal
-  const personalHeaders = ["Namn", "E-post", "Telefon", "Roll", "Admin (Sant/Falskt)", "Avatar-Länk (Base64)", "Typ (Anställd/UE)", "Status (Aktiv/Karantän)", "F-Skatt (Drive)", "Försäkring (Drive)", "Senast Inloggad"];
-  sheetPersonal.getRange(1, 1, 1, personalHeaders.length).setValues([personalHeaders]).setFontWeight("bold").setBackground("#f3f3f3");
-  
-  // 4. Tidrapporter (Utökad med Bolag och m2)
-  let sheetRapporter = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
-  if (!sheetRapporter) {
-    sheetRapporter = ss.insertSheet(CONFIG.SHEET_REPORTS || "Tidrapporter");
-    const reportHeaders = ["Datum", "Fakturerad", "Plats", "Aktivitet", "Start", "Slut", "Total Tid", "Stämpel", "Användare", "Anteckningar", "Bolag (LPV/Klaryta)", "Uppmätt Yta (m2)"];
-    sheetRapporter.appendRow(reportHeaders);
-    sheetRapporter.getRange("A1:L1").setFontWeight("bold").setBackground("#f3f3f3");
-  }
-
-  Logger.log("✅ SETUP SLUTFÖRD! Databasen är nu 100% redo för v3.0");
-  return "Setup slutförd framgångsrikt!";
-}
-
-function doPost(e) {
-  const lock = LockService.getScriptLock();
-  const hasLock = lock.tryLock(15000);
-  
-  if (!hasLock) {
-    return createJsonResponse({ status: "error", message: "Servern var upptagen, försök igen." });
-  }
-
-  try {
-    const data = JSON.parse(e.postData.contents);
-
-    // Säkerhetskontroll
-    if (data.token !== CONFIG.API_TOKEN) {
-      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig säkerhetstoken." });
-    }
-
-    // BEHANDLA TIDS- & MÅTTRAPPORTER
-    if (data.action === "batchReports") {
-      const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-      const sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
-      const passList = data.pass || [];
-      const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
-      const nowFormatted = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd HH:mm:ss");
-
-      passList.forEach(p => {
-        let activityLabel = sanitize(p.activity || "Övrigt");
-        if (p.type === "ata") activityLabel = "[" + (sanitize(p.ataNumber) || "ÄTA") + "] " + activityLabel;
-        let finalNotes = sanitize(p.notes) || "";
-
-        // SPARA BILDER OCH RITADE PLOGKARTOR
-        const allImages = [...(p.images || [])];
-        if (p.snowMapImage) allImages.push(p.snowMapImage);
-
-        if (allImages.length > 0) {
-          try {
-            const rootFolder = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
-            let folderName = p.date + " " + sanitize(p.place || "Okänd plats") + " (" + activityLabel + ")";
-            const subFolder = rootFolder.createFolder(folderName);
-
-            allImages.forEach((imgBase64, index) => {
-              const base64Data = imgBase64.split(',')[1];
-              const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), 'image/jpeg', 'Underlag_' + (index + 1) + '.jpg');
-              subFolder.createFile(blob);
-            });
-            finalNotes += (finalNotes ? "\n\n" : "") + "Drive-mapp: " + subFolder.getUrl();
-          } catch (imgErr) {
-            finalNotes += (finalNotes ? "\n\n" : "") + "[Drive-fel: " + imgErr.message + "]";
-          }
-        }
-
-        // Tidsuträkning
-        const formattedDuration = formatDuration(p.start, p.end, p.totalHours);
-
-        // Skriv till arket (A-L)
-        sheet.appendRow([
-          p.date,                                     // A: Datum
-          false,                                      // B: Fakturerad
-          sanitize(p.place) || "",                    // C: Plats
-          activityLabel,                              // D: Aktivitet
-          p.start || "",                              // E: Starttid
-          p.end || "",                                // F: Sluttid
-          formattedDuration,                          // G: Total tid
-          nowFormatted,                               // H: Tidsstämpel
-          sanitize(p.user || "Okänd"),                // I: Användare
-          finalNotes,                                 // J: Anteckningar + Drive-länk
-          sanitize(p.companyId) || "LPV",             // K: Bolag (Ny)
-          sanitize(p.measuredArea) || ""              // L: Uppmätt Yta (Ny för Mätblocket)
-        ]);
-      });
-
-      return createJsonResponse({ status: "success", count: passList.length });
-    }
-
-    // HÄMTA KONTAKTER OCH UE-STATUS
-    if (data.action === "getUsers") {
-      const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-      const personalSheet = ss.getSheetByName("Personal");
-      const sheetData = personalSheet.getDataRange().getValues();
-      const users = [];
-
-      for (let i = 1; i < sheetData.length; i++) {
-        if (sheetData[i][0] !== "") {
-          users.push({
-            name: String(sheetData[i][0]),
-            phone: String(sheetData[i][2] || ""),
-            isAdmin: String(sheetData[i][4] || "").trim().toLowerCase() === "true",
-            avatarBase64: String(sheetData[i][5] || ""),
-            type: String(sheetData[i][6] || "Anställd"),
-            status: String(sheetData[i][7] || "Aktiv") // Om "Karantän" visas spärr-skärmen i appen
-          });
-        }
-      }
-      return createJsonResponse({ status: "success", users: users });
-    }
-
-    return createJsonResponse({ status: "error", message: "Okänd åtgärd" });
-  } catch (err) {
-    return createJsonResponse({ status: "error", message: err.toString() });
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function formatDuration(start, end, fallbackHours) {
-  if (!start || !end) return fallbackHours ? fallbackHours + " tim 0 min" : "0 tim 0 min";
-  const [sH, sM] = start.split(":").map(Number);
-  const [eH, eM] = end.split(":").map(Number);
-  let diffMin = (eH * 60 + eM) - (sH * 60 + sM);
-  if (diffMin < 0) diffMin += 24 * 60;
-  return Math.floor(diffMin / 60) + " tim " + (diffMin % 60) + " min";
-}
-
-function createJsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
-}
