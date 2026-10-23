@@ -49,7 +49,7 @@ function openPostmanPatModal() {
       <button onclick="closePostmanPatModal()" style="position:absolute; top:16px; right:16px; border:none; background:#f1f5f9; width:36px; height:36px; border-radius:50%; font-size:20px; cursor:pointer; color:#475569; display:flex; align-items:center; justify-content:center; line-height:1;">✕</button>
       
       <h2 style="font-size:20px; font-weight:800; color:#0f172a !important; margin:0 0 4px 0 !important; text-align:center;">Välj din roll ✨</h2>
-      <p style="font-size:12px; color:#475569 !important; margin:0 0 14px 0 !important; line-height:1.4; text-align:center;">Välj din typ och ta en selfie för profilbilden.</p>
+      <p style="font-size:12px; color:#475569 !important; margin:0 0 14px 0 !important; line-height:1.4; text-align:center;">Välj din typ och ta eller välj en selfie för profilbilden.</p>
 
       <!-- ROLLVÄLJARE -->
       <div style="display:flex; gap:8px; margin-bottom:14px;">
@@ -61,10 +61,11 @@ function openPostmanPatModal() {
         </button>
       </div>
 
-      <input type="file" id="postman-photo-input" accept="image/*" capture="user" style="display:none;" onchange="handlePostmanPhoto(event)">
+      <!-- TILLÅT BÅDE FOTOBIBLIOTEK OCH KAMERA (INGEN capture="user") -->
+      <input type="file" id="postman-photo-input" accept="image/*" style="display:none;" onchange="handlePostmanPhoto(event)">
       
       <div id="postman-preview-area" onclick="document.getElementById('postman-photo-input').click()" style="border:2px dashed #cbd5e1; border-radius:16px; padding:14px; cursor:pointer; background:#f8fafc; margin-bottom:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:110px; box-sizing:border-box;">
-        <p id="postman-preview-text" style="font-size:13px; font-weight:600; color:#475569 !important; margin:0; text-align:center;">Klicka här för att ta en selfie eller välja bild 📷</p>
+        <p id="postman-preview-text" style="font-size:13px; font-weight:600; color:#475569 !important; margin:0; text-align:center;">Klicka här för att ta en selfie eller välja bild från kamerarullen 📷</p>
         <img id="postman-preview-img" style="max-height:150px; max-width:100%; border-radius:12px; display:none; margin:0 auto; box-shadow:0 4px 12px rgba(0,0,0,0.15); object-fit:contain;">
       </div>
 
@@ -268,7 +269,6 @@ function attachAvatarListeners() {
   
   document.querySelectorAll(selectors).forEach(el => {
     el.style.cursor = 'pointer';
-    // Gör inre bilder klick-transparenta så touch-händelsen alltid träffar rutan
     el.querySelectorAll('img').forEach(img => { img.style.pointerEvents = 'none'; });
 
     el.onclick = function(e) {
@@ -284,7 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
   attachAvatarListeners();
 });
 
-// Lyssna globalt på alla tryck
 document.addEventListener('click', function(e) {
   const target = e.target.closest('.postman-pat-bubble, #user-pat-avatar, .morning-avatar-slot, #app-user-pill, .glass-avatar-card, .avatar-3d-sphere, .user-avatar-bubble, [data-avatar]');
   if (target) {
