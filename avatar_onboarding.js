@@ -61,7 +61,7 @@ function openPostmanPatModal() {
         </button>
       </div>
 
-      <!-- TILLÅT BÅDE FOTOBIBLIOTEK OCH KAMERA (INGEN capture="user") -->
+      <!-- TILLÅT FOTOBIBLIOTEK (INGEN capture="user") -->
       <input type="file" id="postman-photo-input" accept="image/*" style="display:none;" onchange="handlePostmanPhoto(event)">
       
       <div id="postman-preview-area" onclick="document.getElementById('postman-photo-input').click()" style="border:2px dashed #cbd5e1; border-radius:16px; padding:14px; cursor:pointer; background:#f8fafc; margin-bottom:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:110px; box-sizing:border-box;">
