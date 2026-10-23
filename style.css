@@ -478,62 +478,6 @@ body {
   transform: scale(0.9);
 }
 
-/* TEMA-VARIABLER FOR LIGHT & DARK MODE */
-:root {
-  --bg-gradient: linear-gradient(135deg, #a0c4ff 0%, #c4e0e5 100%);
-  --glass-bg: rgba(255, 255, 255, 0.45);
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --card-bg: rgba(255, 255, 255, 0.65);
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --accent-blue: #0284c7;
-  --shadow-color: rgba(0, 0, 0, 0.08);
-}
-
-body.dark-mode {
-  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --card-bg: rgba(15, 23, 42, 0.78);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --accent-blue: #38bdf8;
-  --shadow-color: rgba(0, 0, 0, 0.45);
-}
-
-body {
-  background: var(--bg-gradient) !important;
-  color: var(--text-main) !important;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-
-.glass-card, .cupertino-card, .modal-content, .kabanoss-column {
-  background: var(--card-bg) !important;
-  border: 1px solid var(--glass-border) !important;
-  color: var(--text-main) !important;
-  box-shadow: 0 8px 32px var(--shadow-color) !important;
-}
-
-/* THEME TOGGLE BUTTON STYLING */
-.theme-toggle-btn {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px var(--shadow-color);
-  transition: transform 0.2s ease;
-}
-
-.theme-toggle-btn:active {
-  transform: scale(0.9);
-}
-
 /* TEXTKONTRAST OCH LÄSBARHET I DARK MODE */
 body.dark-mode {
   --text-main: #f8fafc !important;
@@ -745,3 +689,89 @@ h1, h2, h3, h4, strong {
 p, span, sub, small {
   color: #cbd5e1 !important;
 }
+
+
+/* ==========================================
+   MOBILE & IPHONE SAFE-AREA RESPONSIVE FIX
+   LPV & KLARYTA v4.7.1
+   ========================================== */
+
+/* iOS Safe-Area Handling */
+html, body {
+  padding-top: max(12px, env(safe-area-inset-top)) !important;
+  padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  padding-left: max(12px, env(safe-area-inset-left)) !important;
+  padding-right: max(12px, env(safe-area-inset-right)) !important;
+  overflow-x: hidden !important;
+}
+
+/* Flexibel Toppbar för Tidrapport, Användare & Anslutningsstatus */
+.header-bar,
+.top-header,
+div[style*="display: flex"][style*="justify-content: space-between"] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.user-pill, .status-pill, #app-user-pill {
+  white-space: nowrap !important;
+  font-size: 12px !important;
+  padding: 5px 10px !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Anpassning för smala skärmar (< 520px) */
+@media screen and (max-width: 520px) {
+  .app-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 4px !important;
+  }
+
+  /* Justering av sidomeny för att inte skymma innehåll */
+  .side-nav-drawer {
+    width: 44px !important;
+    border-radius: 0 16px 16px 0 !important;
+    background: rgba(15, 23, 42, 0.85) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    z-index: 9999 !important;
+  }
+
+  .side-nav-drawer:hover,
+  .side-nav-drawer:focus-within {
+    width: 200px !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+  }
+
+  .side-nav-item {
+    padding: 10px 10px !important;
+    font-size: 13px !important;
+  }
+
+  /* Huvudkort & Morgon-hälsning */
+  .packing-card-glass, 
+  .ios-card, 
+  .draft-card, 
+  .dashboard-panel, 
+  .morning-header-card,
+  .sheet-container {
+    padding: 14px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    border-radius: 18px !important;
+  }
+
+  /* Checklistor och formulärrader */
+  .checklist-item, 
+  .ios-row {
+    padding: 10px 8px !important;
