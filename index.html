@@ -42,7 +42,6 @@
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
         }
 
-        /* Tema-specifika kort */
         .glass-panel-lpv { border: 1px solid rgba(56, 189, 248, 0.4); }
         .glass-panel-kla { border: 1px solid rgba(16, 185, 129, 0.4); }
 
@@ -51,7 +50,6 @@
         .orb-kulpase-stor { width: 64px; height: 64px; font-size: 2rem; }
         .orb-gantt-liten { width: 32px; height: 32px; font-size: 0.875rem; z-index: 10; }
 
-        /* Bubblornas is-reflektion */
         .glass-orb {
             background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%);
             box-shadow: inset 0 2px 4px rgba(255,255,255,0.6), 0 4px 10px rgba(0,0,0,0.1);
@@ -105,7 +103,6 @@
             background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(225, 29, 72, 0.05) 10px, rgba(225, 29, 72, 0.05) 20px);
         }
 
-        /* Isblå anpassade scrollbars */
         .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(14, 165, 233, 0.1); border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 4px; }
@@ -188,7 +185,6 @@
     </div>
 
     <script>
-        // *** klistra in din WebApp-URL från Google Apps Script här när du publicerat på GitHub ***
         const APPS_SCRIPT_URL = ""; 
         
         const SWEDISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
@@ -199,7 +195,6 @@
 
         let state = { clients: [], resources: [], jobs: [] };
 
-        // THEME TOGGLE LOGIC
         function toggleTheme() {
             const htmlTag = document.documentElement;
             htmlTag.classList.toggle('dark');
@@ -383,4 +378,33 @@
                 const job = state.jobs.find(function(j) { return j.id === id; });
                 if (job) {
                     const rect = e.currentTarget.getBoundingClientRect();
-                    const offsetX = e.clientX - (rect.left + 22
+                    const offsetX = e.clientX - (rect.left + 224);
+                    if (offsetX >= 0) {
+                        job.status = 'scheduled';
+                        job.dayIndex = Math.max(0, Math.floor(offsetX / DAY_WIDTH));
+                        initUI();
+                    }
+                }
+            }
+        }
+
+        function dropOrbOnJob(e, jobId) {
+            e.preventDefault(); e.stopPropagation();
+            const type = e.dataTransfer.getData("type");
+            const resId = e.dataTransfer.getData("id");
+            if (type === "orb" && resId) {
+                state.jobs.forEach(function(j) { 
+                    j.assigned = j.assigned.filter(function(aid) { return aid !== resId; }); 
+                });
+                const job = state.jobs.find(function(j) { return j.id === jobId; });
+                if (job && job.assigned.indexOf(resId) === -1) job.assigned.push(resId);
+                initUI();
+            }
+        }
+
+        function publishChanges() { alert("Ändringar sparade!"); }
+
+        document.addEventListener('DOMContentLoaded', reloadLiveData);
+    </script>
+</body>
+</html>
