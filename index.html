@@ -1,286 +1,104 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
-  <meta charset="UTF-8">
-  <title>LPV & Klaryta v3.0</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon.png">
-</head>
-<body>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPV & Klaryta - Framtidsradarn (Gantt Live)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
 
-  <!-- GLIDANDE VÄNSTERMENY (SIDE-DRAWER FÖR ADMIN & VYER) -->
-  <nav class="side-nav-drawer" id="sideNav">
-    <div class="side-nav-item" onclick="openKabanossModalWithTab('kabanoss')">
-      <span class="side-nav-icon">🌭</span>
-      <span class="side-nav-text">Kabanossen</span>
-    </div>
-    <div class="side-nav-item" onclick="openKabanossModalWithTab('radar')">
-      <span class="side-nav-icon">🔭</span>
-      <span class="side-nav-text">Framtidsradarn</span>
-    </div>
-    <div class="side-nav-item" onclick="openKabanossModalWithTab('crm')">
-      <span class="side-nav-icon">💼</span>
-      <span class="side-nav-text">CRM & Kundbild</span>
-    </div>
-    <div class="side-nav-item" onclick="openKabanossModalWithTab('offert')">
-      <span class="side-nav-icon">📄</span>
-      <span class="side-nav-text">Smart Offert</span>
-    </div>
-  </nav>
+        .glass-panel-lpv {
+            background: rgba(2, 132, 199, 0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+        .glass-panel-lpv:hover { border-color: rgba(56, 189, 248, 0.5); }
 
-  <div class="app-layout-wrapper">
-    <div class="app-container">
-      
-      <!-- HEADER -->
-      <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h1 style="font-size:28px; font-weight:700;">Tidrapport</h1>
-        <div class="header-badges" style="display:flex; gap:8px;">
-          <div class="user-pill" id="user-display" onclick="handleUserPillClick()">Daniel</div>
-          <div class="status-pill" style="display:flex; align-items:center; gap:6px;">
-            <div class="status-dot" style="width:6px; height:6px; border-radius:50%; background:#30D158;"></div>Ansluten <span id="app-version-tag" style="font-size:9px; opacity:0.75; margin-left:4px; border-left:1px solid rgba(255,255,255,0.3); padding-left:5px;">v4.7.1</span>
-          </div> 
-        </div>
-      </header>
+        .glass-panel-kla {
+            background: rgba(16, 185, 129, 0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+        .glass-panel-kla:hover { border-color: rgba(16, 185, 129, 0.5); }
 
-      <!-- KARUSELLEN HÖGST UPP -->
-      <div id="outbox-section">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <span id="outbox-title" style="font-size:12px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase; letter-spacing:0.8px;">Dagens pass</span>
-          <button id="btnSubmitAll" class="submit-pill-btn" onclick="submitAll()" style="display:none; min-height:36px; padding:0 12px;">Skicka in</button>
-        </div>
-        <div id="outbox-container" class="carousel-container"></div>
-      </div>
+        .orb-kulpase-liten { width: 44px; height: 44px; font-size: 1.25rem; }
+        .orb-kulpase-medium { width: 54px; height: 54px; font-size: 1.5rem; }
+        .orb-kulpase-stor { width: 64px; height: 64px; font-size: 2rem; }
 
-      <!-- AVATAR & PACKLISTA -->
-      <div class="packing-card-glass" id="packing-section">
-        <div class="postman-pat-bubble" onclick="openPostmanPatModal()" style="width:110px; height:110px; margin:0 auto 12px auto; border-radius:50%; overflow:hidden; border:3px solid rgba(255,255,255,0.8); box-shadow:0 8px 20px rgba(0,0,0,0.2); cursor:pointer; background:#e2e8f0; display:flex; align-items:center; justify-content:center;">
-          <img id="user-pat-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar" style="width:100%; height:100%; object-fit:cover; display:block;">
-        </div>
+        .orb-gantt-liten { width: 32px; height: 32px; font-size: 0.875rem; z-index: 10; }
+        .orb-gantt-medium { width: 44px; height: 44px; font-size: 1.25rem; z-index: 20; }
+        .orb-gantt-stor { width: 56px; height: 56px; font-size: 1.75rem; z-index: 30; }
+
+        .glass-orb {
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 6px 12px rgba(0,0,0,0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        }
+        .glass-orb:active { cursor: grabbing; }
+        .glass-orb:hover { 
+            transform: translateY(-2px) scale(1.08); 
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.4), 0 10px 20px rgba(0,0,0,0.7); 
+            z-index: 50 !important; 
+        }
+
+        .glass-orb.swap-target {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.8) !important;
+            transform: scale(1.15);
+        }
+
+        .sick-orb {
+            filter: grayscale(0.6) opacity(0.85);
+            border: 2px solid #ef4444 !important;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
+        }
+
+        .owner-badge {
+            position: absolute;
+            bottom: -2px; right: -4px;
+            font-size: 8px; font-weight: 900;
+            padding: 2px 4px;
+            border-radius: 4px;
+            z-index: 20;
+            border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            line-height: 1;
+        }
         
-        <div style="text-align:center; margin-bottom:14px;">
-          <div style="font-size:11px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase;">Postis Per 3D Edition</div>
-          <div style="font-size:18px; font-weight:800; color:var(--text-main);" id="welcome-title">God dag!</div>
-        </div>
+        .tl-owner-dot {
+            position: absolute; 
+            bottom: -1px; right: -2px;
+            width: 12px; height: 12px; 
+            border-radius: 50%;
+            border: 2px solid #0f172a;
+            z-index: 40;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
 
-        <div style="font-size:13px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">📦 Fordonscheck & Packlista</div>
-        
-        <div class="checklist-item">
-          <input type="checkbox" id="chk-1" onchange="checkPackProgress()">
-          <label for="chk-1">Skyddsskor & LPV-Väst</label>
-        </div>
-        <div class="checklist-item">
-          <input type="checkbox" id="chk-2" onchange="checkPackProgress()">
-          <label for="chk-2">Mätband / Laser & Mätblock</label>
-        </div>
-        <div class="checklist-item">
-          <input type="checkbox" id="chk-3" onchange="checkPackProgress()">
-          <label for="chk-3">Plogblad & Sandspridare checkad</label>
-        </div>
-
-        <button type="button" id="unlock-menu-btn" class="main-btn main-btn-blue" style="width:100%; margin-top:16px;" onclick="unlockFullMenu()">
-           Visat & Packat – Lås upp Dagen
-        </button>
-      </div>
-
-      <!-- TRANSFORMERAD MENY & FORMULÄR -->
-      <div class="field-tools-grid" id="field-tools-menu">
-        <div style="grid-column: 1 / -1; font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Uppdrag & Formulär</div>
-        
-        <div class="ios-card" style="grid-column: 1 / -1;">
-          <div class="type-control">
-            <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
-            <button type="button" id="btn-type-ata" class="type-btn" onclick="setJobType('ata')">ÄTA</button>
-          </div>
-          <div class="ios-row" id="row-place">
-            <span>Betalställe</span>
-            <input type="text" id="input-place" placeholder="T.ex. Blacksta" class="val-text">
-          </div>
-          <div class="chips-container" id="chips-container"></div>
-          <div class="ios-row" id="row-ata-number" style="display: none;">
-            <span>ÄTA-nr / Ref</span>
-            <input type="text" id="input-ata" placeholder="T.ex. ÄTA 04" class="val-text">
-          </div>
-          <div class="ios-row" onclick="openSheet()" style="cursor: pointer;">
-            <span>Aktivitet</span>
-            <span class="val-text" id="selected-activity">
-              Välj aktivitet ›
-            </span>
-          </div>
-        </div>
-
-        <div class="ios-card" style="grid-column: 1 / -1;">
-          <div class="ios-row">
-            <span>Datum</span>
-            <input type="date" id="input-date">
-          </div>
-          <div class="ios-row">
-            <span>Start</span>
-            <input type="time" id="input-start" onchange="updateLiveHours()">
-          </div>
-          <div class="ios-row">
-            <span>Slut</span>
-            <input type="time" id="input-end" placeholder="Lämna tom för pågående" onchange="updateLiveHours()">
-          </div>
-        </div>
-
-        <div class="ios-card" style="grid-column: 1 / -1;">
-          <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
-        </div>
-
-        <button class="main-btn main-btn-blue" style="grid-column: 1 / -1;" onclick="saveToOutbox()">Spara pass lokalt</button>
-      </div>
-
-    </div>
-
-    <!-- DASHBOARD PANEL -->
-    <aside id="landscape-dashboard" class="dashboard-panel">
-      <div class="dashboard-header">
-        <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Översikt & Tider</div>
-        <span id="dash-date-badge" class="duration-pill" style="font-size:12px; font-weight:700; color:var(--accent-darkblue); background:rgba(2,132,199,0.12); padding:2px 8px; border-radius:6px;">Idag</span>
-      </div>
-      <div class="dash-stats-grid">
-        <div class="stat-card">
-          <div class="stat-val" id="dash-total-hours">0.0 h</div>
-          <div class="stat-lbl">Totalt idag</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val" id="dash-pass-count">0 st</div>
-          <div class="stat-lbl">Sparade pass</div>
-        </div>
-      </div>
-      <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin:10px 0 6px 0;">Dagens fördelning</div>
-      <div id="dash-activity-list" class="dash-list">
-        <div class="dash-empty">Inga registrerade pass än idag.</div>
-      </div>
-
-      <!-- ADMIN-SEKTION -->
-      <div id="admin-tools-section" style="display: none; margin-top: 16px;">
-        <div style="font-size:12px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase; margin-bottom:6px;">Administratör: Behörigheter & Länkar</div>
-        <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
-          <div class="admin-input-row">
-            <span class="admin-label">Mottagare</span>
-            <select id="admin-target-user" class="admin-select" onchange="onAdminUserSelect()">
-              <option value="">Laddar kontakter...</option>
-            </select>
-          </div>
-          <button type="button" class="main-btn" style="width:100%; margin-top:10px; background:var(--orange); color:#FFF; min-height:48px;" onclick="openKabanossModal()">
-            🌭 Öppna Flygledartornet
-          </button>
-        </div>
-      </div>
-    </aside>
-  </div>
-
-  <!-- ACTION SHEET FÖR AKTIVITETER (DOLD TILLS MAN KLICKAR) -->
-  <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
-    <div class="sheet-container" onclick="event.stopPropagation()">
-      <div class="sheet-header">
-        <div style="font-size:13px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Välj Aktivitet</div>
-        <button class="sheet-close" style="background:none; border:none; color:var(--accent-blue); font-size:15px; font-weight:700; cursor:pointer;" onclick="closeSheet()">Avbryt</button>
-      </div>
-      <div class="sheet-item" onclick="selectActivity('Bandgrävare')">Bandgrävare</div>
-      <div class="sheet-item" onclick="selectActivity('Stalltvätt')">Stalltvätt</div>
-      <div class="sheet-item" onclick="selectActivity('Snöröjning')">Snöröjning</div>
-      <div class="sheet-item" onclick="selectActivity('Handskottning')">Handskottning</div>
-      <div class="sheet-item" onclick="selectActivity('Kyl- & frysflytt')">Kyl- & frysflytt</div>
-      <div class="sheet-item" onclick="selectActivity('Linjemålning')">Linjemålning</div>
-      <div class="sheet-item" onclick="selectActivity('Fasadmålning')">Fasadmålning</div>
-    </div>
-  </div>
-
-  <!-- FLYGLEDARTORNET / KABANOSS MODAL -->
-  <div class="kabanoss-backdrop" id="kabanossModal" onclick="closeKabanossModal()">
-    <div class="kabanoss-modal" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div style="display:flex; gap:8px;">
-          <button class="main-btn main-btn-blue" style="min-height:36px; padding:0 14px; font-size:13px;" onclick="switchAdminTab('kabanoss')">🌭 Kabanossen</button>
-          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('radar')">🔭 Radarn</button>
-          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('crm')">💼 CRM</button>
-          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('offert')">📄 Offert</button>
-        </div>
-        <button style="background:none; border:none; font-size:16px; font-weight:700; color:var(--orange); cursor:pointer;" onclick="closeKabanossModal()">✕ Stäng</button>
-      </div>
-      
-      <!-- VY 1: KABANOSSEN -->
-      <div id="kabanoss-view" class="kabanoss-grid">
-        <div class="kabanoss-col">
-          <div class="kabanoss-col-title">📌 Planerade</div>
-          <div class="kabanoss-item-card">Coop Kylflytt - Mån 08:00</div>
-        </div>
-        <div class="kabanoss-col"><div class="kabanoss-col-title">⏳ Vid Tillfälle</div></div>
-        <div class="kabanoss-col"><div class="kabanoss-col-title">⚡ Pågående / Klara</div></div>
-        <div class="kabanoss-col"><div class="kabanoss-col-title">💰 Klara för Faktura</div></div>
-      </div>
-
-      <!-- VY 2: RADARN -->
-      <div id="radar-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
-        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">🔭 Framtidsradarn (Gantt)</h3>
-        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">7-dagars tidslinje och resursbemanning.</p>
-      </div>
-
-      <!-- VY 3: CRM -->
-      <div id="crm-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
-        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">💼 360° Kundbild & CRM</h3>
-        <div class="kabanoss-item-card" style="margin-top:12px;">K-1001 Coop Sverige AB (Aktiv)</div>
-      </div>
-
-      <!-- VY 4: OFFERTMOTOR -->
-      <div id="offert-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
-        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">📄 Smart Offertmotor (ROT/RUT & Restid)</h3>
-        <div class="ios-card" style="margin-top:12px; padding:12px;">
-          <div class="ios-row">
-            <span>Arbetstimmar (h)</span>
-            <input type="number" id="offert-hours" placeholder="0" class="val-text" oninput="calculateOffert()" style="width:60px;">
-          </div>
-          <div class="ios-row">
-            <span>Körtid Garaget Tur/Retur (min)</span>
-            <input type="number" id="offert-travel" placeholder="0" class="val-text" oninput="calculateOffert()" style="width:60px;">
-          </div>
-          <div class="ios-row">
-            <span>Avdrag</span>
-            <select id="offert-avdrag" class="val-text" style="background:transparent; border:none;" onchange="calculateOffert()">
-              <option value="none">Inget</option>
-              <option value="rot">ROT (30%)</option>
-              <option value="rut">RUT (50%)</option>
-            </select>
-          </div>
-          <div style="margin-top:10px; padding:10px; background:rgba(255,255,255,0.6); border-radius:10px; font-size:13px;">
-            <div style="display:flex; justify-content:space-between;"><span>Totalt att betala:</span><strong id="offert-total-val" style="color:var(--accent-darkblue);">0 kr</strong></div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <script src="config.js"></script>
-  <script src="app.js"></script>
-  <script>
-    function checkPackProgress() {
-      const c1 = document.getElementById('chk-1')?.checked;
-      const c2 = document.getElementById('chk-2')?.checked;
-      const c3 = document.getElementById('chk-3')?.checked;
-      const btn = document.getElementById('unlock-menu-btn');
-      
-      if (btn && c1 && c2 && c3) {
-        btn.style.background = "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)";
-        btn.innerText = "✅ Allt Packat – Öppna Verktyg";
-      }
-    }
-
-    function unlockFullMenu() {
-      const menu = document.getElementById('field-tools-menu');
-      const btn = document.getElementById('unlock-menu-btn');
-      if (menu) menu.classList.add('unlocked');
-      if (btn) btn.style.display = 'none';
-    }
-  </script>
-<script src="avatar_onboarding.js?v=4.7.1"></script>
-</body>
-</html>
-
+        .bg-lpv { background-
