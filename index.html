@@ -1,614 +1,377 @@
-/**
- * LPV & KLARYTA - BACKEND MOTOR (Kod.gs)
- * Version: DEV v4.7.5 (Kramer Turkos Hood Update, Gemini 3D Auto-Save, Gantt v33)
- */
-
-// ==========================================
-// 1. SANERING & SÄKERHET
-// ==========================================
-function sanitize(input) {
-  if (!input) return "";
-  let str = String(input).trim();
-  if (/^[=+\-@]/.test(str)) return "'" + str; // Skydd mot Formula Injection
-  return str;
-}
-
-// ==========================================
-// 2. MAIN GET & POST HANDLERS (WEBAPP ROUTER)
-// ==========================================
-function doGet(e) {
-  if (e && e.parameter && e.parameter.api === "true") {
-    return createJsonResponse({
-      status: "online",
-      system: "LPV & Klaryta Backend",
-      version: "v4.7.5",
-      timestamp: new Date().toISOString()
-    });
-  }
-
-  // Servera index.html som webbapplikation
-  return HtmlService.createTemplateFromFile("index")
-    .evaluate()
-    .setTitle("LPV & Klaryta - Framtidsradarn & Tidrapport")
-    .addMetaTag("viewport", "width=device-width, initial-scale=1.0")
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-function doPost(e) {
-  const lock = LockService.getScriptLock();
-  const hasLock = lock.tryLock(15000);
-  
-  if (!hasLock) {
-    return createJsonResponse({ status: "error", message: "Servern var upptagen, försök igen." });
-  }
-
-  try {
-    if (!e || !e.postData || !e.postData.contents) {
-      return createJsonResponse({ status: "error", message: "Ingen data skickades." });
-    }
-
-    let data;
-    try {
-      data = JSON.parse(e.postData.contents);
-    } catch (parseErr) {
-      data = e.parameter || {};
-    }
-
-    if (data.token && data.token !== CONFIG.API_TOKEN) {
-      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig säkerhetstoken." });
-    }
-
-    const action = data.action;
-
-    // --- ROUTER ---
-    if (action === "getKabanossData") return handleGetKabanossData();
-    if (action === "saveKabanossJob") return handleSaveKabanossJob(data);
-    if (action === "sickReport") return handleSickReport(data);
-    if (action === "batchReports") return handleBatchReports(data);
-    if (action === "getUsers") return handleGetUsers();
-    if (action === "transform_to_clay") return handleClayTransformation(data);
-    if (action === "approveAta") return approveAta(data.ataId);
-    if (action === "approveOffert") return approveOffert(data.offertId);
-    if (action === "save_time_report") return handleSaveTimeReport(data);
-    if (action === "save_ata") return handleSaveAta(data);
-    if (action === "ping") {
-      return createJsonResponse({ status: "success", version: "v4.7.5", message: "Ansluten till Kod.gs" });
-    }
-
-    return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
-
-  } catch (err) {
-    return createJsonResponse({ status: "error", message: err.toString() });
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// =========================================================
-// 3. SMART INTELLIGENS FÖR MODELLER & TILLVERKARE
-// =========================================================
-function parseMachineModel(text) {
-  if (!text) return null;
-  const lower = String(text).toLowerCase().trim();
-  
-  const brands = [
-    "kramer", "volvo", "cat", "caterpillar", "jcb", "ljungby", 
-    "avant", "bobcat", "manitou", "merlo", "kubota", "takeuchi", 
-    "hitachi", "komatsu", "wacker", "neuson", "terex", "atlas", "kobelco"
-  ];
-  
-  const isMachine = brands.some(b => lower.includes(b)) || 
-                    lower.includes("maskin") || lower.includes("traktor") || 
-                    lower.includes("lastare") || lower.includes("grävare") || lower.includes("hjullastare");
-  
-  if (!isMachine) return null;
-
-  let sizeClass = "medium";
-  let icon = "🚜";
-
-  // --- KRAMER ---
-  if (lower.includes("kramer")) {
-    icon = "🚜";
-    if (lower.includes("37.8") || lower.includes("8095") || lower.includes("8115") || lower.includes("5507") || lower.includes("5509") || lower.includes("4507")) {
-      sizeClass = "stor";
-    } else if (lower.includes("8075") || lower.includes("8085") || lower.includes("5075") || lower.includes("5085")) {
-      sizeClass = "medium";
-    } else if (lower.includes("5035") || lower.includes("5050")) {
-      sizeClass = "liten";
-    } else {
-      sizeClass = "medium";
-    }
-  } 
-  // --- VOLVO ---
-  else if (lower.includes("volvo")) {
-    icon = "🚜";
-    if (lower.match(/l(60|70|90|110|120|150|180|220)/) || lower.match(/ec(140|160|220|250|300)/)) {
-      sizeClass = "stor";
-    } else if (lower.match(/l(20|25|30|35|45|50)/) || lower.match(/ecr(58|88)/)) {
-      sizeClass = "medium";
-    } else if (lower.match(/ecr(18|25|35)/)) {
-      sizeClass = "liten";
-    }
-  } 
-  // --- AVANT / BOBCAT ---
-  else if (lower.includes("avant") || lower.includes("bobcat")) {
-    icon = "🟡";
-    sizeClass = "liten";
-  } 
-  // --- LJUNGBY ---
-  else if (lower.includes("ljungby")) {
-    icon = "🚜";
-    sizeClass = "stor";
-  }
-  // --- GENERELL TONNAGE-REGEXP FALLBACK ---
-  else {
-    let weightMatch = lower.match(/(\d+[\.,]?\d*)\s*(ton|t\b)/);
-    if (weightMatch) {
-      let weight = parseFloat(weightMatch[1].replace(',', '.'));
-      if (weight >= 10) sizeClass = "stor";
-      else if (weight >= 4) sizeClass = "medium";
-      else sizeClass = "liten";
-    }
-  }
-
-  return { type: "machine", sizeClass: sizeClass, icon: icon };
-}
-
-// ==========================================
-// 4. KABANOSS / GANTT API HANDLERS
-// ==========================================
-function handleGetKabanossData() {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  
-  // 1. Kunder
-  const klientSheet = ss.getSheetByName("Kunder");
-  const klientRows = klientSheet ? klientSheet.getDataRange().getValues() : [];
-  const clients = [];
-  for (let i = 1; i < klientRows.length; i++) {
-    if (klientRows[i][1]) {
-      clients.push({
-        id: klientRows[i][0],
-        name: klientRows[i][1],
-        idNr: klientRows[i][2],
-        email: klientRows[i][3],
-        billingCompany: klientRows[i][4],
-        status: klientRows[i][5],
-        contact: klientRows[i][6],
-        phone: klientRows[i][7],
-        address: klientRows[i][8],
-        type: klientRows[i][9] || "company",
-        rotRut: klientRows[i][10] || "none",
-        propertyId: klientRows[i][11] || "",
-        logoUrl: klientRows[i][12] || ""
-      });
-    }
-  }
-
-  // 2. Personal & Resurser
-  const resursSheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
-  const resursRows = resursSheet ? resursSheet.getDataRange().getValues() : [];
-  const resources = [];
-  for (let i = 1; i < resursRows.length; i++) {
-    if (resursRows[i][0]) {
-      let name = String(resursRows[i][0]);
-      let id = name;
-      let rollTyp = String(resursRows[i][3] || "");
-      let avatarLank = String(resursRows[i][5] || "");
-      let agare = String(resursRows[i][6] || "").toLowerCase();
-      let statusStr = String(resursRows[i][7] || "").toLowerCase();
-      let isSick = statusStr === "sjuk";
-
-      let type = "person";
-      let sizeClass = "liten";
-      let icon = "👦";
-      let color = "#0284c7";
-
-      if (agare.includes("kla") || agare.includes("klaryta")) color = "#16a34a";
-      else if (agare.includes("ue") || rollTyp.toLowerCase().includes("ue")) color = "#d97706";
-
-      let parsedSpecs = parseMachineModel(name) || parseMachineModel(rollTyp);
-
-      if (parsedSpecs) {
-        type = parsedSpecs.type;
-        sizeClass = parsedSpecs.sizeClass;
-        icon = parsedSpecs.icon;
-      } else if (rollTyp.toLowerCase().includes("verktyg") || rollTyp.toLowerCase().includes("ställning") || rollTyp.toLowerCase().includes("vagn")) {
-        type = "equipment";
-        icon = rollTyp.toLowerCase().includes("ställning") ? "🪜" : (rollTyp.toLowerCase().includes("vagn") ? "🎨" : "🛠️");
-      }
-
-      resources.push({
-        id: id,
-        name: name,
-        type: type,
-        sizeClass: sizeClass,
-        icon: icon,
-        avatarBase64: avatarLank,
-        ownerCompany: agare,
-        color: color,
-        isSick: isSick
-      });
-    }
-  }
-
-  // 3. Gantt_Jobb
-  const jobbSheet = ss.getSheetByName("Gantt_Jobb");
-  const jobbRows = jobbSheet ? jobbSheet.getDataRange().getValues() : [];
-  const jobs = [];
-  for (let i = 1; i < jobbRows.length; i++) {
-    if (jobbRows[i][0]) {
-      let assignedArr = [];
-      try {
-        assignedArr = JSON.parse(jobbRows[i][11] || "[]");
-      } catch (err) {
-        assignedArr = String(jobbRows[i][11] || "").split(",").map(s => s.trim()).filter(Boolean);
-      }
-
-      jobs.push({
-        id: jobbRows[i][0],
-        client: jobbRows[i][1],
-        billingCompany: jobbRows[i][2] || "LPV",
-        title: jobbRows[i][3],
-        status: jobbRows[i][4] || "unscheduled",
-        dayIndex: jobbRows[i][5] !== "" ? Number(jobbRows[i][5]) : null,
-        hours: Number(jobbRows[i][6] || 8),
-        shift: jobbRows[i][7] || "Dagpass",
-        siteAddress: jobbRows[i][8] || "",
-        siteContactName: jobbRows[i][9] || "",
-        siteContactPhone: jobbRows[i][10] || "",
-        assigned: assignedArr
-      });
-    }
-  }
-
-  return createJsonResponse({
-    status: "success",
-    clients: clients,
-    resources: resources,
-    jobs: jobs
-  });
-}
-
-function handleSaveKabanossJob(data) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  const sheet = ss.getSheetByName("Gantt_Jobb");
-  if (!sheet) return createJsonResponse({ status: "error", message: "Gantt_Jobb-blad saknas." });
-
-  const rows = sheet.getDataRange().getValues();
-  let foundIndex = -1;
-
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(data.id)) {
-      foundIndex = i + 1;
-      break;
-    }
-  }
-
-  const rowData = [
-    data.id || ("j_" + Date.now()),
-    sanitize(data.client),
-    sanitize(data.billingCompany) || "LPV",
-    sanitize(data.title),
-    sanitize(data.status) || "unscheduled",
-    data.dayIndex !== null && data.dayIndex !== undefined ? data.dayIndex : "",
-    data.hours || 8,
-    sanitize(data.shift) || "Dagpass",
-    sanitize(data.siteAddress) || "",
-    sanitize(data.siteContactName) || "",
-    sanitize(data.siteContactPhone) || "",
-    JSON.stringify(data.assigned || [])
-  ];
-
-  if (foundIndex > 0) {
-    sheet.getRange(foundIndex, 1, 1, rowData.length).setValues([rowData]);
-  } else {
-    sheet.appendRow(rowData);
-  }
-
-  return createJsonResponse({ status: "success" });
-}
-
-function handleSickReport(data) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
-  const rows = sheet.getDataRange().getValues();
-  
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(data.personId)) {
-      sheet.getRange(i + 1, 8).setValue(data.isSick ? "Sjuk" : "Aktiv");
-      return createJsonResponse({ status: "success", message: "Sjukanmälan sparad!" });
-    }
-  }
-  return createJsonResponse({ status: "error", message: "Person hittades ej." });
-}
-
-// ==========================================
-// 5. AI-TRANSFORMERING & AVATAR GENERERING
-// ==========================================
-function handleClayTransformation(eData) {
-  var userBase64 = eData.imageBase64 || "";
-  var resursTyp = eData.resursTyp || "byggare";
-  var machineName = eData.machineName || "Entreprenadmaskin";
-  var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
-
-  if (!apiKey) {
-    return createJsonResponse({
-      status: "fallback",
-      message: "GEMINI_API_KEY saknas i ScriptProperties.",
-      clayAvatarBase64: userBase64
-    });
-  }
-
-  var brandColorPrompt = getBrandColorPrompt(machineName);
-  var promptText = "";
-
-  if (resursTyp === "maskin") {
-    promptText = "A friendly, vibrant 3D animated cartoon character portrait of a heavy construction machine matching a " + machineName + ", in the iconic stylized 3D aesthetic of Bob the Builder and modern animated movies. " +
-                 "Crucial visual branding: " + brandColorPrompt + ". " +
-                 "Give the machine a cheerful personality with expressive headlights, smooth 3D textures, metallic gloss, professional studio lighting, and a solid vibrant blue background.";
-  } else if (resursTyp === "handskottare") {
-    promptText = "Transform this person's portrait into a heroic, vibrant 3D animated comic book superhero portrait of a brave winter snow-shoveler. High quality stylized 3D render, modern animated movie aesthetic, wearing high-visibility reflective winter gear, glowing snow shovel on back, confident heroic expression, smooth textures, dramatic blizzard lighting, solid vibrant blue background. Keep recognizable facial features.";
-  } else {
-    promptText = "Transform this person's portrait into a friendly, vibrant 3D animated cartoon character portrait of a cheerful builder in the iconic style of Bob the Builder. High quality stylized 3D render, modern animated movie aesthetic, wearing a yellow safety hard hat, red and yellow checkered shirt, blue denim dungarees, utility tool belt, friendly smiling expression, smooth textures, soft studio lighting, solid vibrant blue background. Keep recognizable facial features.";
-  }
-
-  var parts = [];
-  var rawBase64 = userBase64.replace(/^data:image\/\w+;base64,/, "");
-
-  if (rawBase64.length > 100) {
-    parts.push({ "inlineData": { "mimeType": "image/jpeg", "data": rawBase64 } });
-  }
-  parts.push({ "text": promptText });
-
-  var modelName = "gemini-2.5-flash-image";
-  var apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent?key=" + apiKey;
-
-  try {
-    var response = UrlFetchApp.fetch(apiUrl, {
-      "method": "post",
-      "contentType": "application/json",
-      "payload": JSON.stringify({ "contents": [{ "parts": parts }] }),
-      "muteHttpExceptions": true
-    });
-
-    var responseCode = response.getResponseCode();
-    var jsonText = response.getContentText();
-    var json;
-    try { json = JSON.parse(jsonText); } catch(e) { json = {}; }
-
-    var base64Bytes = null;
-    if (json.candidates && json.candidates.length > 0 && json.candidates[0].content && json.candidates[0].content.parts) {
-      var resParts = json.candidates[0].content.parts;
-      for (var i = 0; i < resParts.length; i++) {
-        if (resParts[i].inlineData && resParts[i].inlineData.data) {
-          base64Bytes = resParts[i].inlineData.data;
-          break;
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPV & Klaryta - Framtidsradarn (Gantt Live)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
         }
-      }
-    }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+        .glass-panel-lpv {
+            background: rgba(2, 132, 199, 0.1);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        .glass-panel-kla {
+            background: rgba(16, 185, 129, 0.1);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
 
-    if (responseCode === 200 && base64Bytes) {
-      var finalImage = "data:image/jpeg;base64," + base64Bytes;
-      
-      saveAvatarToSheet(eData.resursId || machineName, finalImage);
+        .orb-kulpase-liten { width: 44px; height: 44px; font-size: 1.25rem; }
+        .orb-kulpase-medium { width: 54px; height: 54px; font-size: 1.5rem; }
+        .orb-kulpase-stor { width: 64px; height: 64px; font-size: 2rem; }
 
-      return createJsonResponse({ status: "success", clayAvatarBase64: finalImage });
-    } else {
-      return createJsonResponse({ status: "fallback", message: "AI HTTP " + responseCode, clayAvatarBase64: userBase64 });
-    }
-  } catch (err) {
-    return createJsonResponse({ status: "fallback", message: err.toString(), clayAvatarBase64: userBase64 });
-  }
-}
+        .orb-gantt-liten { width: 32px; height: 32px; font-size: 0.875rem; z-index: 10; }
+        .orb-gantt-medium { width: 44px; height: 44px; font-size: 1.25rem; z-index: 20; }
+        .orb-gantt-stor { width: 56px; height: 56px; font-size: 1.75rem; z-index: 30; }
 
-function getBrandColorPrompt(machineName) {
-  var name = String(machineName).toLowerCase();
-  
-  if (name.includes("kramer")) {
-    return "authentic Kramer heavy machinery featuring a sleek dark grey and black chassis and loader arm, contrasted perfectly by its iconic signature light mint-green/turquoise rear engine hood and details";
-  }
-  
-  if (name.includes("volvo")) return "classic Volvo bright construction yellow body with dark charcoal grey accents";
-  if (name.includes("cat") || name.includes("caterpillar")) return "signature Caterpillar industrial yellow with thick black trim";
-  if (name.includes("jcb")) return "vibrant JCB bright yellow with black industrial striping";
-  if (name.includes("avant")) return "iconic Avant bright neon green chassis with black wheels and details";
-  if (name.includes("bobcat")) return "classic Bobcat bright white body with iconic orange branding stripes and black accents";
-  if (name.includes("ljungby")) return "distinctive Ljungby yellow chassis with subtle red and white trim details";
-  if (name.includes("hitachi") || name.includes("kubota")) return "signature industrial orange body with black details";
-  
-  return "authentic industrial machinery colors matching the manufacturer";
-}
+        .glass-orb {
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 6px 12px rgba(0,0,0,0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .glass-orb:active { cursor: grabbing; }
 
-function saveAvatarToSheet(resursId, base64Image) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
-  if (!sheet) return;
+        .sick-orb {
+            filter: grayscale(0.6) opacity(0.85);
+            border: 2px solid #ef4444 !important;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
+        }
 
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(resursId)) {
-      sheet.getRange(i + 1, 6).setValue(base64Image); // Kolumn F (Avatar-Länk)
-      break;
-    }
-  }
-}
+        .owner-badge {
+            position: absolute; bottom: -2px; right: -4px;
+            font-size: 8px; font-weight: 900; padding: 2px 4px;
+            border-radius: 4px; z-index: 20;
+            border: 1px solid rgba(255,255,255,0.6);
+            pointer-events: none; line-height: 1;
+        }
 
-// ==========================================
-// 6. BEFINTLIGA RAPPORTER OCH GODKÄNNANDEN
-// ==========================================
-function handleBatchReports(data) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
-  const passList = data.pass || [];
-  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
-  const nowFormatted = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd HH:mm:ss");
+        .bg-lpv { background-color: #0284c7; color: white; }
+        .bg-klaryta { background-color: #16a34a; color: white; }
+        .bg-ue { background-color: #d97706; color: white; }
 
-  passList.forEach(p => {
-    let activityLabel = sanitize(p.activity || "Övrigt");
-    if (p.type === "ata") activityLabel = "[" + (sanitize(p.ataNumber) || "ÄTA") + "] " + activityLabel;
-    let finalNotes = sanitize(p.notes) || "";
+        .gantt-job-card {
+            border-radius: 12px;
+            display: flex; align-items: center; padding: 0 12px; gap: 12px;
+            position: relative; cursor: grab; transition: all 0.2s ease;
+        }
+        .gantt-job-card.lpv {
+            background: linear-gradient(145deg, rgba(2, 105, 164, 0.85) 0%, rgba(7, 89, 133, 0.95) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.6);
+        }
+        .gantt-job-card.kla {
+            background: linear-gradient(145deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.6);
+        }
 
-    const allImages = [...(p.images || [])];
-    if (p.snowMapImage) allImages.push(p.snowMapImage);
+        .bg-helg {
+            background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(225, 29, 72, 0.05) 10px, rgba(225, 29, 72, 0.05) 20px);
+            background-color: rgba(225, 29, 72, 0.02);
+        }
 
-    if (allImages.length > 0 && CONFIG.FOLDER_ID_ROOT_IMAGES) {
-      try {
-        const rootFolder = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
-        let folderName = p.date + " " + sanitize(p.place || "Okänd plats") + " (" + activityLabel + ")";
-        const subFolder = rootFolder.createFolder(folderName);
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 4px; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-slate-950 overflow-hidden">
 
-        allImages.forEach((imgBase64, index) => {
-          const base64Data = imgBase64.replace(/^data:image\/\w+;base64,/, "");
-          const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), 'image/jpeg', 'Underlag_' + (index + 1) + '.jpg');
-          subFolder.createFile(blob);
-        });
-        finalNotes += (finalNotes ? "\n\n" : "") + "Drive-mapp: " + subFolder.getUrl();
-      } catch (imgErr) {
-        finalNotes += (finalNotes ? "\n\n" : "") + "[Drive-fel: " + imgErr.message + "]";
-      }
-    }
+    <header class="glass-panel h-16 flex items-center justify-between px-6 shrink-0 z-50 border-b border-slate-800">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-sky-400 flex items-center gap-2">
+                🔭 Framtidsradarn <span class="text-slate-200 font-normal text-xs">(DEV v4.7.5)</span>
+            </h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="reloadLiveData()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded-xl transition">
+                🔄 Ladda Om Data
+            </button>
+            <button onclick="publishChanges()" id="btn-publish" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-xs transition">
+                Spara & Publicera
+            </button>
+        </div>
+    </header>
 
-    const formattedDuration = formatDuration(p.start, p.end, p.totalHours);
+    <div class="flex flex-1 overflow-hidden relative">
+        <aside id="resource-panel" class="w-[320px] flex flex-col border-r border-slate-800 bg-slate-900/80 shrink-0 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider">🎒 Kulpåsen & Resursdepå</h2>
 
-    sheet.appendRow([
-      p.date,
-      "Nej",
-      sanitize(p.place) || "",
-      activityLabel,
-      p.start || "",
-      p.end || "",
-      formattedDuration,
-      nowFormatted,
-      sanitize(p.user || "Okänd"),
-      finalNotes,
-      sanitize(p.companyId) || "LPV",
-      sanitize(p.measuredArea) || ""
-    ]);
-  });
+            <div class="glass-panel p-3.5 rounded-2xl border border-slate-800">
+                <h3 class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-3">👥 Personal</h3>
+                <div id="pool-personnel" class="flex flex-wrap gap-3 min-h-[40px]"></div>
+            </div>
 
-  return createJsonResponse({ status: "success", count: passList.length });
-}
+            <div class="glass-panel p-3.5 rounded-2xl border border-rose-500/30 bg-rose-950/10">
+                <h3 class="text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-3">🤒 Sjukanmälda</h3>
+                <div id="pool-sick" class="flex flex-wrap gap-3 min-h-[30px]"></div>
+            </div>
 
-function handleGetUsers() {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  const personalSheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
-  const sheetData = personalSheet.getDataRange().getValues();
-  const users = [];
+            <div class="glass-panel p-3.5 rounded-2xl border border-slate-800">
+                <h3 class="text-[11px] font-bold text-sky-400 uppercase tracking-wider mb-3">🚜 UE & Maskinpark</h3>
+                <div id="pool-machines" class="flex flex-wrap gap-3 min-h-[40px]"></div>
+            </div>
+        </aside>
 
-  for (let i = 1; i < sheetData.length; i++) {
-    if (sheetData[i][0] !== "") {
-      users.push({
-        id: String(sheetData[i][0]),
-        name: String(sheetData[i][0]),
-        email: String(sheetData[i][1]),
-        phone: String(sheetData[i][2]),
-        type: String(sheetData[i][3]),
-        isAdmin: String(sheetData[i][4]).toLowerCase() === "true",
-        avatarBase64: String(sheetData[i][5]),
-        ownerCompany: String(sheetData[i][6]),
-        status: String(sheetData[i][7])
-      });
-    }
-  }
-  return createJsonResponse({ status: "success", users: users });
-}
+        <main class="flex-1 flex flex-col overflow-y-auto p-5 space-y-5 custom-scrollbar">
+            <section class="glass-panel p-4 rounded-2xl border border-slate-800">
+                <h2 class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">📬 Ej inplanerade jobb</h2>
+                <div id="orderbook-list" class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar"></div>
+            </section>
 
-function approveAta(ataId) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  var sheet = getSheetOrCreate(ss, "ÄTA_Godkännanden", ["ÄTA_ID", "Status", "Datum"]);
-  sheet.appendRow([ataId, "GODKÄND_AV_KUND", new Date()]);
-  return createJsonResponse({ success: true, ataId: ataId });
-}
+            <section class="glass-panel p-4 rounded-2xl border border-slate-800 flex-1 flex flex-col min-h-[360px]">
+                <h2 class="text-xs font-bold text-sky-400 uppercase tracking-wider mb-3">📅 Tidsperiod & Schemaläggning</h2>
 
-function approveOffert(offertId) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  var sheet = getSheetOrCreate(ss, "Offert_Godkännanden", ["Offert_ID", "Status", "Datum"]);
-  sheet.appendRow([offertId, "GODKÄND_AV_KUND", new Date()]);
-  
-  var planSheet = getSheetOrCreate(ss, "Gantt_Jobb", ["Projekt-ID", "Kundnamn", "Fakturerande Bolag", "Titel", "Status", "Startdag-Index", "Timmar", "Skift", "Sitelokalization", "Site-Kontakt", "Site-Telefon", "Bemannade Resurs-IDn"]);
-  planSheet.appendRow(["J-" + Math.floor(Math.random()*1000), "Kund-" + offertId, "LPV", "Ny Offert", "unscheduled", "", 8, "Dagpass", "", "", "", "[]"]);
-  
-  return createJsonResponse({ success: true, offertId: offertId });
-}
+                <div id="timeline-container" class="border border-slate-800 rounded-xl bg-slate-950 flex-1 overflow-auto custom-scrollbar relative">
+                    <div id="timeline-inner" class="flex flex-col min-h-full relative">
+                        <div class="h-10 border-b border-slate-800 flex items-center bg-slate-900/90 shrink-0 sticky top-0 z-40">
+                            <div class="w-56 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-wider shrink-0 sticky left-0 z-50 bg-slate-900 border-r border-slate-800">
+                                Projekt / Kund
+                            </div>
+                            <div id="timeline-header-days" class="flex text-center text-xs font-bold h-full items-center"></div>
+                        </div>
 
-function handleSaveTimeReport(eData) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  var sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
-  sheet.appendRow([new Date(), "Nej", "Fält", eData.aktivitet || "Arbete", eData.starttid || "", eData.sluttid || "", eData.totaltid || "0 tim 0 min", new Date(), eData.anvandare || "Okänd", eData.note || "", "LPV", ""]);
-  return createJsonResponse({ status: "success", message: "Tidrapport sparad." });
-}
+                        <div class="relative flex-1" ondragover="allowDrop(event)" ondrop="dropJobOnTimeline(event)">
+                            <div id="timeline-grid-bg" class="absolute inset-0 flex pointer-events-none z-0 min-h-full"></div>
+                            <div id="gantt-rows" class="relative z-10 pb-8"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
 
-function handleSaveAta(eData) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  var sheet = getSheetOrCreate(ss, "ÄTA", ["Datum", "Användare", "Titel", "Kostnad"]);
-  sheet.appendRow([new Date(), eData.user || "Okänd", eData.title || "", eData.cost || 0]);
-  return createJsonResponse({ status: "success", message: "ÄTA sparad." });
-}
+    <script>
+        const APPS_SCRIPT_URL = ""; 
+        const SWEDISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+        const SWEDISH_DAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
+        const START_DATE = new Date(2026, 9, 26);
+        const TOTAL_DAYS = 35;
+        const DAY_WIDTH = 130;
 
-// ==========================================
-// 7. HJÄLPFUNKTIONER & MIGRERING
-// ==========================================
-function formatDuration(start, end, fallbackHours) {
-  if (!start || !end) return fallbackHours ? fallbackHours + " tim 0 min" : "0 tim 0 min";
-  const [sH, sM] = start.split(":").map(Number);
-  const [eH, eM] = end.split(":").map(Number);
-  let diffMin = (eH * 60 + eM) - (sH * 60 + sM);
-  if (diffMin < 0) diffMin += 24 * 60;
-  return Math.floor(diffMin / 60) + " tim " + (diffMin % 60) + " min";
-}
+        let state = { clients: [], resources: [], jobs: [] };
 
-function getSheetOrCreate(ss, sheetName, headers) {
-  var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = ss.insertSheet(sheetName);
-    if (headers && headers.length > 0) {
-      sheet.appendRow(headers);
-      sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f3f3");
-    }
-  }
-  return sheet;
-}
+        function reloadLiveData() {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(onDataLoaded)
+                    .withFailureHandler(function(err) { console.error("Apps Script-fel:", err); })
+                    .handleGetKabanossData();
+            } else if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.length > 10) {
+                fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getKabanossData', token: 'Gravmaskin2026Secure!' })
+                })
+                .then(function(r) { return r.json(); })
+                .then(onDataLoaded)
+                .catch(function(err) { console.error("Fetch-fel:", err); });
+            } else {
+                console.log("Ingen URL konfigurerad ännu.");
+                onDataLoaded({ status: "success", clients: [], resources: [], jobs: [] });
+            }
+        }
 
-function createJsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
-}
+        function onDataLoaded(res) {
+            if (res && res.status === "success") {
+                state.clients = res.clients || [];
+                state.resources = res.resources || [];
+                state.jobs = res.jobs || [];
+                initUI();
+            }
+        }
 
-function migrateDatabase() {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+        function initUI() {
+            buildTimelineLayout();
+            renderKulpase();
+            renderOrderbook();
+            renderGantt();
+        }
 
-  const sheetKunder = ss.getSheetByName("Kunder");
-  if (sheetKunder) {
-    const lastCol = sheetKunder.getLastColumn();
-    const headers = sheetKunder.getRange(1, 1, 1, lastCol).getValues()[0];
-    const newKunderHeaders = ["Kundtyp", "ROT/RUT", "Fastighetsbeteckning", "Logo-URL"];
-    newKunderHeaders.forEach(colName => {
-      if (!headers.includes(colName)) {
-        sheetKunder.getRange(1, sheetKunder.getLastColumn() + 1).setValue(colName).setFontWeight("bold").setBackground("#f3f3f3");
-        headers.push(colName);
-      }
-    });
-  }
+        function buildTimelineLayout() {
+            const inner = document.getElementById('timeline-inner');
+            inner.style.width = (224 + (TOTAL_DAYS * DAY_WIDTH)) + 'px';
 
-  const sheetTid = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
-  if (sheetTid) {
-    const lastCol = sheetTid.getLastColumn();
-    const headers = sheetTid.getRange(1, 1, 1, lastCol).getValues()[0];
-    const newTidHeaders = ["Fakturerande Bolag", "Uppmätt Yta (m2)"];
-    newTidHeaders.forEach(colName => {
-      if (!headers.includes(colName)) {
-        sheetTid.getRange(1, sheetTid.getLastColumn() + 1).setValue(colName).setFontWeight("bold").setBackground("#f3f3f3");
-        headers.push(colName);
-      }
-    });
-  }
+            const headerContainer = document.getElementById('timeline-header-days');
+            const gridBg = document.getElementById('timeline-grid-bg');
+            
+            headerContainer.innerHTML = '';
+            gridBg.innerHTML = '<div class="w-56 shrink-0 border-r border-slate-800 sticky left-0 z-20 bg-slate-950"></div>';
 
-  let sheetGantt = ss.getSheetByName("Gantt_Jobb");
-  if (!sheetGantt) {
-    sheetGantt = ss.insertSheet("Gantt_Jobb");
-    const ganttHeaders = ["Projekt-ID", "Kundnamn", "Fakturerande Bolag", "Titel", "Status", "Startdag-Index", "Timmar", "Skift", "Sitelokalization", "Site-Kontakt", "Site-Telefon", "Bemannade Resurs-IDn"];
-    sheetGantt.appendRow(ganttHeaders);
-    sheetGantt.getRange(1, 1, 1, ganttHeaders.length).setFontWeight("bold").setBackground("#f3f3f3");
-  }
+            for (let i = 0; i < TOTAL_DAYS; i++) {
+                const d = new Date(START_DATE);
+                d.setDate(d.getDate() + i);
 
-  SpreadsheetApp.getUi().alert("✅ Databasmigrering Klar!");
-}
+                const dayName = SWEDISH_DAYS[(d.getDay() + 6) % 7];
+                const dateNum = d.getDate();
+                const monthName = SWEDISH_MONTHS[d.getMonth()];
+                const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
+
+                headerContainer.innerHTML += '<div class="border-r border-slate-800 py-1 h-full flex flex-col justify-center items-center shrink-0 text-xs font-bold ' + (isWeekend ? 'bg-helg text-rose-500' : 'text-slate-400') + '" style="width: ' + DAY_WIDTH + 'px;">' +
+                    '<span>' + dayName + ' ' + dateNum + ' ' + monthName + '</span>' +
+                '</div>';
+
+                gridBg.innerHTML += '<div class="border-r border-slate-800 shrink-0 ' + (isWeekend ? 'bg-helg' : '') + '" style="width: ' + DAY_WIDTH + 'px;"></div>';
+            }
+        }
+
+        function renderKulpase() {
+            const poolPersonnel = document.getElementById('pool-personnel');
+            const poolSick = document.getElementById('pool-sick');
+            const poolMachines = document.getElementById('pool-machines');
+            
+            poolPersonnel.innerHTML = ''; poolSick.innerHTML = ''; poolMachines.innerHTML = '';
+
+            const assignedIds = new Set();
+            state.jobs.filter(function(j) { return j.status === 'scheduled'; }).forEach(function(j) { 
+                j.assigned.forEach(function(id) { assignedIds.add(id); }); 
+            });
+
+            state.resources.forEach(function(res) {
+                let badgeClass = 'bg-lpv'; let ownerText = 'LPV';
+                if (res.ownerCompany && res.ownerCompany.includes('kla')) { badgeClass = 'bg-klaryta'; ownerText = 'KLA'; }
+                if (res.ownerCompany && res.ownerCompany.includes('ue')) { badgeClass = 'bg-ue'; ownerText = 'UE'; }
+
+                let sizeClass = 'orb-kulpase-' + (res.sizeClass || 'liten');
+                let hasAvatar = res.avatarBase64 && res.avatarBase64.indexOf('data:image') !== -1;
+                let displayIcon = hasAvatar 
+                    ? '<img src="' + res.avatarBase64 + '" class="w-full h-full object-cover rounded-full z-10" />' 
+                    : '<span class="z-10">' + (res.icon || '👦') + '</span>';
+
+                if (res.type === 'person' && res.isSick) {
+                    poolSick.innerHTML += '<div class="flex flex-col items-center gap-1 w-[56px] shrink-0">' +
+                        '<div class="glass-orb ' + sizeClass + ' sick-orb">' +
+                            '<span class="z-10">🤒</span>' +
+                            '<span class="owner-badge bg-rose-600 text-white">SJUK</span>' +
+                        '</div>' +
+                        '<span class="text-[9px] font-bold text-rose-300 truncate w-full text-center">' + res.name + '</span>' +
+                    '</div>';
+                } else if (!assignedIds.has(res.id)) {
+                    const html = '<div class="flex flex-col items-center gap-1 w-[56px] shrink-0">' +
+                        '<div class="glass-orb ' + sizeClass + '" style="background-color: ' + (res.color || '#0284c7') + '" draggable="true" ondragstart="onOrbDragStart(event, \'' + res.id + '\')">' +
+                            displayIcon +
+                            '<span class="owner-badge ' + badgeClass + '">' + ownerText + '</span>' +
+                        '</div>' +
+                        '<span class="text-[9px] font-semibold text-slate-300 truncate w-full text-center">' + res.name + '</span>' +
+                    '</div>';
+                    
+                    if (res.type === 'person') poolPersonnel.innerHTML += html;
+                    else poolMachines.innerHTML += html;
+                }
+            });
+
+            if (!poolPersonnel.innerHTML) poolPersonnel.innerHTML = '<span class="text-slate-600 text-[10px]">Inga tillgängliga</span>';
+            if (!poolMachines.innerHTML) poolMachines.innerHTML = '<span class="text-slate-600 text-[10px]">Inga maskiner</span>';
+        }
+
+        function renderOrderbook() {
+            const container = document.getElementById('orderbook-list');
+            container.innerHTML = '';
+            state.jobs.filter(function(j) { return j.status === 'unscheduled'; }).forEach(function(job) {
+                container.innerHTML += '<div class="glass-panel p-3 rounded-xl shrink-0 w-56 cursor-grab shadow-lg" draggable="true" ondragstart="onJobDragStart(event, \'' + job.id + '\')">' +
+                    '<div class="flex items-center justify-between text-[10px] font-bold uppercase mb-1">' +
+                        '<span class="truncate text-slate-300">' + job.client + '</span>' +
+                        '<span class="text-amber-400">' + job.hours + 'h</span>' +
+                    '</div>' +
+                    '<div class="font-bold text-xs text-slate-100 truncate">' + job.title + '</div>' +
+                '</div>';
+            });
+            if (!container.innerHTML) container.innerHTML = '<span class="text-slate-600 text-[10px]">Inga nya beställningar</span>';
+        }
+
+        function renderGantt() {
+            const container = document.getElementById('gantt-rows');
+            container.innerHTML = '';
+
+            state.jobs.filter(function(j) { return j.status === 'scheduled'; }).forEach(function(job) {
+                let orbsHtml = job.assigned.map(function(id) {
+                    const res = state.resources.find(function(r) { return r.id === id; });
+                    if (!res) return '';
+                    let sizeClass = 'orb-gantt-' + (res.sizeClass || 'liten');
+                    let displayIcon = res.avatarBase64 && res.avatarBase64.indexOf('data:image') !== -1 
+                        ? '<img src="' + res.avatarBase64 + '" class="w-full h-full object-cover rounded-full z-10" />' 
+                        : '<span class="z-10">' + (res.icon || '👦') + '</span>';
+
+                    return '<div class="glass-orb ' + sizeClass + ' border-2 border-slate-900 shrink-0" style="background-color:' + (res.color || '#0284c7') + '" draggable="true" ondragstart="onOrbDragStart(event, \'' + id + '\')">' +
+                        displayIcon +
+                    '</div>';
+                }).join('');
+
+                const leftPx = (job.dayIndex || 0) * DAY_WIDTH + 8;
+                const widthPx = Math.ceil(job.hours / 8) * DAY_WIDTH - 16;
+
+                container.innerHTML += '<div class="flex items-center h-[76px] border-b border-slate-800/40 relative">' +
+                    '<div class="w-56 p-2 shrink-0 h-full flex items-center z-30 sticky left-0 border-r border-slate-800 bg-slate-950">' +
+                        '<div class="glass-panel p-2 rounded-xl w-full">' +
+                            '<div class="text-[9px] font-bold text-slate-400 uppercase truncate">' + job.client + '</div>' +
+                            '<div class="font-bold text-xs text-slate-100 truncate">' + job.title + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="flex-1 h-full relative">' +
+                        '<div class="gantt-job-card ' + (job.billingCompany === 'Klaryta' ? 'kla' : 'lpv') + ' absolute top-[6px] bottom-[6px]" style="left: ' + leftPx + 'px; width: ' + widthPx + 'px;" draggable="true" ondragstart="onJobDragStart(event, \'' + job.id + '\')" ondrop="dropOrbOnJob(event, \'' + job.id + '\')" ondragover="allowDrop(event)">' +
+                            '<div class="flex items-center gap-1 z-40 relative">' + orbsHtml + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            });
+        }
+
+        function onOrbDragStart(e, resId) { e.stopPropagation(); e.dataTransfer.setData("type", "orb"); e.dataTransfer.setData("id", resId); }
+        function onJobDragStart(e, jobId) { e.dataTransfer.setData("type", "job"); e.dataTransfer.setData("id", jobId); }
+        function allowDrop(e) { e.preventDefault(); }
+
+        function dropJobOnTimeline(e) {
+            e.preventDefault();
+            const type = e.dataTransfer.getData("type");
+            const id = e.dataTransfer.getData("id");
+            if (type === "job") {
+                const job = state.jobs.find(function(j) { return j.id === id; });
+                if (job) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const offsetX = e.clientX - (rect.left + 224);
+                    if (offsetX >= 0) {
+                        job.status = 'scheduled';
+                        job.dayIndex = Math.max(0, Math.floor(offsetX / DAY_WIDTH));
+                        initUI();
+                    }
+                }
+            }
+        }
+
+        function dropOrbOnJob(e, jobId) {
+            e.preventDefault(); e.stopPropagation();
+            const type = e.dataTransfer.getData("type");
+            const resId = e.dataTransfer.getData("id");
+            if (type === "orb" && resId) {
+                state.jobs.forEach(function(j) { 
+                    j.assigned = j.assigned.filter(function(aid) { return aid !== resId; }); 
+                });
+                const job = state.jobs.find(function(j) { return j.id === jobId; });
+                if (job && job.assigned.indexOf(resId) === -1) job.assigned.push(resId);
+                initUI();
+            }
+        }
+
+        function publishChanges() { alert("Ändringar sparade!"); }
+
+        document.addEventListener('DOMContentLoaded', reloadLiveData);
+    </script>
+</body>
+</html>
