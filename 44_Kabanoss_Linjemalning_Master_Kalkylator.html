@@ -3,34 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Master Linjemålning & Offertkalkylator #44</title>
+  <title>Master Linjemålning & Ortofoto #44</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Leaflet.js Kartbibliotek (Öppen källkod & blixtsnabbt) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
     body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
     .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
     
-    /* U-formade vita parkeringslinjer (öppen mot körbana) */
-    .stall-u-single {
-      border-top: 3px solid #ffffff;
-      border-left: 3px solid #ffffff;
-      border-right: 3px solid #ffffff;
-      border-bottom: 0px transparent;
-    }
-    .stall-u-top-row {
-      border-top: 3px solid #ffffff;
-      border-left: 3px solid #ffffff;
-      border-right: 3px solid #ffffff;
-      border-bottom: 2px solid #ffffff; /* Gemensam rygglinje */
-    }
-    .stall-u-bottom-row {
-      border-bottom: 3px solid #ffffff;
-      border-left: 3px solid #ffffff;
-      border-right: 3px solid #ffffff;
-      border-top: 0px transparent;
-    }
+    /* U-formade vita parkeringslinjer */
+    .stall-u-single { border-top: 3px solid #ffffff; border-left: 3px solid #ffffff; border-right: 3px solid #ffffff; border-bottom: 0px transparent; }
+    .stall-u-top-row { border-top: 3px solid #ffffff; border-left: 3px solid #ffffff; border-right: 3px solid #ffffff; border-bottom: 2px solid #ffffff; }
+    .stall-u-bottom-row { border-bottom: 3px solid #ffffff; border-left: 3px solid #ffffff; border-right: 3px solid #ffffff; border-top: 0px transparent; }
     .stall-box { transition: all 0.15s ease; cursor: pointer; }
     .stall-box:hover { transform: scale(1.02); }
+
+    /* Anpassning av Leaflet-kartans kontroller för mörkt tema */
+    .leaflet-control-zoom a { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
   </style>
 </head>
 <body class="min-h-screen p-3 md:p-6 space-y-4 max-w-6xl mx-auto">
@@ -42,13 +35,13 @@
         ← Prototypnav
       </a>
       <div>
-        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Master Linjemålning</span>
-        <h1 class="text-lg font-black text-white">🎨 Parkeringskonfigurator VGU</h1>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Ortofoto & VGU Standard</span>
+        <h1 class="text-lg font-black text-white">🗺️ Linjemålning med Ortofoto & Kartor</h1>
       </div>
     </div>
     <div class="flex gap-2">
-      <button onclick="toggleBgMode()" id="bg-mode-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition">
-        🗺️ Läge: Satellitkarta
+      <button onclick="toggleLayer()" id="layer-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition">
+        🛰️ Kartlager: Högupplöst Satellit
       </button>
       <button onclick="alert('Genererar Offert-PDF...')" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition">
         📄 Skapa Offert-PDF
@@ -61,6 +54,20 @@
 
     <!-- Vänsterpanel: Kontroller & Layoutväljare -->
     <div class="glass-card p-4 rounded-2xl space-y-4 lg:col-span-1">
+      
+      <!-- Adress-sökare -->
+      <div>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-1.5">📍 Sök Plats eller Adress</h2>
+        <div class="flex gap-2">
+          <input type="text" id="address-input" value="Flen" placeholder="Sök adress (t.ex. Sveavägen Flen)..." class="flex-1 p-2 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 focus:outline-none focus:border-sky-400">
+          <button onclick="searchAddress()" class="px-3 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs rounded-xl transition">
+            🔍 Sök
+          </button>
+        </div>
+      </div>
+
+      <hr class="border-slate-800">
+
       <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">⚙️ Layout & Dimensioner</h2>
 
       <div>
@@ -114,21 +121,21 @@
 
     </div>
 
-    <!-- Högerpanel: Interaktiv visualisering & Karta -->
+    <!-- Högerpanel: Interaktiv Leaflet-karta med Ortofoto -->
     <div class="glass-card p-4 rounded-2xl space-y-3 lg:col-span-2 flex flex-col justify-between">
       <div>
         <div class="flex justify-between items-center mb-2">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🗺️ Skalenlig Layoutritning (Vita Heldragna Linjer)</h2>
-          <span class="text-[10px] text-slate-400">Öppen baksida mot körbana</span>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🛰️ Interaktiv Kartvy (Leaflet & Flygfoto)</h2>
+          <span class="text-[10px] text-slate-400 font-mono" id="coords-display">Lat: 59.0577, Lng: 16.5880</span>
         </div>
 
-        <!-- Ritningsyta med sömlös horisontell scroll om rader blir långa -->
-        <div id="canvas-container" class="relative h-80 sm:h-96 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center p-2">
-          <div id="bg-layer" class="absolute inset-0 bg-cover bg-center opacity-40 transition-opacity" style="background-image: url('https://images.unsplash.com/photo-1524813686514-a57563d77965?auto=format&fit=crop&w=1200&q=80');"></div>
+        <!-- Kartbehållare för Leaflet -->
+        <div class="relative h-80 sm:h-96 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
+          <div id="map" class="w-full h-full z-0"></div>
 
-          <!-- Ritningsduk -->
-          <div id="layout-canvas" class="relative z-10 w-full h-full flex flex-col items-center justify-center overflow-x-auto p-4">
-            <!-- Renderas dynamiskt av JS -->
+          <!-- Ritningsöverlagring ovanpå Leaflet -->
+          <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 max-w-[95%] overflow-x-auto bg-slate-950/85 backdrop-blur-md p-3 rounded-2xl border border-white/10 shadow-2xl">
+            <div id="layout-canvas" class="flex flex-col items-center justify-center"></div>
           </div>
         </div>
       </div>
@@ -159,21 +166,65 @@
 
   <script>
     let activeStallIndex = 0;
-    let bgMode = 'satellit';
     let stallsData = [];
+    let map, satLayer, osmLayer;
+    let currentLayerMode = 'sat'; // 'sat' eller 'osm'
 
-    function toggleBgMode() {
-      const bgLayer = document.getElementById('bg-layer');
-      const btn = document.getElementById('bg-mode-btn');
-      if (bgMode === 'satellit') {
-        bgMode = 'ren';
-        bgLayer.style.opacity = '0';
-        btn.innerText = '🧱 Läge: Ren Canvas';
+    // Initiera Leaflet-kartan
+    function initMap() {
+      // Startkoordinater: Flen Centrum (59.0577, 16.5880)
+      map = L.map('map', { zoomControl: true }).setView([59.0577, 16.5880], 18);
+
+      // Högupplöst Satellit / Ortofoto (Esri World Imagery)
+      satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Esri World Imagery / Ortofoto'
+      }).addTo(map);
+
+      // Standard Vägkarta (OpenStreetMap)
+      osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: 'OpenStreetMap'
+      });
+
+      // Uppdatera koordinatvisaren vid kartpanorering
+      map.on('move', () => {
+        const center = map.getCenter();
+        document.getElementById('coords-display').innerText = `Lat: ${center.lat.toFixed(4)}, Lng: ${center.lng.toFixed(4)}`;
+      });
+    }
+
+    function toggleLayer() {
+      const btn = document.getElementById('layer-btn');
+      if (currentLayerMode === 'sat') {
+        map.removeLayer(satLayer);
+        map.addLayer(osmLayer);
+        currentLayerMode = 'osm';
+        btn.innerText = '🗺️ Kartlager: Vägkarta (OSM)';
       } else {
-        bgMode = 'satellit';
-        bgLayer.style.opacity = '0.4';
-        btn.innerText = '🗺️ Läge: Satellitkarta';
+        map.removeLayer(osmLayer);
+        map.addLayer(satLayer);
+        currentLayerMode = 'sat';
+        btn.innerText = '🛰️ Kartlager: Högupplöst Satellit';
       }
+    }
+
+    function searchAddress() {
+      const query = document.getElementById('address-input').value;
+      if (!query) return;
+
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sweden')}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            map.setView([lat, lon], 18);
+          } else {
+            alert("Hittade inte adressen. Prova att lägga till ortnamn.");
+          }
+        })
+        .catch(() => alert("Kunde inte söka adress just nu."));
     }
 
     function createStallElement(idx, stall, isDoubleTop = false, isDoubleBottom = false) {
@@ -190,15 +241,13 @@
       if (stall.type === 'hkp') {
         width = 3.8;
         bgStyle = 'bg-sky-950/90 text-sky-200';
-        icon = '<span class="text-2xl mt-1">♿</span>';
-        badgeText = `P${idx + 1}`;
+        icon = '<span class="text-xl">♿</span>';
       } else if (stall.type === 'ev') {
         bgStyle = 'bg-emerald-950/90 text-emerald-200';
-        icon = '<span class="text-2xl mt-1">⚡</span>';
-        badgeText = `P${idx + 1}`;
+        icon = '<span class="text-xl">⚡</span>';
       } else if (stall.type === 'no') {
         bgStyle = 'bg-rose-950/80 text-rose-300';
-        icon = '<span class="text-xl mt-1">🚷</span>';
+        icon = '<span class="text-lg">🚷</span>';
         badgeText = `X`;
       }
 
@@ -211,18 +260,18 @@
       }
 
       const isParallel = layoutType === 'parallel';
-      const pxWidth = isParallel ? 100 : Math.round(width * 18);
-      const pxHeight = isParallel ? 40 : Math.round(stdDepth * 14);
+      const pxWidth = isParallel ? 90 : Math.round(width * 16);
+      const pxHeight = isParallel ? 35 : Math.round(stdDepth * 13);
 
       box.style.width = `${pxWidth}px`;
       box.style.height = `${pxHeight}px`;
-      box.style.flexShrink = '0'; // Förhindrar att rutorna trycks ihop om de blir många
+      box.style.flexShrink = '0';
 
-      box.className = `stall-box ${lineClass} ${bgStyle} flex flex-col items-center justify-between p-1.5 select-none font-bold shadow-md relative`;
+      box.className = `stall-box ${lineClass} ${bgStyle} flex flex-col items-center justify-between p-1 select-none font-bold shadow-md relative`;
       box.innerHTML = `
-        <span class="text-[10px] bg-slate-800/90 px-1.5 py-0.5 rounded text-white font-mono">${badgeText}</span>
+        <span class="text-[9px] bg-slate-800/90 px-1 py-0.2 rounded text-white font-mono">${badgeText}</span>
         ${icon}
-        <span class="text-[9px] text-slate-400 font-mono">${width}m</span>
+        <span class="text-[8px] text-slate-400 font-mono">${width}m</span>
       `;
 
       box.onclick = () => {
@@ -237,7 +286,6 @@
     function renderLayout() {
       const layoutType = document.getElementById('layout-type').value;
       const count = parseInt(document.getElementById('stall-count').value);
-      const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
 
       document.getElementById('count-val').innerText = `${count} st`;
 
@@ -254,12 +302,10 @@
       let totalMeters = 0;
       let symbolCount = 0;
 
-      const gapClass = layoutType === 'spaced' ? 'gap-3' : 'gap-0';
+      const gapClass = layoutType === 'spaced' ? 'gap-2' : 'gap-0';
 
       if (layoutType === '90-double') {
-        // DUBBELRAD: Delas upp i två rader mötande rygg-mot-rygg
         const topCount = Math.ceil(count / 2);
-        
         const mainContainer = document.createElement('div');
         mainContainer.className = 'flex flex-col items-center justify-center space-y-0';
 
@@ -271,7 +317,6 @@
 
         stallsData.forEach((stall, idx) => {
           if (stall.type === 'hkp' || stall.type === 'ev') symbolCount++;
-          
           if (idx < topCount) {
             const res = createStallElement(idx, stall, true, false);
             topRow.appendChild(res.element);
@@ -288,9 +333,8 @@
         canvas.appendChild(mainContainer);
 
       } else {
-        // ENKELRAD (90°, 45°, Parallell, Separerad)
         const singleRow = document.createElement('div');
-        singleRow.className = `flex items-center justify-center ${gapClass} flex-nowrap p-2`;
+        singleRow.className = `flex items-center justify-center ${gapClass} flex-nowrap p-1`;
 
         if (layoutType.includes('45')) {
           singleRow.style.transform = layoutType === '45-right' ? 'skewX(-20deg)' : 'skewX(20deg)';
@@ -309,8 +353,8 @@
       }
 
       // Beräkna Pris
-      const meterPrice = 48; // kr/m termoplast
-      const symbolPrice = symbolCount * 550; // kr/symbol
+      const meterPrice = 48;
+      const symbolPrice = symbolCount * 550;
       const etablering = 3500;
       const totalExMoms = Math.round((totalMeters * meterPrice) + symbolPrice + etablering);
 
@@ -326,7 +370,11 @@
       }
     }
 
-    renderLayout();
+    // Starta kartan och rita layout när sidan laddas
+    window.onload = () => {
+      initMap();
+      renderLayout();
+    };
   </script>
 </body>
 </html>
