@@ -6,7 +6,7 @@
   <title>Master Linjemålning & Ortofoto #44</title>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Leaflet.js Kartbibliotek (Öppen källkod & blixtsnabbt) -->
+  <!-- Leaflet.js Kartbibliotek -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -22,7 +22,6 @@
     .stall-box { transition: all 0.15s ease; cursor: pointer; }
     .stall-box:hover { transform: scale(1.02); }
 
-    /* Anpassning av Leaflet-kartans kontroller för mörkt tema */
     .leaflet-control-zoom a { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
   </style>
 </head>
@@ -49,10 +48,9 @@
     </div>
   </header>
 
-  <!-- Huvudvy Layout & Inställningar -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-    <!-- Vänsterpanel: Kontroller & Layoutväljare -->
+    <!-- Vänsterpanel -->
     <div class="glass-card p-4 rounded-2xl space-y-4 lg:col-span-1">
       
       <!-- Adress-sökare -->
@@ -105,7 +103,7 @@
 
       <hr class="border-slate-800">
 
-      <!-- Symbol- & Anpassningsinställningar för vald ruta -->
+      <!-- Symbol-anpassning -->
       <div>
         <h3 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-2">🎯 Klicka på ruta i ritningen för att anpassa</h3>
         <div id="selected-stall-info" class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-2">
@@ -121,7 +119,7 @@
 
     </div>
 
-    <!-- Högerpanel: Interaktiv Leaflet-karta med Ortofoto -->
+    <!-- Högerpanel: Kartvy -->
     <div class="glass-card p-4 rounded-2xl space-y-3 lg:col-span-2 flex flex-col justify-between">
       <div>
         <div class="flex justify-between items-center mb-2">
@@ -129,11 +127,10 @@
           <span class="text-[10px] text-slate-400 font-mono" id="coords-display">Lat: 59.0577, Lng: 16.5880</span>
         </div>
 
-        <!-- Kartbehållare för Leaflet -->
         <div class="relative h-80 sm:h-96 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
           <div id="map" class="w-full h-full z-0"></div>
 
-          <!-- Ritningsöverlagring ovanpå Leaflet -->
+          <!-- Ritningsöverlagring -->
           <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 max-w-[95%] overflow-x-auto bg-slate-950/85 backdrop-blur-md p-3 rounded-2xl border border-white/10 shadow-2xl">
             <div id="layout-canvas" class="flex flex-col items-center justify-center"></div>
           </div>
@@ -168,26 +165,21 @@
     let activeStallIndex = 0;
     let stallsData = [];
     let map, satLayer, osmLayer;
-    let currentLayerMode = 'sat'; // 'sat' eller 'osm'
+    let currentLayerMode = 'sat';
 
-    // Initiera Leaflet-kartan
     function initMap() {
-      // Startkoordinater: Flen Centrum (59.0577, 16.5880)
       map = L.map('map', { zoomControl: true }).setView([59.0577, 16.5880], 18);
 
-      // Högupplöst Satellit / Ortofoto (Esri World Imagery)
       satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
         attribution: 'Esri World Imagery / Ortofoto'
       }).addTo(map);
 
-      // Standard Vägkarta (OpenStreetMap)
       osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: 'OpenStreetMap'
       });
 
-      // Uppdatera koordinatvisaren vid kartpanorering
       map.on('move', () => {
         const center = map.getCenter();
         document.getElementById('coords-display').innerText = `Lat: ${center.lat.toFixed(4)}, Lng: ${center.lng.toFixed(4)}`;
@@ -352,7 +344,6 @@
         canvas.appendChild(singleRow);
       }
 
-      // Beräkna Pris
       const meterPrice = 48;
       const symbolPrice = symbolCount * 550;
       const etablering = 3500;
@@ -370,7 +361,6 @@
       }
     }
 
-    // Starta kartan och rita layout när sidan laddas
     window.onload = () => {
       initMap();
       renderLayout();
