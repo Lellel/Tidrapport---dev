@@ -3,17 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>32 Kabanoss Linjemalning 3D Perspektiv Tilt</title>
+  <title>3D Golvtilt #32</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-6 flex flex-col items-center justify-center space-y-6 text-center">
-  <div class="max-w-lg p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl space-y-4">
-    <span class="text-xs font-mono bg-sky-500/20 text-sky-400 px-3 py-1 rounded-full uppercase tracking-wider">Prototyp Modul</span>
-    <h1 class="text-2xl font-black text-white">32 Kabanoss Linjemalning 3D Perspektiv Tilt</h1>
-    <p class="text-sm text-slate-400">Denna prototypmodul är aktiv och redo för iPad-testning i Flen.</p>
-    <a href="prototyper.html" class="inline-block px-6 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl transition">
-      ← Tillbaka till Prototypnavet
-    </a>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 max-w-4xl mx-auto space-y-4">
+  <header class="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
+    <a href="prototyper.html" class="text-xs text-sky-400 font-bold">← Prototypnav</a>
+    <h1 class="text-base font-black">📐 3D Golvtilt & Perspektiv (#32)</h1>
+  </header>
+  <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4">
+    <div class="grid grid-cols-2 gap-4 bg-slate-950 p-3 rounded-xl border border-slate-800">
+      <div>
+        <label class="text-[10px] text-slate-400 font-bold uppercase">Tilt (X-Axel)</label>
+        <input type="range" id="rx" min="0" max="75" value="55" oninput="update3D()" class="w-full">
+      </div>
+      <div>
+        <label class="text-[10px] text-slate-400 font-bold uppercase">Rotation (Z-Axel)</label>
+        <input type="range" id="rz" min="-180" max="180" value="-15" oninput="update3D()" class="w-full">
+      </div>
+    </div>
+    <div class="h-96 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden" style="perspective: 800px;">
+      <div id="box3d" class="w-64 h-64 border-4 border-amber-400 bg-amber-500/10 rounded-xl grid grid-cols-2 p-2 gap-2 transition-transform duration-75" style="transform: rotateX(55deg) rotateZ(-15deg);">
+        <div class="border-2 border-white/70 rounded flex items-center justify-center font-bold text-amber-300">PARKERING A</div>
+        <div class="border-2 border-white/70 rounded flex items-center justify-center font-bold text-amber-300">PARKERING B</div>
+      </div>
+    </div>
   </div>
+  <script>
+    function update3D(){
+      const rx = document.getElementById('rx').value;
+      const rz = document.getElementById('rz').value;
+      document.getElementById('box3d').style.transform = `rotateX(${rx}deg) rotateZ(${rz}deg)`;
+    }
+  </script>
 </body>
 </html>

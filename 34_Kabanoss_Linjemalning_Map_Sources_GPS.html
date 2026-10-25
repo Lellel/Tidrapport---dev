@@ -3,17 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>34 Kabanoss Linjemalning Map Sources GPS</title>
+  <title>GPS & Maps Bildkällor #34</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-6 flex flex-col items-center justify-center space-y-6 text-center">
-  <div class="max-w-lg p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl space-y-4">
-    <span class="text-xs font-mono bg-sky-500/20 text-sky-400 px-3 py-1 rounded-full uppercase tracking-wider">Prototyp Modul</span>
-    <h1 class="text-2xl font-black text-white">34 Kabanoss Linjemalning Map Sources GPS</h1>
-    <p class="text-sm text-slate-400">Denna prototypmodul är aktiv och redo för iPad-testning i Flen.</p>
-    <a href="prototyper.html" class="inline-block px-6 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl transition">
-      ← Tillbaka till Prototypnavet
-    </a>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 max-w-4xl mx-auto space-y-4">
+  <header class="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
+    <a href="prototyper.html" class="text-xs text-sky-400 font-bold">← Prototypnav</a>
+    <h1 class="text-base font-black">🛰️ GPS & Maps Bildkällor (#34)</h1>
+  </header>
+  <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
+    <div class="flex gap-2">
+      <button onclick="getLocation()" class="px-4 py-3 bg-sky-500 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2">📍 Hämta Min GPS</button>
+      <input type="text" id="address" placeholder="Eller skriv adress (t.ex. Flen Station)..." class="flex-1 p-3 bg-slate-800 rounded-xl text-sm border border-slate-700 text-white">
+    </div>
+    <div id="gps-status" class="text-xs text-slate-400 font-mono">GPS-Status: Väntar på knapptryck...</div>
+    <div class="h-80 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-500 font-bold text-sm">
+      🗺️ Kartvy (Klar för ESRI / Lantmäteriet API)
+    </div>
   </div>
+  <script>
+    function getLocation(){
+      const status = document.getElementById('gps-status');
+      if (navigator.geolocation) {
+        status.innerText = "Söker satelliter...";
+        navigator.geolocation.getCurrentPosition((p) => {
+          status.innerText = `GPS Låst: Lat ${p.coords.latitude.toFixed(4)}, Lng ${p.coords.longitude.toFixed(4)}`;
+        }, () => { status.innerText = "Kunde inte hämta GPS-position."; });
+      } else { status.innerText = "GPS stöds inte i denna enhet."; }
+    }
+  </script>
 </body>
 </html>

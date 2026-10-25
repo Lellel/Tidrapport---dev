@@ -3,17 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>31 Kabanoss Linjemalning Map Overlay Slider</title>
+  <title>Linjemålning AR Overlay #31</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-6 flex flex-col items-center justify-center space-y-6 text-center">
-  <div class="max-w-lg p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl space-y-4">
-    <span class="text-xs font-mono bg-sky-500/20 text-sky-400 px-3 py-1 rounded-full uppercase tracking-wider">Prototyp Modul</span>
-    <h1 class="text-2xl font-black text-white">31 Kabanoss Linjemalning Map Overlay Slider</h1>
-    <p class="text-sm text-slate-400">Denna prototypmodul är aktiv och redo för iPad-testning i Flen.</p>
-    <a href="prototyper.html" class="inline-block px-6 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl transition">
-      ← Tillbaka till Prototypnavet
-    </a>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 max-w-4xl mx-auto space-y-4">
+  <header class="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
+    <a href="prototyper.html" class="text-xs text-sky-400 font-bold">← Prototypnav</a>
+    <h1 class="text-base font-black">🗺️ Linjemålning AR Overlay Slider (#31)</h1>
+  </header>
+  <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4">
+    <div class="flex items-center gap-4 bg-slate-950 p-3 rounded-xl border border-slate-800">
+      <span class="text-xs font-bold text-slate-400 uppercase">Overlay Genomskinlighet:</span>
+      <input type="range" id="opacity" min="0" max="1" step="0.05" value="0.7" oninput="document.getElementById('overlay').style.opacity = this.value" class="w-full">
+    </div>
+    <div class="relative h-96 rounded-2xl overflow-hidden border border-slate-800 bg-slate-800 flex items-center justify-center">
+      <!-- Satellitbakgrund mockup -->
+      <div class="absolute inset-0 bg-cover bg-center opacity-60" style="background-image: url('https://images.unsplash.com/photo-1524813686514-a57563d77965?auto=format&fit=crop&w=1200&q=80');"></div>
+      <!-- Cad / P-rutor overlay -->
+      <div id="overlay" class="absolute inset-0 flex items-center justify-center border-4 border-dashed border-amber-400 bg-amber-500/20 transition-opacity" style="opacity: 0.7;">
+        <div class="grid grid-cols-4 gap-2 p-6 w-3/4 h-3/4 border-2 border-amber-300">
+          <div class="border-2 border-white/80 rounded flex items-center justify-center text-xs font-mono font-bold text-amber-300">P1</div>
+          <div class="border-2 border-white/80 rounded flex items-center justify-center text-xs font-mono font-bold text-amber-300">P2</div>
+          <div class="border-2 border-white/80 rounded flex items-center justify-center text-xs font-mono font-bold text-amber-300">P3</div>
+          <div class="border-2 border-white/80 rounded flex items-center justify-center text-xs font-mono font-bold text-amber-300">P4</div>
+        </div>
+      </div>
+    </div>
   </div>
 </body>
 </html>
