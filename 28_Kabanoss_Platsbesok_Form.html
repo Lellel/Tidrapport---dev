@@ -3,17 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>28 Kabanoss Platsbesok Form</title>
+  <title>Platsbesök #28</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-6 flex flex-col items-center justify-center space-y-6 text-center">
-  <div class="max-w-lg p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl space-y-4">
-    <span class="text-xs font-mono bg-sky-500/20 text-sky-400 px-3 py-1 rounded-full uppercase tracking-wider">Prototyp Modul</span>
-    <h1 class="text-2xl font-black text-white">28 Kabanoss Platsbesok Form</h1>
-    <p class="text-sm text-slate-400">Denna prototypmodul är aktiv och redo för iPad-testning i Flen.</p>
-    <a href="prototyper.html" class="inline-block px-6 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl transition">
-      ← Tillbaka till Prototypnavet
-    </a>
-  </div>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-6 max-w-3xl mx-auto space-y-4">
+  <header class="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
+    <div>
+      <a href="prototyper.html" class="text-xs text-sky-400 font-bold">← Prototypnav</a>
+      <h1 class="text-lg font-black text-white mt-1">📝 Platsbesöksformulär (#28)</h1>
+    </div>
+    <span class="text-xs bg-amber-500/20 text-amber-300 font-bold px-3 py-1 rounded-full">FÄLTTEST</span>
+  </header>
+  <form onsubmit="event.preventDefault(); alert('Platsbesök sparat!');" class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
+    <div>
+      <label class="text-xs text-slate-400 font-bold uppercase">Kund / Adress</label>
+      <input type="text" value="Storgatan 12, Flen" class="w-full mt-1 p-3 bg-slate-800 rounded-xl text-sm border border-slate-700 text-white font-medium">
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="text-xs text-slate-400 font-bold uppercase">Längd (m)</label>
+        <input type="number" id="l" value="45" oninput="calc()" class="w-full mt-1 p-3 bg-slate-800 rounded-xl text-sm border border-slate-700 text-white font-medium">
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 font-bold uppercase">Bredd (m)</label>
+        <input type="number" id="b" value="12" oninput="calc()" class="w-full mt-1 p-3 bg-slate-800 rounded-xl text-sm border border-slate-700 text-white font-medium">
+      </div>
+    </div>
+    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+      <span class="text-xs font-bold text-slate-400">Beräknad Yta:</span>
+      <span id="yta" class="text-lg font-black text-sky-400">540 m²</span>
+    </div>
+    <div>
+      <label class="text-xs text-slate-400 font-bold uppercase">Anteckningar & Logistik</label>
+      <textarea rows="3" class="w-full mt-1 p-3 bg-slate-800 rounded-xl text-sm border border-slate-700 text-white" placeholder="Smal infart, kräver liten maskin..."></textarea>
+    </div>
+    <button type="submit" class="w-full py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold rounded-xl transition">💾 Spara Platsbesök</button>
+  </form>
+  <script>
+    function calc(){
+      const l = document.getElementById('l').value || 0;
+      const b = document.getElementById('b').value || 0;
+      document.getElementById('yta').innerText = (l * b) + ' m²';
+    }
+  </script>
 </body>
 </html>
