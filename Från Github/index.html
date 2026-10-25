@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPV & Klaryta - Framtidsradarn (Gantt Live)</title>
+    <!-- Tailwind CSS med Dark Mode-stöd -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        ice: { 50: '#f0f9ff', 100: '#e0f2fe', 900: '#0c4a6e', 950: '#082f49' }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* ICE-BLUE GLASSMORPHISM - LIGHT MODE */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 32px rgba(34, 211, 238, 0.15);
+            transition: all 0.3s ease;
+        }
+        /* ICE-BLUE GLASSMORPHISM - DARK MODE */
+        .dark .glass-panel {
+            background: rgba(8, 25, 45, 0.55);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .glass-panel-lpv { border: 1px solid rgba(56, 189, 248, 0.4); }
+        .glass-panel-kla { border: 1px solid rgba(16, 185, 129, 0.4); }
+
+        .orb-kulpase-liten { width: 44px; height: 44px; font-size: 1.25rem; }
+        .orb-kulpase-medium { width: 54px; height: 54px; font-size: 1.5rem; }
+        .orb-kulpase-stor { width: 64px; height: 64px; font-size: 2rem; }
+        .orb-gantt-liten { width: 32px; height: 32px; font-size: 0.875rem; z-index: 10; }
+
+        .glass-orb {
+            background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.6), 0 4px 10px rgba(0,0,0,0.1);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            position: relative; cursor: grab; transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .dark .glass-orb {
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 6px 12px rgba(0,0,0,0.5);
+        }
+        .glass-orb:active { cursor: grabbing; transform: scale(1.05); }
+
+        .sick-orb {
+            filter: grayscale(0.4) opacity(0.9);
+            border: 2px solid #ef4444 !important;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
+        }
+
+        .owner-badge {
+            position: absolute; bottom: -2px; right: -4px; font-size: 8px; font-weight: 900; 
+            padding: 2px 4px; border-radius: 4px; z-index: 20; border: 1px solid rgba(255,255,255,0.6);
+            pointer-events: none; line-height: 1; color: white;
+        }
+        .bg-lpv { background-color: #0284c7; }
+        .bg-klaryta { background-color: #16a34a; }
+        .bg-ue { background-color: #d97706; }
+
+        .gantt-job-card {
+            border-radius: 12px; display: flex; align-items: center; padding: 0 12px; gap: 12px;
+            position: relative; cursor: grab; transition: all 0.2s ease;
+        }
+        .gantt-job-card.lpv {
+            background: linear-gradient(145deg, rgba(2, 132, 199, 0.7) 0%, rgba(3, 105, 161, 0.9) 100%);
+            border: 1px solid rgba(125, 211, 252, 0.8); backdrop-filter: blur(8px);
+        }
+        .dark .gantt-job-card.lpv {
+            background: linear-gradient(145deg, rgba(2, 105, 164, 0.85) 0%, rgba(7, 89, 133, 0.95) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.5);
+        }
+        
+        .gantt-job-card.kla {
+            background: linear-gradient(145deg, rgba(16, 185, 129, 0.7) 0%, rgba(5, 150, 105, 0.9) 100%);
+            border: 1px solid rgba(110, 231, 183, 0.8); backdrop-filter: blur(8px);
+        }
+        .dark .gantt-job-card.kla {
+            background: linear-gradient(145deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+        }
+
+        .bg-helg {
+            background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(225, 29, 72, 0.05) 10px, rgba(225, 29, 72, 0.05) 20px);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(14, 165, 233, 0.1); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.8); }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-gradient-to-br from-sky-50 to-cyan-100 dark:from-[#030f1c] dark:to-[#082f49] text-slate-800 dark:text-slate-100 overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="glass-panel h-16 flex items-center justify-between px-6 shrink-0 z-50">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-sky-700 dark:text-sky-300 flex items-center gap-2 drop-shadow-md">
+                🔭 Framtidsradarn <span class="text-sky-600/70 dark:text-slate-400 font-normal text-xs">(DEV v4.8 - Ice Glass)</span>
+            </h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="toggleTheme()" class="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-lg hover:scale-110 transition shadow-lg border border-sky-200 dark:border-sky-800/50" title="Växla Ljust/Mörkt Tema">
+                <span id="theme-icon">❄️</span>
+            </button>
+            <button onclick="reloadLiveData()" class="px-4 py-2 bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700 text-xs text-sky-800 dark:text-slate-200 border border-white/60 dark:border-slate-700 rounded-xl transition shadow-sm">
+                🔄 Ladda Om
+            </button>
+            <button onclick="publishChanges()" id="btn-publish" class="px-5 py-2 bg-sky-500 hover:bg-sky-400 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl font-bold text-xs transition shadow-lg shadow-sky-500/30">
+                Spara & Publicera
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP LAYOUT -->
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- KULPÅSE / RESURSDEPÅ -->
+        <aside id="resource-panel" class="w-[320px] flex flex-col border-r border-white/30 dark:border-sky-900/40 bg-white/20 dark:bg-slate-900/40 shrink-0 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <h2 class="text-xs font-bold text-sky-800 dark:text-sky-200 uppercase tracking-wider">🎒 Kulpåsen & Resursdepå</h2>
+
+            <div class="glass-panel p-3.5 rounded-2xl">
+                <h3 class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-3">👥 Personal</h3>
+                <div id="pool-personnel" class="flex flex-wrap gap-3 min-h-[40px]"></div>
+            </div>
+
+            <div class="glass-panel p-3.5 rounded-2xl !bg-rose-50/50 dark:!bg-rose-950/20 !border-rose-200 dark:!border-rose-900/50">
+                <h3 class="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider mb-3">🤒 Sjukanmälda</h3>
+                <div id="pool-sick" class="flex flex-wrap gap-3 min-h-[30px]"></div>
+            </div>
+
+            <div class="glass-panel p-3.5 rounded-2xl">
+                <h3 class="text-[11px] font-bold text-sky-600 dark:text-sky-300 uppercase tracking-wider mb-3">🚜 UE & Maskinpark</h3>
+                <div id="pool-machines" class="flex flex-wrap gap-3 min-h-[40px]"></div>
+            </div>
+        </aside>
+
+        <!-- TIMELINE & ORDERBOOK -->
+        <main class="flex-1 flex flex-col overflow-y-auto p-5 space-y-5 custom-scrollbar relative z-10">
+            <!-- ORDERBOOK -->
+            <section class="glass-panel p-4 rounded-2xl">
+                <h2 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-3">📬 Ej inplanerade jobb</h2>
+                <div id="orderbook-list" class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar"></div>
+            </section>
+
+            <!-- GANTT TIMELINE -->
+            <section class="glass-panel p-4 rounded-2xl flex-1 flex flex-col min-h-[360px]">
+                <h2 class="text-xs font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider mb-3">📅 Tidsperiod & Schemaläggning</h2>
+
+                <div id="timeline-container" class="border border-white/40 dark:border-sky-900/50 rounded-xl bg-white/20 dark:bg-slate-950/40 flex-1 overflow-auto custom-scrollbar relative backdrop-blur-sm">
+                    <div id="timeline-inner" class="flex flex-col min-h-full relative">
+                        <div class="h-10 border-b border-white/30 dark:border-sky-900/50 flex items-center bg-white/40 dark:bg-slate-900/70 shrink-0 sticky top-0 z-40 backdrop-blur-md">
+                            <div class="w-56 px-4 font-bold text-sky-800 dark:text-slate-300 text-[10px] uppercase tracking-wider shrink-0 sticky left-0 z-50 bg-white/60 dark:bg-slate-900/90 border-r border-white/30 dark:border-sky-900/50 h-full flex items-center">
+                                Projekt / Kund
+                            </div>
+                            <div id="timeline-header-days" class="flex text-center text-xs font-bold h-full items-center"></div>
+                        </div>
+
+                        <div class="relative flex-1" ondragover="allowDrop(event)" ondrop="dropJobOnTimeline(event)">
+                            <div id="timeline-grid-bg" class="absolute inset-0 flex pointer-events-none z-0 min-h-full"></div>
+                            <div id="gantt-rows" class="relative z-10 pb-8"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const APPS_SCRIPT_URL = ""; 
+        
+        const SWEDISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+        const SWEDISH_DAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
+        const START_DATE = new Date(2026, 9, 26);
+        const TOTAL_DAYS = 35;
+        const DAY_WIDTH = 130;
+
+        let state = { clients: [], resources: [], jobs: [] };
+
+        function toggleTheme() {
+            const htmlTag = document.documentElement;
+            htmlTag.classList.toggle('dark');
+            const isDark = htmlTag.classList.contains('dark');
+            document.getElementById('theme-icon').innerText = isDark ? '❄️' : '☀️';
+        }
+
+        function reloadLiveData() {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(onDataLoaded)
+                    .withFailureHandler(function(err) { console.error("Apps Script-fel:", err); })
+                    .handleGetKabanossData();
+            } else if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.length > 10) {
+                fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getKabanossData', token: 'Gravmaskin2026Secure!' })
+                })
+                .then(function(r) { return r.json(); })
+                .then(onDataLoaded)
+                .catch(function(err) { console.error("Fetch-fel:", err); });
+            } else {
+                console.log("Körs offline - visar tom layout.");
+                onDataLoaded({ status: "success", clients: [], resources: [], jobs: [] });
+            }
+        }
+
+        function onDataLoaded(res) {
+            if (res && res.status === "success") {
+                state.clients = res.clients || [];
+                state.resources = res.resources || [];
+                state.jobs = res.jobs || [];
+                initUI();
+            }
+        }
+
+        function initUI() {
+            buildTimelineLayout();
+            renderKulpase();
+            renderOrderbook();
+            renderGantt();
+        }
+
+        function buildTimelineLayout() {
+            const inner = document.getElementById('timeline-inner');
+            inner.style.width = (224 + (TOTAL_DAYS * DAY_WIDTH)) + 'px';
+
+            const headerContainer = document.getElementById('timeline-header-days');
+            const gridBg = document.getElementById('timeline-grid-bg');
+            
+            headerContainer.innerHTML = '';
+            gridBg.innerHTML = '<div class="w-56 shrink-0 border-r border-white/20 dark:border-sky-900/30 sticky left-0 z-20 bg-white/30 dark:bg-slate-900/60 backdrop-blur-sm"></div>';
+
+            for (let i = 0; i < TOTAL_DAYS; i++) {
+                const d = new Date(START_DATE);
+                d.setDate(d.getDate() + i);
+
+                const dayName = SWEDISH_DAYS[(d.getDay() + 6) % 7];
+                const dateNum = d.getDate();
+                const monthName = SWEDISH_MONTHS[d.getMonth()];
+                const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
+
+                headerContainer.innerHTML += '<div class="border-r border-white/30 dark:border-sky-900/50 py-1 h-full flex flex-col justify-center items-center shrink-0 text-xs font-bold ' + (isWeekend ? 'bg-helg text-rose-500' : 'text-sky-700 dark:text-slate-400') + '" style="width: ' + DAY_WIDTH + 'px;">' +
+                    '<span>' + dayName + ' ' + dateNum + ' ' + monthName + '</span>' +
+                '</div>';
+
+                gridBg.innerHTML += '<div class="border-r border-white/20 dark:border-sky-900/30 shrink-0 ' + (isWeekend ? 'bg-helg' : '') + '" style="width: ' + DAY_WIDTH + 'px;"></div>';
+            }
+        }
+
+        function renderKulpase() {
+            const poolPersonnel = document.getElementById('pool-personnel');
+            const poolSick = document.getElementById('pool-sick');
+            const poolMachines = document.getElementById('pool-machines');
+            
+            poolPersonnel.innerHTML = ''; poolSick.innerHTML = ''; poolMachines.innerHTML = '';
+
+            const assignedIds = new Set();
+            state.jobs.filter(function(j) { return j.status === 'scheduled'; }).forEach(function(j) { 
+                j.assigned.forEach(function(id) { assignedIds.add(id); }); 
+            });
+
+            state.resources.forEach(function(res) {
+                let badgeClass = 'bg-lpv'; let ownerText = 'LPV';
+                if (res.ownerCompany && res.ownerCompany.includes('kla')) { badgeClass = 'bg-klaryta'; ownerText = 'KLA'; }
+                if (res.ownerCompany && res.ownerCompany.includes('ue')) { badgeClass = 'bg-ue'; ownerText = 'UE'; }
+
+                let sizeClass = 'orb-kulpase-' + (res.sizeClass || 'liten');
+                let hasAvatar = res.avatarBase64 && res.avatarBase64.indexOf('data:image') !== -1;
+                let displayIcon = hasAvatar 
+                    ? '<img src="' + res.avatarBase64 + '" class="w-full h-full object-cover rounded-full z-10" />' 
+                    : '<span class="z-10 text-slate-800">' + (res.icon || '👦') + '</span>';
+
+                if (res.type === 'person' && res.isSick) {
+                    poolSick.innerHTML += '<div class="flex flex-col items-center gap-1 w-[56px] shrink-0">' +
+                        '<div class="glass-orb ' + sizeClass + ' sick-orb">' +
+                            '<span class="z-10">🤒</span>' +
+                            '<span class="owner-badge bg-rose-600 text-white">SJUK</span>' +
+                        '</div>' +
+                        '<span class="text-[9px] font-bold text-rose-500 dark:text-rose-300 truncate w-full text-center">' + res.name + '</span>' +
+                    '</div>';
+                } else if (!assignedIds.has(res.id)) {
+                    const html = '<div class="flex flex-col items-center gap-1 w-[56px] shrink-0">' +
+                        '<div class="glass-orb ' + sizeClass + '" style="background-color: ' + (res.color || '#0284c7') + '" draggable="true" ondragstart="onOrbDragStart(event, \'' + res.id + '\')">' +
+                            displayIcon +
+                            '<span class="owner-badge ' + badgeClass + '">' + ownerText + '</span>' +
+                        '</div>' +
+                        '<span class="text-[9px] font-semibold text-sky-900 dark:text-slate-300 truncate w-full text-center">' + res.name + '</span>' +
+                    '</div>';
+                    
+                    if (res.type === 'person') poolPersonnel.innerHTML += html;
+                    else poolMachines.innerHTML += html;
+                }
+            });
+
+            if (!poolPersonnel.innerHTML) poolPersonnel.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga tillgängliga</span>';
+            if (!poolMachines.innerHTML) poolMachines.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga maskiner</span>';
+        }
+
+        function renderOrderbook() {
+            const container = document.getElementById('orderbook-list');
+            container.innerHTML = '';
+            state.jobs.filter(function(j) { return j.status === 'unscheduled'; }).forEach(function(job) {
+                container.innerHTML += '<div class="glass-panel p-3 rounded-xl shrink-0 w-56 cursor-grab" draggable="true" ondragstart="onJobDragStart(event, \'' + job.id + '\')">' +
+                    '<div class="flex items-center justify-between text-[10px] font-bold uppercase mb-1">' +
+                        '<span class="truncate text-sky-800 dark:text-slate-300">' + job.client + '</span>' +
+                        '<span class="text-amber-500 dark:text-amber-400">' + job.hours + 'h</span>' +
+                    '</div>' +
+                    '<div class="font-bold text-xs text-sky-950 dark:text-slate-100 truncate">' + job.title + '</div>' +
+                '</div>';
+            });
+            if (!container.innerHTML) container.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga nya beställningar</span>';
+        }
+
+        function renderGantt() {
+            const container = document.getElementById('gantt-rows');
+            container.innerHTML = '';
+
+            state.jobs.filter(function(j) { return j.status === 'scheduled'; }).forEach(function(job) {
+                let orbsHtml = job.assigned.map(function(id) {
+                    const res = state.resources.find(function(r) { return r.id === id; });
+                    if (!res) return '';
+                    let sizeClass = 'orb-gantt-' + (res.sizeClass || 'liten');
+                    let displayIcon = res.avatarBase64 && res.avatarBase64.indexOf('data:image') !== -1 
+                        ? '<img src="' + res.avatarBase64 + '" class="w-full h-full object-cover rounded-full z-10" />' 
+                        : '<span class="z-10 text-slate-800">' + (res.icon || '👦') + '</span>';
+
+                    return '<div class="glass-orb ' + sizeClass + ' border border-white/60 dark:border-slate-800 shrink-0" style="background-color:' + (res.color || '#0284c7') + '" draggable="true" ondragstart="onOrbDragStart(event, \'' + id + '\')">' +
+                        displayIcon +
+                    '</div>';
+                }).join('');
+
+                const leftPx = (job.dayIndex || 0) * DAY_WIDTH + 8;
+                const widthPx = Math.ceil(job.hours / 8) * DAY_WIDTH - 16;
+
+                container.innerHTML += '<div class="flex items-center h-[76px] border-b border-white/20 dark:border-slate-800/40 relative">' +
+                    '<div class="w-56 p-2 shrink-0 h-full flex items-center z-30 sticky left-0 border-r border-white/30 dark:border-sky-900/50 bg-white/40 dark:bg-slate-900/70 backdrop-blur-md">' +
+                        '<div class="glass-panel p-2 rounded-xl w-full border-white/60 dark:border-slate-700">' +
+                            '<div class="text-[9px] font-bold text-sky-700 dark:text-slate-400 uppercase truncate">' + job.client + '</div>' +
+                            '<div class="font-bold text-xs text-sky-950 dark:text-slate-100 truncate">' + job.title + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="flex-1 h-full relative">' +
+                        '<div class="gantt-job-card ' + (job.billingCompany === 'Klaryta' ? 'kla' : 'lpv') + ' absolute top-[6px] bottom-[6px] shadow-lg shadow-sky-900/10 dark:shadow-black/40" style="left: ' + leftPx + 'px; width: ' + widthPx + 'px;" draggable="true" ondragstart="onJobDragStart(event, \'' + job.id + '\')" ondrop="dropOrbOnJob(event, \'' + job.id + '\')" ondragover="allowDrop(event)">' +
+                            '<div class="flex items-center gap-1 z-40 relative">' + orbsHtml + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            });
+        }
+
+        function onOrbDragStart(e, resId) { e.stopPropagation(); e.dataTransfer.setData("type", "orb"); e.dataTransfer.setData("id", resId); }
+        function onJobDragStart(e, jobId) { e.dataTransfer.setData("type", "job"); e.dataTransfer.setData("id", jobId); }
+        function allowDrop(e) { e.preventDefault(); }
+
+        function dropJobOnTimeline(e) {
+            e.preventDefault();
+            const type = e.dataTransfer.getData("type");
+            const id = e.dataTransfer.getData("id");
+            if (type === "job") {
+                const job = state.jobs.find(function(j) { return j.id === id; });
+                if (job) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const offsetX = e.clientX - (rect.left + 224);
+                    if (offsetX >= 0) {
+                        job.status = 'scheduled';
+                        job.dayIndex = Math.max(0, Math.floor(offsetX / DAY_WIDTH));
+                        initUI();
+                    }
+                }
+            }
+        }
+
+        function dropOrbOnJob(e, jobId) {
+            e.preventDefault(); e.stopPropagation();
+            const type = e.dataTransfer.getData("type");
+            const resId = e.dataTransfer.getData("id");
+            if (type === "orb" && resId) {
+                state.jobs.forEach(function(j) { 
+                    j.assigned = j.assigned.filter(function(aid) { return aid !== resId; }); 
+                });
+                const job = state.jobs.find(function(j) { return j.id === jobId; });
+                if (job && job.assigned.indexOf(resId) === -1) job.assigned.push(resId);
+                initUI();
+            }
+        }
+
+        function publishChanges() { alert("Ändringar sparade!"); }
+
+        document.addEventListener('DOMContentLoaded', reloadLiveData);
+    </script>
+</body>
+</html>

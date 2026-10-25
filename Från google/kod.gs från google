@@ -1,0 +1,614 @@
+/**
+ * LPV & KLARYTA - BACKEND MOTOR (Kod.gs)
+ * Version: DEV v4.7.5 (Kramer Turkos Hood Update, Gemini 3D Auto-Save, Gantt v33)
+ */
+
+// ==========================================
+// 1. SANERING & SÄKERHET
+// ==========================================
+function sanitize(input) {
+  if (!input) return "";
+  let str = String(input).trim();
+  if (/^[=+\-@]/.test(str)) return "'" + str; // Skydd mot Formula Injection
+  return str;
+}
+
+// ==========================================
+// 2. MAIN GET & POST HANDLERS (WEBAPP ROUTER)
+// ==========================================
+function doGet(e) {
+  if (e && e.parameter && e.parameter.api === "true") {
+    return createJsonResponse({
+      status: "online",
+      system: "LPV & Klaryta Backend",
+      version: "v4.7.5",
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Servera index.html som webbapplikation
+  return HtmlService.createTemplateFromFile("index")
+    .evaluate()
+    .setTitle("LPV & Klaryta - Framtidsradarn & Tidrapport")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1.0")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(15000);
+  
+  if (!hasLock) {
+    return createJsonResponse({ status: "error", message: "Servern var upptagen, försök igen." });
+  }
+
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return createJsonResponse({ status: "error", message: "Ingen data skickades." });
+    }
+
+    let data;
+    try {
+      data = JSON.parse(e.postData.contents);
+    } catch (parseErr) {
+      data = e.parameter || {};
+    }
+
+    if (data.token && data.token !== CONFIG.API_TOKEN) {
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig säkerhetstoken." });
+    }
+
+    const action = data.action;
+
+    // --- ROUTER ---
+    if (action === "getKabanossData") return handleGetKabanossData();
+    if (action === "saveKabanossJob") return handleSaveKabanossJob(data);
+    if (action === "sickReport") return handleSickReport(data);
+    if (action === "batchReports") return handleBatchReports(data);
+    if (action === "getUsers") return handleGetUsers();
+    if (action === "transform_to_clay") return handleClayTransformation(data);
+    if (action === "approveAta") return approveAta(data.ataId);
+    if (action === "approveOffert") return approveOffert(data.offertId);
+    if (action === "save_time_report") return handleSaveTimeReport(data);
+    if (action === "save_ata") return handleSaveAta(data);
+    if (action === "ping") {
+      return createJsonResponse({ status: "success", version: "v4.7.5", message: "Ansluten till Kod.gs" });
+    }
+
+    return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
+
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: err.toString() });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// =========================================================
+// 3. SMART INTELLIGENS FÖR MODELLER & TILLVERKARE
+// =========================================================
+function parseMachineModel(text) {
+  if (!text) return null;
+  const lower = String(text).toLowerCase().trim();
+  
+  const brands = [
+    "kramer", "volvo", "cat", "caterpillar", "jcb", "ljungby", 
+    "avant", "bobcat", "manitou", "merlo", "kubota", "takeuchi", 
+    "hitachi", "komatsu", "wacker", "neuson", "terex", "atlas", "kobelco"
+  ];
+  
+  const isMachine = brands.some(b => lower.includes(b)) || 
+                    lower.includes("maskin") || lower.includes("traktor") || 
+                    lower.includes("lastare") || lower.includes("grävare") || lower.includes("hjullastare");
+  
+  if (!isMachine) return null;
+
+  let sizeClass = "medium";
+  let icon = "🚜";
+
+  // --- KRAMER ---
+  if (lower.includes("kramer")) {
+    icon = "🚜";
+    if (lower.includes("37.8") || lower.includes("8095") || lower.includes("8115") || lower.includes("5507") || lower.includes("5509") || lower.includes("4507")) {
+      sizeClass = "stor";
+    } else if (lower.includes("8075") || lower.includes("8085") || lower.includes("5075") || lower.includes("5085")) {
+      sizeClass = "medium";
+    } else if (lower.includes("5035") || lower.includes("5050")) {
+      sizeClass = "liten";
+    } else {
+      sizeClass = "medium";
+    }
+  } 
+  // --- VOLVO ---
+  else if (lower.includes("volvo")) {
+    icon = "🚜";
+    if (lower.match(/l(60|70|90|110|120|150|180|220)/) || lower.match(/ec(140|160|220|250|300)/)) {
+      sizeClass = "stor";
+    } else if (lower.match(/l(20|25|30|35|45|50)/) || lower.match(/ecr(58|88)/)) {
+      sizeClass = "medium";
+    } else if (lower.match(/ecr(18|25|35)/)) {
+      sizeClass = "liten";
+    }
+  } 
+  // --- AVANT / BOBCAT ---
+  else if (lower.includes("avant") || lower.includes("bobcat")) {
+    icon = "🟡";
+    sizeClass = "liten";
+  } 
+  // --- LJUNGBY ---
+  else if (lower.includes("ljungby")) {
+    icon = "🚜";
+    sizeClass = "stor";
+  }
+  // --- GENERELL TONNAGE-REGEXP FALLBACK ---
+  else {
+    let weightMatch = lower.match(/(\d+[\.,]?\d*)\s*(ton|t\b)/);
+    if (weightMatch) {
+      let weight = parseFloat(weightMatch[1].replace(',', '.'));
+      if (weight >= 10) sizeClass = "stor";
+      else if (weight >= 4) sizeClass = "medium";
+      else sizeClass = "liten";
+    }
+  }
+
+  return { type: "machine", sizeClass: sizeClass, icon: icon };
+}
+
+// ==========================================
+// 4. KABANOSS / GANTT API HANDLERS
+// ==========================================
+function handleGetKabanossData() {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  
+  // 1. Kunder
+  const klientSheet = ss.getSheetByName("Kunder");
+  const klientRows = klientSheet ? klientSheet.getDataRange().getValues() : [];
+  const clients = [];
+  for (let i = 1; i < klientRows.length; i++) {
+    if (klientRows[i][1]) {
+      clients.push({
+        id: klientRows[i][0],
+        name: klientRows[i][1],
+        idNr: klientRows[i][2],
+        email: klientRows[i][3],
+        billingCompany: klientRows[i][4],
+        status: klientRows[i][5],
+        contact: klientRows[i][6],
+        phone: klientRows[i][7],
+        address: klientRows[i][8],
+        type: klientRows[i][9] || "company",
+        rotRut: klientRows[i][10] || "none",
+        propertyId: klientRows[i][11] || "",
+        logoUrl: klientRows[i][12] || ""
+      });
+    }
+  }
+
+  // 2. Personal & Resurser
+  const resursSheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
+  const resursRows = resursSheet ? resursSheet.getDataRange().getValues() : [];
+  const resources = [];
+  for (let i = 1; i < resursRows.length; i++) {
+    if (resursRows[i][0]) {
+      let name = String(resursRows[i][0]);
+      let id = name;
+      let rollTyp = String(resursRows[i][3] || "");
+      let avatarLank = String(resursRows[i][5] || "");
+      let agare = String(resursRows[i][6] || "").toLowerCase();
+      let statusStr = String(resursRows[i][7] || "").toLowerCase();
+      let isSick = statusStr === "sjuk";
+
+      let type = "person";
+      let sizeClass = "liten";
+      let icon = "👦";
+      let color = "#0284c7";
+
+      if (agare.includes("kla") || agare.includes("klaryta")) color = "#16a34a";
+      else if (agare.includes("ue") || rollTyp.toLowerCase().includes("ue")) color = "#d97706";
+
+      let parsedSpecs = parseMachineModel(name) || parseMachineModel(rollTyp);
+
+      if (parsedSpecs) {
+        type = parsedSpecs.type;
+        sizeClass = parsedSpecs.sizeClass;
+        icon = parsedSpecs.icon;
+      } else if (rollTyp.toLowerCase().includes("verktyg") || rollTyp.toLowerCase().includes("ställning") || rollTyp.toLowerCase().includes("vagn")) {
+        type = "equipment";
+        icon = rollTyp.toLowerCase().includes("ställning") ? "🪜" : (rollTyp.toLowerCase().includes("vagn") ? "🎨" : "🛠️");
+      }
+
+      resources.push({
+        id: id,
+        name: name,
+        type: type,
+        sizeClass: sizeClass,
+        icon: icon,
+        avatarBase64: avatarLank,
+        ownerCompany: agare,
+        color: color,
+        isSick: isSick
+      });
+    }
+  }
+
+  // 3. Gantt_Jobb
+  const jobbSheet = ss.getSheetByName("Gantt_Jobb");
+  const jobbRows = jobbSheet ? jobbSheet.getDataRange().getValues() : [];
+  const jobs = [];
+  for (let i = 1; i < jobbRows.length; i++) {
+    if (jobbRows[i][0]) {
+      let assignedArr = [];
+      try {
+        assignedArr = JSON.parse(jobbRows[i][11] || "[]");
+      } catch (err) {
+        assignedArr = String(jobbRows[i][11] || "").split(",").map(s => s.trim()).filter(Boolean);
+      }
+
+      jobs.push({
+        id: jobbRows[i][0],
+        client: jobbRows[i][1],
+        billingCompany: jobbRows[i][2] || "LPV",
+        title: jobbRows[i][3],
+        status: jobbRows[i][4] || "unscheduled",
+        dayIndex: jobbRows[i][5] !== "" ? Number(jobbRows[i][5]) : null,
+        hours: Number(jobbRows[i][6] || 8),
+        shift: jobbRows[i][7] || "Dagpass",
+        siteAddress: jobbRows[i][8] || "",
+        siteContactName: jobbRows[i][9] || "",
+        siteContactPhone: jobbRows[i][10] || "",
+        assigned: assignedArr
+      });
+    }
+  }
+
+  return createJsonResponse({
+    status: "success",
+    clients: clients,
+    resources: resources,
+    jobs: jobs
+  });
+}
+
+function handleSaveKabanossJob(data) {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const sheet = ss.getSheetByName("Gantt_Jobb");
+  if (!sheet) return createJsonResponse({ status: "error", message: "Gantt_Jobb-blad saknas." });
+
+  const rows = sheet.getDataRange().getValues();
+  let foundIndex = -1;
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(data.id)) {
+      foundIndex = i + 1;
+      break;
+    }
+  }
+
+  const rowData = [
+    data.id || ("j_" + Date.now()),
+    sanitize(data.client),
+    sanitize(data.billingCompany) || "LPV",
+    sanitize(data.title),
+    sanitize(data.status) || "unscheduled",
+    data.dayIndex !== null && data.dayIndex !== undefined ? data.dayIndex : "",
+    data.hours || 8,
+    sanitize(data.shift) || "Dagpass",
+    sanitize(data.siteAddress) || "",
+    sanitize(data.siteContactName) || "",
+    sanitize(data.siteContactPhone) || "",
+    JSON.stringify(data.assigned || [])
+  ];
+
+  if (foundIndex > 0) {
+    sheet.getRange(foundIndex, 1, 1, rowData.length).setValues([rowData]);
+  } else {
+    sheet.appendRow(rowData);
+  }
+
+  return createJsonResponse({ status: "success" });
+}
+
+function handleSickReport(data) {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
+  const rows = sheet.getDataRange().getValues();
+  
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(data.personId)) {
+      sheet.getRange(i + 1, 8).setValue(data.isSick ? "Sjuk" : "Aktiv");
+      return createJsonResponse({ status: "success", message: "Sjukanmälan sparad!" });
+    }
+  }
+  return createJsonResponse({ status: "error", message: "Person hittades ej." });
+}
+
+// ==========================================
+// 5. AI-TRANSFORMERING & AVATAR GENERERING
+// ==========================================
+function handleClayTransformation(eData) {
+  var userBase64 = eData.imageBase64 || "";
+  var resursTyp = eData.resursTyp || "byggare";
+  var machineName = eData.machineName || "Entreprenadmaskin";
+  var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+
+  if (!apiKey) {
+    return createJsonResponse({
+      status: "fallback",
+      message: "GEMINI_API_KEY saknas i ScriptProperties.",
+      clayAvatarBase64: userBase64
+    });
+  }
+
+  var brandColorPrompt = getBrandColorPrompt(machineName);
+  var promptText = "";
+
+  if (resursTyp === "maskin") {
+    promptText = "A friendly, vibrant 3D animated cartoon character portrait of a heavy construction machine matching a " + machineName + ", in the iconic stylized 3D aesthetic of Bob the Builder and modern animated movies. " +
+                 "Crucial visual branding: " + brandColorPrompt + ". " +
+                 "Give the machine a cheerful personality with expressive headlights, smooth 3D textures, metallic gloss, professional studio lighting, and a solid vibrant blue background.";
+  } else if (resursTyp === "handskottare") {
+    promptText = "Transform this person's portrait into a heroic, vibrant 3D animated comic book superhero portrait of a brave winter snow-shoveler. High quality stylized 3D render, modern animated movie aesthetic, wearing high-visibility reflective winter gear, glowing snow shovel on back, confident heroic expression, smooth textures, dramatic blizzard lighting, solid vibrant blue background. Keep recognizable facial features.";
+  } else {
+    promptText = "Transform this person's portrait into a friendly, vibrant 3D animated cartoon character portrait of a cheerful builder in the iconic style of Bob the Builder. High quality stylized 3D render, modern animated movie aesthetic, wearing a yellow safety hard hat, red and yellow checkered shirt, blue denim dungarees, utility tool belt, friendly smiling expression, smooth textures, soft studio lighting, solid vibrant blue background. Keep recognizable facial features.";
+  }
+
+  var parts = [];
+  var rawBase64 = userBase64.replace(/^data:image\/\w+;base64,/, "");
+
+  if (rawBase64.length > 100) {
+    parts.push({ "inlineData": { "mimeType": "image/jpeg", "data": rawBase64 } });
+  }
+  parts.push({ "text": promptText });
+
+  var modelName = "gemini-2.5-flash-image";
+  var apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent?key=" + apiKey;
+
+  try {
+    var response = UrlFetchApp.fetch(apiUrl, {
+      "method": "post",
+      "contentType": "application/json",
+      "payload": JSON.stringify({ "contents": [{ "parts": parts }] }),
+      "muteHttpExceptions": true
+    });
+
+    var responseCode = response.getResponseCode();
+    var jsonText = response.getContentText();
+    var json;
+    try { json = JSON.parse(jsonText); } catch(e) { json = {}; }
+
+    var base64Bytes = null;
+    if (json.candidates && json.candidates.length > 0 && json.candidates[0].content && json.candidates[0].content.parts) {
+      var resParts = json.candidates[0].content.parts;
+      for (var i = 0; i < resParts.length; i++) {
+        if (resParts[i].inlineData && resParts[i].inlineData.data) {
+          base64Bytes = resParts[i].inlineData.data;
+          break;
+        }
+      }
+    }
+
+    if (responseCode === 200 && base64Bytes) {
+      var finalImage = "data:image/jpeg;base64," + base64Bytes;
+      
+      saveAvatarToSheet(eData.resursId || machineName, finalImage);
+
+      return createJsonResponse({ status: "success", clayAvatarBase64: finalImage });
+    } else {
+      return createJsonResponse({ status: "fallback", message: "AI HTTP " + responseCode, clayAvatarBase64: userBase64 });
+    }
+  } catch (err) {
+    return createJsonResponse({ status: "fallback", message: err.toString(), clayAvatarBase64: userBase64 });
+  }
+}
+
+function getBrandColorPrompt(machineName) {
+  var name = String(machineName).toLowerCase();
+  
+  if (name.includes("kramer")) {
+    return "authentic Kramer heavy machinery featuring a sleek dark grey and black chassis and loader arm, contrasted perfectly by its iconic signature light mint-green/turquoise rear engine hood and details";
+  }
+  
+  if (name.includes("volvo")) return "classic Volvo bright construction yellow body with dark charcoal grey accents";
+  if (name.includes("cat") || name.includes("caterpillar")) return "signature Caterpillar industrial yellow with thick black trim";
+  if (name.includes("jcb")) return "vibrant JCB bright yellow with black industrial striping";
+  if (name.includes("avant")) return "iconic Avant bright neon green chassis with black wheels and details";
+  if (name.includes("bobcat")) return "classic Bobcat bright white body with iconic orange branding stripes and black accents";
+  if (name.includes("ljungby")) return "distinctive Ljungby yellow chassis with subtle red and white trim details";
+  if (name.includes("hitachi") || name.includes("kubota")) return "signature industrial orange body with black details";
+  
+  return "authentic industrial machinery colors matching the manufacturer";
+}
+
+function saveAvatarToSheet(resursId, base64Image) {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
+  if (!sheet) return;
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(resursId)) {
+      sheet.getRange(i + 1, 6).setValue(base64Image); // Kolumn F (Avatar-Länk)
+      break;
+    }
+  }
+}
+
+// ==========================================
+// 6. BEFINTLIGA RAPPORTER OCH GODKÄNNANDEN
+// ==========================================
+function handleBatchReports(data) {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  const passList = data.pass || [];
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const nowFormatted = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd HH:mm:ss");
+
+  passList.forEach(p => {
+    let activityLabel = sanitize(p.activity || "Övrigt");
+    if (p.type === "ata") activityLabel = "[" + (sanitize(p.ataNumber) || "ÄTA") + "] " + activityLabel;
+    let finalNotes = sanitize(p.notes) || "";
+
+    const allImages = [...(p.images || [])];
+    if (p.snowMapImage) allImages.push(p.snowMapImage);
+
+    if (allImages.length > 0 && CONFIG.FOLDER_ID_ROOT_IMAGES) {
+      try {
+        const rootFolder = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
+        let folderName = p.date + " " + sanitize(p.place || "Okänd plats") + " (" + activityLabel + ")";
+        const subFolder = rootFolder.createFolder(folderName);
+
+        allImages.forEach((imgBase64, index) => {
+          const base64Data = imgBase64.replace(/^data:image\/\w+;base64,/, "");
+          const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), 'image/jpeg', 'Underlag_' + (index + 1) + '.jpg');
+          subFolder.createFile(blob);
+        });
+        finalNotes += (finalNotes ? "\n\n" : "") + "Drive-mapp: " + subFolder.getUrl();
+      } catch (imgErr) {
+        finalNotes += (finalNotes ? "\n\n" : "") + "[Drive-fel: " + imgErr.message + "]";
+      }
+    }
+
+    const formattedDuration = formatDuration(p.start, p.end, p.totalHours);
+
+    sheet.appendRow([
+      p.date,
+      "Nej",
+      sanitize(p.place) || "",
+      activityLabel,
+      p.start || "",
+      p.end || "",
+      formattedDuration,
+      nowFormatted,
+      sanitize(p.user || "Okänd"),
+      finalNotes,
+      sanitize(p.companyId) || "LPV",
+      sanitize(p.measuredArea) || ""
+    ]);
+  });
+
+  return createJsonResponse({ status: "success", count: passList.length });
+}
+
+function handleGetUsers() {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const personalSheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
+  const sheetData = personalSheet.getDataRange().getValues();
+  const users = [];
+
+  for (let i = 1; i < sheetData.length; i++) {
+    if (sheetData[i][0] !== "") {
+      users.push({
+        id: String(sheetData[i][0]),
+        name: String(sheetData[i][0]),
+        email: String(sheetData[i][1]),
+        phone: String(sheetData[i][2]),
+        type: String(sheetData[i][3]),
+        isAdmin: String(sheetData[i][4]).toLowerCase() === "true",
+        avatarBase64: String(sheetData[i][5]),
+        ownerCompany: String(sheetData[i][6]),
+        status: String(sheetData[i][7])
+      });
+    }
+  }
+  return createJsonResponse({ status: "success", users: users });
+}
+
+function approveAta(ataId) {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = getSheetOrCreate(ss, "ÄTA_Godkännanden", ["ÄTA_ID", "Status", "Datum"]);
+  sheet.appendRow([ataId, "GODKÄND_AV_KUND", new Date()]);
+  return createJsonResponse({ success: true, ataId: ataId });
+}
+
+function approveOffert(offertId) {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = getSheetOrCreate(ss, "Offert_Godkännanden", ["Offert_ID", "Status", "Datum"]);
+  sheet.appendRow([offertId, "GODKÄND_AV_KUND", new Date()]);
+  
+  var planSheet = getSheetOrCreate(ss, "Gantt_Jobb", ["Projekt-ID", "Kundnamn", "Fakturerande Bolag", "Titel", "Status", "Startdag-Index", "Timmar", "Skift", "Sitelokalization", "Site-Kontakt", "Site-Telefon", "Bemannade Resurs-IDn"]);
+  planSheet.appendRow(["J-" + Math.floor(Math.random()*1000), "Kund-" + offertId, "LPV", "Ny Offert", "unscheduled", "", 8, "Dagpass", "", "", "", "[]"]);
+  
+  return createJsonResponse({ success: true, offertId: offertId });
+}
+
+function handleSaveTimeReport(eData) {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  sheet.appendRow([new Date(), "Nej", "Fält", eData.aktivitet || "Arbete", eData.starttid || "", eData.sluttid || "", eData.totaltid || "0 tim 0 min", new Date(), eData.anvandare || "Okänd", eData.note || "", "LPV", ""]);
+  return createJsonResponse({ status: "success", message: "Tidrapport sparad." });
+}
+
+function handleSaveAta(eData) {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = getSheetOrCreate(ss, "ÄTA", ["Datum", "Användare", "Titel", "Kostnad"]);
+  sheet.appendRow([new Date(), eData.user || "Okänd", eData.title || "", eData.cost || 0]);
+  return createJsonResponse({ status: "success", message: "ÄTA sparad." });
+}
+
+// ==========================================
+// 7. HJÄLPFUNKTIONER & MIGRERING
+// ==========================================
+function formatDuration(start, end, fallbackHours) {
+  if (!start || !end) return fallbackHours ? fallbackHours + " tim 0 min" : "0 tim 0 min";
+  const [sH, sM] = start.split(":").map(Number);
+  const [eH, eM] = end.split(":").map(Number);
+  let diffMin = (eH * 60 + eM) - (sH * 60 + sM);
+  if (diffMin < 0) diffMin += 24 * 60;
+  return Math.floor(diffMin / 60) + " tim " + (diffMin % 60) + " min";
+}
+
+function getSheetOrCreate(ss, sheetName, headers) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    if (headers && headers.length > 0) {
+      sheet.appendRow(headers);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f3f3");
+    }
+  }
+  return sheet;
+}
+
+function createJsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function migrateDatabase() {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+
+  const sheetKunder = ss.getSheetByName("Kunder");
+  if (sheetKunder) {
+    const lastCol = sheetKunder.getLastColumn();
+    const headers = sheetKunder.getRange(1, 1, 1, lastCol).getValues()[0];
+    const newKunderHeaders = ["Kundtyp", "ROT/RUT", "Fastighetsbeteckning", "Logo-URL"];
+    newKunderHeaders.forEach(colName => {
+      if (!headers.includes(colName)) {
+        sheetKunder.getRange(1, sheetKunder.getLastColumn() + 1).setValue(colName).setFontWeight("bold").setBackground("#f3f3f3");
+        headers.push(colName);
+      }
+    });
+  }
+
+  const sheetTid = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  if (sheetTid) {
+    const lastCol = sheetTid.getLastColumn();
+    const headers = sheetTid.getRange(1, 1, 1, lastCol).getValues()[0];
+    const newTidHeaders = ["Fakturerande Bolag", "Uppmätt Yta (m2)"];
+    newTidHeaders.forEach(colName => {
+      if (!headers.includes(colName)) {
+        sheetTid.getRange(1, sheetTid.getLastColumn() + 1).setValue(colName).setFontWeight("bold").setBackground("#f3f3f3");
+        headers.push(colName);
+      }
+    });
+  }
+
+  let sheetGantt = ss.getSheetByName("Gantt_Jobb");
+  if (!sheetGantt) {
+    sheetGantt = ss.insertSheet("Gantt_Jobb");
+    const ganttHeaders = ["Projekt-ID", "Kundnamn", "Fakturerande Bolag", "Titel", "Status", "Startdag-Index", "Timmar", "Skift", "Sitelokalization", "Site-Kontakt", "Site-Telefon", "Bemannade Resurs-IDn"];
+    sheetGantt.appendRow(ganttHeaders);
+    sheetGantt.getRange(1, 1, 1, ganttHeaders.length).setFontWeight("bold").setBackground("#f3f3f3");
+  }
+
+  SpreadsheetApp.getUi().alert("✅ Databasmigrering Klar!");
+}
