@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Master Linjemålning & Ortofoto #44 (v1.4)</title>
+  <title>Master Linjemålning & Ortofoto #44 (v1.5)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- Leaflet.js Kartbibliotek -->
@@ -12,12 +12,11 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; overscroll-behavior: none; }
     .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
     
     .leaflet-control-zoom a { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
     
-    /* Ikoner inuti vektorrutorna */
     .stall-label {
       background: transparent; border: none; box-shadow: none;
       color: white; font-weight: 900; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
@@ -27,7 +26,7 @@
 </head>
 <body class="min-h-screen p-3 md:p-6 space-y-4 max-w-6xl mx-auto">
 
-  <!-- Header v1.4 -->
+  <!-- Header v1.5 -->
   <header class="glass-card rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
     <div class="flex items-center gap-3">
       <a href="prototyper.html" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition">
@@ -36,14 +35,14 @@
       <div>
         <div class="flex items-center gap-2">
           <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Ortofoto & VGU</span>
-          <span class="px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full text-[10px] font-black">v1.4 (Dev)</span>
+          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-black">v1.5 (Dev)</span>
         </div>
-        <h1 class="text-lg font-black text-white">🗺️ Linjemålning med Äkta Vektorgeometri</h1>
+        <h1 class="text-lg font-black text-white">🗺️ Vektorgeometri & Touch-Vinkling</h1>
       </div>
     </div>
     <div class="flex gap-2">
       <button onclick="toggleLayer()" id="layer-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition">
-        🛰️ Kartlager: Högupplöst Satellit
+        🛰️ Kartlager: Satellit
       </button>
       <button onclick="alert('Genererar Offert-PDF...')" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition">
         📄 Skapa Offert-PDF
@@ -110,10 +109,6 @@
         </div>
       </div>
 
-      <div class="p-3 bg-sky-900/30 border border-sky-500/30 rounded-xl mt-2">
-        <p class="text-[10px] text-sky-200 font-bold">💡 Tips: Klicka på en utritad ruta på kartan för att växla mellan Standard, HKP (3.8m), Elbil eller Spärrad.</p>
-      </div>
-
     </div>
 
     <!-- Högerpanel: Kartvy -->
@@ -121,10 +116,18 @@
       
       <div>
         <div class="flex justify-between items-center mb-2">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🛰️ Interaktiv Karta med Vektor-ritning</h2>
-          <button onclick="renderLayoutAndFit()" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded text-slate-300 hover:bg-slate-700">
-            🔍 Zooma till ritning
-          </button>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🛰️ Interaktiv Karta & Touch-Vinkling</h2>
+          
+          <div class="flex gap-2">
+            <!-- TOGGLE FÖR FINGERVINKLING -->
+            <button id="touch-rotate-btn" onclick="toggleTouchRotate()" class="px-3 py-1 bg-slate-800 border border-slate-700 text-xs font-bold rounded-xl text-slate-300 hover:bg-slate-700 transition">
+              🔄 Fingervinkling: AV
+            </button>
+            
+            <button onclick="renderLayoutAndFit()" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] font-bold rounded-xl text-slate-300 hover:bg-slate-700">
+              🔍 Zooma
+            </button>
+          </div>
         </div>
 
         <div class="relative h-96 sm:h-[500px] rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
@@ -162,29 +165,30 @@
     
     // Geografiska objekt
     let anchorMarker;
-    let stallGroup; // Leaflet FeatureGroup för polygonerna
+    let stallGroup;
     
     // Tillstånd
     let stallsData = [];
     let currentRotation = 0;
+    let touchRotateActive = false;
 
-    const R_EARTH = 6378137; // Jordens radie i meter
+    // Gest-variabler
+    let touchStartAngle = 0;
+    let startRotation = 0;
+
+    const R_EARTH = 6378137;
 
     function initMap() {
-      // Starta i Norrköping (kan bytas med sökning)
       map = L.map('map', { zoomControl: true }).setView([58.5877, 16.1924], 19);
 
       satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 20, maxNativeZoom: 19,
-        attribution: 'Esri World Imagery / Ortofoto'
+        maxZoom: 20, maxNativeZoom: 19, attribution: 'Esri World Imagery'
       }).addTo(map);
 
       osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
 
-      // Skapa en FeatureGroup för att hålla alla rutor
       stallGroup = L.featureGroup().addTo(map);
 
-      // Skapa det drag-and-drop-bara Ankaret (Sektion A)
       const anchorIcon = L.divIcon({
         className: 'bg-transparent',
         html: '<div class="w-4 h-4 bg-amber-500 border-2 border-white rounded-full shadow-[0_0_10px_rgba(0,0,0,0.8)] -translate-x-1/2 -translate-y-1/2"></div>',
@@ -197,15 +201,63 @@
         zIndexOffset: 1000
       }).addTo(map);
 
-      // När man drar ankaret ritas ritningen om i realtid!
-      anchorMarker.on('drag', () => {
-        renderLayout();
-      });
+      anchorMarker.on('drag', () => { renderLayout(); });
 
+      setupTouchGestures();
       renderLayoutAndFit();
     }
 
-    // Geografisk matte: Omvandlar meter till Lat/Lng (Equirectangular approximation)
+    // TOGGLE FÖR FINGERVINKLING
+    function toggleTouchRotate() {
+      touchRotateActive = !touchRotateActive;
+      const btn = document.getElementById('touch-rotate-btn');
+
+      if (touchRotateActive) {
+        map.dragging.disable();
+        map.touchZoom.disable();
+        btn.innerText = '🔄 Fingervinkling: PÅ';
+        btn.classList.replace('bg-slate-800', 'bg-emerald-600');
+        btn.classList.replace('text-slate-300', 'text-white');
+      } else {
+        map.dragging.enable();
+        map.touchZoom.enable();
+        btn.innerText = '🔄 Fingervinkling: AV';
+        btn.classList.replace('bg-emerald-600', 'bg-slate-800');
+        btn.classList.replace('text-white', 'text-slate-300');
+      }
+    }
+
+    // LYSSNA PÅ TVÅFINGERS-ROTATION DIREKT PÅ KARTAN
+    function setupTouchGestures() {
+      const mapContainer = document.getElementById('map');
+
+      mapContainer.addEventListener('touchstart', (e) => {
+        if (touchRotateActive && e.touches.length === 2) {
+          e.preventDefault();
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          touchStartAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * 180 / Math.PI;
+          startRotation = currentRotation;
+        }
+      }, { passive: false });
+
+      mapContainer.addEventListener('touchmove', (e) => {
+        if (touchRotateActive && e.touches.length === 2) {
+          e.preventDefault();
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          const currentAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * 180 / Math.PI;
+          let delta = currentAngle - touchStartAngle;
+          
+          currentRotation = Math.round((startRotation + delta + 360) % 360);
+          document.getElementById('rotation-val').innerText = `${currentRotation}°`;
+          document.getElementById('layout-rotation').value = currentRotation;
+          
+          renderLayout();
+        }
+      }, { passive: false });
+    }
+
     function addMetersToLatLng(lat, lng, dxMeters, dyMeters) {
       const pi = Math.PI;
       const new_lat = lat + (dyMeters / R_EARTH) * (180 / pi);
@@ -213,7 +265,6 @@
       return [new_lat, new_lng];
     }
 
-    // Roterar en punkt (x,y i meter) runt Origo baserat på vinkeln
     function rotatePoint(x, y, angleDeg) {
       const rad = angleDeg * Math.PI / 180;
       return {
@@ -222,7 +273,6 @@
       };
     }
 
-    // Funktion för att rendera och uppdatera bounding box (Auto-zoom)
     function renderLayoutAndFit() {
       renderLayout();
       if(stallGroup.getLayers().length > 0) {
@@ -230,7 +280,6 @@
       }
     }
 
-    // Ritar ut vektorerna på kartan
     function renderLayout() {
       const count = parseInt(document.getElementById('stall-count').value);
       document.getElementById('count-val').innerText = `${count} st`;
@@ -238,41 +287,37 @@
       const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
       const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
 
-      // Uppdatera datalistan
       while (stallsData.length < count) stallsData.push({ type: 'std' });
       if (stallsData.length > count) stallsData = stallsData.slice(0, count);
 
-      stallGroup.clearLayers(); // Rensa gamla rutor från kartan
+      stallGroup.clearLayers();
 
       const anchorPos = anchorMarker.getLatLng();
-      let currentX = 0; // x = längs med raden i meter, y = in på rutans djup
+      let currentX = 0;
 
       let totalMeters = 0;
       let symbolCount = 0;
 
       stallsData.forEach((stall, idx) => {
         let width = stdWidth;
-        let color = '#ffffff'; // Linjefärg
-        let fillColor = '#0f172a'; // Bakgrund
+        let color = '#ffffff';
+        let fillColor = '#0f172a';
         let labelHTML = `P${idx+1}`;
 
         if (stall.type === 'hkp') { width = 3.8; fillColor = '#0284c7'; labelHTML = '♿'; symbolCount++; }
         if (stall.type === 'ev') { fillColor = '#059669'; labelHTML = '⚡'; symbolCount++; }
         if (stall.type === 'no') { fillColor = '#e11d48'; labelHTML = '🚷'; }
 
-        // Definiera hörnen lokalt i meter (Origo = Botten Vänster av hela raden)
-        let p1 = { x: currentX, y: 0 };           // Botten Vänster
-        let p2 = { x: currentX + width, y: 0 };   // Botten Höger
-        let p3 = { x: currentX + width, y: stdDepth }; // Topp Höger
-        let p4 = { x: currentX, y: stdDepth };    // Topp Vänster
+        let p1 = { x: currentX, y: 0 };
+        let p2 = { x: currentX + width, y: 0 };
+        let p3 = { x: currentX + width, y: stdDepth };
+        let p4 = { x: currentX, y: stdDepth };
 
-        // Rotera punkterna lokalt
         let rp1 = rotatePoint(p1.x, p1.y, currentRotation);
         let rp2 = rotatePoint(p2.x, p2.y, currentRotation);
         let rp3 = rotatePoint(p3.x, p3.y, currentRotation);
         let rp4 = rotatePoint(p4.x, p4.y, currentRotation);
 
-        // Omvandla till Lat/Lng och applicera på Ankaret
         let latlngs = [
           addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp1.x, rp1.y),
           addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp2.x, rp2.y),
@@ -280,16 +325,11 @@
           addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp4.x, rp4.y)
         ];
 
-        // Skapa Leaflet Polygon
         const polygon = L.polygon(latlngs, {
-          color: color,
-          weight: 3, // 3 pixlar tjock vit linje (VGU)
-          fillColor: fillColor,
-          fillOpacity: 0.15, // 15% genomskinlighet för att se asfalten
+          color: color, weight: 3, fillColor: fillColor, fillOpacity: 0.15,
           className: 'cursor-pointer transition-opacity hover:fill-opacity-50'
         });
 
-        // Interaktivitet: Klicka för att byta typ
         polygon.on('click', () => {
           const types = ['std', 'hkp', 'ev', 'no'];
           let nextIdx = (types.indexOf(stall.type) + 1) % types.length;
@@ -299,20 +339,18 @@
 
         polygon.addTo(stallGroup);
 
-        // Lägg till Ikon/Text i mitten av rutan
         let centerLocal = rotatePoint(currentX + (width/2), stdDepth/2, currentRotation);
         let centerLatLng = addMetersToLatLng(anchorPos.lat, anchorPos.lng, centerLocal.x, centerLocal.y);
         
         L.marker(centerLatLng, {
           icon: L.divIcon({ className: 'stall-label', html: labelHTML, iconSize: [40, 40] }),
-          interactive: false // Klick går igenom texten till polygonen
+          interactive: false
         }).addTo(stallGroup);
 
         currentX += width;
-        totalMeters += width + (stdDepth * 2); // Grov uppskattning för U-form
+        totalMeters += width + (stdDepth * 2);
       });
 
-      // Kalkylator
       const meterPrice = 48;
       const symbolPrice = symbolCount * 550;
       const etablering = 3500;
@@ -323,7 +361,6 @@
       document.getElementById('calc-total').innerText = `${totalExMoms.toLocaleString('sv-SE')} kr`;
     }
 
-    // Kontroller
     function updateRotation() {
       currentRotation = parseInt(document.getElementById('layout-rotation').value) || 0;
       document.getElementById('rotation-val').innerText = `${currentRotation}°`;
@@ -340,10 +377,10 @@
       const btn = document.getElementById('layer-btn');
       if (currentLayerMode === 'sat') {
         map.removeLayer(satLayer); map.addLayer(osmLayer); currentLayerMode = 'osm';
-        btn.innerText = '🗺️ Kartlager: Vägkarta (OSM)';
+        btn.innerText = '🗺️ Kartlager: Vägkarta';
       } else {
         map.removeLayer(osmLayer); map.addLayer(satLayer); currentLayerMode = 'sat';
-        btn.innerText = '🛰️ Kartlager: Högupplöst Satellit';
+        btn.innerText = '🛰️ Kartlager: Satellit';
       }
     }
 
