@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Master Linjemålning & Ortofoto #44</title>
+  <title>Master Linjemålning & Ortofoto #44 (v1.4)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- Leaflet.js Kartbibliotek -->
@@ -15,27 +15,30 @@
     body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
     .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
     
-    /* U-formade vita parkeringslinjer */
-    .stall-u-single { border-top: 3px solid #ffffff; border-left: 3px solid #ffffff; border-right: 3px solid #ffffff; border-bottom: 0px transparent; }
-    .stall-u-top-row { border-top: 3px solid #ffffff; border-left: 3px solid #ffffff; border-right: 3px solid #ffffff; border-bottom: 2px solid #ffffff; }
-    .stall-u-bottom-row { border-bottom: 3px solid #ffffff; border-left: 3px solid #ffffff; border-right: 3px solid #ffffff; border-top: 0px transparent; }
-    .stall-box { transition: all 0.15s ease; cursor: pointer; }
-    .stall-box:hover { transform: scale(1.02); }
-
     .leaflet-control-zoom a { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
+    
+    /* Ikoner inuti vektorrutorna */
+    .stall-label {
+      background: transparent; border: none; box-shadow: none;
+      color: white; font-weight: 900; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
   </style>
 </head>
 <body class="min-h-screen p-3 md:p-6 space-y-4 max-w-6xl mx-auto">
 
-  <!-- Header -->
+  <!-- Header v1.4 -->
   <header class="glass-card rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
     <div class="flex items-center gap-3">
       <a href="prototyper.html" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition">
         ← Prototypnav
       </a>
       <div>
-        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Ortofoto & VGU Standard</span>
-        <h1 class="text-lg font-black text-white">🗺️ Linjemålning med Ortofoto & Kartor</h1>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Ortofoto & VGU</span>
+          <span class="px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full text-[10px] font-black">v1.4 (Dev)</span>
+        </div>
+        <h1 class="text-lg font-black text-white">🗺️ Linjemålning med Äkta Vektorgeometri</h1>
       </div>
     </div>
     <div class="flex gap-2">
@@ -57,7 +60,7 @@
       <div>
         <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-1.5">📍 Sök Plats eller Adress</h2>
         <div class="flex gap-2">
-          <input type="text" id="address-input" value="Flen" placeholder="Sök adress (t.ex. Sveavägen Flen)..." class="flex-1 p-2 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 focus:outline-none focus:border-sky-400">
+          <input type="text" id="address-input" value="Norrköping" placeholder="Sök adress..." class="flex-1 p-2 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 focus:outline-none focus:border-sky-400">
           <button onclick="searchAddress()" class="px-3 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs rounded-xl transition">
             🔍 Sök
           </button>
@@ -66,74 +69,66 @@
 
       <hr class="border-slate-800">
 
-      <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">⚙️ Layout & Dimensioner</h2>
-
-      <div>
-        <label class="text-[10px] text-slate-400 font-bold uppercase">Parkeringsmönster</label>
-        <select id="layout-type" onchange="renderLayout()" class="w-full mt-1 p-2.5 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 focus:outline-none focus:border-amber-400">
-          <option value="90-single">90° Vinkelrät (Enkelrad)</option>
-          <option value="90-double">90° Dubbelrad (Rygg-mot-rygg)</option>
-          <option value="45-right">45° Snedställd (Höger)</option>
-          <option value="45-left">45° Snedställd (Vänster)</option>
-          <option value="parallel">Parallell (Fickparkering)</option>
-          <option value="spaced">Separerade rutor (0,5 m avstånd)</option>
-        </select>
-      </div>
-
-      <div class="space-y-3">
-        <div>
-          <div class="flex justify-between text-xs font-bold">
-            <span class="text-slate-400">Antal P-Rutor:</span>
-            <span id="count-val" class="text-amber-400 font-extrabold">12 st</span>
-          </div>
-          <input type="range" id="stall-count" min="1" max="30" value="12" oninput="renderLayout()" class="w-full mt-1">
+      <!-- Layout-rotation -->
+      <div class="space-y-1 bg-slate-950 p-3 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🎨 Vinkel (Sektion A)</h2>
+          <span id="rotation-val" class="text-xs font-mono font-black text-amber-300">0°</span>
         </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-[10px] text-slate-400 font-bold uppercase">Standardbredd (m)</label>
-            <input type="number" id="stall-width" value="2.5" step="0.1" oninput="renderLayout()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
-          </div>
-          <div>
-            <label class="text-[10px] text-slate-400 font-bold uppercase">Rutdjup (m)</label>
-            <input type="number" id="stall-depth" value="5.0" step="0.1" oninput="renderLayout()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
-          </div>
+        <input type="range" id="layout-rotation" min="0" max="359" step="1" value="0" oninput="updateRotation()" class="w-full">
+        <div class="grid grid-cols-5 gap-1 pt-1">
+          <button onclick="stepRotation(-15)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300">↺ -15°</button>
+          <button onclick="setRotation(0)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300">0°</button>
+          <button onclick="setRotation(90)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300">90°</button>
+          <button onclick="setRotation(180)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300">180°</button>
+          <button onclick="stepRotation(15)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300">↻ +15°</button>
         </div>
       </div>
 
       <hr class="border-slate-800">
 
-      <!-- Symbol-anpassning -->
-      <div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-2">🎯 Klicka på ruta i ritningen för att anpassa</h3>
-        <div id="selected-stall-info" class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-2">
-          <div class="text-slate-400">Aktiv ruta: <span id="active-stall-num" class="text-white font-bold">P1</span></div>
-          <div class="grid grid-cols-2 gap-1.5">
-            <button onclick="setStallType('std')" class="px-2 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold rounded-lg border border-slate-700">Standard</button>
-            <button onclick="setStallType('hkp')" class="px-2 py-2 bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1">♿ HKP (3.8m)</button>
-            <button onclick="setStallType('ev')" class="px-2 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1">⚡ Elbil</button>
-            <button onclick="setStallType('no')" class="px-2 py-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1">🚷 Spärrad</button>
+      <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">⚙️ Dimensioner (Geografisk Skala)</h2>
+
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between text-xs font-bold">
+            <span class="text-slate-400">Antal P-Rutor:</span>
+            <span id="count-val" class="text-amber-400 font-extrabold">8 st</span>
+          </div>
+          <input type="range" id="stall-count" min="1" max="50" value="8" onchange="renderLayoutAndFit()" oninput="renderLayout()" class="w-full mt-1">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-400 font-bold uppercase">Standardbredd (m)</label>
+            <input type="number" id="stall-width" value="2.5" step="0.1" onchange="renderLayoutAndFit()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 font-bold uppercase">Rutdjup (m)</label>
+            <input type="number" id="stall-depth" value="5.0" step="0.1" onchange="renderLayoutAndFit()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
           </div>
         </div>
+      </div>
+
+      <div class="p-3 bg-sky-900/30 border border-sky-500/30 rounded-xl mt-2">
+        <p class="text-[10px] text-sky-200 font-bold">💡 Tips: Klicka på en utritad ruta på kartan för att växla mellan Standard, HKP (3.8m), Elbil eller Spärrad.</p>
       </div>
 
     </div>
 
     <!-- Högerpanel: Kartvy -->
     <div class="glass-card p-4 rounded-2xl space-y-3 lg:col-span-2 flex flex-col justify-between">
+      
       <div>
         <div class="flex justify-between items-center mb-2">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🛰️ Interaktiv Kartvy (Leaflet & Flygfoto)</h2>
-          <span class="text-[10px] text-slate-400 font-mono" id="coords-display">Lat: 59.0577, Lng: 16.5880</span>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🛰️ Interaktiv Karta med Vektor-ritning</h2>
+          <button onclick="renderLayoutAndFit()" class="px-2 py-1 bg-slate-800 border border-slate-700 text-[10px] rounded text-slate-300 hover:bg-slate-700">
+            🔍 Zooma till ritning
+          </button>
         </div>
 
-        <div class="relative h-80 sm:h-96 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
+        <div class="relative h-96 sm:h-[500px] rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
           <div id="map" class="w-full h-full z-0"></div>
-
-          <!-- Ritningsöverlagring -->
-          <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 max-w-[95%] overflow-x-auto bg-slate-950/85 backdrop-blur-md p-3 rounded-2xl border border-white/10 shadow-2xl">
-            <div id="layout-canvas" class="flex flex-col items-center justify-center"></div>
-          </div>
         </div>
       </div>
 
@@ -162,188 +157,162 @@
   </div>
 
   <script>
-    let activeStallIndex = 0;
-    let stallsData = [];
     let map, satLayer, osmLayer;
     let currentLayerMode = 'sat';
+    
+    // Geografiska objekt
+    let anchorMarker;
+    let stallGroup; // Leaflet FeatureGroup för polygonerna
+    
+    // Tillstånd
+    let stallsData = [];
+    let currentRotation = 0;
+
+    const R_EARTH = 6378137; // Jordens radie i meter
 
     function initMap() {
-      map = L.map('map', { zoomControl: true }).setView([59.0577, 16.5880], 18);
+      // Starta i Norrköping (kan bytas med sökning)
+      map = L.map('map', { zoomControl: true }).setView([58.5877, 16.1924], 19);
 
       satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19,
+        maxZoom: 20, maxNativeZoom: 19,
         attribution: 'Esri World Imagery / Ortofoto'
       }).addTo(map);
 
-      osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: 'OpenStreetMap'
+      osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+
+      // Skapa en FeatureGroup för att hålla alla rutor
+      stallGroup = L.featureGroup().addTo(map);
+
+      // Skapa det drag-and-drop-bara Ankaret (Sektion A)
+      const anchorIcon = L.divIcon({
+        className: 'bg-transparent',
+        html: '<div class="w-4 h-4 bg-amber-500 border-2 border-white rounded-full shadow-[0_0_10px_rgba(0,0,0,0.8)] -translate-x-1/2 -translate-y-1/2"></div>',
+        iconSize: [0, 0]
       });
 
-      map.on('move', () => {
-        const center = map.getCenter();
-        document.getElementById('coords-display').innerText = `Lat: ${center.lat.toFixed(4)}, Lng: ${center.lng.toFixed(4)}`;
+      anchorMarker = L.marker([58.5877, 16.1924], {
+        icon: anchorIcon,
+        draggable: true,
+        zIndexOffset: 1000
+      }).addTo(map);
+
+      // När man drar ankaret ritas ritningen om i realtid!
+      anchorMarker.on('drag', () => {
+        renderLayout();
       });
+
+      renderLayoutAndFit();
     }
 
-    function toggleLayer() {
-      const btn = document.getElementById('layer-btn');
-      if (currentLayerMode === 'sat') {
-        map.removeLayer(satLayer);
-        map.addLayer(osmLayer);
-        currentLayerMode = 'osm';
-        btn.innerText = '🗺️ Kartlager: Vägkarta (OSM)';
-      } else {
-        map.removeLayer(osmLayer);
-        map.addLayer(satLayer);
-        currentLayerMode = 'sat';
-        btn.innerText = '🛰️ Kartlager: Högupplöst Satellit';
+    // Geografisk matte: Omvandlar meter till Lat/Lng (Equirectangular approximation)
+    function addMetersToLatLng(lat, lng, dxMeters, dyMeters) {
+      const pi = Math.PI;
+      const new_lat = lat + (dyMeters / R_EARTH) * (180 / pi);
+      const new_lng = lng + (dxMeters / R_EARTH) * (180 / pi) / Math.cos(lat * pi / 180);
+      return [new_lat, new_lng];
+    }
+
+    // Roterar en punkt (x,y i meter) runt Origo baserat på vinkeln
+    function rotatePoint(x, y, angleDeg) {
+      const rad = angleDeg * Math.PI / 180;
+      return {
+        x: x * Math.cos(rad) - y * Math.sin(rad),
+        y: x * Math.sin(rad) + y * Math.cos(rad)
+      };
+    }
+
+    // Funktion för att rendera och uppdatera bounding box (Auto-zoom)
+    function renderLayoutAndFit() {
+      renderLayout();
+      if(stallGroup.getLayers().length > 0) {
+        map.fitBounds(stallGroup.getBounds(), { padding: [40, 40], maxZoom: 21 });
       }
     }
 
-    function searchAddress() {
-      const query = document.getElementById('address-input').value;
-      if (!query) return;
-
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sweden')}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-            map.setView([lat, lon], 18);
-          } else {
-            alert("Hittade inte adressen. Prova att lägga till ortnamn.");
-          }
-        })
-        .catch(() => alert("Kunde inte söka adress just nu."));
-    }
-
-    function createStallElement(idx, stall, isDoubleTop = false, isDoubleBottom = false) {
-      const layoutType = document.getElementById('layout-type').value;
+    // Ritar ut vektorerna på kartan
+    function renderLayout() {
+      const count = parseInt(document.getElementById('stall-count').value);
+      document.getElementById('count-val').innerText = `${count} st`;
+      
       const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
       const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
 
-      const box = document.createElement('div');
-      let width = stdWidth;
-      let bgStyle = 'bg-slate-900/90 text-white';
-      let icon = '';
-      let badgeText = `P${idx + 1}`;
+      // Uppdatera datalistan
+      while (stallsData.length < count) stallsData.push({ type: 'std' });
+      if (stallsData.length > count) stallsData = stallsData.slice(0, count);
 
-      if (stall.type === 'hkp') {
-        width = 3.8;
-        bgStyle = 'bg-sky-950/90 text-sky-200';
-        icon = '<span class="text-xl">♿</span>';
-      } else if (stall.type === 'ev') {
-        bgStyle = 'bg-emerald-950/90 text-emerald-200';
-        icon = '<span class="text-xl">⚡</span>';
-      } else if (stall.type === 'no') {
-        bgStyle = 'bg-rose-950/80 text-rose-300';
-        icon = '<span class="text-lg">🚷</span>';
-        badgeText = `X`;
-      }
+      stallGroup.clearLayers(); // Rensa gamla rutor från kartan
 
-      let lineClass = 'stall-u-single';
-      if (isDoubleTop) lineClass = 'stall-u-top-row';
-      if (isDoubleBottom) lineClass = 'stall-u-bottom-row';
-
-      if (activeStallIndex === idx) {
-        bgStyle += ' ring-4 ring-amber-400 z-20 shadow-2xl';
-      }
-
-      const isParallel = layoutType === 'parallel';
-      const pxWidth = isParallel ? 90 : Math.round(width * 16);
-      const pxHeight = isParallel ? 35 : Math.round(stdDepth * 13);
-
-      box.style.width = `${pxWidth}px`;
-      box.style.height = `${pxHeight}px`;
-      box.style.flexShrink = '0';
-
-      box.className = `stall-box ${lineClass} ${bgStyle} flex flex-col items-center justify-between p-1 select-none font-bold shadow-md relative`;
-      box.innerHTML = `
-        <span class="text-[9px] bg-slate-800/90 px-1 py-0.2 rounded text-white font-mono">${badgeText}</span>
-        ${icon}
-        <span class="text-[8px] text-slate-400 font-mono">${width}m</span>
-      `;
-
-      box.onclick = () => {
-        activeStallIndex = idx;
-        document.getElementById('active-stall-num').innerText = `P${idx + 1}`;
-        renderLayout();
-      };
-
-      return { element: box, width: width, depth: stdDepth };
-    }
-
-    function renderLayout() {
-      const layoutType = document.getElementById('layout-type').value;
-      const count = parseInt(document.getElementById('stall-count').value);
-
-      document.getElementById('count-val').innerText = `${count} st`;
-
-      while (stallsData.length < count) {
-        stallsData.push({ type: 'std' });
-      }
-      if (stallsData.length > count) {
-        stallsData = stallsData.slice(0, count);
-      }
-
-      const canvas = document.getElementById('layout-canvas');
-      canvas.innerHTML = '';
+      const anchorPos = anchorMarker.getLatLng();
+      let currentX = 0; // x = längs med raden i meter, y = in på rutans djup
 
       let totalMeters = 0;
       let symbolCount = 0;
 
-      const gapClass = layoutType === 'spaced' ? 'gap-2' : 'gap-0';
+      stallsData.forEach((stall, idx) => {
+        let width = stdWidth;
+        let color = '#ffffff'; // Linjefärg
+        let fillColor = '#0f172a'; // Bakgrund
+        let labelHTML = `P${idx+1}`;
 
-      if (layoutType === '90-double') {
-        const topCount = Math.ceil(count / 2);
-        const mainContainer = document.createElement('div');
-        mainContainer.className = 'flex flex-col items-center justify-center space-y-0';
+        if (stall.type === 'hkp') { width = 3.8; fillColor = '#0284c7'; labelHTML = '♿'; symbolCount++; }
+        if (stall.type === 'ev') { fillColor = '#059669'; labelHTML = '⚡'; symbolCount++; }
+        if (stall.type === 'no') { fillColor = '#e11d48'; labelHTML = '🚷'; }
 
-        const topRow = document.createElement('div');
-        topRow.className = `flex items-end justify-center ${gapClass} flex-nowrap`;
+        // Definiera hörnen lokalt i meter (Origo = Botten Vänster av hela raden)
+        let p1 = { x: currentX, y: 0 };           // Botten Vänster
+        let p2 = { x: currentX + width, y: 0 };   // Botten Höger
+        let p3 = { x: currentX + width, y: stdDepth }; // Topp Höger
+        let p4 = { x: currentX, y: stdDepth };    // Topp Vänster
+
+        // Rotera punkterna lokalt
+        let rp1 = rotatePoint(p1.x, p1.y, currentRotation);
+        let rp2 = rotatePoint(p2.x, p2.y, currentRotation);
+        let rp3 = rotatePoint(p3.x, p3.y, currentRotation);
+        let rp4 = rotatePoint(p4.x, p4.y, currentRotation);
+
+        // Omvandla till Lat/Lng och applicera på Ankaret
+        let latlngs = [
+          addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp1.x, rp1.y),
+          addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp2.x, rp2.y),
+          addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp3.x, rp3.y),
+          addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp4.x, rp4.y)
+        ];
+
+        // Skapa Leaflet Polygon
+        const polygon = L.polygon(latlngs, {
+          color: color,
+          weight: 3, // 3 pixlar tjock vit linje (VGU)
+          fillColor: fillColor,
+          fillOpacity: 0.15, // 15% genomskinlighet för att se asfalten
+          className: 'cursor-pointer transition-opacity hover:fill-opacity-50'
+        });
+
+        // Interaktivitet: Klicka för att byta typ
+        polygon.on('click', () => {
+          const types = ['std', 'hkp', 'ev', 'no'];
+          let nextIdx = (types.indexOf(stall.type) + 1) % types.length;
+          stallsData[idx].type = types[nextIdx];
+          renderLayout();
+        });
+
+        polygon.addTo(stallGroup);
+
+        // Lägg till Ikon/Text i mitten av rutan
+        let centerLocal = rotatePoint(currentX + (width/2), stdDepth/2, currentRotation);
+        let centerLatLng = addMetersToLatLng(anchorPos.lat, anchorPos.lng, centerLocal.x, centerLocal.y);
         
-        const bottomRow = document.createElement('div');
-        bottomRow.className = `flex items-start justify-center ${gapClass} flex-nowrap`;
+        L.marker(centerLatLng, {
+          icon: L.divIcon({ className: 'stall-label', html: labelHTML, iconSize: [40, 40] }),
+          interactive: false // Klick går igenom texten till polygonen
+        }).addTo(stallGroup);
 
-        stallsData.forEach((stall, idx) => {
-          if (stall.type === 'hkp' || stall.type === 'ev') symbolCount++;
-          if (idx < topCount) {
-            const res = createStallElement(idx, stall, true, false);
-            topRow.appendChild(res.element);
-            totalMeters += res.depth + res.width;
-          } else {
-            const res = createStallElement(idx, stall, false, true);
-            bottomRow.appendChild(res.element);
-            totalMeters += res.depth + res.width;
-          }
-        });
+        currentX += width;
+        totalMeters += width + (stdDepth * 2); // Grov uppskattning för U-form
+      });
 
-        mainContainer.appendChild(topRow);
-        mainContainer.appendChild(bottomRow);
-        canvas.appendChild(mainContainer);
-
-      } else {
-        const singleRow = document.createElement('div');
-        singleRow.className = `flex items-center justify-center ${gapClass} flex-nowrap p-1`;
-
-        if (layoutType.includes('45')) {
-          singleRow.style.transform = layoutType === '45-right' ? 'skewX(-20deg)' : 'skewX(20deg)';
-        } else {
-          singleRow.style.transform = 'none';
-        }
-
-        stallsData.forEach((stall, idx) => {
-          if (stall.type === 'hkp' || stall.type === 'ev') symbolCount++;
-          const res = createStallElement(idx, stall, false, false);
-          singleRow.appendChild(res.element);
-          totalMeters += res.depth + res.width;
-        });
-
-        canvas.appendChild(singleRow);
-      }
-
+      // Kalkylator
       const meterPrice = 48;
       const symbolPrice = symbolCount * 550;
       const etablering = 3500;
@@ -354,17 +323,46 @@
       document.getElementById('calc-total').innerText = `${totalExMoms.toLocaleString('sv-SE')} kr`;
     }
 
-    function setStallType(type) {
-      if (stallsData[activeStallIndex]) {
-        stallsData[activeStallIndex].type = type;
-        renderLayout();
+    // Kontroller
+    function updateRotation() {
+      currentRotation = parseInt(document.getElementById('layout-rotation').value) || 0;
+      document.getElementById('rotation-val').innerText = `${currentRotation}°`;
+      renderLayout();
+    }
+    function setRotation(deg) { document.getElementById('layout-rotation').value = deg; updateRotation(); }
+    function stepRotation(delta) { 
+      let val = parseInt(document.getElementById('layout-rotation').value);
+      document.getElementById('layout-rotation').value = (val + delta + 360) % 360; 
+      updateRotation(); 
+    }
+
+    function toggleLayer() {
+      const btn = document.getElementById('layer-btn');
+      if (currentLayerMode === 'sat') {
+        map.removeLayer(satLayer); map.addLayer(osmLayer); currentLayerMode = 'osm';
+        btn.innerText = '🗺️ Kartlager: Vägkarta (OSM)';
+      } else {
+        map.removeLayer(osmLayer); map.addLayer(satLayer); currentLayerMode = 'sat';
+        btn.innerText = '🛰️ Kartlager: Högupplöst Satellit';
       }
     }
 
-    window.onload = () => {
-      initMap();
-      renderLayout();
-    };
+    function searchAddress() {
+      const query = document.getElementById('address-input').value;
+      if (!query) return;
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sweden')}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat); const lon = parseFloat(data[0].lon);
+            map.setView([lat, lon], 19);
+            anchorMarker.setLatLng([lat, lon]);
+            renderLayoutAndFit();
+          } else { alert("Hittade inte adressen."); }
+        });
+    }
+
+    window.onload = initMap;
   </script>
 </body>
 </html>
