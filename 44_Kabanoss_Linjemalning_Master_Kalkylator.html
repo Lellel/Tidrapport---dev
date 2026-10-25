@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Master Linjemålning & Offertkalkylator #44</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .stall-box { transition: all 0.2s ease; cursor: pointer; }
+    .stall-box:hover { transform: translateY(-2px); border-color: #38bdf8; }
+  </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 space-y-4 max-w-6xl mx-auto">
+
+  <!-- Header -->
+  <header class="glass-card rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+    <div class="flex items-center gap-3">
+      <a href="prototyper.html" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition">
+        ← Prototypnav
+      </a>
+      <div>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Master Linjemålning</span>
+        <h1 class="text-lg font-black text-white">🎨 Parkeringskonfigurator & Offert</h1>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="toggleBgMode()" id="bg-mode-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition">
+        🗺️ Läge: Satellitkarta
+      </button>
+      <button onclick="generateOfferPDF()" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition">
+        📄 Skapa Offert-PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- Huvudvy Layout & Inställningar -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <!-- Vänsterpanel: Kontroller & Layoutväljare -->
+    <div class="glass-card p-4 rounded-2xl space-y-4 lg:col-span-1">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">⚙️ Layout & Dimensioner</h2>
+
+      <div>
+        <label class="text-[10px] text-slate-400 font-bold uppercase">Parkeringsmönster</label>
+        <select id="layout-type" onchange="renderLayout()" class="w-full mt-1 p-2.5 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 focus:outline-none focus:border-amber-400">
+          <option value="90-single">90° Vinkelrät (Enkelrad)</option>
+          <option value="90-double">90° Dubbelrad (Rygg-mot-rygg)</option>
+          <option value="45-right">45° Snedställd (Höger)</option>
+          <option value="45-left">45° Snedställd (Vänster)</option>
+          <option value="parallel">Parallell (Fickparkering)</option>
+          <option value="spaced">Separerade rutor (0,5 m avstånd)</option>
+        </select>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between text-xs font-bold">
+            <span class="text-slate-400">Antal P-Rutor:</span>
+            <span id="count-val" class="text-amber-400 font-extrabold">10 st</span>
+          </div>
+          <input type="range" id="stall-count" min="1" max="40" value="10" oninput="renderLayout()" class="w-full mt-1">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-400 font-bold uppercase">Standardbredd (m)</label>
+            <input type="number" id="stall-width" value="2.5" step="0.1" oninput="renderLayout()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 font-bold uppercase">Rutdjup (m)</label>
+            <input type="number" id="stall-depth" value="5.0" step="0.1" oninput="renderLayout()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
+          </div>
+        </div>
+      </div>
+
+      <hr class="border-slate-800">
+
+      <!-- Symbol- & Anpassningsinställningar för vald ruta -->
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-2">🎯 Klicka på en ruta i ritningen för att anpassa</h3>
+        <div id="selected-stall-info" class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-2">
+          <div class="text-slate-400">Aktiv ruta: <span id="active-stall-num" class="text-white font-bold">P1</span></div>
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="setStallType('std')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded border border-slate-700">Standard</button>
+            <button onclick="setStallType('hkp')" class="px-2 py-1 bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold rounded">♿ Handikapp (3.8m)</button>
+            <button onclick="setStallType('ev')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded">⚡ Elbil</button>
+            <button onclick="setStallType('no')" class="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold rounded">🚷 Spärrad</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Högerpanel: Interaktiv visualisering & Karta -->
+    <div class="glass-card p-4 rounded-2xl space-y-3 lg:col-span-2 flex flex-col justify-between">
+      <div>
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🗺️ Visuell Layout & Ytritning</h2>
+          <span class="text-[10px] text-slate-400">Svensk Standard VGU / Boverket</span>
+        </div>
+
+        <div id="canvas-container" class="relative h-80 sm:h-96 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center p-4">
+          <!-- Bakgrundsbild för karta / foto -->
+          <div id="bg-layer" class="absolute inset-0 bg-cover bg-center opacity-40 transition-opacity" style="background-image: url('https://images.unsplash.com/photo-1524813686514-a57563d77965?auto=format&fit=crop&w=1200&q=80');"></div>
+
+          <!-- Dynamisk SVG/HTML Layout Ritare -->
+          <div id="layout-canvas" class="relative z-10 w-full h-full flex items-center justify-center overflow-auto p-4">
+            <!-- Renderas dynamiskt av JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Priskalkylator -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Linjemeter</div>
+          <div id="calc-meters" class="text-lg font-black text-amber-400 mt-0.5">0 m</div>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Specialschabloner</div>
+          <div id="calc-symbols" class="text-lg font-black text-sky-400 mt-0.5">0 st</div>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Etablering & Resa</div>
+          <div class="text-lg font-black text-slate-200 mt-0.5">3 500 kr</div>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
+          <div class="text-[10px] text-amber-400 font-bold uppercase">Totalt Exkl. Moms</div>
+          <div id="calc-total" class="text-xl font-black text-emerald-400 mt-0.5">0 kr</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    let activeStallIndex = 0;
+    let bgMode = 'satellit'; // satellit eller ren
+    let stallsData = [];
+
+    function toggleBgMode() {
+      const bgLayer = document.getElementById('bg-layer');
+      const btn = document.getElementById('bg-mode-btn');
+      if (bgMode === 'satellit') {
+        bgMode = 'ren';
+        bgLayer.style.opacity = '0';
+        btn.innerText = '🧱 Läge: Ren Canvas';
+      } else {
+        bgMode = 'satellit';
+        bgLayer.style.opacity = '0.4';
+        btn.innerText = '🗺️ Läge: Satellitkarta';
+      }
+    }
+
+    function renderLayout() {
+      const layoutType = document.getElementById('layout-type').value;
+      const count = parseInt(document.getElementById('stall-count').value);
+      const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
+      const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
+
+      document.getElementById('count-val').innerText = `${count} st`;
+
+      // Bevara eller initiera specialtyper för rutorna
+      while (stallsData.length < count) {
+        stallsData.push({ type: 'std', customWidth: null });
+      }
+      if (stallsData.length > count) {
+        stallsData = stallsData.slice(0, count);
+      }
+
+      const canvas = document.getElementById('layout-canvas');
+      canvas.innerHTML = '';
+
+      const flexWrapper = document.createElement('div');
+      flexWrapper.className = 'flex items-center justify-center gap-1 flex-wrap p-4 bg-slate-900/80 rounded-2xl border border-slate-700/80 shadow-2xl';
+
+      if (layoutType.includes('45')) {
+        flexWrapper.style.transform = layoutType === '45-right' ? 'skewX(-25deg)' : 'skewX(25deg)';
+      } else {
+        flexWrapper.style.transform = 'none';
+      }
+
+      let totalMeters = 0;
+      let symbolCount = 0;
+
+      stallsData.forEach((stall, idx) => {
+        const box = document.createElement('div');
+        let width = stdWidth;
+        let bgClass = 'bg-slate-800/80 border-amber-400/80 text-amber-300';
+        let badge = `P${idx + 1}`;
+
+        if (stall.type === 'hkp') {
+          width = 3.8; // Expanderat mått för HKP
+          bgClass = 'bg-sky-900/80 border-sky-400 text-sky-200 font-extrabold';
+          badge = `♿ P${idx + 1} (HKP)`;
+          symbolCount++;
+        } else if (stall.type === 'ev') {
+          bgClass = 'bg-emerald-900/80 border-emerald-400 text-emerald-200 font-extrabold';
+          badge = `⚡ P${idx + 1} (EV)`;
+          symbolCount++;
+        } else if (stall.type === 'no') {
+          bgClass = 'bg-rose-900/80 border-rose-500 text-rose-300 line-through';
+          badge = `🚷 X`;
+        }
+
+        if (activeStallIndex === idx) {
+          bgClass += ' ring-4 ring-sky-400 shadow-xl';
+        }
+
+        const isParallel = layoutType === 'parallel';
+        const displayW = isParallel ? 90 : Math.round(width * 22);
+        const displayH = isParallel ? 35 : Math.round(stdDepth * 18);
+
+        box.style.width = `${displayW}px`;
+        box.style.height = `${displayH}px`;
+        box.className = `stall-box border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-[10px] font-mono p-1 select-none ${bgClass}`;
+        box.innerHTML = `<span>${badge}</span><span class="text-[8px] opacity-75">${width}m</span>`;
+
+        box.onclick = () => {
+          activeStallIndex = idx;
+          document.getElementById('active-stall-num').innerText = `P${idx + 1}`;
+          renderLayout();
+        };
+
+        flexWrapper.appendChild(box);
+
+        // Beräkning av linjemeter (sidolinjer + bak/framlinje)
+        totalMeters += stdDepth + width;
+      });
+
+      // Lägg till extra för dubbelrad
+      if (layoutType === '90-double') {
+        totalMeters *= 1.8;
+      }
+
+      canvas.appendChild(flexWrapper);
+
+      // Beräkna pris
+      const meterPrice = 48; // kr/m termoplast
+      const symbolPrice = symbolCount * 550; // schablon för schablonmålning
+      const etablering = 3500;
+      const totalExMoms = Math.round((totalMeters * meterPrice) + symbolPrice + etablering);
+
+      document.getElementById('calc-meters').innerText = `${Math.round(totalMeters)} m`;
+      document.getElementById('calc-symbols').innerText = `${symbolCount} st`;
+      document.getElementById('calc-total').innerText = `${totalExMoms.toLocaleString('sv-SE')} kr`;
+    }
+
+    function setStallType(type) {
+      if (stallsData[activeStallIndex]) {
+        stallsData[activeStallIndex].type = type;
+        renderLayout();
+      }
+    }
+
+    function generateOfferPDF() {
+      alert("Genererar Offertunderlag i PDF-format för kunden...");
+    }
+
+    renderLayout();
+  </script>
+</body>
+</html>
