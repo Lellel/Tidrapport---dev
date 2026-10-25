@@ -5,89 +5,137 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Kabanossen - Prototypnav</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config = { darkMode: 'class' }</script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
     body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
-    .glass-card { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); transition: all 0.2s ease; }
-    .glass-card:hover { border-color: rgba(56, 189, 248, 0.4); transform: translateY(-2px); }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
   </style>
 </head>
-<body class="min-h-screen p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
+<body class="min-h-screen p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
 
-  <header class="glass-card rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+  <header class="glass-card rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
     <div>
-      <span class="text-xs font-bold uppercase tracking-wider text-sky-400">LPV & Klaryta • Flens Kommun</span>
-      <h1 class="text-2xl font-black text-white mt-1">🗂️ Kabanossen Prototyp- & Testnav</h1>
+      <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Kabanossen PWA • Testmiljö</span>
+      <h1 class="text-2xl font-black text-white mt-0.5">🛠️ Operativa Prototypmoduler</h1>
     </div>
     <a href="index.html" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-white/10 transition">
       🏠 Till Huvudappen (index.html)
     </a>
   </header>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  <!-- Modulgrid -->
+  <main class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
 
-    <!-- SNÖ & JOUR -->
-    <div class="space-y-3">
-      <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 px-1">❄️ Snöjour & Handskottning</h2>
-      <a href="42_Kabanoss_Snokabanoss_Dedicated_Snow.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white flex items-center justify-between">
-          <span>❄️ Snökabanossen (#42)</span>
-          <span class="text-[10px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded font-mono">NY</span>
-        </div>
-        <p class="text-xs text-slate-400">Dedikerad snöjour, handskottningslista & fotobevis.</p>
-      </a>
-      <a href="38_Kabanoss_Snojour_Karta_Maskin_Hand.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white">🗺️ Snöjour Zonmärkning (#38)</div>
-        <p class="text-xs text-slate-400">Maskinplog vs handskottning på satellitkarta.</p>
-      </a>
-    </div>
+    <!-- #43 Fasadmålning (Ny!) -->
+    <a href="43_Kabanoss_Fasadmalning_Kamera_Kalkylator.html" class="glass-card p-5 rounded-2xl border-2 border-sky-500/50 hover:border-sky-400 bg-sky-500/10 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-sky-300">Modul #43</span>
+        <span class="px-2 py-0.5 bg-sky-500 text-slate-950 rounded text-[10px] font-black uppercase">NY!</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-sky-300 transition">🏠 Fasadmålning & Kamera</h2>
+      <p class="text-xs text-slate-400 mt-1">Kameramätning, triangelgavel & L-hus kalkylator.</p>
+    </a>
 
-    <!-- FÄLTBESÖK & LINJEMÅLNING -->
-    <div class="space-y-3">
-      <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400 px-1">📐 Besök, 3D & Linjemålning</h2>
-      <a href="28_Kabanoss_Platsbesok_Form.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white">📝 Platsbesöksformulär (#28)</div>
-        <p class="text-xs text-slate-400">iPad-touch för mått, logistik & foto.</p>
-      </a>
-      <a href="31_Kabanoss_Linjemalning_Map_Overlay_Slider.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white">🗺️ Linjemålning AR Overlay (#31)</div>
-        <p class="text-xs text-slate-400">P-slider projicerad på satellitbild.</p>
-      </a>
-      <a href="32_Kabanoss_Linjemalning_3D_Perspektiv_Tilt.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white">📐 3D Golvtilt & Perspektiv (#32)</div>
-        <p class="text-xs text-slate-400">Vält ner P-rutor platt mot betonggolv i P-hus.</p>
-      </a>
-      <a href="33_Kabanoss_Linjemalning_3D_Touch_Gestures.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white">🤏 iPad Touch & Gestkontroll (#33)</div>
-        <p class="text-xs text-slate-400">Nyp, vrid och skala rutor direkt med fingrarna.</p>
-      </a>
-      <a href="34_Kabanoss_Linjemalning_Map_Sources_GPS.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white">🛰️ GPS & Maps Bildkällor (#34)</div>
-        <p class="text-xs text-slate-400">Satellitvy från adress, GPS eller egen bild.</p>
-      </a>
-    </div>
+    <!-- #42 Snökabanossen -->
+    <a href="42_Kabanoss_Snokabanoss_Dedicated_Snow.html" class="glass-card p-5 rounded-2xl hover:border-sky-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Modul #42</span>
+        <span class="text-xs">❄️</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-sky-400 transition">Snökabanossen Jour</h2>
+      <p class="text-xs text-slate-400 mt-1">Handskottning, avbockning & fotobevis.</p>
+    </a>
 
-    <!-- UE & RESURSHANTERING -->
-    <div class="space-y-3">
-      <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 px-1">⚙️ UE & Resurskulpåse</h2>
-      <a href="41_Kabanoss_UE_Flotta_Rullande_Enheter.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white flex items-center justify-between">
-          <span>🚜 Storflotta & Ekipage (#41)</span>
-          <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono">NY</span>
-        </div>
-        <p class="text-xs text-slate-400">Generera 1–25 rullande enheter och simulera punkthaveri.</p>
-      </a>
-      <a href="40_Kabanoss_UE_Register_Piffad.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white">⚙️ UE-Register Piffad (#40)</div>
-        <p class="text-xs text-slate-400">Vågrätt formulär, tillvalsknappar & tel-länkar.</p>
-      </a>
-      <a href="39_Kabanoss_UE_Register_Kulpase.html" class="glass-card p-4 rounded-2xl block space-y-1">
-        <div class="font-extrabold text-sm text-white">👷‍♂️ UE-Register & Kulor (#39)</div>
-        <p class="text-xs text-slate-400">Färgkodade glaskulor per kompetens & sjukanmälan.</p>
-      </a>
-    </div>
+    <!-- #38 Snöjour Karta -->
+    <a href="38_Kabanoss_Snojour_Karta_Maskin_Hand.html" class="glass-card p-5 rounded-2xl hover:border-sky-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Modul #38</span>
+        <span class="text-xs">🗺️</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-sky-400 transition">Snöjour Karta (Flen)</h2>
+      <p class="text-xs text-slate-400 mt-1">Satellitvy, maskin/hand-ritare & priskalkyl.</p>
+    </a>
 
-  </div>
+    <!-- #28 Platsbesök -->
+    <a href="28_Kabanoss_Platsbesok_Form.html" class="glass-card p-5 rounded-2xl hover:border-sky-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Modul #28</span>
+        <span class="text-xs">📝</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-sky-400 transition">Platsbesök Formulär</h2>
+      <p class="text-xs text-slate-400 mt-1">Snabbregistrering av mått & logistik.</p>
+    </a>
+
+    <!-- #31 Overlay Slider -->
+    <a href="31_Kabanoss_Linjemalning_Map_Overlay_Slider.html" class="glass-card p-5 rounded-2xl hover:border-amber-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #31</span>
+        <span class="text-xs">🎚️</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-amber-400 transition">AR Map Overlay Slider</h2>
+      <p class="text-xs text-slate-400 mt-1">Transparensreglage för ritningar på karta.</p>
+    </a>
+
+    <!-- #32 3D Tilt -->
+    <a href="32_Kabanoss_Linjemalning_3D_Perspektiv_Tilt.html" class="glass-card p-5 rounded-2xl hover:border-amber-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #32</span>
+        <span class="text-xs">📐</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-amber-400 transition">3D Golvtilt & Perspektiv</h2>
+      <p class="text-xs text-slate-400 mt-1">Vinkla och rotera P-rutor i 3D-perspektiv.</p>
+    </a>
+
+    <!-- #33 Touch Gestures -->
+    <a href="33_Kabanoss_Linjemalning_3D_Touch_Gestures.html" class="glass-card p-5 rounded-2xl hover:border-amber-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #33</span>
+        <span class="text-xs">🤏</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-amber-400 transition">iPad Touch Gestkontroll</h2>
+      <p class="text-xs text-slate-400 mt-1">Dra & släpp parkeringsobjekt på skärmen.</p>
+    </a>
+
+    <!-- #34 GPS Sources -->
+    <a href="34_Kabanoss_Linjemalning_Map_Sources_GPS.html" class="glass-card p-5 rounded-2xl hover:border-amber-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #34</span>
+        <span class="text-xs">🛰️</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-amber-400 transition">GPS & Kartkällor</h2>
+      <p class="text-xs text-slate-400 mt-1">Positionering & adressuppslag i fält.</p>
+    </a>
+
+    <!-- #39 UE Register Kulor -->
+    <a href="39_Kabanoss_UE_Register_Kulpase.html" class="glass-card p-5 rounded-2xl hover:border-emerald-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Modul #39</span>
+        <span class="text-xs">👷‍♂️</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-emerald-400 transition">UE-Register & Kulor</h2>
+      <p class="text-xs text-slate-400 mt-1">Underentreprenörer & kompetenstags.</p>
+    </a>
+
+    <!-- #40 UE Piffad -->
+    <a href="40_Kabanoss_UE_Register_Piffad.html" class="glass-card p-5 rounded-2xl hover:border-emerald-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Modul #40</span>
+        <span class="text-xs">⚙️</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-emerald-400 transition">UE-Register Avtal</h2>
+      <p class="text-xs text-slate-400 mt-1">Snabb-ring & ID06-avtalshantering.</p>
+    </a>
+
+    <!-- #41 UE Flotta -->
+    <a href="41_Kabanoss_UE_Flotta_Rullande_Enheter.html" class="glass-card p-5 rounded-2xl hover:border-emerald-500/50 transition group">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Modul #41</span>
+        <span class="text-xs">🚜</span>
+      </div>
+      <h2 class="text-base font-extrabold text-white group-hover:text-emerald-400 transition">Rullande Maskinflotta</h2>
+      <p class="text-xs text-slate-400 mt-1">Status för 1–25 aktiva maskinekipage.</p>
+    </a>
+
+  </main>
 </body>
 </html>
