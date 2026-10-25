@@ -8,12 +8,9 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
     body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f1f5f9; }
-    
-    /* Snygg scrollbar för iframes */
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-    
     .gradient-text {
       background: linear-gradient(to right, #38bdf8, #34d399);
       -webkit-background-clip: text;
@@ -23,7 +20,6 @@
 </head>
 <body class="min-h-screen">
 
-  <!-- Navigering -->
   <nav class="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 p-4">
     <div class="max-w-6xl mx-auto flex justify-between items-center">
       <div class="font-black text-xl tracking-tight text-white">🌭 KABANOSSEN</div>
@@ -33,34 +29,33 @@
 
   <main class="max-w-6xl mx-auto p-4 md:p-8 space-y-24 mt-8">
 
-    <!-- INTRO -->
     <section class="text-center max-w-3xl mx-auto space-y-6">
       <h1 class="text-4xl md:text-6xl font-black tracking-tight text-white mb-4">
         Handboken för <span class="gradient-text">Verkligheten</span>
       </h1>
       <p class="text-lg text-slate-400 leading-relaxed font-medium">
-        Kabanossen är inte byggt för folk som gillar att sitta framför excelark hela dagarna. Det är ett system byggt för att fungera ute i blåsten, i solskenet och i traktorn mitt i natten. Här förklarar vi hur allt hänger ihop – från första offerten till att kunden har fakturan i handen.
+        Kabanossen är ett fältverktyg byggt för att fungera ute i blåsten, i solskenet och i traktorn mitt i natten. Här förklarar vi hur allt hänger ihop – helt utan krångliga programmeringsord.
       </p>
     </section>
 
-    <!-- ROLLER OCH VARDAG -->
+    <!-- ROLLER -->
     <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-12 space-y-8">
       <h2 class="text-2xl font-black text-white">Vem gör vad i Kabanossen?</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         <div class="space-y-3">
           <div class="text-3xl">👨‍💻</div>
-          <h3 class="text-lg font-black text-sky-400">Säljaren (På kontoret)</h3>
+          <h3 class="text-lg font-black text-sky-400">Säljaren & Jourledaren (På kontoret)</h3>
           <p class="text-sm text-slate-300 leading-relaxed">
-            Letar upp kundens adress på kartan. Klickar ut några rutor eller ritar ut väggar för att få fram exakta mått direkt på skärmen. Systemet räknar ut priset, lägger på er vinstmarginal och fixar en snygg offert till kunden på några minuter.
+            Ritar upp rutor, fasader och snözoner direkt på flygfoton. Under snöstormar sitter jourledaren vid "War-Room-skärmen" och följer alla traktorer och plogzoner i realtid.
           </p>
         </div>
 
         <div class="space-y-3">
           <div class="text-3xl">👷</div>
-          <h3 class="text-lg font-black text-amber-400">Killarna i fält (Ute på asfalten)</h3>
+          <h3 class="text-lg font-black text-amber-400">Killarna i fält (Ute på asfalten / I traktorn)</h3>
           <p class="text-sm text-slate-300 leading-relaxed">
-            Öppnar appen i mobilen och trycker "Börja jobba". Ritningen ligger redan där. De använder mobilkameran för att se exakt var linjen ska målas. Hittar de en rötskada tvingar appen dem att ta ett foto innan de får fortsätta, så att ni alltid får betalt för extratiden.
+            Öppnar appen i mobilen eller iPaden. Ser exakt vart de ska köra, vinklar linjer med kameran eller trycker "Starta plogning". Alla hinder (som felparkerade bilar) fotas direkt i appen.
           </p>
         </div>
 
@@ -68,7 +63,7 @@
           <div class="text-3xl">🔨</div>
           <h3 class="text-lg font-black text-rose-400">Underentreprenören (UE)</h3>
           <p class="text-sm text-slate-300 leading-relaxed">
-            När ni behöver hyra in en snickare eller lift får de ett färdigt mejl. De får se bilderna på skadan och måtten på väggen, men de ser <strong>aldrig</strong> vad kunden betalar er. Det är helt vattentätt.
+            När ni behöver hyra in en snickare eller ställning får de en färdig förfrågan med bildbevis på skadan och exakta mått – utan att se era interna marginaler.
           </p>
         </div>
 
@@ -76,7 +71,7 @@
           <div class="text-3xl">🧾</div>
           <h3 class="text-lg font-black text-emerald-400">Ekonomiavdelningen</h3>
           <p class="text-sm text-slate-300 leading-relaxed">
-            När jobbet är klart behöver ingen jaga timlappar. Kabanossen har redan räknat ut hur länge killarna var på plats, hur mycket färg som gick åt och precis hur mycket ROT-avdrag som ska krävas av Skatteverket. Bara att godkänna och skicka fakturan.
+            Ingen behöver jaga papperslappar. Arbetstid, förbrukat salt/sand, ÄTA-arbeten och ROT-avdrag för Skatteverket är färdigräknat och redo för fakturering.
           </p>
         </div>
 
@@ -88,15 +83,11 @@
       <div class="max-w-3xl space-y-4">
         <h2 class="text-3xl font-black text-white">1. Smarta kartor för linjemålning</h2>
         <p class="text-slate-300 leading-relaxed">
-          Istället för att åka ut och mäta parkeringar med rullmått, använder vi drönar- och satellitbilder. När du drar i reglagen på skärmen ritar appen ut riktiga parkeringsrutor i exakt rätt storlek (2,5 x 5 meter). 
+          När du drar i reglagen på skärmen ritar appen ut riktiga parkeringsrutor i exakt rätt storlek (2,5 x 5 meter) på flygfotot. 
           Eftersom rutorna är lite genomskinliga kan du se gamla linjer och brunnslock rakt igenom ritningen.
-        </p>
-        <p class="text-slate-400 text-sm italic">
-          👇 <strong>Testa själv:</strong> Dra den lilla gula nålen (ankaret) på kartan nedan för att flytta parkeringen till en ny asfaltsyta.
         </p>
       </div>
 
-      <!-- INTERAKTIV IFRAME -->
       <div class="w-full h-[700px] bg-slate-900 rounded-3xl border-2 border-slate-700 overflow-hidden shadow-2xl relative">
         <iframe src="44_Kabanoss_Linjemalning_Master_Kalkylator.html" class="w-full h-full border-none"></iframe>
       </div>
@@ -105,21 +96,13 @@
     <!-- KAMERAN -->
     <section class="space-y-8 pt-12 border-t border-slate-800">
       <div class="max-w-3xl space-y-4">
-        <h2 class="text-3xl font-black text-white">2. Kamera-siktet i fält</h2>
+        <h2 class="text-3xl font-black text-white">2. Kamera-siktet i fält (AR)</h2>
         <p class="text-slate-300 leading-relaxed">
-          När killarna väl står ute på parkeringen är det svårt att läsa en pappersritning i blåsten. Lösningen? De riktar iPaden mot asfalten. Appen fungerar precis som en kamera, och ritar ut de nya parkeringsrutorna direkt ovanpå verkligheten på skärmen!
-        </p>
-        <p class="text-slate-300 leading-relaxed">
-          Appen guidar dem steg för steg med stora knappar: <strong>Sikta in startpunkten</strong> ➔ <strong>Vinkla rätt</strong> ➔ <strong>Knäpp fast!</strong>
-        </p>
-        <p class="text-slate-400 text-sm italic">
-          👇 <strong>Testa själv:</strong> Klicka på knappen i fönstret nedan och låt kameran rita ut rutorna på ditt golv. (Kräver mobil/iPad för bäst effekt).
+          När killarna står på asfalten riktar de bara iPaden mot marken. Appen fungerar precis som en kamera, och ritar ut de nya parkeringsrutorna direkt ovanpå verkligheten!
         </p>
       </div>
 
-      <!-- INTERAKTIV IFRAME -->
       <div class="w-full h-[600px] bg-slate-900 rounded-3xl border-2 border-slate-700 overflow-hidden shadow-2xl relative max-w-sm mx-auto md:max-w-md">
-        <!-- Telefon-liknande form för att simulera fältanvändning -->
         <iframe src="45_Kabanoss_AR_Kamera.html" class="w-full h-full border-none"></iframe>
       </div>
     </section>
@@ -129,44 +112,58 @@
       <div class="max-w-3xl space-y-4">
         <h2 class="text-3xl font-black text-white">3. Fasad, Extrakostnader och ROT-avdrag</h2>
         <p class="text-slate-300 leading-relaxed">
-          Att ge pris på fasadmålning är ofta en chansning. I Kabanossen klickar du runt huset på kartan för att få fram antalet metrar vägg, och slår in husets höjd. Klart!
-        </p>
-        <p class="text-slate-300 leading-relaxed">
-          <strong>När det går fel:</strong> Om panelen visar sig vara rutten (Röta) tvingar appen säljaren/målaren att ta ett foto på skadan. Det går helt enkelt inte att spara offerten utan ett bildbevis. Detta skickas sen till en inhyrd snickare (UE). 
-          Appen håller stenkoll på vad snickaren kostar, lägger på er vinst, och räknar ut exakt hur mycket ROT-avdrag Skatteverket ska betala ut – utan att ni behöver räkna en enda siffra i huvudet.
-        </p>
-        <p class="text-slate-400 text-sm italic">
-          👇 <strong>Testa själv:</strong> Klicka i att fasaden har "Röta" i modulen nedan. Se hur appen slår larm, tvingar fram kameran och räknar ut ROT-avdraget i realtid.
+          Du klickar runt huset på kartan för att få fram antalet metrar vägg. Om panelen är rutten (Röta) tvingar appen säljaren/målaren att ta ett foto på skadan innan offerten kan sparas. Appen håller koll på UE-snickaren och räknar ut ROT-avdraget till Skatteverket helt automatiskt.
         </p>
       </div>
 
-      <!-- INTERAKTIV IFRAME -->
       <div class="w-full h-[850px] bg-slate-900 rounded-3xl border-2 border-slate-700 overflow-hidden shadow-2xl relative">
         <iframe src="46_Kabanoss_Fasad_Kalkylator.html" class="w-full h-full border-none"></iframe>
       </div>
     </section>
 
-    <!-- SNÖRÖJNING -->
+    <!-- SNÖRÖJNING & WAR-ROOM -->
     <section class="space-y-8 pt-12 pb-24 border-t border-slate-800">
       <div class="max-w-3xl space-y-4">
-        <h2 class="text-3xl font-black text-white">4. Vintertid: Snöröjning och Halkbekämpning</h2>
+        <h2 class="text-3xl font-black text-white">4. Vintertid: War-Room & Snöledning</h2>
         <p class="text-slate-300 leading-relaxed">
-          På vintern handlar allt om bevismaterial och snabbhet. Om någon ramlar och bryter benet på en parkering ni sköter, måste ni kunna bevisa att ni har sandat där.
+          När snöstormen slår till kl. 02:00 förvandlas Kabanossen till en ledningscentral ("War-Room").
         </p>
-        <ul class="list-none space-y-4 mt-4">
-          <li class="flex items-start gap-3">
-            <span class="text-2xl">🚜</span>
-            <span class="text-slate-300"><strong>GPS-Bevis:</strong> När traktorföraren trycker "Börja ploga" spelar appen in exakt var maskinen kör. Det blir ert kvitto på att jobbet är gjort.</span>
-          </li>
-          <li class="flex items-start gap-3">
-            <span class="text-2xl">📸</span>
-            <span class="text-slate-300"><strong>Hinder i vägen:</strong> Står det en bil parkerad i vägen för plogen? Föraren trycker på "Hinder", appen kräver ett foto på bilen, och bilden sparas i loggen. Kunden kan aldrig klaga på varför en plogvall lämnades där.</span>
-          </li>
-          <li class="flex items-start gap-3">
-            <span class="text-2xl">🧂</span>
-            <span class="text-slate-300"><strong>Fakturering direkt:</strong> Föraren klickar snabbt i hur många kilo salt som gick åt innan hen åker vidare. Materialet läggs till direkt på kundens löpande faktura.</span>
-          </li>
-        </ul>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          
+          <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-2">
+            <div class="text-xl">🖥️ War-Room-Tavlan (Kontor)</div>
+            <h4 class="font-bold text-sky-400 text-sm">Full kontroll på stadsnivå</h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Jourledaren ser alla distrikt färgkodade på storskärm. Rött betyder ej plogat, gult pågår, och grönt betyder klart. Alla traktorer syns som rörliga punkter på kartan via sina GPS:er.
+            </p>
+          </div>
+
+          <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-2">
+            <div class="text-xl">🚨 Prioritetsordning (Prio 1, 2, 3)</div>
+            <h4 class="font-bold text-amber-400 text-sm">Säkra rätt ytor först</h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Systemet styr automatiskt förarna till Prio 1-ytor (räddningsvägar och sjukhus) före bostadsrätter, så att avtalen alltid hålls utan stress.
+            </p>
+          </div>
+
+          <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-2">
+            <div class="text-xl">📍 GPS-Bevis vid Halkolyckor</div>
+            <h4 class="font-bold text-emerald-400 text-sm">Skydd mot skadestånd</h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              När föraren trycker "Starta plogning" spelas rutt och tidstämpel in. Klagar en kund tre dagar senare finns det svart på vitt att ytan sandades kl. 04:15.
+            </p>
+          </div>
+
+          <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-2">
+            <div class="text-xl">🚗 Fotokrav vid Hinder</div>
+            <h4 class="font-bold text-rose-400 text-sm">Inga diskussioner om felparkeringar</h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Står en bil i vägen för plogen tvingar appen föraren att fota bilen. Bilden tidsstämplas och skickas direkt till fastighetsägaren.
+            </p>
+          </div>
+
+        </div>
       </div>
     </section>
 
