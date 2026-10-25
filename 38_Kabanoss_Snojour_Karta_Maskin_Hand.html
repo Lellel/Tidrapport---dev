@@ -2,18 +2,165 @@
 <html lang="sv" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>38 Kabanoss Snojour Karta Maskin Hand</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Snöjour & Zonmärkning - Flen</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+    #map { height: calc(100vh - 180px); width: 100%; border-radius: 1.5rem; }
+    .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-6 flex flex-col items-center justify-center space-y-6 text-center">
-  <div class="max-w-lg p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl space-y-4">
-    <span class="text-xs font-mono bg-sky-500/20 text-sky-400 px-3 py-1 rounded-full uppercase tracking-wider">Prototyp Modul</span>
-    <h1 class="text-2xl font-black text-white">38 Kabanoss Snojour Karta Maskin Hand</h1>
-    <p class="text-sm text-slate-400">Denna prototypmodul är aktiv och redo för iPad-testning i Flen.</p>
-    <a href="prototyper.html" class="inline-block px-6 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl transition">
-      ← Tillbaka till Prototypnavet
-    </a>
+<body class="h-screen flex flex-col p-4 md:p-6 space-y-4 max-w-7xl mx-auto overflow-hidden">
+
+  <!-- Header -->
+  <header class="glass-panel rounded-2xl p-4 flex justify-between items-center shrink-0">
+    <div>
+      <div class="flex items-center gap-2">
+        <a href="prototyper.html" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition">
+          ← Nav
+        </a>
+        <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Modul #38 • Flen</span>
+      </div>
+      <h1 class="text-xl font-black text-white mt-1">🗺️ Snöjour: Kartritare Maskin vs Hand</h1>
+    </div>
+
+    <!-- Stats display -->
+    <div class="flex gap-4 text-right">
+      <div class="hidden sm:block">
+        <div class="text-[10px] text-slate-400 font-bold uppercase">Totalt Maskin</div>
+        <div id="stat-maskin" class="text-base font-black text-sky-400">0 m²</div>
+      </div>
+      <div class="hidden sm:block">
+        <div class="text-[10px] text-slate-400 font-bold uppercase">Totalt Hand</div>
+        <div id="stat-hand" class="text-base font-black text-amber-400">0 m²</div>
+      </div>
+      <div>
+        <div class="text-[10px] text-slate-400 font-bold uppercase">Beräknad Utryckning</div>
+        <div id="stat-price" class="text-base font-black text-emerald-400">0 kr</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Verktygsfält -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 shrink-0">
+    <button id="btn-maskin" onclick="setMode('maskin')" class="glass-panel p-3 rounded-xl border-2 border-sky-500 bg-sky-500/20 text-sky-200 font-bold text-xs flex items-center justify-center gap-2 transition">
+      🚜 <span>Måla Maskin (Blå)</span>
+    </button>
+    <button id="btn-hand" onclick="setMode('hand')" class="glass-panel p-3 rounded-xl border-2 border-transparent hover:border-amber-500/50 text-amber-200 font-bold text-xs flex items-center justify-center gap-2 transition">
+      🧹 <span>Måla Handskott (Gul)</span>
+    </button>
+    <button onclick="toggleMapType()" class="glass-panel p-3 rounded-xl border border-white/10 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition">
+      🛰️ <span id="map-type-label">Satellitvy</span>
+    </button>
+    <button onclick="clearZones()" class="glass-panel p-3 rounded-xl border border-rose-500/30 text-rose-300 hover:bg-rose-500/10 font-bold text-xs flex items-center justify-center gap-2 transition">
+      🗑️ <span>Rensa Kartan</span>
+    </button>
   </div>
+
+  <!-- Kartområde -->
+  <main class="flex-1 relative">
+    <div id="map" class="shadow-2xl"></div>
+    <div class="absolute bottom-4 left-4 z-[1000] glass-panel px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 shadow-lg">
+      📍 Centrerad mot Flen Centrum • Klicka på kartan för att rita zoner
+    </div>
+  </main>
+
+  <script>
+    let activeMode = 'maskin';
+    let currentTileLayer = null;
+    let isSatellite = true;
+    let maskinM2 = 0;
+    let handM2 = 0;
+
+    // Center coordinates for Flen
+    const flenLat = 59.0573;
+    const flenLng = 16.5882;
+
+    const map = L.map('map').setView([flenLat, flenLng], 16);
+
+    const satelliteTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri'
+    });
+
+    const streetTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    });
+
+    satelliteTiles.addTo(map);
+    currentTileLayer = satelliteTiles;
+
+    function toggleMapType() {
+      map.removeLayer(currentTileLayer);
+      if (isSatellite) {
+        streetTiles.addTo(map);
+        currentTileLayer = streetTiles;
+        document.getElementById('map-type-label').innerText = 'Gatuvy';
+      } else {
+        satelliteTiles.addTo(map);
+        currentTileLayer = satelliteTiles;
+        document.getElementById('map-type-label').innerText = 'Satellitvy';
+      }
+      isSatellite = !isSatellite;
+    }
+
+    function setMode(mode) {
+      activeMode = mode;
+      const bMaskin = document.getElementById('btn-maskin');
+      const bHand = document.getElementById('btn-hand');
+      if (mode === 'maskin') {
+        bMaskin.className = "glass-panel p-3 rounded-xl border-2 border-sky-500 bg-sky-500/20 text-sky-200 font-bold text-xs flex items-center justify-center gap-2 transition";
+        bHand.className = "glass-panel p-3 rounded-xl border-2 border-transparent hover:border-amber-500/50 text-amber-200 font-bold text-xs flex items-center justify-center gap-2 transition";
+      } else {
+        bHand.className = "glass-panel p-3 rounded-xl border-2 border-amber-500 bg-amber-500/20 text-amber-200 font-bold text-xs flex items-center justify-center gap-2 transition";
+        bMaskin.className = "glass-panel p-3 rounded-xl border-2 border-transparent hover:border-sky-500/50 text-sky-200 font-bold text-xs flex items-center justify-center gap-2 transition";
+      }
+    }
+
+    const drawnLayers = [];
+
+    map.on('click', function(e) {
+      const radius = activeMode === 'maskin' ? 25 : 12;
+      const color = activeMode === 'maskin' ? '#38bdf8' : '#f59e0b';
+      const addedM2 = activeMode === 'maskin' ? 450 : 80;
+
+      const circle = L.circle(e.latlng, {
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.5,
+        radius: radius
+      }).addTo(map);
+
+      drawnLayers.push(circle);
+
+      if (activeMode === 'maskin') {
+        maskinM2 += addedM2;
+      } else {
+        handM2 += addedM2;
+      }
+
+      updateStats();
+    });
+
+    function updateStats() {
+      document.getElementById('stat-maskin').innerText = `${maskinM2} m²`;
+      document.getElementById('stat-hand').innerText = `${handM2} m²`;
+      
+      // Kalkyl: Maskin 2.5 kr/m², Handskottning 12 kr/m², Framkörning 850 kr
+      const total = (maskinM2 > 0 || handM2 > 0 ? 850 : 0) + (maskinM2 * 2.5) + (handM2 * 12);
+      document.getElementById('stat-price').innerText = `${Math.round(total).toLocaleString('sv-SE')} kr`;
+    }
+
+    function clearZones() {
+      drawnLayers.forEach(l => map.removeLayer(l));
+      drawnLayers.length = 0;
+      maskinM2 = 0;
+      handM2 = 0;
+      updateStats();
+    }
+  </script>
 </body>
 </html>
