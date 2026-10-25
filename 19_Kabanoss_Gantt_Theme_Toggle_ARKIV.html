@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kabanoss Gantt - Korrekt Layout</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { background-color: #020617; }
+        
+        .glass-panel { 
+            background: rgba(15, 23, 42, 0.6); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .glass-orb {
+            background-image: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0.3) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), inset 0 -2px 4px rgba(0,0,0,0.4), 0 4px 10px rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+            touch-action: none;
+        }
+        .glass-orb:hover { transform: scale(1.1); }
+
+        .gantt-bar { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s; touch-action: none; }
+        .gantt-bar-warning { background: rgba(245, 158, 11, 0.15) !important; border-color: rgba(245, 158, 11, 0.6) !important; }
+        .gantt-bar-danger { background: rgba(239, 68, 68, 0.15) !important; border-color: rgba(239, 68, 68, 0.6) !important; }
+        
+        .bag-highlight { border-color: #38bdf8 !important; background-color: rgba(56, 189, 248, 0.1) !important; box-shadow: 0 0 20px rgba(56, 189, 248, 0.2) !important; }
+        
+        .order-card { 
+            cursor: grab; transition: transform 0.2s, border-color 0.2s; 
+            min-width: 250px; max-width: 250px;
+        }
+        .order-card:active { cursor: grabbing; transform: scale(0.98); }
+
+        .hide-scroll::-webkit-scrollbar { height: 8px; }
+        .hide-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .hide-scroll::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.3); border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.5); }
+        .hide-scroll::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.6); }
+
+        .non-work-day {
+            background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.015) 10px, transparent 10px, transparent 20px);
+        }
+
+        #days-header { cursor: grab; touch-action: none; transition: transform 0.1s ease-out; }
+        #days-header:active { cursor: grabbing; }
+
+        .fade-mask {
+            -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+            mask-image: linear-gradient(to right, black 85%, transparent 100%);
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen p-6 select-none relative overflow-x-hidden"
+      ondragover="allowDrop(event)" ondrop="handleGlobalDrop(event)">
+    
+    <!-- BAKGRUNDSSKEN -->
+    <div class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="fixed bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-amber-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+    <!-- 1. HUVUDRUBRIK / TOPPBAR -->
+    <header class="flex justify-between items-center glass-panel rounded-3xl p-5 mb-6 relative z-10">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Kabanoss Dev Environment</span>
+                <span class="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/30">Mock Motor Redo</span>
+            </div>
+            <h1 class="text-xl font-bold text-white flex items-center gap-2 mt-1">
+                <span>📊</span> Gantt Planeringstorn
+            </h1>
+        </div>
+
+        <div class="flex items-center gap-3 bg-slate-900/80 p-2 px-4 rounded-2xl border border-white/10">
+            <div class="w-9 h-9 rounded-full bg-sky-500 flex items-center justify-center font-bold text-white shadow-lg border border-sky-300">
+                P
+            </div>
+            <div>
+                <span class="text-xs font-bold text-white block">Pontus (Admin)</span>
+                <span class="text-[10px] text-slate-400 font-mono">📱 0739180692</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 2. KULPÅSEN / RESURSDEPÅ -->
+    <section class="glass-panel rounded-3xl p-5 mb-6 relative z-10 border-amber-500/20 transition-all duration-300 space-y-4" 
+             id="resource-bag-section"
+             ondragover="allowDrop(event)" ondrop="handleDropInBag(event)">
+        
+        <div class="flex justify-between items-center">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                🎒 Kulpåsen & Resursdepå (Vald Vy)
+            </h2>
+            <span class="text-[10px] text-slate-400 italic">Dra kulor till projekt eller släpp varsomhelst i sektionen för retur</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-slate-900/40 border border-white/10 rounded-2xl p-4 backdrop-blur-md">
+                <h3 class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-1.5">
+                    <span>👥</span> Personal (Inhouse)
+                </h3>
+                <div class="flex flex-wrap gap-4 min-h-[3.5rem] items-center" id="bag-personnel"></div>
+            </div>
+
+            <div class="bg-slate-900/40 border border-white/10 rounded-2xl p-4 backdrop-blur-md">
+                <h3 class="text-[11px] font-extrabold uppercase tracking-wider text-purple-400 mb-3 flex items-center gap-1.5">
+                    <span>🛠️</span> Verktyg & Utrustning
+                </h3>
+                <div class="flex flex-wrap gap-4 min-h-[3.5rem] items-center" id="bag-tools"></div>
+            </div>
+
+            <div class="bg-slate-900/40 border border-white/10 rounded-2xl p-4 backdrop-blur-md">
+                <h3 class="text-[11px] font-extrabold uppercase tracking-wider text-sky-400 mb-3 flex items-center gap-1.5">
+                    <span>🚜</span> UE & Maskinpark (Inkl. Förare)
+                </h3>
+                <div class="flex flex-wrap gap-4 min-h-[3.5rem] items-center" id="bag-ue-machines"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. ORDERBOK -->
+    <section class="glass-panel rounded-3xl p-5 mb-6 relative z-10 border-emerald-500/20">
+        <div class="flex justify-between items-center mb-3">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">📥</span>
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Orderbok: Ej Inplanerade Jobb</h2>
+                    <p class="text-[10px] text-slate-400">Dra ett kort ner till tidslinjen. <span class="text-emerald-300 font-bold">Svep eller scrolla i sidled för fler kort! 👉</span></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="fade-mask overflow-hidden">
+            <div class="flex gap-4 overflow-x-auto hide-scroll pb-4 pt-1 px-1" id="orderbook-container"></div>
+        </div>
+    </section>
+
+    <!-- 4. GANTT SCHEMALÄGGNING & TIDSLINJE -->
+    <main class="glass-panel rounded-3xl p-5 relative z-10 space-y-4">
+        
+        <div class="flex flex-wrap justify-between items-center pb-3 border-b border-white/10 gap-4">
+            <div>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400 block">Tidsperiod & Schemaläggning</span>
+                <h2 class="text-lg font-extrabold text-white flex items-center gap-2" id="timeline-month-title">
+                    📅 OKTOBER 2026
+                </h2>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-white/10">
+                    <span class="text-xs text-slate-400 font-bold pl-1">📅 Datum:</span>
+                    <input type="date" id="date-picker-input" onchange="jumpToDate(this.value)" 
+                           class="bg-slate-950 text-xs font-extrabold text-sky-300 px-2.5 py-1 rounded-xl border border-white/10 outline-none cursor-pointer">
+                </div>
+
+                <div class="flex items-center bg-slate-900/90 p-1 rounded-2xl border border-white/10">
+                    <button id="btn-view-2w" onclick="setViewMode('2w')" class="px-3 py-1 rounded-xl text-xs font-extrabold transition bg-sky-500 text-white shadow-lg">
+                        2-Veckor
+                    </button>
+                    <button id="btn-view-month" onclick="setViewMode('month')" class="px-3 py-1 rounded-xl text-xs font-extrabold transition text-slate-400 hover:text-white">
+                        Hel Månad
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-2xl border border-white/10">
+                    <button onclick="changePeriod(-1)" class="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold transition">
+                        <i class="ph ph-caret-left"></i>
+                    </button>
+                    <div class="px-3 text-center min-w-[120px]">
+                        <span class="text-[9px] text-slate-400 uppercase font-bold block" id="period-label">2-Veckorsvy</span>
+                        <span class="text-xs font-extrabold text-sky-300" id="period-dates">21 Okt - 3 Nov</span>
+                    </div>
+                    <button onclick="changePeriod(1)" class="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold transition">
+                        <i class="ph ph-caret-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="border border-white/5 rounded-2xl overflow-hidden bg-slate-950/40 relative"
+             ondragover="handleGanttDragOver(event)"
+             ondrop="handleGanttDrop(event)">
+            
+            <div class="absolute inset-0 flex pointer-events-none z-30">
+                <div class="w-72 shrink-0 mx-2"></div>
+                <div class="flex-1 relative" id="highlight-container">
+                    <div id="drag-highlight" class="absolute top-0 bottom-0 bg-sky-400/20 border-x border-sky-400/60 hidden transition-all duration-75 flex flex-col items-center pt-2 backdrop-blur-[2px]">
+                        <div class="bg-sky-500 text-white text-[10px] font-extrabold px-3 py-1 rounded-full shadow-xl border border-sky-300 whitespace-nowrap">
+                            <span id="highlight-date-text">Datum</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex border-b border-white/5 bg-slate-900/60 text-xs font-bold text-slate-400 relative z-20">
+                <div class="w-72 shrink-0 mx-2 p-3 flex items-center justify-between border-r border-white/5">
+                    <span>Projekt & Kund</span>
+                    <span class="text-[10px] text-sky-400 font-normal">👈 Svep raden 👉</span>
+                </div>
+                <div class="flex-1 flex select-none overflow-hidden" id="days-header"></div>
+            </div>
+            
+            <div id="gantt-tracks" class="flex flex-col py-2 relative z-20 min-h-[8rem]"></div>
+        </div>
+    </main>
+
+    <!-- UE DISPATCH MOCK MODAL -->
+    <div id="ue-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full rounded-3xl p-6 border border-sky-500/30 space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <span class="text-xs font-bold uppercase text-amber-400">📲 UE Dispatch Simulator (Dev)</span>
+                <button onclick="closeUEModal()" class="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+            <div>
+                <h3 class="text-sm font-extrabold text-white" id="modal-ue-name">Svea UE</h3>
+                <p class="text-xs text-slate-300 mt-1" id="modal-ue-phone">📱 SMS skickat till: --</p>
+            </div>
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/5 space-y-2 text-xs">
+                <div class="text-slate-400 font-bold uppercase text-[9px]">Uppdrag:</div>
+                <div class="font-bold text-white text-sm" id="modal-job-title">Sopning P-Däck</div>
+                <div class="text-sky-300" id="modal-job-dates">21 Okt - 25 Okt 2026</div>
+                <p class="text-slate-400 text-[11px] pt-1">Uppdraget inkluderar fordon och förare från UE.</p>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button onclick="respondUEDispatch(true)" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-lg">
+                    ✅ Acceptera
+                </button>
+                <button onclick="respondUEDispatch(false)" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-lg">
+                    ❌ Avböj
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dayNames = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
+        const monthNames = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+        const fullMonthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+
+        let viewMode = '2w'; 
+        let currentStartDate = new Date(2026, 9, 21); 
+        let totalDays = 14;
+
+        const swedishHolidays2026 = {
+            '2026-01-01': { type: 'red', name: 'Nyårsdagen', icon: '🎆' },
+            '2026-01-06': { type: 'red', name: 'Trettondedag', icon: '👑' },
+            '2026-04-03': { type: 'red', name: 'Långfredagen', icon: '🐣' },
+            '2026-04-06': { type: 'red', name: 'Annandag Påsk', icon: '🐣' },
+            '2026-05-01': { type: 'red', name: 'Första maj', icon: '🚩' },
+            '2026-05-14': { type: 'red', name: 'Kristi Himm.', icon: '☁️' },
+            '2026-05-15': { type: 'bridge', name: 'Klämdag', icon: '🟧' },
+            '2026-06-06': { type: 'red', name: 'Nationaldagen', icon: '🇸🇪' },
+            '2026-06-19': { type: 'red', name: 'Midsommarafton', icon: '🌸' },
+            '2026-10-31': { type: 'red', name: 'Alla Helgons Dag', icon: '🕯️' },
+            '2026-11-02': { type: 'bridge', name: 'Klämdag', icon: '🟧' },
+            '2026-12-24': { type: 'red', name: 'Julafton', icon: '🎄' },
+            '2026-12-25': { type: 'red', name: 'Juldagen', icon: '🎅' },
+            '2026-12-26': { type: 'red', name: 'Annandag Jul', icon: '🎁' },
+            '2026-12-31': { type: 'red', name: 'Nyårsafton', icon: '🥂' }
+        };
+
+        const resources = [
+            { id: 'r1', name: 'Anna', role: 'Förare', type: 'person', category: 'personnel', ownerType: 'inhouse', icon: '👩‍🔧', color: 'bg-emerald-500' },
+            { id: 'r2', name: 'Erik', role: 'Tekniker', type: 'person', category: 'personnel', ownerType: 'inhouse', icon: '👷‍♂️', color: 'bg-orange-500' },
+            { id: 'r3', name: 'Basse', role: 'Målare', type: 'person', category: 'personnel', ownerType: 'inhouse', icon: '👨‍🎨', color: 'bg-purple-500' },
+            { id: 'r4', name: 'Ali', role: 'Anläggare', type: 'person', category: 'personnel', ownerType: 'inhouse', icon: '👷', color: 'bg-teal-500' },
+            { id: 'r7', name: 'Fasadställning', role: 'Utrustning', type: 'equipment', category: 'tools', ownerType: 'inhouse', icon: '🏗️', color: 'bg-slate-600' },
+            { id: 'r8', name: 'Målningsvagn', role: 'Utrustning', type: 'equipment', category: 'tools', ownerType: 'inhouse', icon: '🎨', color: 'bg-pink-600' },
+            { id: 'r_ue_daniel', name: 'Daniel UE (Valtra)', role: 'Daniel Entreprenad', phone: '0701234567', type: 'machine', category: 'ue_machines', ownerType: 'ue', icon: '🚜', color: 'bg-blue-600' },
+            { id: 'r_ue_pontus', name: 'Pontus UE (Grävlastare)', role: 'Pontus Maskin', phone: '0739180692', type: 'machine', category: 'ue_machines', ownerType: 'ue', icon: '🧹', color: 'bg-indigo-600' }
+        ];
+
+        let unscheduledJobs = [
+            { id: 'un_1', client: 'Jula AB', title: 'Sopning P-Däck', baseHours: 24, shift: 'dag', reqEquipment: [], reqMachine: ['🧹'] },
+            { id: 'un_2', client: 'Max Hamburger', title: 'Asfaltering Drive-In', baseHours: 40, shift: 'natt', reqEquipment: [], reqMachine: ['🚜'] },
+            { id: 'un_3', client: 'BRF Kronan', title: 'Målning P-Platser', baseHours: 16, shift: 'dag', reqEquipment: ['🎨'], reqMachine: [] },
+            { id: 'un_4', client: 'Vasakronan', title: 'Fasadtvätt Entré', baseHours: 32, shift: 'dag', reqEquipment: ['🏗️'], reqMachine: [] },
+            { id: 'un_5', client: 'Riksbyggen', title: 'Lekplatsrenovering', baseHours: 120, shift: 'dag', reqEquipment: [], reqMachine: ['🚜'] }
+        ];
+
+        let activeJobs = [
+            { id: 'job1', client: 'Klaryta AB', title: 'Fasadtvätt Storgatan', baseHours: 80, shift: 'dag', reqEquipment: ['🏗️'], reqMachine: [], startDateStr: '2026-10-23', locked: false, assigned: [] },
+            { id: 'job2', client: 'LPV', title: 'Takvård BRF Kronan', baseHours: 40, shift: 'dag', reqEquipment: [], reqMachine: ['🚜'], startDateStr: '2026-10-21', locked: false, assigned: ['r1', 'r_ue_daniel'], ueStatus: 'accepted' }
+        ];
+
+        let activeUEDispatchModal = null;
+        let draggedOrbData = null;
+        let draggedOrderJobId = null;
+        let isPointerDraggingBar = false;
+        let barDragParams = null;
+
+        function allowDrop(e) { e.preventDefault(); }
+        function getDateKey(dateObj) { const y = dateObj.getFullYear(); const m = String(dateObj.getMonth() + 1).padStart(2, '0'); const d = String(dateObj.getDate()).padStart(2, '0'); return `${y}-${m}-${d}`; }
+        function getDateForDayIndex(dayIdx) { const base = new Date(currentStartDate); base.setDate(base.getDate() + dayIdx); return base; }
+        
+        function isWorkDay(dateObj) {
+            const dayOfWeek = dateObj.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+            if (swedishHolidays2026[getDateKey(dateObj)]) return false;
+            return true;
+        }
+
+        function calculateCalendarSpanFromDate(startDateObj, neededWorkDays) {
+            let current = new Date(startDateObj);
+            let workDaysCounted = 0; let calendarDays = 0;
+            const target = Math.max(1, neededWorkDays);
+            while (workDaysCounted < target && calendarDays < 60) {
+                if (isWorkDay(current)) workDaysCounted += 1;
+                calendarDays += 1;
+                current.setDate(current.getDate() + 1);
+            }
+            return calendarDays;
+        }
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            const btn2w = document.getElementById('btn-view-2w');
+            const btnMonth = document.getElementById('btn-view-month');
+            if (mode === 'month') {
+                btnMonth.className = "px-3 py-1 rounded-xl text-xs font-extrabold transition bg-sky-500 text-white shadow-lg";
+                btn2w.className = "px-3 py-1 rounded-xl text-xs font-extrabold transition text-slate-400 hover:text-white";
+                currentStartDate = new Date(currentStartDate.getFullYear(), currentStartDate.getMonth(), 1);
+                totalDays = new Date(currentStartDate.getFullYear(), currentStartDate.getMonth() + 1, 0).getDate();
+            } else {
+                btn2w.className = "px-3 py-1 rounded-xl text-xs font-extrabold transition bg-sky-500 text-white shadow-lg";
+                btnMonth.className = "px-3 py-1 rounded-xl text-xs font-extrabold transition text-slate-400 hover:text-white";
+                totalDays = 14;
+            }
+            updateHeaderDatesDisplay(); renderDays(); renderResources(); renderTimeline();
+        }
+
+        function jumpToDate(dateStr) {
+            if (!dateStr) return;
+            const parts = dateStr.split('-');
+            currentStartDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            if (viewMode === 'month') {
+                currentStartDate.setDate(1);
+                totalDays = new Date(currentStartDate.getFullYear(), currentStartDate.getMonth() + 1, 0).getDate();
+            }
+            updateHeaderDatesDisplay(); renderDays(); renderResources(); renderTimeline();
+        }
+
+        function changePeriod(delta) {
+            if (viewMode === 'month') {
+                currentStartDate.setMonth(currentStartDate.getMonth() + delta);
+                currentStartDate.setDate(1);
+                totalDays = new Date(currentStartDate.getFullYear(), currentStartDate.getMonth() + 1, 0).getDate();
+            } else {
+                currentStartDate.setDate(currentStartDate.getDate() + (delta * 14));
+            }
+            updateHeaderDatesDisplay(); renderDays(); renderResources(); renderTimeline();
+        }
+
+        function updateHeaderDatesDisplay() {
+            const endD = getDateForDayIndex(totalDays - 1);
+            const dateInput = document.getElementById('date-picker-input');
+            if (dateInput) dateInput.value = getDateKey(currentStartDate);
+
+            const mName = fullMonthNames[currentStartDate.getMonth()].toUpperCase();
+            const yearNum = currentStartDate.getFullYear();
+            const monthTitleEl = document.getElementById('timeline-month-title');
+            if (monthTitleEl) monthTitleEl.innerHTML = `📅 ${mName} ${yearNum}`;
+
+            if (viewMode === 'month') {
+                document.getElementById('period-label').innerText = `Månadsvy`;
+                document.getElementById('period-dates').innerText = `${monthNames[currentStartDate.getMonth()].toUpperCase()} ${yearNum}`;
+            } else {
+                document.getElementById('period-label').innerText = `2-Veckorsvy`;
+                document.getElementById('period-dates').innerText = `${currentStartDate.getDate()} ${monthNames[currentStartDate.getMonth()]} - ${endD.getDate()} ${monthNames[endD.getMonth()]} ${endD.getFullYear()}`;
+            }
+        }
+
+        function handleGanttDragOver(e) {
+            e.preventDefault();
+            if (!draggedOrderJobId) return;
+            const container = document.getElementById('highlight-container');
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            if (x < 0 || x > rect.width) { hideHighlight(); return; }
+
+            const dayWidth = rect.width / totalDays;
+            let dayIdx = Math.floor(x / dayWidth);
+            if (dayIdx < 0) dayIdx = 0;
+            if (dayIdx >= totalDays) dayIdx = totalDays - 1;
+
+            const highlight = document.getElementById('drag-highlight');
+            highlight.style.display = 'flex';
+            highlight.style.width = `${dayWidth}px`;
+            highlight.style.left = `${dayIdx * dayWidth}px`;
+
+            const dateObj = getDateForDayIndex(dayIdx);
+            document.getElementById('highlight-date-text').innerText = `${dayNames[dateObj.getDay()]} ${dateObj.getDate()} ${monthNames[dateObj.getMonth()]}`;
+        }
+
+        function hideHighlight() { const el = document.getElementById('drag-highlight'); if (el) el.style.display = 'none'; }
+
+        function createJobFromOrderBook(clientX) {
+            const container = document.getElementById('highlight-container');
+            const rect = container.getBoundingClientRect();
+            const x = clientX - rect.left;
+            
+            let dropDay = 0;
+            if (x >= 0) {
+                dropDay = Math.floor(x / (rect.width / totalDays));
+                if (dropDay > totalDays - 1) dropDay = totalDays - 1;
+            }
+
+            const targetDate = getDateForDayIndex(dropDay);
+            const orderIdx = unscheduledJobs.findIndex(j => j.id === draggedOrderJobId);
+            if (orderIdx > -1) {
+                const uJob = unscheduledJobs[orderIdx];
+                activeJobs.push({
+                    id: 'planned_' + Date.now(),
+                    client: uJob.client, title: uJob.title, baseHours: uJob.baseHours, shift: uJob.shift,
+                    reqEquipment: uJob.reqEquipment, reqMachine: uJob.reqMachine,
+                    startDateStr: getDateKey(targetDate), locked: false, assigned: []
+                });
+                unscheduledJobs.splice(orderIdx, 1);
+                onOrderJobDragEnd(); renderOrderbook(); renderResources(); renderTimeline();
+            }
+        }
+
+        function handleGanttDrop(e) { e.preventDefault(); hideHighlight(); if (draggedOrderJobId) createJobFromOrderBook(e.clientX); }
+        
+        function handleTrackDrop(e, targetJobId) {
+            e.preventDefault(); e.stopPropagation(); hideHighlight();
+            if (draggedOrderJobId) { createJobFromOrderBook(e.clientX); return; }
+
+            const targetJob = activeJobs.find(j => j.id === targetJobId);
+            if (!targetJob || targetJob.locked) return;
+
+            if (draggedOrbData) {
+                const resObj = resources.find(r => r.id === draggedOrbData.resId);
+
+                if (draggedOrbData.sourceJobId && draggedOrbData.sourceJobId !== targetJobId) {
+                    const srcJob = activeJobs.find(j => j.id === draggedOrbData.sourceJobId);
+                    if (srcJob && !srcJob.locked) srcJob.assigned = srcJob.assigned.filter(id => id !== draggedOrbData.resId);
+                }
+                
+                if (!targetJob.assigned.includes(draggedOrbData.resId)) {
+                    targetJob.assigned.push(draggedOrbData.resId);
+
+                    if (resObj && resObj.ownerType === 'ue') {
+                        targetJob.ueStatus = 'pending';
+                        triggerUEDispatchModal(resObj, targetJob);
+                    }
+                }
+                renderResources(); renderTimeline();
+            }
+            onOrbDragEnd();
+        }
+
+        function triggerUEDispatchModal(resObj, jobObj) {
+            activeUEDispatchModal = { resId: resObj.id, jobId: jobObj.id };
+            document.getElementById('modal-ue-name').innerText = `${resObj.name} (${resObj.role})`;
+            document.getElementById('modal-ue-phone').innerText = `📱 SMS skickat till: ${resObj.phone || '0739180692'}`;
+            document.getElementById('modal-job-title').innerText = `${jobObj.client} - ${jobObj.title}`;
+            document.getElementById('modal-job-dates').innerText = `Start: ${jobObj.startDateStr}`;
+            document.getElementById('ue-modal').classList.remove('hidden');
+        }
+
+        function closeUEModal() { document.getElementById('ue-modal').classList.add('hidden'); }
+
+        function respondUEDispatch(accepted) {
+            if (!activeUEDispatchModal) return;
+            const job = activeJobs.find(j => j.id === activeUEDispatchModal.jobId);
+            if (job) {
+                if (accepted) {
+                    job.ueStatus = 'accepted';
+                } else {
+                    job.ueStatus = 'declined';
+                    job.assigned = job.assigned.filter(id => id !== activeUEDispatchModal.resId);
+                }
+            }
+            closeUEModal();
+            renderResources();
+            renderTimeline();
+        }
+
+        function renderDays() {
+            const header = document.getElementById('days-header');
+            header.innerHTML = '';
+            for (let i = 0; i < totalDays; i++) {
+                const dateObj = getDateForDayIndex(i);
+                const dayName = dayNames[dateObj.getDay()];
+                const dayNum = dateObj.getDate();
+                const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+                const holiday = swedishHolidays2026[getDateKey(dateObj)];
+
+                let tagHtml = `<span class="text-[9px] uppercase font-bold text-slate-500">${dayName}</span>`;
+                let dayNumClass = isWeekend ? 'text-slate-500' : 'text-sky-400';
+                let bgStyle = isWeekend ? 'non-work-day bg-white/[0.02]' : '';
+
+                if (holiday) {
+                    if (holiday.type === 'red') {
+                        tagHtml = `<span class="text-[8px] font-extrabold text-rose-400 truncate" title="${holiday.name}">${holiday.icon}</span>`;
+                        dayNumClass = 'text-rose-400'; bgStyle = 'bg-rose-950/30 non-work-day';
+                    } else if (holiday.type === 'bridge') {
+                        tagHtml = `<span class="text-[8px] font-extrabold text-amber-400 truncate" title="${holiday.name}">🟧</span>`;
+                        dayNumClass = 'text-amber-400'; bgStyle = 'bg-amber-950/20 non-work-day';
+                    }
+                }
+                header.innerHTML += `
+                    <div onclick="zoomToDay('${getDateKey(dateObj)}')" class="flex-1 text-center p-1 border-l border-white/5 truncate flex flex-col justify-center cursor-pointer hover:bg-sky-500/10 ${bgStyle}">
+                        ${viewMode === 'month' ? '' : tagHtml}
+                        <span class="text-[11px] font-extrabold ${dayNumClass}">${dayNum}</span>
+                    </div>`;
+            }
+        }
+
+        function zoomToDay(dateKeyStr) {
+            if (viewMode === 'month') {
+                const parts = dateKeyStr.split('-');
+                currentStartDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                setViewMode('2w');
+            }
+        }
+
+        function renderResources() {
+            const personnelBag = document.getElementById('bag-personnel');
+            const toolsBag = document.getElementById('bag-tools');
+            const ueBag = document.getElementById('bag-ue-machines');
+            personnelBag.innerHTML = ''; toolsBag.innerHTML = ''; ueBag.innerHTML = '';
+
+            const windowEnd = getDateForDayIndex(totalDays - 1);
+            const assignedInWindow = new Set();
+            activeJobs.forEach(j => {
+                if (new Date(j.startDateStr) <= windowEnd) j.assigned.forEach(id => assignedInWindow.add(id));
+            });
+
+            const available = resources.filter(res => !assignedInWindow.has(res.id));
+            const personnelList = available.filter(r => r.category === 'personnel');
+            const toolsList = available.filter(r => r.category === 'tools');
+            const ueList = available.filter(r => r.category === 'ue_machines');
+
+            if (personnelList.length === 0) personnelBag.innerHTML = `<span class="text-[10px] text-slate-500 italic">Alla uppbokade</span>`;
+            else personnelList.forEach(res => personnelBag.innerHTML += createOrbHtml(res));
+
+            if (toolsList.length === 0) toolsBag.innerHTML = `<span class="text-[10px] text-slate-500 italic">Alla uppbokade</span>`;
+            else toolsList.forEach(res => toolsBag.innerHTML += createOrbHtml(res));
+
+            if (ueList.length === 0) ueBag.innerHTML = `<span class="text-[10px] text-slate-500 italic">Alla uppbokade</span>`;
+            else ueList.forEach(res => ueBag.innerHTML += createOrbHtml(res));
+        }
+
+        function createOrbHtml(res) {
+            return `
+                <div class="flex flex-col items-center gap-1">
+                    <div draggable="true" ondragstart="onOrbDragStart(event, '${res.id}', null)" ondragend="onOrbDragEnd()"
+                         class="${res.color} glass-orb w-11 h-11 rounded-full flex items-center justify-center text-lg cursor-grab active:cursor-grabbing">
+                        ${res.icon}
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-300 bg-slate-900/60 px-2 py-0.5 rounded-full">${res.name}</span>
+                </div>`;
+        }
+
+        function renderOrderbook() {
+            const container = document.getElementById('orderbook-container');
+            container.innerHTML = '';
+            if (unscheduledJobs.length === 0) {
+                container.innerHTML = `<div class="py-4 text-center text-xs text-slate-500 italic w-full">Alla jobb i orderboken har schemalagts!</div>`;
+                return;
+            }
+            unscheduledJobs.forEach(job => {
+                const reqIcons = [...job.reqEquipment, ...job.reqMachine].join(' ');
+                container.innerHTML += `
+                    <div draggable="true" ondragstart="onOrderJobDragStart(event, '${job.id}')" ondragend="onOrderJobDragEnd()"
+                         class="glass-panel order-card rounded-2xl p-4 border border-white/10 hover:border-sky-400/50 space-y-2 shrink-0">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[9px] font-bold uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">${job.client}</span>
+                            <span class="text-[10px] font-mono text-amber-400">${job.baseHours}h</span>
+                        </div>
+                        <h3 class="font-bold text-white text-xs truncate">${job.title}</h3>
+                        <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1">
+                            <span>${job.shift === 'dag' ? '☀️ Dagpass' : '🌙 Nattpass'}</span>
+                            <span>${reqIcons ? 'Kräver: ' + reqIcons : 'Inga maskin-krav'}</span>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function onOrderJobDragStart(e, jobId) { draggedOrderJobId = jobId; e.dataTransfer.setData('text/plain', jobId); }
+        function onOrderJobDragEnd() { draggedOrderJobId = null; hideHighlight(); }
+        function onOrbDragStart(e, resId, sourceJobId) { e.stopPropagation(); draggedOrbData = { resId, sourceJobId }; e.dataTransfer.setData('text/plain', resId); document.getElementById('resource-bag-section').classList.add('bag-highlight'); }
+        function onOrbDragEnd() { draggedOrbData = null; document.getElementById('resource-bag-section').classList.remove('bag-highlight'); }
+        function handleDropInBag(e) {
+            e.preventDefault();
+            if (draggedOrbData && draggedOrbData.sourceJobId) {
+                const job = activeJobs.find(j => j.id === draggedOrbData.sourceJobId);
+                if (job && !job.locked) { job.assigned = job.assigned.filter(id => id !== draggedOrbData.resId); renderResources(); renderTimeline(); }
+            }
+            onOrbDragEnd();
+        }
+        function handleGlobalDrop(e) { if (draggedOrbData && draggedOrbData.sourceJobId && !e.target.closest('.droppable-track')) handleDropInBag(e); }
+
+        function startBarPointerDrag(e, jobId) {
+            if (e.target.closest('.glass-orb') || e.target.closest('select') || e.target.closest('button')) return;
+            const job = activeJobs.find(j => j.id === jobId);
+            if (!job || job.locked) return;
+            e.preventDefault(); isPointerDraggingBar = true;
+            const trackEl = document.getElementById(`track-${jobId}`); const rect = trackEl.getBoundingClientRect();
+            barDragParams = { jobId: jobId, startX: e.clientX, startJobDate: new Date(job.startDateStr), dayWidth: rect.width / totalDays };
+            window.addEventListener('pointermove', onBarPointerMove); window.addEventListener('pointerup', onBarPointerUp);
+        }
+        function onBarPointerMove(e) {
+            if (!isPointerDraggingBar || !barDragParams) return;
+            const deltaX = e.clientX - barDragParams.startX;
+            const deltaDays = Math.round(deltaX / barDragParams.dayWidth);
+            const job = activeJobs.find(j => j.id === barDragParams.jobId);
+            if (!job) return;
+            
+            const newDate = new Date(barDragParams.startJobDate);
+            newDate.setDate(newDate.getDate() + deltaDays);
+            const newKey = getDateKey(newDate);
+
+            if (job.startDateStr !== newKey) { job.startDateStr = newKey; renderTimeline(); }
+        }
+        function onBarPointerUp() { isPointerDraggingBar = false; barDragParams = null; window.removeEventListener('pointermove', onBarPointerMove); window.removeEventListener('pointerup', onBarPointerUp); }
+
+        function renderTimeline() {
+            const trackContainer = document.getElementById('gantt-tracks');
+            trackContainer.innerHTML = '';
+            const windowStart = new Date(currentStartDate);
+            const windowEnd = getDateForDayIndex(totalDays - 1);
+            const visibleJobs = activeJobs.filter(j => new Date(j.startDateStr) <= windowEnd);
+
+            if (visibleJobs.length === 0) { trackContainer.innerHTML = `<div class="p-8 text-center text-xs text-slate-500 italic">Inga jobb inplanerade för denna vy. Dra ner ett kort från Orderboken!</div>`; return; }
+
+            const personShifts = {};
+            visibleJobs.forEach(j => {
+                j.assigned.forEach(resId => {
+                    const res = resources.find(r => r.id === resId);
+                    if (res && res.type === 'person') {
+                        if (!personShifts[resId]) personShifts[resId] = [];
+                        personShifts[resId].push({ jobId: j.id, shift: j.shift });
+                    }
+                });
+            });
+
+            visibleJobs.forEach(job => {
+                const jobResObjects = job.assigned.map(resId => resources.find(r => r.id === resId)).filter(Boolean);
+                const peopleCount = jobResObjects.filter(r => r.type === 'person').length;
+                const hasUE = jobResObjects.some(r => r.ownerType === 'ue');
+
+                let hasConflict = false;
+                job.assigned.forEach(resId => {
+                    if (personShifts[resId] && personShifts[resId].length > 1) {
+                        if (personShifts[resId].filter(s => s.shift === 'dag').length > 1 && job.shift === 'dag') hasConflict = true;
+                    }
+                });
+
+                let calcWorkDays = (peopleCount > 0) ? (job.baseHours / (peopleCount * 8)) : (job.baseHours / 8);
+                if (hasConflict) calcWorkDays = calcWorkDays * 1.5; if (calcWorkDays < 1) calcWorkDays = 1;
+
+                const startDateObj = new Date(job.startDateStr);
+                const calendarSpanDays = calculateCalendarSpanFromDate(startDateObj, Math.ceil(calcWorkDays));
+                const endDateObj = new Date(startDateObj); endDateObj.setDate(endDateObj.getDate() + calendarSpanDays - 1);
+
+                const diffTime = startDateObj.getTime() - windowStart.getTime();
+                const startOffsetDays = Math.round(diffTime / (1000 * 3600 * 24));
+                const dayPct = 100 / totalDays;
+                const widthPct = calendarSpanDays * dayPct;
+                const leftPct = startOffsetDays * dayPct;
+
+                const dateRangeStr = `${startDateObj.getDate()} ${monthNames[startDateObj.getMonth()]} - ${endDateObj.getDate()} ${monthNames[endDateObj.getMonth()]}`;
+
+                const hasStallning = jobResObjects.some(r => r.icon === '🏗️');
+                const hasTraktor = jobResObjects.some(r => r.icon === '🚜');
+                const hasSopmaskin = jobResObjects.some(r => r.icon === '🧹');
+                const hasMalningsvagn = jobResObjects.some(r => r.icon === '🎨');
+                
+                const needsStallning = job.reqEquipment.includes('🏗️') && !hasStallning;
+                const needsTraktor = job.reqMachine.includes('🚜') && !hasTraktor;
+                const needsSopmaskin = job.reqMachine.includes('🧹') && !hasSopmaskin;
+                const needsMalningsvagn = job.reqEquipment.includes('🎨') && !hasMalningsvagn;
+
+                const needsPerson = (!hasUE && peopleCount === 0);
+                const hasMissingReq = needsPerson || needsStallning || needsTraktor || needsSopmaskin || needsMalningsvagn;
+
+                let trafficRing = 'border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
+                let warningClass = ''; 
+                let statusText = `<span class="text-[10px] text-emerald-400 font-bold">🟢 ${calcWorkDays.toFixed(1)} Arb.d</span>`;
+                
+                if (job.ueStatus === 'pending') {
+                    trafficRing = 'border-amber-400 bg-amber-400/20 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.4)] animate-pulse';
+                    statusText = `<span class="text-[10px] text-amber-400 font-extrabold animate-pulse">⏳ Väntar på UE-svar</span>`;
+                } else if (hasMissingReq) {
+                    trafficRing = 'border-rose-500 bg-rose-500/20 text-rose-400 shadow-[0_0_15px_rgba(225,29,72,0.4)]'; 
+                    warningClass = 'gantt-bar-danger';
+                    const missingArr = [];
+                    if (needsPerson) missingArr.push('Förare'); if (needsStallning) missingArr.push('Ställning');
+                    if (needsTraktor) missingArr.push('Traktor'); if (needsSopmaskin) missingArr.push('Sopmaskin');
+                    if (needsMalningsvagn) missingArr.push('Målningsvagn');
+                    statusText = `<span class="text-[10px] text-rose-400 font-extrabold animate-pulse">🔴 Saknar ${missingArr.join(' & ')}</span>`;
+                } else if (hasConflict) {
+                    trafficRing = 'border-amber-400 bg-amber-400/20 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.4)]';
+                    warningClass = 'gantt-bar-warning';
+                    statusText = `<span class="text-[10px] text-amber-400 font-extrabold">🟡 50% Kapacitet</span>`;
+                }
+
+                const row = document.createElement('div'); row.className = 'flex items-stretch min-h-[6.5rem] mb-2';
+                row.innerHTML = `
+                    <div class="w-72 shrink-0 mx-2 p-3 glass-panel rounded-2xl flex flex-col justify-center space-y-2 relative z-20">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[9px] font-bold uppercase bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">${job.client}</span>
+                            <div class="flex items-center gap-1">
+                                <select onchange="changeShift('${job.id}', this.value)" class="bg-slate-900/80 text-[10px] border border-white/10 rounded-full px-2 py-0.5 text-sky-300 font-bold outline-none">
+                                    <option value="dag" ${job.shift === 'dag' ? 'selected' : ''}>☀️ Dag</option>
+                                    <option value="natt" ${job.shift === 'natt' ? 'selected' : ''}>🌙 Natt</option>
+                                </select>
+                                <button onclick="toggleLock('${job.id}')" class="p-1 rounded-full bg-white/5 hover:bg-white/10 text-xs border border-white/5">
+                                    ${job.locked ? '🔒' : '🔓'}
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-white text-sm leading-tight">${job.title}</h3>
+                            <div class="text-[10px] text-sky-300 font-medium mt-0.5">${dateRangeStr} (${calcWorkDays.toFixed(0)} arb.d)</div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 relative bg-white/[0.02] border-y border-white/5 droppable-track overflow-hidden"
+                         id="track-${job.id}" ondragover="allowDrop(event)" ondrop="handleTrackDrop(event, '${job.id}')">
+                        <div onpointerdown="startBarPointerDrag(event, '${job.id}')"
+                             class="gantt-bar absolute top-2 bottom-2 rounded-2xl bg-sky-600/20 border border-sky-400/30 p-2.5 flex flex-col justify-between backdrop-blur-md shadow-lg ${warningClass} ${job.locked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}"
+                             style="left: ${leftPct}%; width: ${widthPct}%;">
+                            <div class="flex items-center justify-between gap-2 px-1 pointer-events-none">
+                                <span class="text-xs font-bold text-white truncate drop-shadow-md flex items-center gap-1">
+                                    ${job.locked ? '🔒' : '↔️'} ${job.title} (${dateRangeStr})
+                                </span>
+                                ${statusText}
+                            </div>
+                            <div class="flex items-center gap-1.5 px-1 mt-1">
+                                ${jobResObjects.map(r => `
+                                    <div draggable="true" ondragstart="onOrbDragStart(event, '${r.id}', '${job.id}')" ondragend="onOrbDragEnd()" onpointerdown="event.stopPropagation()"
+                                         class="${r.color} glass-orb ${viewMode === 'month' ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'} rounded-full flex items-center justify-center font-bold text-white cursor-grab active:cursor-grabbing hover:scale-110">
+                                        ${r.icon}
+                                    </div>
+                                `).join('')}
+                                <div class="${viewMode === 'month' ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'} rounded-full border-2 border-dashed flex items-center justify-center transition-all ${trafficRing} pointer-events-none">
+                                    <i class="ph ph-plus font-bold"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                trackContainer.appendChild(row);
+            });
+        }
+        window.toggleLock = function(jobId) { const job = activeJobs.find(j => j.id === jobId); if(job) { job.locked = !job.locked; renderTimeline(); } };
+        window.changeShift = function(jobId, newShift) { const job = activeJobs.find(j => j.id === jobId); if(job) { job.shift = newShift; renderTimeline(); } };
+        
+        updateHeaderDatesDisplay(); renderDays(); renderOrderbook(); renderResources(); renderTimeline();
+    </script>
+</body>
+</html>

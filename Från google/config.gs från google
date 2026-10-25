@@ -1,0 +1,23 @@
+// =========================================================
+// CONFIG.GS - MILJÖVARIABLER OCH INSTÄLLNINGAR
+// =========================================================
+const CONFIG = {
+  // --- Kalkylark & Flikar ---
+  SPREADSHEET_ID: "1wa99wU2cmOiA_SbCju1tmTj-H8oPA0AN6rZ6P3hcLu8",
+  SHEET_STAFF: "Personal",
+  SHEET_REPORTS: "Tidrapporter",
+  API_TOKEN: "Gravmaskin2026Secure!",
+  
+  // --- Google Drive (Mappar & Filer) ---
+  // Byt ut detta ID mot ID:t för din rot-mapp "Arbetsbilder"
+  FOLDER_ID_ROOT_IMAGES: "1xlUVp_ix2pJcjZVq0KYU-Q1ZYW1fPYlH", 
+  FILE_ID_LOGO: "1Qpl1LitX7uJPyjSD3J8xCwp7ugEfzhDt",
+  
+  // --- Google Kalender (Osthyveln) ---
+  CALENDAR_ID: "c_feeff69cc3ccdd4a833063a79158d297c140766f9c303e189ccb56a20a10a901@group.calendar.google.com",
+  
+  // --- Standardvärden ---
+  DEFAULT_LOCATION: "Blacksta"
+
+
+};

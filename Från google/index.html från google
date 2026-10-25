@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Tvättschema Rapportering</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#F2F2F7">
+
+  <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/IOS_Clock_icon.png/240px-IOS_Clock_icon.png">
+
+  <style>
+    :root {
+      --ios-bg: #F2F2F7;
+      --ios-card: #FFFFFF;
+      --ios-blue: #007AFF;
+      --ios-gray: #8E8E93;
+      --ios-separator: #E5E5EA;
+      --ios-label: #000000;
+      --ios-secondary-label: #6C6C70;
+      --ios-picker-item-h: 38px;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      background-color: var(--ios-bg);
+      color: var(--ios-label);
+      padding-top: calc(env(safe-area-inset-top) + 16px);
+      padding-bottom: calc(env(safe-area-inset-bottom) + 30px);
+      padding-left: 16px;
+      padding-right: 16px;
+      touch-action: manipulation;
+    }
+    .app-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    h1 {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .subtitle {
+      font-size: 15px;
+      color: var(--ios-secondary-label);
+      margin-top: 4px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ios-secondary-label);
+      text-transform: uppercase;
+      letter-spacing: -0.1px;
+      margin-left: 12px;
+      margin-bottom: 6px;
+    }
+    .ios-card {
+      background: var(--ios-card);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      position: relative;
+      z-index: 10;
+    }
+    .ios-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 13px 16px;
+      border-bottom: 0.5px solid var(--ios-separator);
+      font-size: 17px;
+    }
+    .ios-row:last-child {
+      border-bottom: none;
+    }
+    label {
+      font-weight: 400;
+      color: var(--ios-label);
+    }
+    select {
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 17px;
+      color: var(--ios-blue);
+      outline: none;
+      max-width: 65%;
+      text-align-last: right;
+      cursor: pointer;
+    }
+    
+    /* VÄRDEN SOM KAN KLICKAS PÅ (Som ser ut som standard iOS-val) */
+    .value-button {
+      font-size: 17px;
+      color: var(--ios-blue);
+      cursor: pointer;
+      user-select: none;
+    }
+    .time-badge {
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--ios-blue);
+      background: rgba(0, 122, 255, 0.1);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease;
+      position: relative;
+      z-index: 20;
+    }
+    .time-badge.active {
+      background: var(--ios-blue);
+      color: #FFFFFF;
+    }
+    .calculated-val {
+      font-weight: 600;
+      color: var(--ios-label);
+    }
+
+    /* ACTION SHEET (BOTTOM SHEET FÖR ANVÄNDARVAL) */
+    .action-sheet-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .action-sheet-overlay.show {
+      display: block;
+      opacity: 1;
+    }
+    .action-sheet {
+      position: fixed;
+      bottom: -100%;
+      left: 0;
+      right: 0;
+      background: var(--ios-bg);
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      z-index: 101;
+      transition: bottom 0.3s cubic-bezier(0.1, 0.7, 0.1, 1);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .action-sheet.open {
+      bottom: 0;
+    }
+    .action-sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--ios-card);
+      border-bottom: 0.5px solid var(--ios-separator);
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+    .action-sheet-btn {
+      color: var(--ios-blue);
+      font-size: 17px;
+      font-weight: 600;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* APPLE WHEEL PICKER STYLES */
+    .wheel-drawer {
+      display: none;
+      background: var(--ios-card);
+      border-bottom: 0.5px solid var(--ios-separator);
+      padding: 8px 0;
+      position: relative;
+      z-index: 30;
+      overflow: hidden;
+    }
+    .wheel-drawer.open {
+      display: block;
+    }
+    .picker-container {
+      position: relative;
+      height: 190px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    .picker-container.full-width {
+        background: var(--ios-card);
+    }
+    .picker-highlight {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      height: var(--ios-picker-item-h);
+      background-color: rgba(120, 120, 128, 0.08);
+      border-radius: 8px;
+      pointer-events: none;
+      z-index: 31;
+    }
+    .picker-mask-top, .picker-mask-bottom {
+      position: absolute;
+      left: 0; right: 0;
+      height: 76px;
+      pointer-events: none;
+      z-index: 32;
+    }
+    .picker-mask-top {
+      top: 0;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.95) 15%, rgba(255,255,255,0) 100%);
+    }
+    .picker-mask-bottom {
+      bottom: 0;
+      background: linear-gradient(to top, rgba(255,255,255,0.95) 15%, rgba(255,255,255,0) 100%);
+    }
+    .picker-column {
+      width: 90px;
+      height: 100%;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      -webkit-overflow-scrolling: touch;
+      padding-top: 76px;
+      padding-bottom: 76px;
+      z-index: 33;
+      position: relative;
+    }
+    .picker-column.full-width-col {
+        width: 100%;
+    }
+    .picker-column::-webkit-scrollbar {
+      display: none;
+    }
+    .picker-item {
+      height: var(--ios-picker-item-h);
+      line-height: var(--ios-picker-item-h);
+      text-align: center;
+      font-size: 21px;
+      font-weight: 500;
+      color: var(--ios-label);
+      scroll-snap-align: center;
+      user-select: none;
+    }
+    .picker-separator {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--ios-label);
+      padding: 0 4px;
+      line-height: 190px;
+      z-index: 33;
+      position: relative;
+    }
+
+    /* KNAPPAR OCH STATUS */
+    .ios-btn {
+      width: 100%;
+      background-color: var(--ios-blue);
+      color: #FFFFFF;
+      font-size: 17px;
+      font-weight: 600;
+      padding: 16px;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,122,255,0.25);
+      transition: opacity 0.15s ease, transform 0.1s ease;
+      margin-top: 10px;
+    }
+    .ios-btn:active {
+      opacity: 0.8;
+      transform: scale(0.985);
+    }
+    .ios-btn:disabled {
+      background-color: var(--ios-gray);
+      box-shadow: none;
+    }
+    #statusBox {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 15px;
+      font-weight: 500;
+      text-align: center;
+    }
+    .status-success { background-color: #E8F5E9; color: #2E7D32; }
+    .status-error { background-color: #FFEBEE; color: #C62828; }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid #FFFFFF; border-top: 2px solid transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px; display: none;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    @media (min-width: 768px) {
+      body { padding-top: 40px; }
+      header { text-align: center; margin-bottom: 32px; }
+      .ios-card { border-radius: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header>
+      <h1>Tidrapport</h1>
+      <div class="subtitle">Tvättschema Sync</div>
+    </header>
+
+    <div id="statusBox"></div>
+
+    <!-- ANVÄNDARE -->
+    <div class="section-title">Användare</div>
+    <div class="ios-card">
+      <div class="ios-row">
+        <label>Ditt namn</label>
+        <!-- Denna klickbara yta ersätter standard-selecten -->
+        <div class="value-button" id="userValDisplay" onclick="openUserPicker()">Välj...</div>
+      </div>
+    </div>
+
+    <!-- UPPDRAG & DATUM -->
+    <div class="section-title">Uppdrag från kalender</div>
+    <div class="ios-card">
+      <div class="ios-row">
+        <label for="eventSelect">Aktivitet</label>
+        <select id="eventSelect" onchange="handleEventChange()">
+          <option value="">Laddar kalender...</option>
+        </select>
+      </div>
+      <div class="ios-row" id="datePickerRow">
+        <label for="dateSelect">Datum för pass</label>
+        <select id="dateSelect">
+          <option value="">Välj händelse först</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- PASS & ARBETSTID -->
+    <div class="section-title">Arbetspass & Tider</div>
+    <div class="ios-card">
+      <div class="ios-row">
+        <label for="passSelect">Pass</label>
+        <select id="passSelect">
+          <option value="Pass 1">Pass 1</option>
+          <option value="Pass 2">Pass 2</option>
+          <option value="Pass 3">Pass 3</option>
+          <option value="Övertid">Övertid</option>
+        </select>
+      </div>
+
+      <!-- STARTTID RAD & RULLHJUL -->
+      <div class="ios-row">
+        <label>Starttid</label>
+        <div class="time-badge" id="startBadge" onclick="togglePicker('start')">07:00</div>
+      </div>
+      <div class="wheel-drawer" id="startDrawer">
+        <div class="picker-container">
+          <div class="picker-highlight"></div>
+          <div class="picker-mask-top"></div>
+          <div class="picker-mask-bottom"></div>
+          <div class="picker-column" id="startHours"></div>
+          <div class="picker-separator">:</div>
+          <div class="picker-column" id="startMinutes"></div>
+        </div>
+      </div>
+
+      <!-- SLUTTID RAD & RULLHJUL -->
+      <div class="ios-row">
+        <label>Sluttid</label>
+        <div class="time-badge" id="endBadge" onclick="togglePicker('end')">16:00</div>
+      </div>
+      <div class="wheel-drawer" id="endDrawer">
+        <div class="picker-container">
+          <div class="picker-highlight"></div>
+          <div class="picker-mask-top"></div>
+          <div class="picker-mask-bottom"></div>
+          <div class="picker-column" id="endHours"></div>
+          <div class="picker-separator">:</div>
+          <div class="picker-column" id="endMinutes"></div>
+        </div>
+      </div>
+
+      <div class="ios-row">
+        <label>Arbetad tid</label>
+        <span class="calculated-val" id="totalDurationText">9 tim 0 min</span>
+      </div>
+    </div>
+
+    <button class="ios-btn" id="submitBtn" onclick="submitReport()">
+      <div class="spinner" id="btnSpinner"></div>
+      <span id="btnText">Skicka tidrapport</span>
+    </button>
+  </div>
+
+  <!-- ACTION SHEET FÖR ANVÄNDARVAL -->
+  <div class="action-sheet-overlay" id="userPickerOverlay" onclick="closeUserPicker()"></div>
+  <div class="action-sheet" id="userPickerSheet">
+    <div class="action-sheet-header">
+        <div></div> <!-- Tom div för flex-layout -->
+        <button class="action-sheet-btn" onclick="confirmUser()">Klar</button>
+    </div>
+    <div class="picker-container full-width">
+      <div class="picker-highlight"></div>
+      <div class="picker-mask-top"></div>
+      <div class="picker-mask-bottom"></div>
+      <div class="picker-column full-width-col" id="userColumn"></div>
+    </div>
+  </div>
+
+
+  <!-- SÄKER OCH KOMPATIBEL JAVASCRIPT -->
+  <script>
+    var calendarEvents = <?!= calendarData ?>;
+    var staffNames = <?!= staffData ?>;
+    var selectedEvent = null;
+    var selectedUserName = ""; // Sparar valt namn
+
+    var MINUTE_STEPS = [0, 15, 30, 45];
+    var ITEM_HEIGHT = 38;
+
+    var timeState = {
+      startH: 7,
+      startM: 0,
+      endH: 16,
+      endM: 0
+    };
+    
+    // Användarens position i hjulet
+    var userIndexState = 0; 
+
+    window.onload = function() {
+      try {
+        buildUserWheel(staffNames);
+        populateEvents(calendarEvents);
+        
+        var hoursArray = [];
+        for (var i = 0; i < 24; i++) {
+          hoursArray.push(i);
+        }
+
+        buildWheel('startHours', hoursArray);
+        buildWheel('startMinutes', MINUTE_STEPS);
+        buildWheel('endHours', hoursArray);
+        buildWheel('endMinutes', MINUTE_STEPS);
+        
+        calculateDuration();
+      } catch (err) {
+        showStatus("Kunde inte starta formuläret: " + err.message, false);
+      }
+    };
+
+    function padZero(num) {
+      var str = String(num);
+      return str.length < 2 ? '0' + str : str;
+    }
+
+    // Bygger det dedikerade anändarhjulet
+    function buildUserWheel(list) {
+        var col = document.getElementById('userColumn');
+        col.innerHTML = '';
+        
+        if (!list || list.error || !Array.isArray(list) || list.length === 0) {
+            var item = document.createElement('div');
+            item.className = 'picker-item';
+            item.textContent = "Ingen personal hittades";
+            col.appendChild(item);
+            return;
+        }
+
+        for (var i = 0; i < list.length; i++) {
+            var el = document.createElement('div');
+            el.className = 'picker-item';
+            el.textContent = list[i];
+            col.appendChild(el);
+        }
+
+        var timer = null;
+        col.addEventListener('scroll', function() {
+            clearTimeout(timer);
+            timer = setTimeout(function() {
+                userIndexState = Math.max(0, Math.round(col.scrollTop / ITEM_HEIGHT));
+                userIndexState = Math.min(list.length - 1, userIndexState); // Säkra maxvärde
+            }, 60);
+        });
+        
+        // Sätt förvalt namn internt (utan att uppdatera knappen förrän användaren klickar 'Klar')
+        selectedUserName = list[0]; 
+    }
+
+    // Funktioner för att hantera Användar-Action Sheet
+    function openUserPicker() {
+        if (!staffNames || staffNames.error || !Array.isArray(staffNames) || staffNames.length === 0) return; // Inget att visa
+        
+        document.getElementById('userPickerOverlay').classList.add('show');
+        document.getElementById('userPickerSheet').classList.add('open');
+        
+        // Scrolla till vald position
+        var col = document.getElementById('userColumn');
+        setTimeout(function() {
+            col.scrollTo({ top: userIndexState * ITEM_HEIGHT, behavior: 'auto' });
+        }, 10);
+    }
+
+    function closeUserPicker() {
+        document.getElementById('userPickerOverlay').classList.remove('show');
+        document.getElementById('userPickerSheet').classList.remove('open');
+    }
+
+    function confirmUser() {
+        selectedUserName = staffNames[userIndexState];
+        document.getElementById('userValDisplay').textContent = selectedUserName;
+        closeUserPicker();
+    }
+
+
+    function buildWheel(elementId, values) {
+      var col = document.getElementById(elementId);
+      col.innerHTML = '';
+      
+      for (var i = 0; i < values.length; i++) {
+        var v = values[i];
+        var item = document.createElement('div');
+        item.className = 'picker-item';
+        item.textContent = padZero(v);
+        col.appendChild(item);
+      }
+
+      var timer = null;
+      col.addEventListener('scroll', function() {
+        clearTimeout(timer);
+        timer = setTimeout(function() {
+          onWheelScrollEnd(elementId, col.scrollTop);
+        }, 60);
+      });
+    }
+
+    function togglePicker(type) {
+      var startDrawer = document.getElementById('startDrawer');
+      var endDrawer = document.getElementById('endDrawer');
+      var startBadge = document.getElementById('startBadge');
+      var endBadge = document.getElementById('endBadge');
+
+      if (type === 'start') {
+        var isOpen = startDrawer.classList.contains('open');
+        endDrawer.classList.remove('open');
+        endBadge.classList.remove('active');
+        
+        if (isOpen) {
+          startDrawer.classList.remove('open');
+          startBadge.classList.remove('active');
+        } else {
+          startDrawer.classList.add('open');
+          startBadge.classList.add('active');
+          setTimeout(function() {
+              scrollWheelTo('startHours', timeState.startH, false);
+              scrollWheelTo('startMinutes', timeState.startM, true);
+          }, 10);
+        }
+      } else {
+        var isOpenEnd = endDrawer.classList.contains('open');
+        startDrawer.classList.remove('open');
+        startBadge.classList.remove('active');
+        
+        if (isOpenEnd) {
+          endDrawer.classList.remove('open');
+          endBadge.classList.remove('active');
+        } else {
+          endDrawer.classList.add('open');
+          endBadge.classList.add('active');
+          setTimeout(function() {
+              scrollWheelTo('endHours', timeState.endH, false);
+              scrollWheelTo('endMinutes', timeState.endM, true);
+          }, 10);
+        }
+      }
+    }
+
+    function scrollWheelTo(elementId, value, isMinutes) {
+      var col = document.getElementById(elementId);
+      var index = value;
+      if (isMinutes) {
+        index = MINUTE_STEPS.indexOf(value);
+        if (index === -1) index = 0;
+      }
+      setTimeout(function() {
+        col.scrollTo({ top: index * ITEM_HEIGHT, behavior: 'smooth' });
+      }, 50);
+    }
+
+    function onWheelScrollEnd(elementId, scrollTop) {
+      var index = Math.max(0, Math.round(scrollTop / ITEM_HEIGHT));
+
+      if (elementId === 'startHours') timeState.startH = Math.min(23, index);
+      if (elementId === 'startMinutes') timeState.startM = MINUTE_STEPS[Math.min(MINUTE_STEPS.length - 1, index)];
+      if (elementId === 'endHours') timeState.endH = Math.min(23, index);
+      if (elementId === 'endMinutes') timeState.endM = MINUTE_STEPS[Math.min(MINUTE_STEPS.length - 1, index)];
+
+      updateTimeBadges();
+      calculateDuration();
+    }
+
+    function updateTimeBadges() {
+      var sH = padZero(timeState.startH);
+      var sM = padZero(timeState.startM);
+      var eH = padZero(timeState.endH);
+      var eM = padZero(timeState.endM);
+
+      document.getElementById('startBadge').textContent = sH + ':' + sM;
+      document.getElementById('endBadge').textContent = eH + ':' + eM;
+    }
+
+    function calculateDuration() {
+      var startMin = timeState.startH * 60 + timeState.startM;
+      var endMin = timeState.endH * 60 + timeState.endM;
+
+      var diff = endMin - startMin;
+      if (diff < 0) diff += 24 * 60;
+
+      var h = Math.floor(diff / 60);
+      var m = diff % 60;
+
+      document.getElementById('totalDurationText').textContent = h + " tim " + m + " min";
+      return h + "h " + m + "m";
+    }
+
+    function populateEvents(events) {
+      var select = document.getElementById('eventSelect');
+      select.innerHTML = '<option value="">-- Välj aktivitet --</option>';
+
+      if (!events || events.error || !Array.isArray(events)) {
+        select.innerHTML = '<option value="">Inga händelser hittades</option>';
+        return;
+      }
+
+      for (var i = 0; i < events.length; i++) {
+        var ev = events[i];
+        var start = new Date(ev.start);
+        var datumStr = start.toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' });
+        var opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = datumStr + ": " + ev.title;
+        select.appendChild(opt);
+      }
+    }
+
+    function handleEventChange() {
+      var idx = document.getElementById('eventSelect').value;
+      var dateSelect = document.getElementById('dateSelect');
+      dateSelect.innerHTML = '';
+
+      if (idx === "") {
+        dateSelect.innerHTML = '<option value="">Välj händelse först</option>';
+        selectedEvent = null;
+        return;
+      }
+
+      selectedEvent = calendarEvents[idx];
+      var start = new Date(selectedEvent.start);
+      var end = new Date(selectedEvent.end);
+
+      var curr = new Date(start);
+      var count = 0;
+
+      while (curr < end || count === 0) {
+        var yyyy = curr.getFullYear();
+        var mm = padZero(curr.getMonth() + 1);
+        var dd = padZero(curr.getDate());
+        var isoDate = yyyy + "-" + mm + "-" + dd;
+
+        var dateReadable = curr.toLocaleDateString('sv-SE', {
+          weekday: 'short', day: 'numeric', month: 'short'
+        });
+
+        var opt = document.createElement('option');
+        opt.value = isoDate;
+        opt.textContent = dateReadable;
+        dateSelect.appendChild(opt);
+
+        curr.setDate(curr.getDate() + 1);
+        count++;
+        if (count > 31) break;
+      }
+    }
+
+    function submitReport() {
+      var dateVal = document.getElementById('dateSelect').value;
+      var passVal = document.getElementById('passSelect').value;
+
+      // Använder variabeln från "hjulet" istället för select-värde
+      if (!selectedUserName || selectedUserName === "") {
+        showStatus("Vänligen välj ditt namn.", false);
+        return;
+      }
+      
+      // Säkerställ att display-värdet faktiskt har ändrats från "Välj..."
+      var displayVal = document.getElementById('userValDisplay').textContent;
+      if (displayVal === "Välj...") {
+         showStatus("Vänligen bekräfta ditt namn med Klar.", false);
+         return;
+      }
+
+      if (!selectedEvent || !dateVal) {
+        showStatus("Välj ett uppdrag och ett datum först.", false);
+        return;
+      }
+
+      setLoading(true);
+
+      var sH = padZero(timeState.startH);
+      var sM = padZero(timeState.startM);
+      var eH = padZero(timeState.endH);
+      var eM = padZero(timeState.endM);
+
+      var payload = {
+        anvandare: selectedUserName,
+        datum: dateVal,
+        aktivitet: selectedEvent.title + " (" + passVal + ")",
+        starttid: sH + ":" + sM,
+        sluttid: eH + ":" + eM,
+        totaltid: calculateDuration()
+      };
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            setLoading(false);
+            if (res.success) {
+              showStatus("Rapporten har sparats!", true);
+              document.getElementById('eventSelect').value = "";
+              document.getElementById('dateSelect').innerHTML = '<option value="">Välj händelse först</option>';
+              selectedEvent = null;
+            } else {
+              showStatus("Fel: " + res.error, false);
+            }
+          })
+          .withFailureHandler(function(err) {
+            setLoading(false);
+            showStatus("Serverfel: " + err.message, false);
+          })
+          .saveTimeReport(payload);
+      }
+    }
+
+    function setLoading(isLoading) {
+      document.getElementById('submitBtn').disabled = isLoading;
+      document.getElementById('btnSpinner').style.display = isLoading ? 'inline-block' : 'none';
+      document.getElementById('btnText').textContent = isLoading ? 'Sparar...' : 'Skicka tidrapport';
+    }
+
+    function showStatus(msg, isSuccess) {
+      var box = document.getElementById('statusBox');
+      box.textContent = msg;
+      box.className = isSuccess ? 'status-success' : 'status-error';
+      box.style.display = 'block';
+      setTimeout(function() { box.style.display = 'none'; }, 6000);
+    }
+  </script>
+</body>
+</html>

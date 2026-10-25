@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Framtidsradarn (Gantt) - LIVE RELEASE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .glass-panel-lpv {
+            background: rgba(2, 132, 199, 0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+        .glass-panel-lpv:hover { border-color: rgba(56, 189, 248, 0.5); }
+
+        .glass-panel-kla {
+            background: rgba(16, 185, 129, 0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+        .glass-panel-kla:hover { border-color: rgba(16, 185, 129, 0.5); }
+
+        /* KUL-STORLEKAR KULPÅSEN */
+        .orb-kulpase-liten { width: 44px; height: 44px; font-size: 1.25rem; }
+        .orb-kulpase-medium { width: 54px; height: 54px; font-size: 1.5rem; }
+        .orb-kulpase-stor { width: 64px; height: 64px; font-size: 2rem; }
+        
+        /* KUL-STORLEKAR GANTT (MASKINER) */
+        .orb-gantt-liten { width: 32px; height: 32px; font-size: 0.875rem; z-index: 10; }
+        .orb-gantt-medium { width: 44px; height: 44px; font-size: 1.25rem; z-index: 20; }
+        .orb-gantt-stor { 
+            width: 68px; 
+            height: 68px; 
+            font-size: 2.2rem; 
+            z-index: 40; 
+            margin-top: -12px; 
+            margin-bottom: -12px; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.8) !important;
+        }
+
+        .glass-orb {
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 6px 12px rgba(0,0,0,0.5);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            position: relative; cursor: grab; transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .glass-orb.draggable:active { cursor: grabbing; }
+        .glass-orb.draggable:hover { transform: translateY(-2px); box-shadow: inset 0 2px 4px rgba(255,255,255,0.4), 0 10px 20px rgba(0,0,0,0.7) !important; z-index: 50 !important; }
+
+        .owner-badge {
+            position: absolute; bottom: -2px; right: -4px; font-size: 8px; font-weight: 900;
+            padding: 2px 4px; border-radius: 4px; z-index: 20; border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.8); pointer-events: none; line-height: 1; color: white;
+        }
+        
+        .tl-owner-dot { position: absolute; bottom: -1px; right: -2px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #0f172a; z-index: 40; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+
+        .bg-lpv { background-color: #0284c7; }
+        .bg-klaryta { background-color: #16a34a; }
+        .bg-ue { background-color: #d97706; }
+        .bg-nekad { background-color: #475569; border-color: #94a3b8; }
+
+        .orb-declined { filter: grayscale(1); opacity: 0.5; cursor: not-allowed; box-shadow: none !important; border: 2px solid #475569; }
+
+        .gantt-job-card { border-radius: 12px; box-shadow: 0 6px 12px rgba(0,0,0,0.4); display: flex; align-items: center; padding: 0 12px; gap: 8px; overflow: visible !important; position: relative; cursor: grab; transition: width 0.3s ease, left 0.3s ease; }
+        .gantt-job-card.lpv { background: linear-gradient(145deg, rgba(2, 105, 164, 0.85) 0%, rgba(7, 89, 133, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.6); }
+        .gantt-job-card.kla { background: linear-gradient(145deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%); border: 1px solid rgba(16, 185, 129, 0.6); }
+        .gantt-job-card:active { cursor: grabbing; }
+
+        .bg-klamdag { background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(245, 158, 11, 0.05) 10px, rgba(245, 158, 11, 0.05) 20px); }
+        .bg-helg { background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(225, 29, 72, 0.05) 10px, rgba(225, 29, 72, 0.05) 20px); background-color: rgba(225, 29, 72, 0.02); }
+        .gantt-row-dropzone.drag-over { background-color: rgba(255, 255, 255, 0.05); }
+        
+        .modal-backdrop { background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 9999; }
+        .date-header-col { transition: all 0.15s ease; }
+        .custom-scrollbar::-webkit-scrollbar { height: 10px; width: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.6); }
+        .touch-pan-x { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+        .touch-pan-both { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+        
+        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
+        .toggle-checkbox { right: 0; z-index: 1; border-color: #e2e8f0; transition: all 0.3s ease; }
+        .toggle-label { width: 44px; height: 22px; background-color: #334155; border-radius: 9999px; position: relative; cursor: pointer; transition: all 0.3s ease; flex-shrink: 0; }
+        .toggle-label::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background-color: white; border-radius: 50%; transition: all 0.3s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .toggle-checkbox:checked + .toggle-label::after { transform: translateX(22px); }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-slate-950 overflow-hidden" ondragover="allowDrop(event)" ondrop="handleGlobalDrop(event)">
+
+    <button id="edge-toggle-btn" onclick="toggleResourcePanel()" 
+            class="hidden fixed left-0 top-1/2 -translate-y-1/2 z-[100] bg-sky-600 hover:bg-sky-500 text-white font-bold py-4 px-2 rounded-r-2xl shadow-2xl border-y border-r border-sky-400 flex flex-col items-center gap-2 transition-transform transform hover:scale-105">
+        <span class="text-base">▶</span>
+        <span class="text-[10px] uppercase tracking-widest font-black [writing-mode:vertical-lr] rotate-180">Kulpåse</span>
+    </button>
+
+    <header class="glass-panel h-16 flex items-center justify-between px-6 shrink-0 z-50 border-b border-slate-800 relative">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-sky-400 flex items-center gap-2">
+                🔭 Framtidsradarn <span class="text-emerald-400 font-semibold text-xs border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 rounded-full">● LIVE MASTER</span>
+            </h1>
+            <button onclick="toggleResourcePanel()" class="ml-4 px-3.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-2 transition">
+                <span id="panel-toggle-icon">◀</span> <span id="panel-toggle-text">Dölj Kulpåse</span>
+            </button>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="openCreateJobModal()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-lg shadow-emerald-900/40 transition flex items-center gap-1.5">
+                <span>➕</span> Skapa nytt jobb
+            </button>
+            <button onclick="openAdminModal()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                <span>⚙️</span> Register & UE
+            </button>
+            <div id="unsaved-badge" class="hidden px-3.5 py-1.5 bg-amber-500/20 text-amber-400 border border-amber-500/50 rounded-full text-xs font-bold animate-pulse">
+                ⚠️ <span id="unsaved-count">0</span> osparad ändring
+            </div>
+            <button onclick="revertSandbox()" class="px-3.5 py-2 text-xs text-slate-400 hover:text-white transition">Återställ</button>
+            <button onclick="publishChanges()" id="btn-publish" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold text-xs shadow-lg shadow-sky-900/50 transition opacity-50 cursor-not-allowed" disabled>
+                Spara & Publicera
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        <aside id="resource-panel" ondragover="allowDrop(event)" ondrop="dropJobOnOrderbook(event)" class="w-[340px] flex flex-col border-r border-slate-800 bg-slate-900/80 shrink-0 overflow-y-auto p-4 transition-all duration-300 ease-in-out relative z-30 custom-scrollbar">
+            <div class="flex items-center justify-between mb-4 shrink-0">
+                <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">🎒 Kulpåsen & Resursdepå</h2>
+                <button onclick="toggleResourcePanel()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition" title="Fäll in menyn">◀</button>
+            </div>
+            <div class="space-y-4">
+                <div class="glass-panel p-3.5 rounded-2xl border border-slate-800/80">
+                    <h3 class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-3">👥 Personal</h3>
+                    <div id="pool-personnel" class="flex flex-wrap gap-x-3 gap-y-4 min-h-[48px] content-start"></div>
+                    <button onclick="openQuickAddModal('person')" class="w-full mt-4 py-1.5 border border-dashed border-sky-500/30 text-sky-400 text-[10px] font-bold rounded-lg hover:bg-sky-500/10 transition">+ Ta in extra handtag (UE)</button>
+                </div>
+                <div class="glass-panel p-3.5 rounded-2xl border border-slate-800/80">
+                    <h3 class="text-[11px] font-bold text-purple-400 uppercase tracking-wider mb-3">🛠️ Verktyg & Utrustning</h3>
+                    <div id="pool-tools" class="flex flex-wrap gap-x-3 gap-y-4 min-h-[48px] content-start"></div>
+                </div>
+                <div class="glass-panel p-3.5 rounded-2xl border border-slate-800/80">
+                    <h3 class="text-[11px] font-bold text-sky-400 uppercase tracking-wider mb-3">🚜 Maskinpark & UE</h3>
+                    <div id="pool-machines" class="flex flex-wrap gap-x-3 gap-y-4 min-h-[48px] content-start"></div>
+                    <button onclick="openQuickAddModal('machine')" class="w-full mt-4 py-1.5 border border-dashed border-amber-500/30 text-amber-500 text-[10px] font-bold rounded-lg hover:bg-amber-500/10 transition">+ Hyr in maskin (UE)</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-y-auto p-5 space-y-5">
+            <section class="glass-panel p-4 rounded-2xl border border-slate-800 orderbook-zone border-dashed shrink-0" id="orderbook-dropzone" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="dropJobOnOrderbook(event)">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">📬 Orderbok: Ej inplanerade jobb</h2>
+                        <button onclick="openCreateJobModal()" class="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-lg font-bold text-[10px] transition flex items-center gap-1"><span>+</span> Ny beställning</button>
+                    </div>
+                    <span class="text-[10px] text-slate-500">Svep i sidled eller skrolla med musen för fler kort! 👈👉</span>
+                </div>
+                <div id="orderbook-list" class="flex gap-4 overflow-x-auto pb-3 pt-1 px-1 items-center min-h-[96px] custom-scrollbar touch-pan-x"></div>
+            </section>
+
+            <section class="glass-panel p-4 rounded-2xl border border-slate-800 flex-1 flex flex-col min-h-[360px]">
+                <h2 class="text-xs font-bold text-sky-400 uppercase tracking-wider mb-3 flex items-center gap-2">📅 Tidsperiod & Schemaläggning <span class="text-slate-200 font-normal">(Okt - Nov 2026 / 35 Dagar)</span></h2>
+                <div id="timeline-container" class="border border-slate-800 rounded-xl bg-slate-950 flex-1 min-h-[280px] overflow-auto custom-scrollbar touch-pan-both relative">
+                    <div id="timeline-inner" class="flex flex-col min-h-full relative">
+                        
+                        <div class="h-11 border-b border-slate-800 flex items-center bg-slate-900/90 shrink-0 sticky top-0 z-40">
+                            <div class="w-56 px-5 font-bold text-slate-400 text-[11px] uppercase tracking-wider shrink-0 sticky left-0 z-50 bg-slate-900/95 border-r border-slate-800/50 shadow-[2px_0_8px_rgba(0,0,0,0.5)] h-full flex items-center">Projekt & Kund</div>
+                            <div id="timeline-header-days" class="flex h-full items-center"></div>
+                        </div>
+
+                        <div class="relative flex-1" ondragover="allowDrop(event)" ondrop="dropJobOnTimeline(event, null)">
+                            <div id="timeline-grid-bg" class="absolute inset-0 flex pointer-events-none z-0 min-h-full"></div>
+                            <div id="gantt-rows" class="relative z-10 pb-8"></div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL 1: JOBB -->
+    <div id="create-job-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200]">
+        <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-emerald-400 flex items-center gap-2"><span>➕</span> Skapa nytt jobb</h3>
+                <button onclick="closeCreateJobModal()" class="text-slate-400 hover:text-white transition">✕</button>
+            </div>
+            <form id="create-job-form" onsubmit="handleCreateJobSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">🏢 Fakturerande Bolag (Utförare) *</label>
+                    <div class="grid grid-cols-2 gap-3 p-1 bg-slate-950 border border-slate-800 rounded-xl">
+                        <label id="lbl-billing-lpv" onclick="setBillingCompany('LPV')" class="flex items-center justify-center gap-2 py-2 rounded-lg cursor-pointer transition font-bold text-xs bg-sky-600/30 text-sky-300 border border-sky-500/50 shadow-sm"><input type="radio" name="billing-company" value="LPV" checked class="hidden"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> LPV AB</label>
+                        <label id="lbl-billing-klaryta" onclick="setBillingCompany('Klaryta')" class="flex items-center justify-center gap-2 py-2 rounded-lg cursor-pointer transition font-bold text-xs text-slate-400 border border-transparent hover:text-slate-200"><input type="radio" name="billing-company" value="Klaryta" class="hidden"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Klaryta AB</label>
+                    </div>
+                </div>
+                <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Kund / Uppdragsgivare</label><select id="job-client-select" onchange="handleClientSelectChange()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition mb-2"></select></div>
+                
+                <div id="new-client-card" class="hidden glass-panel p-4 rounded-xl border border-emerald-500/40 space-y-3.5 bg-emerald-950/10">
+                    <div class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider border-b border-emerald-500/20 pb-2 flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 shrink-0"><span id="client-type-icon">🏢</span> Registrera nytt kundkort</div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="text-[9px] font-bold uppercase transition-colors text-emerald-400" id="lbl-type-company">Företag</span>
+                            <div class="relative inline-block w-11 align-middle select-none shrink-0"><input type="checkbox" id="customer-type-toggle" onchange="toggleCustomerTypeFields()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer opacity-0"/><label for="customer-type-toggle" class="toggle-label block overflow-hidden h-5.5 rounded-full bg-slate-700 cursor-pointer"></label></div>
+                            <span class="text-[9px] font-bold uppercase transition-colors text-slate-500" id="lbl-type-private">Privatperson</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 items-end">
+                        <div><label id="lbl-client-name" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Företagsnamn *</label><input type="text" id="new-client-name" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"></div>
+                        <div><label id="lbl-client-id" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Org.nr *</label><input type="text" id="new-client-id" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"></div>
+                    </div>
+                    <div id="rot-rut-section" class="hidden bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-2.5 mt-2">
+                        <label class="block text-[10px] font-bold text-amber-400 uppercase tracking-wider">🏷️ Skatteavdrag (Skatteverket)</label>
+                        <div class="flex items-center gap-4 text-xs">
+                            <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="tax-deduction" value="none" checked onchange="toggleRotRutFields()" class="text-emerald-500"><span class="text-slate-300">Inget</span></label>
+                            <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="tax-deduction" value="rot" onchange="toggleRotRutFields()" class="text-emerald-500"><span class="text-amber-300 font-bold">ROT</span></label>
+                            <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="tax-deduction" value="rut" onchange="toggleRotRutFields()" class="text-emerald-500"><span class="text-emerald-300 font-bold">RUT</span></label>
+                        </div>
+                        <div id="property-id-container" class="hidden pt-1"><label class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Fastighetsbeteckning *</label><input type="text" id="new-client-property" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-amber-500"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mt-2">
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Huvudkontakt</label><input type="text" id="new-client-contact" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"></div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Telefonnummer *</label><input type="tel" id="new-client-phone" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">E-postadress *</label><input type="email" id="new-client-email" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"></div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Fakturaadress *</label><input type="text" id="new-client-address" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-4 border-t border-slate-800/80 pt-3">
+                    <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Projekttitel / Beskrivning</label><input type="text" id="job-title" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"></div>
+                    <div><label class="block text-xs font-bold text-sky-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">📍 Arbetsplatsadress</label><input type="text" id="job-site-address" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500 transition"></div>
+                    <div class="glass-panel p-3 rounded-xl border border-slate-800 space-y-2 bg-slate-950/40"><label class="block text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">👷‍♂️ Kontaktperson på plats</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><input type="text" id="job-site-contact-name" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500"></div>
+                            <div><input type="tel" id="job-site-contact-phone" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Antal timmar</label><input type="number" id="job-hours" min="1" max="100" value="40" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"></div>
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Arbetsskift</label><select id="job-shift" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 transition"><option value="Dagpass">☀️ Dagpass</option><option value="Kvällspass">🌆 Kvällspass</option><option value="Nattpass">🌙 Nattpass</option></select></div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeCreateJobModal()" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition">Avbryt</button>
+                    <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-900/50 transition">Skapa & Spara i Databas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: QUICK ADD UE -->
+    <div id="quick-add-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200] p-4">
+        <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 max-w-sm w-full shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 id="qa-title" class="text-base font-bold text-amber-500 flex items-center gap-2">➕ Hyr in Resurs</h3>
+                <button onclick="closeQuickAddModal()" class="text-slate-400 hover:text-white transition">✕</button>
+            </div>
+            <form onsubmit="handleQuickAddSubmit(event)" class="space-y-4">
+                <input type="hidden" id="qa-type" value="person">
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Leverantör (UE) *</label><select id="qa-supplier" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-amber-500"><option value="Svevia">Svevia</option><option value="PEAB">PEAB</option><option value="Bravida">Bravida</option><option value="Bemannia">Bemannia (Personal)</option></select></div>
+                <div><label id="qa-name-label" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Namn / Förare *</label><input type="text" id="qa-name" required placeholder="t.ex. Kalle" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-amber-500"></div>
+                <div id="qa-skills-area"><label id="qa-skills-label" class="block text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-1.5">Kompetenser</label><div id="qa-skills-container" class="flex flex-wrap gap-2 text-[11px]"></div></div>
+                <div class="pt-3 border-t border-slate-800"><button type="submit" class="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs shadow-lg transition">Lägg i Kulpåsen 🎒</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: ADMIN & KUNDREGISTER -->
+    <div id="admin-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200] p-4">
+        <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex gap-4">
+                    <button id="tab-btn-staff" onclick="switchAdminTab('staff')" class="text-sm font-bold pb-1 border-b-2 border-sky-400 text-sky-400 transition">👥 Personal, Maskiner & UE</button>
+                    <button id="tab-btn-client" onclick="switchAdminTab('client')" class="text-sm font-bold pb-1 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">🏢 Kundregister</button>
+                </div>
+                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white transition">✕</button>
+            </div>
+            <div id="tab-content-staff" class="space-y-4">
+                <form onsubmit="submitStaffForm(event)" class="grid grid-cols-2 gap-3 p-4 bg-slate-950/60 rounded-xl border border-slate-800">
+                    <div class="col-span-2 flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800">
+                        <span class="text-xs font-bold text-sky-400 uppercase tracking-wider">Typ av resurs:</span>
+                        <div class="flex gap-2">
+                            <label class="cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white" id="label-type-person"><input type="radio" name="res-type-toggle" value="person" checked onchange="toggleResourceTypeForm()" class="hidden"> 👦 Person</label>
+                            <label class="cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400" id="label-type-machine"><input type="radio" name="res-type-toggle" value="machine" onchange="toggleResourceTypeForm()" class="hidden"> 🚜 Maskin</label>
+                        </div>
+                    </div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1" id="field-label-name">Namn *</label><input type="text" id="staff-name" required class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ägare *</label><select id="staff-owner" required class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500"><option value="LPV">LPV AB</option><option value="Klaryta">Klaryta AB</option><option value="ue">UE (Orange)</option></select></div>
+                    <div class="col-span-2 flex justify-end pt-2"><button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg text-xs transition">Spara Resurs</button></div>
+                </form>
+                <div class="space-y-2"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Registrerade Resurser</h4><div id="admin-staff-list" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar"></div></div>
+            </div>
+            <div id="tab-content-client" class="space-y-4 hidden">
+                <div class="space-y-2"><h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Befintliga Kunder</h4><div id="admin-client-list" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FÖR UE MEDDELANDE-->
+    <div id="ue-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200]">
+        <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 max-w-md w-full shadow-2xl">
+            <h3 class="text-lg font-bold text-amber-500 mb-2">📩 Bekräfta ändring för UE</h3>
+            <p class="text-xs text-slate-300 mb-4">Du har avbokat eller flyttat ett jobb som har externa underentreprenörer tilldelade. Vill du meddela dem?</p>
+            <div class="bg-slate-950 p-3 rounded-xl text-xs text-slate-400 mb-6 font-mono border border-slate-800">
+                <strong>Mottagare:</strong> <span id="ue-modal-target">Johanssons Maskin</span><br><br>
+                <strong>Meddelande:</strong> "Hej! Uppdraget <span id="ue-modal-job">Jobbnamn</span> har blivit omprioriterat. Vi återkommer med ny tid."
+            </div>
+            <div class="flex flex-col gap-2.5">
+                <div class="flex gap-3">
+                    <button onclick="resolveUEAction('sms')" class="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-xs transition">Skicka SMS-länk</button>
+                    <button onclick="resolveUEAction('email')" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs transition">Autoskicka E-post</button>
+                </div>
+                <button onclick="resolveUEAction('skip')" class="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl font-bold text-xs transition">Publicera UTAN att meddela</button>
+                <button onclick="cancelPublish()" class="py-2 text-slate-400 hover:text-white mt-1 text-xs transition">Avbryt publicering</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SWEDISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+        const SWEDISH_DAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
+        const START_DATE = new Date(2026, 9, 26); // Mån 26 Okt 2026
+        const TOTAL_DAYS = 35; 
+        const DAY_WIDTH = 130;
+        const LEFT_HEADER_WIDTH = 224;
+
+        let timelineDays = [];
+        let draggedOrbId = null;
+
+        const INITIAL_STATE = {
+            clients: [
+                { type: 'company', name: 'COOP REAL ESTATE', idNr: '556000-1111', contact: 'Anna Berg', email: 'anna@coop.se', phone: '070-111 22 33', address: 'Coopgatan 1, Norrköping', rotRut: 'none' },
+                { type: 'company', name: 'JULA AB', idNr: '556222-3333', contact: 'Magnus Ek', email: 'magnus@jula.se', phone: '070-444 55 66', address: 'Julavägen 5, Skara', rotRut: 'none' },
+                { type: 'private', name: 'SVEN SVENSSON', idNr: '19820412-1234', contact: 'Sven Svensson', email: 'sven@gmail.com', phone: '070-999 88 77', address: 'Borgvägen 4, Norrköping', rotRut: 'rot', propertyId: 'Norrköping Borg 2:1' },
+                { type: 'company', name: 'BRF KRONAN', idNr: '716000-9999', contact: 'Olof Svensson', email: 'styrelsen@brfkronan.se', phone: '073-123 45 67', address: 'Kronvägen 10, Norrköping', rotRut: 'none' }
+            ],
+            resources: [
+                { id: 'r1', name: 'Erik', type: 'person', sizeClass: 'liten', ownerType: 'inhouse', ownerCompany: 'LPV', icon: '👦', color: '#0284c7' },
+                { id: 'r6', name: 'Basse', type: 'person', sizeClass: 'liten', ownerType: 'inhouse', ownerCompany: 'LPV', icon: '🤠', color: '#0284c7' },
+                { id: 'r7', name: 'Ali', type: 'person', sizeClass: 'liten', ownerType: 'inhouse', ownerCompany: 'LPV', icon: '👨‍🦱', color: '#0284c7' },
+                { id: 'r3', name: 'Fasadställning', type: 'equipment', sizeClass: 'liten', ownerType: 'klaryta', ownerCompany: 'Klaryta', icon: '🪜', color: '#16a34a' },
+                { id: 'r8', name: 'Målningsvagn', type: 'equipment', sizeClass: 'liten', ownerType: 'klaryta', ownerCompany: 'Klaryta', icon: '🎨', color: '#16a34a' },
+                { id: 'r2', name: 'Pontus UE', type: 'machine', sizeClass: 'stor', ownerType: 'ue', ownerCompany: 'UE', icon: '🚜', color: '#d97706' },
+                { id: 'r4', name: 'Multiloader', type: 'machine', sizeClass: 'liten', ownerType: 'inhouse', ownerCompany: 'LPV', icon: '🟡', color: '#0284c7' },
+                { id: 'r9', name: 'Svevia Plog', type: 'machine', sizeClass: 'stor', ownerType: 'ue', ownerCompany: 'Svevia', icon: '🚜', color: '#d97706', isDeclined: true }
+            ],
+            jobs: [
+                { id: 'j1', client: 'COOP REAL ESTATE', billingCompany: 'LPV', title: 'Snöröjning Coop (40h)', siteAddress: 'Coopgatan 1, Norrköping', siteContactName: 'Anna Berg', siteContactPhone: '070-111 22 33', status: 'scheduled', assigned: ['r1', 'r6', 'r2'], colStart: 1, hours: 40, shift: 'Dagpass' },
+                { id: 'j2', client: 'JULA AB', billingCompany: 'LPV', title: 'Sopning P-Däck (16h)', siteAddress: 'Julavägen 5, Skara', siteContactName: 'Magnus Ek', siteContactPhone: '070-444 55 66', status: 'unscheduled', assigned: [], colStart: null, hours: 16, shift: 'Dagpass' },
+                { id: 'j3', client: 'SVEN SVENSSON', billingCompany: 'Klaryta', title: 'Trädfällning & Tomtrensning (8h)', siteAddress: 'Borgvägen 4, Norrköping', siteContactName: 'Sven Svensson', siteContactPhone: '070-999 88 77', status: 'unscheduled', assigned: [], colStart: null, hours: 8, shift: 'Dagpass' },
+                { id: 'j4', client: 'BRF KRONAN', billingCompany: 'Klaryta', title: 'Målning P-Platser (8h)', siteAddress: 'Kronvägen 10, Norrköping', siteContactName: 'Olof Svensson', siteContactPhone: '073-123 45 67', status: 'unscheduled', assigned: [], colStart: null, hours: 8, shift: 'Dagpass' }
+            ]
+        };
+
+        let state = JSON.parse(JSON.stringify(INITIAL_STATE));
+        let unsavedChanges = 0;
+        let uePendingJobs = [];
+        let isResourcePanelCollapsed = false;
+        let draggedJobId = null;
+        let selectedBillingCompany = 'LPV';
+
+        function buildTimelineData() {
+            timelineDays = [];
+            for (let i = 0; i < TOTAL_DAYS; i++) {
+                let d = new Date(START_DATE);
+                d.setDate(d.getDate() + i);
+                const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
+                const dayName = SWEDISH_DAYS[(d.getDay() + 6) % 7];
+                const dateNum = d.getDate();
+                const monthName = SWEDISH_MONTHS[d.getMonth()];
+                
+                let isKlamdag = (d.getMonth() === 9 && d.getDate() === 30); 
+                timelineDays.push({ index: i + 1, dateObj: d, label: `${dayName} ${dateNum} ${monthName}`, isWeekend: isWeekend, isKlamdag: isKlamdag, isWorkDay: !isWeekend && !isKlamdag });
+            }
+        }
+
+        function buildTimelineLayout() {
+            const inner = document.getElementById('timeline-inner');
+            inner.style.width = (LEFT_HEADER_WIDTH + (TOTAL_DAYS * DAY_WIDTH)) + 'px';
+            
+            const headerContainer = document.getElementById('timeline-header-days');
+            const gridBg = document.getElementById('timeline-grid-bg');
+            
+            headerContainer.innerHTML = '';
+            gridBg.innerHTML = `<div class="w-56 shrink-0 border-r border-slate-800/80 sticky left-0 z-20 bg-slate-950 shadow-[2px_0_8px_rgba(0,0,0,0.3)]"></div>`;
+
+            timelineDays.forEach((day) => {
+                let bgClass = day.isWeekend ? 'bg-helg text-rose-500/80 border-r border-rose-950/30' : (day.isKlamdag ? 'bg-klamdag text-amber-500/80 border-r border-amber-900/30' : 'text-slate-500 border-r border-slate-800/50');
+                let subTag = day.isWeekend ? '<span class="text-[8px] font-normal">Helg</span>' : (day.isKlamdag ? '<span class="text-[8px] font-normal">Klämdag</span>' : '');
+
+                headerContainer.innerHTML += `
+                    <div id="header-day-${day.index}" class="date-header-col ${bgClass} py-1 h-full flex flex-col justify-center items-center text-xs font-bold leading-tight shrink-0" style="width: ${DAY_WIDTH}px;">
+                        <span>${day.label}</span>
+                        ${subTag}
+                    </div>`;
+
+                gridBg.innerHTML += `<div class="shrink-0 border-r border-slate-800/40 ${day.isWeekend ? 'bg-helg' : (day.isKlamdag ? 'bg-klamdag' : '')}" style="width: ${DAY_WIDTH}px;"></div>`;
+            });
+        }
+
+        function getEffectiveCalendarSpan(colStart, job) {
+            const assignedObjs = (job.assigned || []).map(id => state.resources.find(r => r.id === id)).filter(Boolean);
+            const activePeople = assignedObjs.filter(r => r.type === 'person' && !r.isSick && !r.isDeclined);
+            
+            const peopleCount = Math.max(1, activePeople.length);
+            const dailyCapacity = peopleCount * 8; 
+            
+            const workDaysNeeded = Math.ceil((job.hours || 8) / dailyCapacity);
+            
+            let col = colStart; 
+            let worked = 0;
+            while (worked < workDaysNeeded && col <= TOTAL_DAYS) {
+                const dayObj = timelineDays[col - 1];
+                if (dayObj && dayObj.isWorkDay) worked++;
+                if (worked < workDaysNeeded) col++;
+            }
+            return (col - colStart + 1);
+        }
+
+        function setBillingCompany(company) {
+            selectedBillingCompany = company;
+            const lblLpv = document.getElementById('lbl-billing-lpv');
+            const lblKlaryta = document.getElementById('lbl-billing-klaryta');
+            const radioLpv = document.querySelector('input[name="billing-company"][value="LPV"]');
+            const radioKlaryta = document.querySelector('input[name="billing-company"][value="Klaryta"]');
+
+            if (company === 'LPV') {
+                radioLpv.checked = true;
+                lblLpv.className = "flex items-center justify-center gap-2 py-2 rounded-lg cursor-pointer transition font-bold text-xs bg-sky-600/30 text-sky-300 border border-sky-500/50 shadow-sm";
+                lblKlaryta.className = "flex items-center justify-center gap-2 py-2 rounded-lg cursor-pointer transition font-bold text-xs text-slate-400 border border-transparent hover:text-slate-200";
+            } else {
+                radioKlaryta.checked = true;
+                lblKlaryta.className = "flex items-center justify-center gap-2 py-2 rounded-lg cursor-pointer transition font-bold text-xs bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 shadow-sm";
+                lblLpv.className = "flex items-center justify-center gap-2 py-2 rounded-lg cursor-pointer transition font-bold text-xs text-slate-400 border border-transparent hover:text-slate-200";
+            }
+        }
+
+        function toggleCustomerTypeFields() {
+            const toggle = document.getElementById('customer-type-toggle');
+            const isPrivate = toggle.checked;
+            
+            const lblCompany = document.getElementById('lbl-type-company');
+            const lblPrivate = document.getElementById('lbl-type-private');
+            const icon = document.getElementById('client-type-icon');
+            
+            const lblName = document.getElementById('lbl-client-name');
+            const lblId = document.getElementById('lbl-client-id');
+            const nameInp = document.getElementById('new-client-name');
+            const idInp = document.getElementById('new-client-id');
+            const rotRutSec = document.getElementById('rot-rut-section');
+
+            if (isPrivate) {
+                lblCompany.classList.replace('text-emerald-400', 'text-slate-500');
+                lblPrivate.classList.replace('text-slate-500', 'text-emerald-400');
+                icon.innerText = '👤';
+                lblName.innerText = 'För- & Efternamn *';
+                lblId.innerText = 'Personnummer *';
+                nameInp.placeholder = 't.ex. Sven Svensson';
+                idInp.placeholder = 'YYYYMMDD-XXXX';
+                rotRutSec.classList.remove('hidden');
+            } else {
+                lblCompany.classList.replace('text-slate-500', 'text-emerald-400');
+                lblPrivate.classList.replace('text-emerald-400', 'text-slate-500');
+                icon.innerText = '🏢';
+                lblName.innerText = 'Företagsnamn *';
+                lblId.innerText = 'Organisationsnummer *';
+                nameInp.placeholder = 't.ex. ICA Supermarket AB';
+                idInp.placeholder = '556XXX-XXXX';
+                rotRutSec.classList.add('hidden');
+                document.querySelector('input[name="tax-deduction"][value="none"]').checked = true;
+                toggleRotRutFields();
+            }
+        }
+
+        function renderClientSelect() {
+            const select = document.getElementById('job-client-select');
+            select.innerHTML = '<option value="" disabled selected>Välj registrerad kund...</option>';
+            const sortedClients = [...state.clients].sort((a, b) => a.name.localeCompare(b.name));
+            sortedClients.forEach(c => {
+                const icon = c.type === 'private' ? '👤' : '🏢';
+                const rotRutBadge = c.rotRut && c.rotRut !== 'none' ? ` [${c.rotRut.toUpperCase()}]` : '';
+                select.innerHTML += `<option value="${c.name}">${icon} ${c.name} (${c.idNr || 'Inget nr'})${rotRutBadge}</option>`;
+            });
+            select.innerHTML += `<option disabled>──────────</option><option value="NEW_CLIENT">➕ Lägg till ny kund...</option>`;
+        }
+
+        function toggleRotRutFields() {
+            const val = document.querySelector('input[name="tax-deduction"]:checked').value;
+            const propContainer = document.getElementById('property-id-container');
+            const propInp = document.getElementById('new-client-property');
+            if (val === 'rot' || val === 'rut') { propContainer.classList.remove('hidden'); propInp.required = true; } 
+            else { propContainer.classList.add('hidden'); propInp.required = false; }
+        }
+
+        function handleClientSelectChange() {
+            const select = document.getElementById('job-client-select');
+            const newClientCard = document.getElementById('new-client-card');
+            if (select.value === 'NEW_CLIENT') {
+                newClientCard.classList.remove('hidden');
+                document.getElementById('new-client-name').required = true;
+                document.getElementById('new-client-id').required = true;
+                document.getElementById('new-client-phone').required = true;
+                document.getElementById('customer-type-toggle').checked = false;
+                toggleCustomerTypeFields();
+                document.getElementById('new-client-name').focus();
+            } else {
+                newClientCard.classList.add('hidden');
+                const selectedClientObj = state.clients.find(c => c.name === select.value);
+                if (selectedClientObj) {
+                    document.getElementById('job-site-address').value = selectedClientObj.address || '';
+                    document.getElementById('job-site-contact-name').value = selectedClientObj.contact || '';
+                    document.getElementById('job-site-contact-phone').value = selectedClientObj.phone || '';
+                }
+            }
+        }
+
+        function openCreateJobModal() { document.getElementById('create-job-modal').classList.remove('hidden'); document.getElementById('create-job-modal').classList.add('flex'); document.getElementById('create-job-form').reset(); setBillingCompany('LPV'); renderClientSelect(); handleClientSelectChange(); }
+        function closeCreateJobModal() { document.getElementById('create-job-modal').classList.add('hidden'); document.getElementById('create-job-modal').classList.remove('flex'); }
+
+        function handleCreateJobSubmit(e) {
+            e.preventDefault();
+            const selectVal = document.getElementById('job-client-select').value;
+            let clientName = '';
+            
+            if (selectVal === 'NEW_CLIENT') {
+                clientName = document.getElementById('new-client-name').value.trim().toUpperCase();
+                const isPrivate = document.getElementById('customer-type-toggle').checked;
+                const taxDed = document.querySelector('input[name="tax-deduction"]:checked').value;
+                state.clients.push({ type: isPrivate ? 'private' : 'company', name: clientName, idNr: document.getElementById('new-client-id').value.trim(), contact: document.getElementById('new-client-contact').value.trim(), phone: document.getElementById('new-client-phone').value.trim(), email: document.getElementById('new-client-email').value.trim(), address: document.getElementById('new-client-address').value.trim(), rotRut: taxDed, propertyId: (taxDed !== 'none') ? document.getElementById('new-client-property').value.trim() : '' });
+            } else { clientName = selectVal; }
+
+            state.jobs.push({
+                id: 'j_' + Date.now(), client: clientName, billingCompany: selectedBillingCompany,
+                title: document.getElementById('job-title').value.trim(), siteAddress: document.getElementById('job-site-address').value.trim(),
+                siteContactName: document.getElementById('job-site-contact-name').value.trim(), siteContactPhone: document.getElementById('job-site-contact-phone').value.trim(),
+                status: 'unscheduled', assigned: [], colStart: null, hours: parseInt(document.getElementById('job-hours').value, 10) || 8, shift: document.getElementById('job-shift').value
+            });
+            closeCreateJobModal(); registerChange();
+            setTimeout(() => { const obList = document.getElementById('orderbook-list'); if (obList) obList.scrollLeft = obList.scrollWidth; }, 100);
+        }
+
+        function toggleResourcePanel() {
+            const panel = document.getElementById('resource-panel'); const icon = document.getElementById('panel-toggle-icon'); const text = document.getElementById('panel-toggle-text'); const edgeBtn = document.getElementById('edge-toggle-btn');
+            isResourcePanelCollapsed = !isResourcePanelCollapsed;
+            if (isResourcePanelCollapsed) {
+                panel.classList.add('w-0', 'p-0', 'opacity-0', 'border-r-0'); panel.classList.remove('w-[340px]', 'p-4');
+                icon.innerText = '🎒'; text.innerText = 'Visa Kulpåse'; edgeBtn.classList.remove('hidden'); 
+            } else {
+                panel.classList.remove('w-0', 'p-0', 'opacity-0', 'border-r-0'); panel.classList.add('w-[340px]', 'p-4');
+                icon.innerText = '◀'; text.innerText = 'Dölj Kulpåse'; edgeBtn.classList.add('hidden'); 
+            }
+        }
+
+        function init() { 
+            buildTimelineData();
+            buildTimelineLayout();
+            renderKulpase(); 
+            renderOrderbook(); 
+            renderGantt(); 
+            updateHeader(); 
+            renderAdminLists(); 
+        }
+
+        function renderKulpase() {
+            const poolPersonnel = document.getElementById('pool-personnel'); const poolTools = document.getElementById('pool-tools'); const poolMachines = document.getElementById('pool-machines');
+            poolPersonnel.innerHTML = ''; poolTools.innerHTML = ''; poolMachines.innerHTML = '';
+            
+            const assignedIds = new Set();
+            state.jobs.filter(j => j.status === 'scheduled').forEach(j => j.assigned.forEach(id => assignedIds.add(id)));
+            
+            state.resources.forEach(res => {
+                if (assignedIds.has(res.id)) return;
+                
+                let badgeClass = 'bg-lpv'; let ownerText = 'LPV';
+                if (res.ownerType === 'klaryta') { badgeClass = 'bg-klaryta'; ownerText = 'KLA'; }
+                if (res.ownerType === 'ue') { badgeClass = 'bg-ue'; ownerText = 'UE'; }
+                
+                let sizeClass = 'orb-kulpase-' + (res.sizeClass || 'liten');
+                let orbStateClass = 'draggable';
+                let tooltip = 'Kapacitet: 8h/dag';
+                let dragHTML = `draggable="true" ondragstart="onOrbDragStart(event, '${res.id}')"`;
+
+                if (res.isDeclined) {
+                    orbStateClass = 'orb-declined'; badgeClass = 'bg-nekad'; ownerText = 'NEKAD';
+                    tooltip = 'Har tackat nej via SMS (eller manuellt nekad)'; dragHTML = ''; 
+                }
+                
+                const html = `
+                    <div class="flex flex-col items-center gap-1.5 w-[62px] shrink-0" title="${tooltip}">
+                        <div class="glass-orb ${sizeClass} ${orbStateClass}" style="background-color: ${res.color}" ${dragHTML}>
+                            <span class="z-10">${res.icon}</span>
+                            <span class="owner-badge ${badgeClass}">${ownerText}</span>
+                        </div>
+                        <span class="text-[9px] font-semibold ${res.isDeclined ? 'text-slate-500' : 'text-slate-300'} truncate w-full text-center tracking-tight leading-tight">${res.name}</span>
+                    </div>`;
+                    
+                if (res.type === 'person') poolPersonnel.innerHTML += html;
+                else if (res.type === 'equipment' || res.type === 'tools') poolTools.innerHTML += html;
+                else poolMachines.innerHTML += html;
+            });
+            
+            if (!poolPersonnel.innerHTML) poolPersonnel.innerHTML = '<span class="text-slate-600 text-[10px] italic">Alla är bemannade</span>';
+            if (!poolTools.innerHTML) poolTools.innerHTML = '<span class="text-slate-600 text-[10px] italic">Allt är bokat</span>';
+            if (!poolMachines.innerHTML) poolMachines.innerHTML = '<span class="text-slate-600 text-[10px] italic">Alla maskiner är ute</span>';
+        }
+
+        function getClientLogoHtml(clientObj) { return (clientObj && clientObj.type === 'private') ? `<span class="text-[11px] opacity-80">👤</span>` : `<span class="text-[11px] opacity-80">🏢</span>`; }
+        function getBillingBadgeHtml(company) { return (company === 'Klaryta') ? `<span class="bg-emerald-500/20 text-emerald-300 px-1 py-0.5 rounded text-[8px] font-black border border-emerald-500/40">KLA</span>` : `<span class="bg-sky-500/20 text-sky-300 px-1 py-0.5 rounded text-[8px] font-black border border-sky-500/40">LPV</span>`; }
+
+        function renderOrderbook() {
+            const container = document.getElementById('orderbook-list'); container.innerHTML = '';
+            state.jobs.filter(j => j.status === 'unscheduled').forEach(job => {
+                const workDays = Math.ceil(job.hours / 8);
+                const clientObj = state.clients.find(c => c.name === job.client);
+                let rotRutTag = '';
+                if (clientObj && clientObj.rotRut === 'rot') rotRutTag = '<span class="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded text-[8px] font-bold border border-amber-500/40">ROT</span>';
+                if (clientObj && clientObj.rotRut === 'rut') rotRutTag = '<span class="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded text-[8px] font-bold border border-emerald-500/40">RUT</span>';
+
+                const themeClass = job.billingCompany === 'Klaryta' ? 'glass-panel-kla' : 'glass-panel-lpv';
+                const textColor = job.billingCompany === 'Klaryta' ? 'text-emerald-400' : 'text-sky-400';
+
+                container.innerHTML += `
+                    <div class="${themeClass} p-3.5 rounded-2xl shrink-0 w-64 cursor-grab active:cursor-grabbing transition shadow-lg" draggable="true" ondragstart="onJobDragStart(event, '${job.id}')" title="📍 ${job.siteAddress}">
+                        <div class="flex items-center justify-between text-[10px] font-bold tracking-wider uppercase mb-1"><span class="${textColor} truncate pr-1 flex items-center gap-1">${getBillingBadgeHtml(job.billingCompany)} ${getClientLogoHtml(clientObj)} <span class="truncate">${job.client}</span> ${rotRutTag}</span><span class="text-amber-500 shrink-0 ml-1">${job.hours}h (${workDays} dgr)</span></div>
+                        <div class="font-bold text-xs text-slate-100 mb-1 truncate">${job.title}</div>
+                        <div class="text-[9px] text-slate-400 truncate mb-2 flex items-center gap-1"><span>📍</span> <span class="truncate">${job.siteAddress || 'Ingen adress'}</span></div>
+                        <div class="flex items-center gap-2 text-[10px] text-slate-400"><span class="bg-slate-800 px-2 py-0.5 rounded-md text-slate-300">☀️ ${job.shift}</span><span class="text-slate-500">Kräver: 👷‍♂️ 🚜</span></div>
+                    </div>`;
+            });
+        }
+
+        /* GANTT-SCHEMAT MED PRECIS ISOLERAD DROPYTA PÅ TIDSBLOCKET */
+        function renderGantt() {
+            const container = document.getElementById('gantt-rows'); container.innerHTML = '';
+            state.jobs.filter(j => j.status === 'scheduled').forEach(job => {
+                
+                const assignedObjs = job.assigned.map(id => state.resources.find(r => r.id === id)).filter(Boolean);
+                const peopleObjs = assignedObjs.filter(r => r.type === 'person');
+                const machineObjs = assignedObjs.filter(r => r.type !== 'person');
+
+                // 1. Personal-orbs
+                let peopleOrbsHtml = peopleObjs.map(res => {
+                    let dotClass = ''; 
+                    if (res.ownerType === 'klaryta') dotClass = '<div class="tl-owner-dot bg-klaryta"></div>'; 
+                    if (res.ownerType === 'ue') dotClass = '<div class="tl-owner-dot bg-ue"></div>';
+                    return `<div class="glass-orb orb-kulpase-liten draggable border-2 border-slate-900 shrink-0 z-20" style="background-color: ${res.color}" draggable="true" ondragstart="onOrbDragStart(event, '${res.id}')" title="${res.name}"><span class="z-10">${res.icon}</span>${dotClass}</div>`;
+                }).join('');
+
+                let personPlaceholderClass = '';
+                if (peopleObjs.length === 0) {
+                    personPlaceholderClass = 'border-rose-500/80 bg-rose-500/30 text-rose-300 animate-pulse shadow-lg shadow-rose-950/80';
+                } else if (peopleObjs.length > 1) {
+                    personPlaceholderClass = 'border-emerald-400/90 bg-emerald-500/30 text-emerald-300 animate-pulse shadow-lg shadow-emerald-900/60';
+                } else {
+                    personPlaceholderClass = 'border-slate-400/40 text-slate-400/60 bg-slate-900/40 hover:border-slate-200';
+                }
+                
+                let personPlaceholderHtml = `<div class="w-11 h-11 rounded-full border border-dashed ${personPlaceholderClass} flex items-center justify-center text-xs font-bold shrink-0 transition" ondragover="allowDrop(event)" ondrop="dropOrbOnJob(event, '${job.id}')" title="Släpp personal här">👦+</div>`;
+
+                // 2. Maskin-orbs
+                let machineOrbsHtml = machineObjs.map(res => {
+                    let dotClass = ''; 
+                    if (res.ownerType === 'klaryta') dotClass = '<div class="tl-owner-dot bg-klaryta"></div>'; 
+                    if (res.ownerType === 'ue') dotClass = '<div class="tl-owner-dot bg-ue"></div>';
+                    return `<div class="glass-orb orb-gantt-${res.sizeClass || 'liten'} draggable border-2 border-slate-900 shrink-0 z-20" style="background-color: ${res.color}" draggable="true" ondragstart="onOrbDragStart(event, '${res.id}')" title="${res.name}"><span class="z-10">${res.icon}</span>${dotClass}</div>`;
+                }).join('');
+
+                let machinePlaceholderClass = '';
+                if (machineObjs.length === 0) {
+                    machinePlaceholderClass = 'border-amber-500/80 bg-amber-500/30 text-amber-300 animate-pulse shadow-lg shadow-amber-950/80';
+                } else if (machineObjs.length > 1) {
+                    machinePlaceholderClass = 'border-emerald-400/90 bg-emerald-500/30 text-emerald-300 animate-pulse shadow-lg shadow-emerald-900/60';
+                } else {
+                    machinePlaceholderClass = 'border-amber-400/30 text-amber-400/50 bg-slate-900/40 hover:border-amber-200';
+                }
+                
+                let machinePlaceholderHtml = `<div class="w-8 h-8 rounded-full border border-dashed ${machinePlaceholderClass} flex items-center justify-center text-[10px] font-bold shrink-0 transition" ondragover="allowDrop(event)" ondrop="dropOrbOnJob(event, '${job.id}')" title="Släpp maskin/redskap här">🚜+</div>`;
+
+                const calendarSpan = getEffectiveCalendarSpan(job.colStart, job);
+                const bgClass = job.billingCompany === 'Klaryta' ? 'kla' : 'lpv'; 
+                const themeClass = job.billingCompany === 'Klaryta' ? 'glass-panel-kla' : 'glass-panel-lpv'; 
+                const textColor = job.billingCompany === 'Klaryta' ? 'text-emerald-400' : 'text-sky-400';
+
+                container.innerHTML += `
+                    <div class="flex items-center h-[88px] border-b border-slate-800/40 group relative gantt-row-dropzone" ondragover="onRowDragOver(event, this)" ondragleave="clearDropHighlight()">
+                        <div class="w-56 p-2 shrink-0 h-full flex items-center z-30 sticky left-0 border-r border-slate-800/40 bg-slate-950/95 shadow-[2px_0_8px_rgba(0,0,0,0.5)]">
+                            <div class="${themeClass} p-2.5 rounded-xl w-full shadow-md flex flex-col justify-between h-[72px] cursor-grab active:cursor-grabbing transition" draggable="true" ondragstart="onJobDragStart(event, '${job.id}')">
+                                <div class="flex items-center justify-between text-[9px] font-bold tracking-wider uppercase leading-none"><span class="${textColor} truncate flex items-center gap-1">${getBillingBadgeHtml(job.billingCompany)} ${getClientLogoHtml(state.clients.find(c => c.name === job.client))} <span class="truncate">${job.client}</span></span><span class="text-amber-500 ml-1 shrink-0">${job.hours}h</span></div>
+                                <div class="font-bold text-xs text-slate-100 truncate leading-tight">${job.title}</div>
+                                <div class="flex items-center gap-1 text-[8px] text-slate-400"><span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">☀️ ${job.shift}</span><span class="truncate text-slate-500">📍 ${job.siteAddress || ''}</span></div>
+                            </div>
+                        </div>
+                        <div class="flex-1 h-full relative pointer-events-none timeline-cell-container">
+                            <div class="drop-indicator absolute top-[6px] bottom-[6px] border-2 border-dashed rounded-xl hidden pointer-events-none z-30 transition-all duration-75 flex items-center justify-center text-[10px] font-bold shadow-lg"></div>
+                            
+                            <!-- TIDSBLOCK - ENDAST DETTA KORT TAR EMOT TILDELNINGAR -->
+                            <div class="gantt-job-card ${bgClass} absolute top-[6px] bottom-[6px] pointer-events-auto justify-between" style="left: ${(job.colStart - 1) * DAY_WIDTH + 8}px; width: ${calendarSpan * DAY_WIDTH - 16}px;" draggable="true" ondragstart="onJobDragStart(event, '${job.id}')" ondragover="allowDrop(event)" ondrop="dropOrbOnJob(event, '${job.id}')">
+                                
+                                <div class="flex items-center gap-2 z-40 overflow-visible relative h-full">
+                                    <!-- Personalsektion -->
+                                    <div class="flex items-center gap-1 shrink-0 h-full" ondragover="allowDrop(event)" ondrop="dropOrbOnJob(event, '${job.id}')">
+                                        ${peopleOrbsHtml}
+                                        ${personPlaceholderHtml}
+                                    </div>
+                                    
+                                    <!-- Avdelare -->
+                                    <div class="h-8 w-[1px] bg-white/20 shrink-0"></div>
+                                    
+                                    <!-- Maskinsektion -->
+                                    <div class="flex items-center gap-1 shrink-0 h-full overflow-visible" ondragover="allowDrop(event)" ondrop="dropOrbOnJob(event, '${job.id}')">
+                                        ${machineOrbsHtml}
+                                        ${machinePlaceholderHtml}
+                                    </div>
+                                </div>
+
+                                <!-- Tim- & Kalenderdagsbadge -->
+                                <span class="bg-slate-950/60 text-amber-400 px-2 py-1 rounded-md text-[10px] font-black font-mono border border-slate-800/80 shrink-0 ml-2 shadow">${job.hours}h (${calendarSpan}kd)</span>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            container.innerHTML += `<div class="flex items-center h-[88px] border-b border-slate-800/30 border-dashed opacity-50 hover:opacity-100 transition gantt-row-dropzone group" ondragover="onRowDragOver(event, this)" ondragleave="clearDropHighlight()" ondrop="dropJobOnTimeline(event, null)"><div class="w-56 px-5 font-medium text-[11px] text-emerald-400/70 truncate shrink-0 italic bg-slate-950/90 h-full flex items-center gap-2 z-30 sticky left-0 border-r border-slate-800/40 shadow-[2px_0_8px_rgba(0,0,0,0.5)]"><span class="w-5 h-5 rounded-full border border-dashed border-emerald-400/50 flex items-center justify-center text-xs font-bold">+</span><span>Dra hit ett jobb...</span></div><div class="flex-1 h-full pointer-events-none relative timeline-cell-container"><div class="drop-indicator absolute top-[6px] bottom-[6px] border-2 border-dashed border-slate-400 bg-slate-500/20 rounded-xl hidden pointer-events-none z-30 transition-all duration-75 flex items-center justify-center text-[10px] font-bold text-slate-200 shadow-lg"></div></div></div>`;
+        }
+
+        function onRowDragOver(e, rowElem) {
+            e.preventDefault(); 
+            rowElem.classList.add('drag-over');
+            if (!draggedJobId) return; 
+            const job = state.jobs.find(j => j.id === draggedJobId); 
+            if (!job) return;
+            
+            const rowRect = rowElem.getBoundingClientRect(); 
+            const timelineStartX = rowRect.left + LEFT_HEADER_WIDTH; 
+            const offsetX = e.clientX - timelineStartX;
+            
+            if (offsetX >= 0) {
+                let targetCol = Math.floor(offsetX / DAY_WIDTH) + 1; 
+                if (targetCol < 1) targetCol = 1; 
+                if (targetCol > TOTAL_DAYS) targetCol = TOTAL_DAYS;
+                
+                for (let i = 1; i <= TOTAL_DAYS; i++) {
+                    const headerCol = document.getElementById(`header-day-${i}`);
+                    if (headerCol) { 
+                        if (i === targetCol) headerCol.classList.add('bg-slate-500/20', 'ring-2', 'ring-slate-400/50', 'ring-inset'); 
+                        else headerCol.classList.remove('bg-slate-500/20', 'ring-2', 'ring-slate-400/50', 'ring-inset'); 
+                    }
+                }
+                const indicator = rowElem.querySelector('.drop-indicator');
+                if (indicator) {
+                    indicator.className = 'drop-indicator absolute top-[6px] bottom-[6px] border-2 border-dashed rounded-xl pointer-events-none z-30 transition-all duration-75 flex items-center justify-center text-[10px] font-bold shadow-lg';
+                    if (job.billingCompany === 'Klaryta') indicator.classList.add('border-emerald-400', 'bg-emerald-500/20', 'text-emerald-200', 'shadow-emerald-900/50'); 
+                    else indicator.classList.add('border-sky-400', 'bg-sky-500/20', 'text-sky-200', 'shadow-sky-900/50');
+                    
+                    const calendarSpan = getEffectiveCalendarSpan(targetCol, job);
+                    indicator.style.left = `${(targetCol - 1) * DAY_WIDTH + 8}px`; 
+                    indicator.style.width = `${calendarSpan * DAY_WIDTH - 16}px`; 
+                    const dayObj = timelineDays[targetCol - 1];
+                    indicator.innerText = `📍 Släpp här: ${dayObj ? dayObj.label : ''}`;
+                }
+            }
+        }
+
+        function clearDropHighlight() {
+            for (let i = 1; i <= TOTAL_DAYS; i++) { const headerCol = document.getElementById(`header-day-${i}`); if (headerCol) headerCol.classList.remove('bg-slate-500/20', 'ring-2', 'ring-slate-400/50', 'ring-inset'); }
+            document.querySelectorAll('.drop-indicator').forEach(el => el.classList.add('hidden')); 
+            document.querySelectorAll('.gantt-row-dropzone').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function onOrbDragStart(e, resId) { 
+            e.stopPropagation();
+            draggedJobId = null;
+            draggedOrbId = resId;
+            e.dataTransfer.setData("type", "orb"); 
+            e.dataTransfer.setData("id", resId); 
+            e.dataTransfer.setData("text/plain", resId);
+        }
+
+        function onJobDragStart(e, jobId) { 
+            draggedJobId = jobId; 
+            draggedOrbId = null;
+            e.dataTransfer.setData("type", "job"); 
+            e.dataTransfer.setData("id", jobId); 
+        }
+
+        function allowDrop(e) { 
+            e.preventDefault(); 
+        }
+
+        function dragEnter(e) { e.currentTarget.classList.add('drag-over'); }
+        function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+
+        function unassignOrb(resId) {
+            if (!resId) return;
+            let changed = false;
+            state.jobs.forEach(j => {
+                if (j.assigned.includes(resId)) {
+                    j.assigned = j.assigned.filter(aid => aid !== resId);
+                    changed = true;
+                }
+            });
+            if (changed) {
+                registerChange();
+            }
+        }
+
+        /* SLÄPP PÅ TOMRUM -> ÅKER TILLBAKA TILL KULPÅSEN */
+        function handleGlobalDrop(e) {
+            e.preventDefault();
+            const type = e.dataTransfer.getData("type");
+            const resId = draggedOrbId || e.dataTransfer.getData("id") || e.dataTransfer.getData("text/plain");
+
+            if (draggedOrbId || type === "orb" || resId) {
+                unassignOrb(draggedOrbId || resId);
+            }
+            draggedOrbId = null;
+            draggedJobId = null;
+        }
+
+        function dropOrbOnJob(e, jobId) {
+            e.preventDefault(); 
+            e.stopPropagation(); // Stoppar så inte bakgrunden tar över!
+            clearDropHighlight();
+            
+            const resId = draggedOrbId || e.dataTransfer.getData("id") || e.dataTransfer.getData("text/plain");
+
+            if (resId) {
+                state.jobs.forEach(j => {
+                    j.assigned = j.assigned.filter(aid => aid !== resId);
+                });
+                
+                const targetJob = state.jobs.find(j => j.id === jobId);
+                if (targetJob && !targetJob.assigned.includes(resId)) {
+                    targetJob.assigned.push(resId);
+                    registerChange();
+                }
+            }
+            draggedOrbId = null;
+            draggedJobId = null;
+        }
+
+        function dropJobOnTimeline(e, targetJobId) {
+            e.preventDefault(); 
+            clearDropHighlight();
+            const type = e.dataTransfer.getData("type"); 
+            const id = e.dataTransfer.getData("id") || e.dataTransfer.getData("text/plain");
+            
+            if (type === "job" && id) {
+                const job = state.jobs.find(j => j.id === id);
+                if (job) {
+                    const rowRect = e.currentTarget.getBoundingClientRect(); 
+                    const timelineStartX = rowRect.left + LEFT_HEADER_WIDTH; 
+                    const offsetX = e.clientX - timelineStartX;
+                    if (offsetX >= 0) { 
+                        let newCol = Math.floor(offsetX / DAY_WIDTH) + 1; 
+                        if (newCol < 1) newCol = 1; 
+                        if (newCol > TOTAL_DAYS) newCol = TOTAL_DAYS; 
+                        job.status = 'scheduled'; 
+                        job.colStart = newCol; 
+                        registerChange(); 
+                    }
+                }
+            } else if (type === "orb" || draggedOrbId) {
+                // Kulan släpptes på tomrum i schemat -> Åk tillbaka till Kulpåsen!
+                unassignOrb(draggedOrbId || id);
+            }
+            draggedJobId = null;
+            draggedOrbId = null;
+        }
+
+        function dropJobOnOrderbook(e) {
+            e.preventDefault(); 
+            e.stopPropagation();
+            clearDropHighlight();
+            const type = e.dataTransfer.getData("type"); 
+            const id = e.dataTransfer.getData("id") || e.dataTransfer.getData("text/plain");
+            
+            if (type === "job") { 
+                const job = state.jobs.find(j => j.id === id); 
+                if (job && job.status === 'scheduled') { 
+                    job.status = 'unscheduled'; 
+                    job.colStart = null; 
+                    job.assigned = []; 
+                    registerChange(); 
+                } 
+            } else if (type === "orb" || !type || draggedOrbId) { 
+                const orbId = draggedOrbId || id;
+                unassignOrb(orbId); 
+            }
+            draggedJobId = null;
+            draggedOrbId = null;
+        }
+
+        function registerChange() { unsavedChanges++; updateHeader(); init(); }
+        function updateHeader() {
+            const badge = document.getElementById('unsaved-badge'); const count = document.getElementById('unsaved-count'); const btn = document.getElementById('btn-publish');
+            if (unsavedChanges > 0) { badge.classList.remove('hidden'); count.innerText = unsavedChanges; btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed'); btn.classList.add('animate-pulse'); } 
+            else { badge.classList.add('hidden'); btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed'); btn.classList.remove('animate-pulse'); }
+        }
+        function revertSandbox() { if (unsavedChanges === 0) return; if (confirm("Är du säker? Alla osparade ändringar försvinner.")) { state = JSON.parse(JSON.stringify(INITIAL_STATE)); unsavedChanges = 0; init(); } }
+
+        function publishChanges() {
+            uePendingJobs = [];
+            INITIAL_STATE.jobs.forEach(initialJob => { const currentJob = state.jobs.find(j => j.id === initialJob.id); if (initialJob.status === 'scheduled' && currentJob.status === 'unscheduled') { const hadUE = initialJob.assigned.some(id => state.resources.find(r => r.id === id && r.ownerType === 'ue')); if (hadUE) uePendingJobs.push(initialJob); } });
+            if (uePendingJobs.length > 0) { document.getElementById('ue-modal-job').innerText = uePendingJobs[0].title; document.getElementById('ue-modal').classList.remove('hidden'); document.getElementById('ue-modal').classList.add('flex'); } 
+            else { finalizePublish(); }
+        }
+
+        function resolveUEAction(action) { document.getElementById('ue-modal').classList.add('hidden'); document.getElementById('ue-modal').classList.remove('flex'); if (action === 'sms' || action === 'email') alert(`Backend anropas: Skickar ${action} till underentreprenör...`); finalizePublish(); }
+        function cancelPublish() { document.getElementById('ue-modal').classList.add('hidden'); document.getElementById('ue-modal').classList.remove('flex'); }
+        function finalizePublish() { alert("✅ Schema sparat! Databasen är uppdaterad."); INITIAL_STATE.jobs = JSON.parse(JSON.stringify(state.jobs)); unsavedChanges = 0; updateHeader(); }
+
+        /* QUICK ADD UE LOGIK */
+        function openQuickAddModal(type) {
+            document.getElementById('qa-type').value = type;
+            const title = document.getElementById('qa-title'); const nameLabel = document.getElementById('qa-name-label'); const skillsLabel = document.getElementById('qa-skills-label'); const skillsContainer = document.getElementById('qa-skills-container');
+            if (type === 'person') {
+                title.innerHTML = '👥 Ta in extra personal (UE)'; nameLabel.innerText = 'Namn / Förare *'; skillsLabel.innerText = 'Kompetenser (Klicka i)';
+                skillsContainer.innerHTML = `<input type="checkbox" id="qa-sk-el" value="Elektriker" class="hidden chip-checkbox"><label for="qa-sk-el" class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer text-xs select-none">⚡ El</label><input type="checkbox" id="qa-sk-vvs" value="VVS" class="hidden chip-checkbox"><label for="qa-sk-vvs" class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer text-xs select-none">💧 VVS</label>`;
+            } else {
+                title.innerHTML = '🚜 Hyr in Maskin (UE)'; nameLabel.innerText = 'Maskinmodell *'; skillsLabel.innerText = 'Medhavda Redskap (Klicka i)';
+                skillsContainer.innerHTML = `<input type="checkbox" id="qa-eq-plog" value="Vikplog" class="hidden chip-checkbox"><label for="qa-eq-plog" class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer text-xs select-none">❄️ Plog</label>`;
+            }
+            document.getElementById('quick-add-modal').classList.remove('hidden'); document.getElementById('quick-add-modal').classList.add('flex'); document.getElementById('qa-name').focus();
+        }
+
+        function closeQuickAddModal() { document.getElementById('quick-add-modal').classList.add('hidden'); document.getElementById('quick-add-modal').classList.remove('flex'); document.getElementById('qa-name').value = ''; }
+        
+        function handleQuickAddSubmit(e) {
+            e.preventDefault();
+            const type = document.getElementById('qa-type').value; const name = document.getElementById('qa-name').value; const supplier = document.getElementById('qa-supplier').value;
+            state.resources.push({ id: 'r_' + Date.now(), name: name, type: type, ownerType: 'ue', ownerCompany: supplier, color: '#d97706', icon: type === 'person' ? '👷‍♂️' : '🚜', sizeClass: type === 'person' ? 'liten' : 'stor' });
+            closeQuickAddModal(); registerChange();
+        }
+
+        /* ADMIN MODAL LOGIK */
+        function openAdminModal(tab) { document.getElementById('admin-modal').classList.remove('hidden'); document.getElementById('admin-modal').classList.add('flex'); if (tab) switchAdminTab(tab); }
+        function closeAdminModal() { document.getElementById('admin-modal').classList.add('hidden'); document.getElementById('admin-modal').classList.remove('flex'); }
+        function switchAdminTab(tab) {
+            const btnStaff = document.getElementById('tab-btn-staff'); const btnClient = document.getElementById('tab-btn-client');
+            const contentStaff = document.getElementById('tab-content-staff'); const contentClient = document.getElementById('tab-content-client');
+            if (tab === 'staff') {
+                btnStaff.className = "text-sm font-bold pb-1 border-b-2 border-sky-400 text-sky-400 transition"; btnClient.className = "text-sm font-bold pb-1 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+                contentStaff.classList.remove('hidden'); contentClient.classList.add('hidden');
+            } else {
+                btnClient.className = "text-sm font-bold pb-1 border-b-2 border-emerald-400 text-emerald-400 transition"; btnStaff.className = "text-sm font-bold pb-1 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+                contentClient.classList.remove('hidden'); contentStaff.classList.add('hidden');
+            }
+        }
+        function toggleResourceTypeForm() { }
+        function submitStaffForm(e) { e.preventDefault(); alert("✅ Resurs sparad i backend!"); }
+        
+        function renderAdminLists() {
+            const staffList = document.getElementById('admin-staff-list'); const clientList = document.getElementById('admin-client-list');
+            if(staffList) {
+                staffList.innerHTML = ''; state.resources.forEach(r => staffList.innerHTML += `<div class="p-2 bg-slate-950/40 rounded text-xs border border-slate-800"><span class="font-bold text-slate-200">${r.name}</span> <span class="text-slate-400">(${r.ownerCompany})</span></div>`);
+            }
+            if(clientList) {
+                clientList.innerHTML = ''; state.clients.forEach(c => clientList.innerHTML += `<div class="p-2 bg-slate-950/40 rounded text-xs border border-slate-800"><span class="font-bold text-slate-200">${c.name}</span></div>`);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const obList = document.getElementById('orderbook-list');
+            if (obList) { obList.addEventListener('wheel', function(e) { if (e.deltaY !== 0) { e.preventDefault(); this.scrollLeft += e.deltaY; } }, { passive: false }); }
+            init();
+        });
+    </script>
+</body>
+</html>
