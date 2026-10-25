@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>War-Room: Snöledning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; margin: 0; }
+    .glass-card { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .leaflet-control-zoom { display: none; }
+  </style>
+</head>
+<body class="h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-slate-950 border-b border-slate-800 p-3 flex justify-between items-center z-10 shadow-xl">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl animate-pulse">🔴</span>
+      <div>
+        <h1 class="text-sm font-black uppercase text-white tracking-widest">War-Room: Norrköping</h1>
+        <div class="text-[10px] text-sky-400 font-bold">Väderlarm: Snöfall 12cm | Temp: -4°C</div>
+      </div>
+    </div>
+    <button class="bg-rose-600 hover:bg-rose-500 text-white px-6 py-2 rounded-xl text-xs font-black shadow-[0_0_15px_rgba(225,29,72,0.5)] transition border border-rose-400">
+      🚨 SKICKA SNÖLARM TILL ALLA FÖRARE
+    </button>
+  </header>
+
+  <!-- Karta & Paneler -->
+  <div class="flex-1 relative flex">
+    
+    <!-- Karta -->
+    <div id="map" class="w-full h-full z-0"></div>
+
+    <!-- Flytande Panel (Höger) -->
+    <div class="absolute right-4 top-4 bottom-4 w-72 glass-card rounded-2xl flex flex-col z-10 shadow-2xl overflow-hidden">
+      
+      <div class="bg-slate-900 p-3 border-b border-slate-800">
+        <h2 class="text-xs font-black text-amber-400 uppercase">Aktiv Flotta (Live)</h2>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto p-3 space-y-3">
+        <!-- Traktor 1 -->
+        <div class="bg-slate-950 border border-emerald-500/30 rounded-xl p-3">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-black text-white">🚜 Traktor 1 (Pelle)</span>
+            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+          </div>
+          <div class="text-[10px] text-slate-400 font-bold">Rutt: Prio 1 (Sjukhuset)</div>
+          <div class="text-[10px] text-emerald-400 font-bold mt-1">Status: Plogar (2h 15m)</div>
+        </div>
+
+        <!-- Maskin 2 -->
+        <div class="bg-slate-950 border border-slate-700 rounded-xl p-3">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-black text-white">🚜 Hjulastare 2 (Anna)</span>
+            <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+          </div>
+          <div class="text-[10px] text-slate-400 font-bold">Rutt: Prio 2 (Köpcentrum)</div>
+          <div class="text-[10px] text-amber-400 font-bold mt-1">Status: På väg till zon</div>
+        </div>
+      </div>
+
+      <div class="bg-rose-950/50 p-3 border-t border-rose-500/30">
+        <h3 class="text-[10px] font-black text-rose-400 uppercase mb-1">Inkommande Hinder</h3>
+        <div class="text-xs text-white font-bold">📸 Felparkerad bil (Zon B)</div>
+        <div class="text-[9px] text-slate-300">Rapporterad av Traktor 1 kl 03:14</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const map = L.map('map', { zoomControl: false }).setView([58.5877, 16.1924], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+    // Röd Zon (Ej Plogad)
+    L.polygon([
+      [58.59, 16.18], [58.59, 16.19], [58.585, 16.19], [58.585, 16.18]
+    ], { color: '#e11d48', fillColor: '#e11d48', fillOpacity: 0.2, weight: 2 }).addTo(map).bindPopup('Prio 2: Ej Plogad');
+
+    // Grön Zon (Klar)
+    L.polygon([
+      [58.595, 16.195], [58.595, 16.205], [58.59, 16.205], [58.59, 16.195]
+    ], { color: '#10b981', fillColor: '#10b981', fillOpacity: 0.2, weight: 2 }).addTo(map).bindPopup('Prio 1: Klar');
+
+    // Traktor Marker
+    const traktorIcon = L.divIcon({
+      className: 'bg-transparent',
+      html: '<div class="text-2xl drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">🚜</div>',
+      iconSize: [30, 30]
+    });
+    L.marker([58.593, 16.200], { icon: traktorIcon }).addTo(map);
+  </script>
+</body>
+</html>
