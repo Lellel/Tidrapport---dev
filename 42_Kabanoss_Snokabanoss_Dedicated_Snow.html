@@ -14,7 +14,6 @@
 </head>
 <body class="min-h-screen p-4 md:p-6 space-y-4 max-w-4xl mx-auto">
 
-  <!-- Header -->
   <header class="glass-card rounded-2xl p-4 flex justify-between items-center">
     <div class="flex items-center gap-3">
       <a href="prototyper.html" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition">
@@ -30,7 +29,6 @@
     </span>
   </header>
 
-  <!-- Pass-info & Översikt -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
     <div class="glass-card p-3 rounded-2xl">
       <div class="text-[10px] text-slate-400 font-bold uppercase">Temperatur</div>
@@ -50,7 +48,6 @@
     </div>
   </div>
 
-  <!-- Handskottningslista -->
   <main class="space-y-3">
     <div class="flex justify-between items-center px-1">
       <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400">📋 Handskottning & Trappor (iPad-lista)</h2>
@@ -70,7 +67,6 @@
         <button onclick="togglePhoto(this)" class="flex-1 sm:flex-none px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-white/10 transition">
           📷 Fotobevis
         </button>
-
         <button onclick="toggleDone(this)" class="flex-1 sm:flex-none px-4 py-2 bg-slate-800 hover:bg-emerald-600 text-slate-200 font-bold text-xs rounded-xl border border-white/10 transition">
           Ej klar
         </button>
@@ -90,47 +86,6 @@
         <button onclick="togglePhoto(this)" class="flex-1 sm:flex-none px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-white/10 transition">
           📷 Fotobevis
         </button>
-
-        <button onclick="toggleDone(this)" class="flex-1 sm:flex-none px-4 py-2 bg-slate-800 hover:bg-emerald-600 text-slate-200 font-bold text-xs rounded-xl border border-white/10 transition">
-          Ej klar
-        </button>
-      </div>
-    </div>
-
-    <!-- Objekt 3 -->
-    <div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <div class="space-y-1">
-        <div class="flex items-center gap-2">
-          <span class="font-extrabold text-sm text-white">Södra Järnvägsgatan 8 - Handikapparkering</span>
-          <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-bold">PRIO 2</span>
-        </div>
-        <p class="text-xs text-slate-400">Fritag skylt + handskotta ruta och gångbana.</p>
-      </div>
-      <div class="flex items-center gap-2 w-full sm:w-auto">
-        <button onclick="togglePhoto(this)" class="flex-1 sm:flex-none px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-white/10 transition">
-          📷 Fotobevis
-        </button>
-
-        <button onclick="toggleDone(this)" class="flex-1 sm:flex-none px-4 py-2 bg-slate-800 hover:bg-emerald-600 text-slate-200 font-bold text-xs rounded-xl border border-white/10 transition">
-          Ej klar
-        </button>
-      </div>
-    </div>
-
-    <!-- Objekt 4 -->
-    <div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <div class="space-y-1">
-        <div class="flex items-center gap-2">
-          <span class="font-extrabold text-sm text-white">Flens Station - Trappavsats Väst</span>
-          <span class="text-[10px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded font-bold">STANDARD</span>
-        </div>
-        <p class="text-xs text-slate-400">Handskottning + salt/flisblandning.</p>
-      </div>
-      <div class="flex items-center gap-2 w-full sm:w-auto">
-        <button onclick="togglePhoto(this)" class="flex-1 sm:flex-none px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-white/10 transition">
-          📷 Fotobevis
-        </button>
-
         <button onclick="toggleDone(this)" class="flex-1 sm:flex-none px-4 py-2 bg-slate-800 hover:bg-emerald-600 text-slate-200 font-bold text-xs rounded-xl border border-white/10 transition">
           Ej klar
         </button>
@@ -151,7 +106,7 @@
         btn.className = "flex-1 sm:flex-none px-4 py-2 bg-slate-800 hover:bg-emerald-600 text-slate-200 font-bold text-xs rounded-xl border border-white/10 transition";
         completedCount--;
       }
-      document.getElementById('progress-text').innerText = `${completedCount} / 4`;
+      document.getElementById('progress-text').innerText = `${completedCount} / 2`;
     }
 
     function togglePhoto(btn) {
@@ -164,6 +119,5 @@
       }
     }
   </script>
-
 </body>
 </html>
