@@ -2,9 +2,8 @@
 <html lang="sv" class="dark">
 <head>
   <meta charset="UTF-8">
-  <!-- Förhindrar zoombeteenden och låser skärmen så svep fungerar felfritt -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>LPV 3D Cover Flow</title>
+  <title>LPV 3D Cover Flow & CRM</title>
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -16,7 +15,7 @@
       font-family: 'Inter', sans-serif;
       background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
       color: #f8fafc;
-      overflow: hidden; /* Förhindrar att hela webbsidan scrollar när vi sveper */
+      overflow: hidden; 
       touch-action: pan-y;
     }
 
@@ -29,11 +28,11 @@
     /* Korten i snurran */
     .cover-card {
       position: absolute;
-      width: 260px;       /* Bredd för mobilen */
-      height: 360px;      /* Höjd för 3:4 proportioner */
-      left: calc(50% - 130px); /* Centrera kortet horisontellt */
-      top: calc(50% - 180px);  /* Centrera kortet vertikalt */
-      transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); /* Mjuk iTunes-effekt */
+      width: 260px;
+      height: 360px;
+      left: calc(50% - 130px);
+      top: calc(50% - 180px);
+      transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
       transform-style: preserve-3d;
       user-select: none;
       -webkit-user-drag: none;
@@ -53,11 +52,6 @@
       border: 1px solid rgba(255, 255, 255, 0.1);
       box-shadow: inset 0 4px 15px rgba(0, 0, 0, 0.2);
     }
-
-    /* Fallback LPV SVG - Visas om Clearbit misslyckas */
-    .fallback-logo {
-      display: none;
-    }
   </style>
 </head>
 <body class="h-screen w-screen flex flex-col relative">
@@ -73,28 +67,31 @@
     <!-- Korten genereras in här av JavaScript -->
   </div>
 
-  <!-- Knappen i botten för aktivt kort -->
-  <div class="absolute bottom-10 left-0 w-full px-8 z-50 flex justify-center">
-    <button onclick="openActiveJob()" class="w-full max-w-sm py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm uppercase tracking-wider rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.3)] transition transform active:scale-95">
-      Öppna Arbetsorder
+  <!-- Knapp-panel i botten -->
+  <div class="absolute bottom-8 left-0 w-full px-6 z-50 flex gap-3 justify-center max-w-md mx-auto right-0">
+    <button onclick="openActiveJob()" class="flex-1 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider rounded-2xl shadow-[0_0_15px_rgba(16,185,129,0.3)] transition transform active:scale-95 flex flex-col items-center gap-1">
+      <span class="text-lg leading-none">📋</span>
+      <span>Öppna Order</span>
+    </button>
+    
+    <button onclick="saveActiveContact()" id="btn-contact" class="flex-1 py-4 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider rounded-2xl shadow-[0_0_15px_rgba(14,165,233,0.3)] transition transform active:scale-95 flex flex-col items-center gap-1">
+      <span class="text-lg leading-none">📞</span>
+      <span>Spara Kontakt</span>
     </button>
   </div>
 
   <script>
-    // --- 1. DATABASEN (Hårdkokade Demojobb) ---
-    // Logotypen hämtas från domain. Om domänen är ogiltig laddar fallback-loggan!
+    // --- 1. DATABASEN (Nu utökad med telefonnummer och mail) ---
     const jobs = [
-      { id: '1041', client: 'ICA Maxi', location: 'Norrköping', domain: 'ica.se', status: 'Klar för målning', statusColor: 'bg-emerald-500 text-emerald-100', date: '14 Maj' },
-      { id: '1042', client: 'Peab Asfalt', location: 'Linköping', domain: 'peab.se', status: 'Pågående', statusColor: 'bg-amber-500 text-amber-950', date: '15 Maj' },
-      { id: '1043', client: 'Privat (Fallback)', location: 'Söderköping', domain: 'ingen-doman.se', status: 'Offert skickad', statusColor: 'bg-sky-500 text-sky-950', date: '17 Maj' },
-      { id: '1044', client: 'Skanska', location: 'Motala', domain: 'skanska.se', status: 'Avvaktar svar', statusColor: 'bg-slate-600 text-slate-200', date: '20 Maj' },
-      { id: '1045', client: 'Willys', location: 'Finspång', domain: 'willys.se', status: 'Klar för målning', statusColor: 'bg-emerald-500 text-emerald-100', date: '22 Maj' }
+      { id: '1041', client: 'ICA Maxi', location: 'Norrköping', domain: 'ica.se', status: 'Klar för målning', statusColor: 'bg-emerald-500 text-emerald-100', date: '14 Maj', phone: '011-111 22 33', email: 'butik@ica.se' },
+      { id: '1042', client: 'Peab Asfalt', location: 'Linköping', domain: 'peab.se', status: 'Pågående', statusColor: 'bg-amber-500 text-amber-950', date: '15 Maj', phone: '013-444 55 66', email: 'platschef@peab.se' },
+      { id: '1043', client: 'Johansson (Privat)', location: 'Söderköping', domain: 'ingen-doman.se', status: 'Offert skickad', statusColor: 'bg-sky-500 text-sky-950', date: '17 Maj', phone: '070-123 45 67', email: 'familjen@johansson.se' },
+      { id: '1044', client: 'Skanska', location: 'Motala', domain: 'skanska.se', status: 'Avvaktar svar', statusColor: 'bg-slate-600 text-slate-200', date: '20 Maj', phone: '0141-99 88 77', email: 'projekt@skanska.se' },
+      { id: '1045', client: 'Willys', location: 'Finspång', domain: 'willys.se', status: 'Klar för målning', statusColor: 'bg-emerald-500 text-emerald-100', date: '22 Maj', phone: '0122-333 44', email: 'info@willys.se' }
     ];
 
-    let activeIndex = 2; // Vi startar på kortet i mitten (index 2 = Fallback-kortet)
+    let activeIndex = 2; // Startar på Privat-kortet
     const scene = document.getElementById('carousel-scene');
-
-    // SVG för fallback (LPV-stil som laddas när en företagslogga inte hittas)
     const fallbackSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="%230f172a"/><text x="50" y="55" font-family="sans-serif" font-size="28" font-weight="900" fill="%2338bdf8" text-anchor="middle">LPV</text></svg>`;
 
     // --- 2. GENERERA KORTEN ---
@@ -103,32 +100,24 @@
         const card = document.createElement('div');
         card.className = 'cover-card rounded-3xl overflow-hidden glass-panel flex flex-col cursor-pointer';
         
-        // När vi klickar på ett kort snurrar vi det till mitten
         card.onclick = () => {
           activeIndex = index;
           updateCarousel();
         };
 
-        // Kortets HTML-struktur
         card.innerHTML = `
-          <!-- Övre 70% (Visuell Logo-zon) -->
           <div class="flex-1 flex flex-col items-center justify-center p-6 relative">
-            
-            <!-- Domän/Clearbit logo med ONERROR-fallback direkt inbyggd -->
             <div class="w-32 h-32 rounded-full glass-inner flex items-center justify-center p-4 shadow-xl">
                <img src="https://logo.clearbit.com/${job.domain}?size=200" 
                     onerror="this.src='${fallbackSvg}'" 
                     alt="${job.client} Logo" 
                     class="w-full h-full object-contain pointer-events-none drop-shadow-md rounded-full" />
             </div>
-            
             <div class="mt-4 text-center">
               <h2 class="text-xl font-black text-white shadow-black">${job.client}</h2>
               <p class="text-xs font-bold text-slate-300 mt-1">📍 ${job.location}</p>
             </div>
           </div>
-
-          <!-- Nedre 30% (Fundamental Info) -->
           <div class="h-28 bg-slate-950/80 border-t border-white/10 p-5 flex flex-col justify-between backdrop-blur-xl">
             <div class="flex justify-between items-center">
               <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Order #${job.id}</span>
@@ -139,37 +128,30 @@
             </div>
           </div>
         `;
-        
         scene.appendChild(card);
       });
       updateCarousel();
     }
 
-    // --- 3. MATEMATIKEN FÖR 3D-SNURRAN ---
+    // --- 3. 3D-KARUSELL MATEMATIK ---
     function updateCarousel() {
       const cards = document.querySelectorAll('.cover-card');
-      
       cards.forEach((card, index) => {
-        // Räkna ut hur långt kortet är från det aktiva kortet
         const offset = index - activeIndex; 
         const absOffset = Math.abs(offset);
-        const direction = offset === 0 ? 0 : Math.sign(offset); // -1 för vänster, 1 för höger
+        const direction = offset === 0 ? 0 : Math.sign(offset);
 
-        // Konfigurera 3D-känslan!
-        // Ju längre bort ett kort är, desto mer åker det i sidled och bakåt.
-        let translateX = offset * 65; // % förskjutning i sidled
-        let translateZ = absOffset * -120; // Tryck kortet bakåt in i skärmen (Pixlar)
-        let rotateY = direction * -45; // Vrid kortet 45 grader bort från centrum
-        let scale = offset === 0 ? 1 : 0.85; // Minska storleken på sidokorten
-        let opacity = offset === 0 ? 1 : 0.4; // Gör sidokorten svagare
-        let zIndex = 100 - absOffset; // Se till att centerkortet ligger överst
+        let translateX = offset * 65; 
+        let translateZ = absOffset * -120;
+        let rotateY = direction * -45;
+        let scale = offset === 0 ? 1 : 0.85;
+        let opacity = offset === 0 ? 1 : 0.4;
+        let zIndex = 100 - absOffset;
 
-        // Applicera CSS Transforms!
         card.style.transform = `translateX(${translateX}%) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`;
         card.style.zIndex = zIndex;
         card.style.opacity = opacity;
         
-        // Gör sidokort mörka, centerkort upplyst
         if (offset === 0) {
           card.style.filter = "brightness(1.1) drop-shadow(0 20px 30px rgba(0,0,0,0.8))";
         } else {
@@ -178,39 +160,85 @@
       });
     }
 
-    // --- 4. SVEP-KONTROLLER (Touch på mobil) ---
+    // --- 4. SVEP-KONTROLLER ---
     let startX = 0;
     let currentX = 0;
     
-    scene.addEventListener('touchstart', (e) => {
-      startX = e.touches[0].clientX;
-    });
-
-    scene.addEventListener('touchmove', (e) => {
-      currentX = e.touches[0].clientX;
-    });
-
+    scene.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; });
+    scene.addEventListener('touchmove', (e) => { currentX = e.touches[0].clientX; });
     scene.addEventListener('touchend', (e) => {
       if (!startX || !currentX) return;
-      
       let diffX = startX - currentX;
-
-      // Om vi sveper mer än 40 pixlar, trigga ett hopp i snurran
       if (diffX > 40 && activeIndex < jobs.length - 1) {
-        activeIndex++; // Svep Vänster -> Nästa kort
-        updateCarousel();
+        activeIndex++; updateCarousel();
       } else if (diffX < -40 && activeIndex > 0) {
-        activeIndex--; // Svep Höger -> Föregående kort
-        updateCarousel();
+        activeIndex--; updateCarousel();
       }
-      
       startX = 0; currentX = 0;
     });
 
-    // Fejka en knapptryckning på aktivt kort
+    // --- 5. CRM & TELEFONBOK (vCard) ---
     function openActiveJob() {
-      const activeJob = jobs[activeIndex];
-      alert(`Simulerar öppning av Order #${activeJob.id} för ${activeJob.client}... \n\nHär skulle ritningen, PDF-kalkylen och kartan fällas upp!`);
+      const job = jobs[activeIndex];
+      alert(`Öppnar order #${job.id} för ${job.client}...`);
+    }
+
+    async function saveActiveContact() {
+      const job = jobs[activeIndex];
+      const btn = document.getElementById('btn-contact');
+      const originalHtml = btn.innerHTML;
+      
+      btn.innerHTML = `<span class="text-lg leading-none">⏳</span><span>Skapar...</span>`;
+      btn.disabled = true;
+
+      // 1. Försök ladda loggan som Base64 (för att bädda in den i telefonboken)
+      let base64Image = "";
+      try {
+        const response = await fetch(`https://logo.clearbit.com/${job.domain}?size=200`);
+        if (response.ok) {
+          const blob = await response.blob();
+          base64Image = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch (e) {
+        console.log("Kunde inte hämta logga för vCard, fortsätter utan bild.");
+      }
+
+      // 2. Bygg vCard-formatet
+      let vcard = `BEGIN:VCARD\nVERSION:3.0\n`;
+      vcard += `N:${job.client};;;;\n`;
+      vcard += `FN:${job.client} (LPV Kund)\n`;
+      vcard += `ORG:${job.client}\n`;
+      vcard += `TITLE:Aktivt Jobb: ${job.location}\n`;
+      vcard += `TEL;TYPE=WORK,VOICE:${job.phone}\n`;
+      vcard += `EMAIL:${job.email}\n`;
+      vcard += `NOTE:Projektplats: ${job.location}\\nUppdragsgivare: Klaryta AB / LPV\\nOrder-ID: #${job.id}\\nStatus: ${job.status}\n`;
+
+      if (base64Image) {
+        vcard += `PHOTO;TYPE=JPEG;ENCODING=b:${base64Image}\n`;
+      }
+      
+      vcard += `END:VCARD`;
+
+      // 3. Trigga nedladdning till telefonen
+      const blob = new Blob([vcard], { type: "text/vcard;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const newLink = document.createElement("a");
+      newLink.href = url;
+      // Namnger filen snyggt, t.ex. "ICA Maxi_LPV.vcf"
+      newLink.download = `${job.client}_LPV.vcf`;
+      document.body.appendChild(newLink);
+      newLink.click();
+      document.body.removeChild(newLink);
+
+      // Återställ knapp
+      setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+      }, 1000);
     }
 
     // Starta snurran
