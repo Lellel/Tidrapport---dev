@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Kabanossen - Cover Flow & Fältdocka</title>
+  <title>Kabanossen - Cover Flow & Packlista</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Swiper.js för äkta 3D Cover Flow -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
@@ -37,7 +37,7 @@
       border-t: 1px solid rgba(255, 255, 255, 0.2);
     }
     
-    /* Nedskalat kvadratiskt konvolut (230x230 px) */
+    /* Kvadratiskt konvolut (230x230 px) */
     .swiper-slide {
       width: 230px;
       height: 230px;
@@ -48,12 +48,12 @@
       box-shadow: 0 15px 35px -10px rgba(14, 165, 233, 0.4);
     }
 
-    /* Scrollbar för modalen */
+    /* Modals-scroll utan synliga balkar */
     .modal-scroll::-webkit-scrollbar { display: none; }
     .modal-scroll { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between pb-28 pt-2 px-4 max-w-md mx-auto select-none">
+<body class="min-h-screen flex flex-col justify-between pb-24 pt-2 px-4 max-w-md mx-auto select-none">
 
   <!-- Header -->
   <header class="text-center pt-2 pb-1">
@@ -71,14 +71,27 @@
     </div>
   </div>
 
+  <!-- 🧰 DYNAMISK PACKKNAPP UNDER KARUSELLEN -->
+  <div class="w-full px-2 my-2">
+    <button onclick="openPacklista()" class="w-full py-3.5 px-4 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-between shadow-lg transition active:scale-95 group">
+      <div class="flex items-center gap-2.5">
+        <span class="text-lg">🧰</span>
+        <span class="group-hover:text-amber-300 transition">Packlista & Material</span>
+      </div>
+      <span id="packBadgeCounter" class="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-black text-amber-300">
+        0/0 packat
+      </span>
+    </button>
+  </div>
+
   <!-- Tillbaka-länk över dockan -->
-  <div class="text-center my-2">
+  <div class="text-center my-1">
     <a href="prototyper.html" class="inline-block py-1 px-3 text-xs font-semibold text-slate-400 hover:text-white transition">
       ← Tillbaka till Prototypnav
     </a>
   </div>
 
-  <!-- iOS-Style Flytande Fältdocka -->
+  <!-- iOS-Style Flytande Fältdocka (4 knappar) -->
   <nav class="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
     <div class="glass-dock rounded-3xl p-2 flex items-center justify-around gap-1">
       
@@ -109,13 +122,49 @@
     </div>
   </nav>
 
-  <!-- 🚨 FÄLTAKUTEN MODAL (Kamera Input) -->
+  <!-- 🧰 PACKLISTA MODAL (SLIDE-UP SHEET) -->
+  <div id="packModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex flex-col justify-end transition-opacity duration-300">
+    <div class="glass-modal w-full max-w-md mx-auto rounded-t-3xl p-5 shadow-2xl transform transition-transform duration-300 translate-y-0 max-h-[85vh] flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl font-bold">🧰</div>
+          <div>
+            <h3 class="text-base font-black text-amber-400 tracking-wide">PACKLISTA & MATERIAL</h3>
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" id="packClientSubtitle">Prylar för uppdraget</p>
+          </div>
+        </div>
+        <button onclick="closePacklista()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm hover:bg-slate-700 hover:text-white transition">✕</button>
+      </div>
+
+      <!-- Status-indikator -->
+      <div class="bg-slate-900/80 rounded-2xl p-3 border border-slate-800 mb-3 flex items-center justify-between shrink-0">
+        <span class="text-xs font-bold text-slate-300">Status i servicebilen:</span>
+        <span id="packProgressText" class="text-xs font-black text-amber-400">0/0 packat</span>
+      </div>
+
+      <!-- Checklistan (Scrollbar) -->
+      <div class="space-y-2 overflow-y-auto modal-scroll pb-2 flex-grow pr-0.5" id="checklistContainer">
+        <!-- Renderas dynamiskt -->
+      </div>
+
+      <!-- Footer -->
+      <div class="shrink-0 pt-3 mt-2 border-t border-slate-800">
+        <button onclick="closePacklista()" class="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-black text-xs uppercase tracking-wider text-center transition active:scale-98 shadow-lg shadow-amber-500/20">
+          Klar – Redo att åka 🚚
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 🚨 FÄLTAKUTEN MODAL -->
   <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" onchange="handleImageCaptured(this)">
 
   <div id="akutModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex flex-col justify-end transition-opacity duration-300">
     <div class="glass-modal w-full max-w-md mx-auto rounded-t-3xl p-5 shadow-2xl transform transition-transform duration-300 translate-y-0 max-h-[88vh] flex flex-col">
       
-      <!-- Modal Header -->
       <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3 shrink-0">
         <div class="flex items-center gap-2">
           <span class="text-2xl animate-pulse">🚨</span>
@@ -127,15 +176,10 @@
         <button onclick="closeAkuten()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm hover:bg-slate-700 hover:text-white transition">✕</button>
       </div>
 
-      <!-- Innehåll i modalen (Scrollbar) -->
       <div class="space-y-4 overflow-y-auto modal-scroll pb-2 flex-grow pr-0.5">
-        
-        <!-- SEKTION 1: Kritiskt (2 Kolumner) -->
         <div>
           <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block mb-2">⚡ Kritiska Åtgärder</span>
           <div class="grid grid-cols-2 gap-2">
-            
-            <!-- Fotografera skada -->
             <button onclick="triggerCamera()" class="p-3 rounded-2xl bg-slate-800/90 border border-rose-500/30 hover:border-rose-500 flex flex-col items-start justify-between text-left transition active:scale-95 group min-h-[82px]">
               <div class="flex items-center justify-between w-full">
                 <span class="text-xl">📸</span>
@@ -144,7 +188,6 @@
               <div class="text-xs font-black text-white group-hover:text-rose-400 transition leading-snug">Foto Skada</div>
             </button>
 
-            <!-- Ring Arbetsledare -->
             <button onclick="callProjectLeader()" class="p-3 rounded-2xl bg-slate-800/90 border border-emerald-500/30 hover:border-emerald-500 flex flex-col items-start justify-between text-left transition active:scale-95 group min-h-[82px]">
               <div class="flex items-center justify-between w-full">
                 <span class="text-xl">☎️</span>
@@ -155,27 +198,20 @@
                 <div class="text-[9px] text-slate-400 font-medium truncate" id="akutPhoneLabel">Ring Jour</div>
               </div>
             </button>
-
           </div>
         </div>
 
-        <!-- SEKTION 2: Akut Material & Service (Dynamiskt Admin-redo Grid) -->
         <div>
           <div class="flex justify-between items-center px-1 mb-2">
             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">🛠️ Material & Service</span>
             <span class="text-[9px] font-semibold text-slate-500">Admin-synkad</span>
           </div>
-          
-          <div class="grid grid-cols-2 gap-2" id="supplierGrid">
-            <!-- Renderas dynamiskt av JavaScript -->
-          </div>
+          <div class="grid grid-cols-2 gap-2" id="supplierGrid"></div>
         </div>
 
-        <!-- SEKTION 3: Fältbehov (2 Kolumner) -->
         <div>
           <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block mb-2">☕ Fältöverlevnad</span>
           <div class="grid grid-cols-2 gap-2">
-            
             <button onclick="findNearestToilet()" class="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-sky-500 flex items-center gap-2.5 text-left transition active:scale-95 group">
               <span class="text-lg">🚽</span>
               <div>
@@ -191,13 +227,10 @@
                 <div class="text-[9px] text-slate-400">Käk på vägen</div>
               </div>
             </button>
-
           </div>
         </div>
-
       </div>
 
-      <!-- Footer -->
       <div class="shrink-0 pt-2 mt-2 border-t border-slate-800">
         <button onclick="closeAkuten()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-black text-xs uppercase tracking-wider text-center transition active:scale-98">
           Stäng
@@ -208,7 +241,7 @@
   </div>
 
   <script>
-    /* Kundprojekt */
+    /* Kundprojekt med datamodell för Admin-synkade packlistor */
     const projects = [
       {
         id: "1043",
@@ -220,7 +253,13 @@
         statusBg: "bg-sky-500 text-slate-950",
         domain: "",
         phone: "070-123 45 67",
-        email: "johansson@example.com"
+        email: "johansson@example.com",
+        checklist: [
+          { id: 1, item: "Fasadskrapa & Stålborste", packed: false },
+          { id: 2, item: "Grundfärg Fasad (10L)", packed: false },
+          { id: 3, item: "Maskeringstejp (Bred extra stryk)", packed: false },
+          { id: 4, item: "Teleskopskaft & Penselsats", packed: false }
+        ]
       },
       {
         id: "1042",
@@ -232,7 +271,13 @@
         statusBg: "bg-amber-500 text-slate-950",
         domain: "peab.se",
         phone: "013-987 65 43",
-        email: "kontakt@peab.se"
+        email: "kontakt@peab.se",
+        checklist: [
+          { id: 1, item: "Asfaltsraka & Bultpistol", packed: false },
+          { id: 2, item: "Varningskoner (6 st)", packed: false },
+          { id: 3, item: "Asfaltsklistrare / Bitumen", packed: false },
+          { id: 4, item: "Värmepistol & Gasolflaska", packed: false }
+        ]
       },
       {
         id: "1041",
@@ -244,7 +289,12 @@
         statusBg: "bg-emerald-500 text-slate-950",
         domain: "skanska.se",
         phone: "011-555 12 34",
-        email: "info@skanska.se"
+        email: "info@skanska.se",
+        checklist: [
+          { id: 1, item: "Mätlaser & Stativ", packed: false },
+          { id: 2, item: "Säkerhetssele & Fallskydd", packed: false },
+          { id: 3, item: "Mutterdragare (18V)", packed: false }
+        ]
       },
       {
         id: "1040",
@@ -256,11 +306,15 @@
         statusBg: "bg-amber-500 text-slate-950",
         domain: "svevia.se",
         phone: "0155-20 30 00",
-        email: "info@svevia.se"
+        email: "info@svevia.se",
+        checklist: [
+          { id: 1, item: "Linjemålningsmaskin", packed: false },
+          { id: 2, item: "Vägskyltar (Sänkt hastighet)", packed: false },
+          { id: 3, item: "Reflexvästar & Hjälm", packed: false }
+        ]
       }
     ];
 
-    /* Admin-Förberedd Leverantörslista */
     const suppliers = [
       { id: "biltema", name: "Biltema", icon: "🚗", query: "Biltema" },
       { id: "jula", name: "Jula", icon: "⚙️", query: "Jula" },
@@ -272,7 +326,6 @@
 
     let swiper;
 
-    /* Renderera Cover Flow Korten */
     function renderCards() {
       const container = document.getElementById('cardContainer');
       container.innerHTML = projects.map(p => {
@@ -320,7 +373,6 @@
       }).join('');
     }
 
-    /* Renderera Leverantörs-Grid i Fältakuten */
     function renderSuppliers() {
       const grid = document.getElementById('supplierGrid');
       grid.innerHTML = suppliers.map(s => `
@@ -347,11 +399,85 @@
           modifier: 1,
           slideShadows: false,
         },
+        on: {
+          slideChange: function () {
+            updatePackButtonCounter();
+          }
+        }
       });
+      updatePackButtonCounter();
     }
 
     function getActiveProject() {
       return projects[swiper.activeIndex || 0];
+    }
+
+    /* Uppdatera räknaren på knappen under karusellen när man bläddrar */
+    function updatePackButtonCounter() {
+      const p = getActiveProject();
+      if (p && p.checklist) {
+        const packed = p.checklist.filter(c => c.packed).length;
+        const total = p.checklist.length;
+        const counter = document.getElementById('packBadgeCounter');
+        counter.innerText = `${packed}/${total} packat`;
+        if (packed === total && total > 0) {
+          counter.className = "px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-black text-emerald-400";
+        } else {
+          counter.className = "px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-black text-amber-300";
+        }
+      }
+    }
+
+    /* 🧰 PACKLISTA LOGIK */
+    function openPacklista() {
+      const p = getActiveProject();
+      document.getElementById('packClientSubtitle').innerText = `Verktyg för ${p.client} (#${p.id})`;
+      renderChecklist(p);
+      document.getElementById('packModal').classList.remove('hidden');
+    }
+
+    function closePacklista() {
+      document.getElementById('packModal').classList.add('hidden');
+    }
+
+    function renderChecklist(project) {
+      const container = document.getElementById('checklistContainer');
+      const packedCount = project.checklist.filter(c => c.packed).length;
+      
+      document.getElementById('packProgressText').innerText = `${packedCount}/${project.checklist.length} packat`;
+      if (packedCount === project.checklist.length && project.checklist.length > 0) {
+        document.getElementById('packProgressText').className = "text-xs font-black text-emerald-400 animate-pulse";
+      } else {
+        document.getElementById('packProgressText').className = "text-xs font-black text-amber-400";
+      }
+
+      container.innerHTML = project.checklist.map(item => `
+        <div onclick="toggleCheckItem(${project.id}, ${item.id})" class="p-3.5 rounded-2xl ${item.packed ? 'bg-emerald-950/40 border-emerald-500/40' : 'bg-slate-800/90 border-slate-700/80'} border flex items-center justify-between text-left transition active:scale-98 cursor-pointer group">
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 rounded-lg ${item.packed ? 'bg-emerald-500 text-slate-950' : 'bg-slate-700 text-transparent'} flex items-center justify-center text-xs font-black transition">
+              ✓
+            </div>
+            <span class="text-xs font-bold ${item.packed ? 'line-through text-slate-400' : 'text-white'} transition">
+              ${item.item}
+            </span>
+          </div>
+          <span class="text-[10px] font-extrabold uppercase ${item.packed ? 'text-emerald-400' : 'text-slate-500'}">
+            ${item.packed ? 'PACKAD' : 'SAKNAS'}
+          </span>
+        </div>
+      `).join('');
+    }
+
+    function toggleCheckItem(projectId, itemId) {
+      const p = projects.find(proj => proj.id == projectId);
+      if (p) {
+        const item = p.checklist.find(i => i.id == itemId);
+        if (item) {
+          item.packed = !item.packed;
+          renderChecklist(p);
+          updatePackButtonCounter();
+        }
+      }
     }
 
     /* 🚨 FÄLTAKUTEN LOGIK */
