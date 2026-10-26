@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gårds-Kabanossen | Live Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+    
+    html, body {
+      height: 100dvh;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background-color: #020617; 
+      color: #f8fafc; 
+      touch-action: manipulation;
+    }
+    
+    .glass-card { 
+      background: rgba(15, 23, 42, 0.85); 
+      backdrop-filter: blur(20px); 
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1); 
+    }
+    .glass-dock {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+    
+    .modal-scroll::-webkit-scrollbar { display: none; }
+    .modal-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    @keyframes boing {
+      0% { transform: scale(1) translateX(0); }
+      25% { transform: scale(1.05) translateX(-10px); }
+      50% { transform: scale(0.95) translateX(10px); }
+      75% { transform: scale(1.02) translateX(-5px); }
+      100% { transform: scale(1) translateX(0); }
+    }
+    .animate-boing { animation: boing 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+
+    #portrait-ui { display: flex; }
+    #landscape-dashboard { display: none; }
+
+    @media screen and (orientation: landscape) {
+      #portrait-ui { display: none !important; }
+      #landscape-dashboard { display: flex !important; }
+    }
+  </style>
+</head>
+<body class="w-screen flex flex-col select-none">
+
+  <!-- ========================================== -->
+  <!-- 📱 STÅENDE LÄGE (PORTRAIT) - ARBETSVERKTYGET -->
+  <!-- ========================================== -->
+  <div id="portrait-ui" class="flex-col h-full w-full max-w-md mx-auto px-3 pt-2 pb-24 relative">
+    
+    <!-- HEADER -->
+    <header class="space-y-2 pt-1 pb-2">
+      <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 shadow-lg">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-sky-500 flex items-center justify-center text-xl shadow-inner">
+            🐖
+          </div>
+          <div>
+            <h1 class="text-xs font-black text-white tracking-wide uppercase">Gårds-Kabanossen</h1>
+            <p class="text-[9px] text-slate-400 font-bold">Grisgården • Moa & Teamet (11 pers)</p>
+          </div>
+        </div>
+        
+        <button onclick="toggleOfflineMode()" id="syncBadge" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider transition active:scale-95">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" id="syncDot"></span>
+          <span id="syncText">Synkad</span>
+        </button>
+      </div>
+
+      <!-- FLIKAR -->
+      <div class="grid grid-cols-3 gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-[10px] font-bold">
+        <button onclick="switchView('timeline')" id="tab-timeline" class="py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black transition shadow-sm">⏱️ 30-Min Vy</button>
+        <button onclick="switchView('kulpase')" id="tab-kulpase" class="py-1.5 rounded-lg bg-transparent text-slate-400 font-black transition">🔮 Kulpåsen</button>
+        <button onclick="switchView('supervisor')" id="tab-supervisor" class="py-1.5 rounded-lg bg-transparent text-slate-400 font-black transition">👑 Ledare UI</button>
+      </div>
+    </header>
+
+    <!-- HUVUDINNEHÅLL -->
+    <main class="flex-grow my-1 space-y-3 overflow-y-auto modal-scroll pr-0.5">
+      
+      <!-- 1. VY: TIDSLINJE -->
+      <div id="view-timeline" class="space-y-2.5">
+        <div class="flex justify-between items-center px-1">
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">DAGENS SCHEMA (30-MIN)</span>
+          <span class="text-[10px] font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">FM-Pass</span>
+        </div>
+
+        <!-- Dynamiska kort hamnar här -->
+        <div id="live-tasks-container" class="space-y-2.5"></div>
+
+        <!-- Fritte i sin essä -->
+        <div class="glass-card rounded-2xl p-3 border-l-4 border-l-emerald-500 flex flex-col gap-2">
+          <div class="flex justify-between items-start">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black bg-slate-800 text-sky-400 px-2 py-1 rounded-lg border border-slate-700">07:00</span>
+              <div>
+                <h3 class="text-xs font-black text-white">Mockning & Halmning (Stall 1 & 2)</h3>
+                <p class="text-[10px] text-slate-400 font-medium">Snabbströning av boxar</p>
+              </div>
+            </div>
+            <span class="text-[9px] font-black bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full uppercase border border-emerald-500/20">KLAR</span>
+          </div>
+          <div class="flex justify-between items-center text-[10px] pt-1 border-t border-slate-800/80 text-slate-400">
+            <span>Tilldelad: <strong class="text-slate-200">Fritte 🧹</strong></span>
+            <span class="text-emerald-400 font-bold">✓ Slutfört i rekordfart</span>
+          </div>
+        </div>
+
+        <!-- Domino-effekt test -->
+        <div class="glass-card rounded-2xl p-3 border-l-4 border-l-amber-500 flex flex-col gap-2">
+          <div class="flex justify-between items-start">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black bg-slate-800 text-amber-400 px-2 py-1 rounded-lg border border-slate-700">07:30</span>
+              <div>
+                <h3 class="text-xs font-black text-white">Högtryckstvätt Avd 3</h3>
+                <p class="text-[10px] text-slate-400 font-medium">Kräver tom avdelning innan start</p>
+              </div>
+            </div>
+            <span class="text-[9px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full uppercase border border-amber-500/20">PÅGÅR</span>
+          </div>
+          
+          <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 text-[10px] text-amber-300 flex items-center gap-2">
+            <span class="text-sm">🔗</span>
+            <span class="leading-tight"><strong>Kopplad kedja:</strong> Om tvätten fördröjs flyttas desinficeringen automatiskt.</span>
+          </div>
+
+          <div class="flex justify-between items-center text-[10px] pt-1 border-t border-slate-800/80">
+            <span class="text-slate-400">Tilldelad: <strong class="text-slate-200">LillJeppe 🛠️</strong></span>
+            <button onclick="triggerCascadeDemo()" class="text-amber-400 font-extrabold hover:text-amber-300 transition active:scale-95 bg-amber-500/10 px-2 py-1 rounded">⚡ Skjut fram 30 min</button>
+          </div>
+        </div>
+
+        <!-- Certifikat/Boing-test med Lovisa vs Fritte -->
+        <div id="certTaskCard" class="glass-card rounded-2xl p-3 border-l-4 border-l-rose-500 flex flex-col gap-2 transition-transform">
+          <div class="flex justify-between items-start">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black bg-slate-800 text-rose-400 px-2 py-1 rounded-lg border border-slate-700">08:30</span>
+              <div>
+                <h3 class="text-xs font-black text-white">Smågris-vaccinering (Kull 14)</h3>
+                <p class="text-[10px] text-rose-300 font-bold">🔒 Kräver: Certifikat Vaccinering</p>
+              </div>
+            </div>
+            <span class="text-[9px] font-black bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full uppercase border border-slate-700">LEDIG KULA</span>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-xl p-2 border border-slate-800 space-y-1.5 mt-1">
+            <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Testa tilldela kula från personalen:</span>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button onclick="assignWorker('Fritte', false)" class="py-1.5 px-2 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 text-[10px] font-bold text-left flex justify-between items-center active:scale-95 transition">
+                <span>Fritte (Ej Cert)</span>
+                <span class="text-xs">🚫</span>
+              </button>
+              <button onclick="assignWorker('Lovisa', true)" class="py-1.5 px-2 rounded-lg bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold text-left flex justify-between items-center active:scale-95 transition">
+                <span>Lovisa (Cert ✓)</span>
+                <span class="text-xs">💉</span>
+              </button>
+            </div>
+          </div>
+          <div id="certStatusMsg" class="text-[10px] font-bold text-slate-400 text-center pt-1 h-4"></div>
+        </div>
+      </div>
+
+      <!-- 2. VY: KULPÅSEN (PERSONALEN) -->
+      <div id="view-kulpase" class="space-y-3 hidden">
+        <div class="bg-slate-900/90 rounded-2xl p-3 border border-slate-800 shadow-md">
+          <h3 class="text-xs font-black text-sky-400 uppercase tracking-wider mb-1">🔮 KULPÅSEN (GÅRDENS TEAM)</h3>
+          <p class="text-[10px] text-slate-400 font-medium leading-relaxed">Alla 11 på gården med sina unika roller och tillstånd.</p>
+        </div>
+        
+        <div class="space-y-2">
+          <!-- Moa -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center border-emerald-500/30">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-black border border-amber-500/40">👑</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Moa</h4>
+                <p class="text-[9px] text-amber-400 font-bold">Arbetsledare</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[8px] font-black border border-amber-500/20">TOTALÖVERSIKT</span>
+          </div>
+
+          <!-- Lovisa -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center text-xs font-black border border-rose-500/30">👩‍🌾</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Lovisa</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Djurskötare</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 text-[8px] font-black border border-sky-500/20">VACCINERING</span>
+          </div>
+
+          <!-- Lina -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-xs font-black border border-purple-500/30">👩‍🌾</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Lina</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Djurskötare</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 text-[8px] font-black border border-purple-500/20">DJURSKÖTSEL</span>
+          </div>
+
+          <!-- Helene -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-xs font-black border border-purple-500/30">👩‍🌾</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Helene</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Djurskötare</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 text-[8px] font-black border border-purple-500/20">DJURSKÖTSEL</span>
+          </div>
+
+          <!-- Fritte -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-xs font-black border border-emerald-500/30">🧹</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Fritte</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Mockning & Ströning</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 text-[8px] font-black border border-emerald-500/20">EFFEKTIV</span>
+          </div>
+
+          <!-- Mirja -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-black border border-slate-700">👩‍🔧</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Mirja</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Allt-i-allo</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[8px] font-bold">ALLROUND</span>
+          </div>
+
+          <!-- Markus -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-black border border-amber-500/30">🚜</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Markus</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Maskinförare / Allt-i-allo</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[8px] font-black border border-amber-500/20">MASKIN</span>
+          </div>
+
+          <!-- LillJeppe -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-black border border-slate-700">🛠️</div>
+              <div>
+                <h4 class="text-xs font-black text-white">LillJeppe</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Allt-i-allo</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[8px] font-bold">FLEXIBEL</span>
+          </div>
+
+          <!-- StorJeppe -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-black border border-slate-700">👨‍🌾</div>
+              <div>
+                <h4 class="text-xs font-black text-white">StorJeppe</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Gårds-resurs</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[8px] font-bold">ALLROUND</span>
+          </div>
+
+          <!-- Klas -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-black border border-slate-700">🚜</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Klas</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Allt-i-allo (Fri roll)</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[8px] font-bold">OPERATÖR</span>
+          </div>
+
+          <!-- Anders -->
+          <div class="glass-card rounded-2xl p-2.5 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-black border border-slate-700">🔧</div>
+              <div>
+                <h4 class="text-xs font-black text-white">Anders</h4>
+                <p class="text-[9px] text-slate-400 font-bold">Allt-i-allo</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[8px] font-bold">UNDERHÅLL</span>
+          </div>
+        </div>
+
+        <!-- UE-PÅSEN -->
+        <div class="mt-4 border-t border-slate-800 pt-3">
+          <h3 class="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 px-1">🛠️ UE-Påsen (Externa)</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="glass-card rounded-xl p-2.5 border-purple-500/20">
+              <div class="text-xs font-black text-purple-300">🩺 Veterinär</div>
+              <div class="text-[9px] text-slate-500 mt-0.5">Gårdsveterinären</div>
+            </div>
+            <div class="glass-card rounded-xl p-2.5 border-purple-500/20">
+              <div class="text-xs font-black text-purple-300">⚡ Elektriker</div>
+              <div class="text-[9px] text-slate-500 mt-0.5">Lantbruks-El</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. VY: ARBETSLEDARE UI (MOAS PANELS) -->
+      <div id="view-supervisor" class="space-y-3 hidden">
+        <div class="bg-slate-900/90 rounded-2xl p-3 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+          <div class="flex justify-between items-center mb-1">
+            <h3 class="text-xs font-black text-emerald-400 uppercase tracking-wider">👑 MOAS LEDAR-PANEL</h3>
+            <span class="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-bold">Arbetsledare</span>
+          </div>
+          <p class="text-[10px] text-slate-400 font-medium leading-relaxed">Lägg till eller ändra uppgifter direkt från traktorsätet eller fikarummet utan stress.</p>
+        </div>
+
+        <div class="space-y-2 mt-4">
+          <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest block px-1">Snabb-Mallar för Gården</span>
+          
+          <button onclick="createQuickTask('Akut: Foderskruv Stopp', 'amber', 'Larm i Stall 3. Anders/Elektriker larmad.', 'NU')" class="w-full p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-black text-xs text-left flex justify-between items-center active:scale-[0.98] transition shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="text-lg">⚙️</span><span>Trasig Foderskruv</span>
+            </div>
+            <span class="text-[10px] bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/20">Deploya 🚀</span>
+          </button>
+
+          <button onclick="createQuickTask('Slaktbil Anländ: Utlastning', 'emerald', '80 djur ska lastas. Anders & Markus på plats.', '10:00')" class="w-full p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-black text-xs text-left flex justify-between items-center active:scale-[0.98] transition shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="text-lg">🚚</span><span>Slaktbil: Utlastning</span>
+            </div>
+            <span class="text-[10px] bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20">Deploya 🚀</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- HINT: VRID TELEFONEN -->
+    <nav class="absolute bottom-4 left-3 right-3 z-40 pointer-events-none">
+      <div class="glass-dock rounded-3xl p-2.5 flex items-center justify-center gap-4 text-center">
+         <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-80 flex items-center gap-1.5">
+           <span class="text-lg animate-pulse">📱</span> Vrid mobilen för Dashboard
+         </span>
+      </div>
+    </nav>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- 📺 LIGGANDE LÄGE (LANDSCAPE) - DASHBOARDEN -->
+  <!-- ========================================== -->
+  <div id="landscape-dashboard" class="flex-col h-full w-full bg-[#020617] p-4 overflow-hidden relative">
+    
+    <div class="absolute inset-0 bg-gradient-to-br from-slate-900/50 to-[#020617] pointer-events-none z-0"></div>
+    
+    <div class="z-10 flex flex-col h-full">
+      <div class="flex justify-between items-end border-b border-slate-800 pb-2.5 mb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/40 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(14,165,233,0.3)]">
+            📺
+          </div>
+          <div>
+            <h1 class="text-base font-black text-white uppercase tracking-widest">Gårds-Dashboard <span class="text-sky-400 animate-pulse text-[10px] align-top">• LIVE</span></h1>
+            <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Moa & Teamet • Helikoptersyn</p>
+          </div>
+        </div>
+        
+        <div class="flex gap-6 text-right">
+          <div>
+            <div class="text-[9px] text-slate-500 uppercase font-black tracking-wider">Framsteg Idag</div>
+            <div class="text-lg font-black text-emerald-400">75%</div>
+          </div>
+          <div>
+            <div class="text-[9px] text-slate-500 uppercase font-black tracking-wider">Aktiva På Gården</div>
+            <div class="text-lg font-black text-sky-400">11 / 11</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Gantt/Tidslinje med RIKTIGA INITIALER -->
+      <div class="flex-grow flex flex-col gap-2">
+        
+        <!-- Stall 1 & 2 -->
+        <div class="flex items-center gap-3 bg-slate-900/60 p-2 rounded-2xl border border-slate-800/50">
+          <div class="w-28 shrink-0 border-r border-slate-700/50 pr-2">
+            <h3 class="text-xs font-black text-white">Stall 1 & 2</h3>
+            <p class="text-[8px] text-slate-400 font-bold uppercase">Ströning & Halm</p>
+          </div>
+          <div class="flex-grow flex gap-2 items-center">
+             <div class="h-8 px-3 min-w-[140px] bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center justify-between opacity-80">
+               <span class="text-[9px] font-black text-emerald-400 uppercase">✓ Ströning klar</span>
+               <div class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-[7px] font-black text-emerald-300">FR</div>
+             </div>
+          </div>
+        </div>
+
+        <!-- Avd 3 -->
+        <div class="flex items-center gap-3 bg-slate-900/60 p-2 rounded-2xl border border-slate-800/50">
+          <div class="w-28 shrink-0 border-r border-slate-700/50 pr-2">
+            <h3 class="text-xs font-black text-white">Avdelning 3</h3>
+            <p class="text-[8px] text-slate-400 font-bold uppercase">Tvätt & Sanering</p>
+          </div>
+          <div class="flex-grow flex gap-2 items-center">
+             <div class="h-8 px-3 min-w-[160px] bg-amber-500/20 border border-amber-500/50 rounded-xl flex items-center justify-between">
+               <span class="text-[10px] font-black text-amber-300">Högtryckstvätt</span>
+               <div class="w-5 h-5 rounded-full bg-slate-800 border border-amber-400 flex items-center justify-center text-[7px] font-black text-white">LJ</div>
+             </div>
+          </div>
+        </div>
+
+        <!-- Sugg-Stall -->
+        <div class="flex items-center gap-3 bg-slate-900/60 p-2 rounded-2xl border border-slate-800/50">
+          <div class="w-28 shrink-0 border-r border-slate-700/50 pr-2">
+            <h3 class="text-xs font-black text-white">Sugg-Avd 4</h3>
+            <p class="text-[8px] text-slate-400 font-bold uppercase">Vaccinering</p>
+          </div>
+          <div class="flex-grow flex gap-2 items-center">
+             <div class="h-8 px-3 min-w-[180px] bg-sky-500/20 border border-sky-500/50 rounded-xl flex items-center justify-between">
+               <span class="text-[10px] font-black text-sky-300">💉 Vaccinering Kull 14</span>
+               <div class="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-400 flex items-center justify-center text-[7px] font-black text-rose-300">LO</div>
+             </div>
+          </div>
+        </div>
+
+      </div>
+      
+      <div class="text-center mt-2">
+        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-900/80 px-3 py-1 rounded-full border border-slate-800">
+          🔄 Vrid tillbaka telefonen för att byta flik
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isOffline = false;
+
+    function toggleOfflineMode() {
+      isOffline = !isOffline;
+      const badge = document.getElementById('syncBadge');
+      const dot = document.getElementById('syncDot');
+      const text = document.getElementById('syncText');
+
+      if (isOffline) {
+        badge.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/40 text-amber-300 text-[10px] font-black uppercase tracking-wider transition active:scale-95 shadow-inner";
+        dot.className = "w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]";
+        text.innerText = "Offline";
+      } else {
+        badge.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider transition active:scale-95 shadow-inner";
+        dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]";
+        text.innerText = "Synkad";
+      }
+    }
+
+    function switchView(viewName) {
+      document.getElementById('view-timeline').classList.add('hidden');
+      document.getElementById('view-kulpase').classList.add('hidden');
+      document.getElementById('view-supervisor').classList.add('hidden');
+
+      const baseClass = "py-1.5 rounded-lg text-slate-400 font-black transition bg-transparent";
+      document.getElementById('tab-timeline').className = baseClass;
+      document.getElementById('tab-kulpase').className = baseClass;
+      document.getElementById('tab-supervisor').className = baseClass;
+
+      document.getElementById(`view-${viewName}`).classList.remove('hidden');
+      document.getElementById(`tab-${viewName}`).className = "py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black transition shadow-sm";
+    }
+
+    function assignWorker(name, hasCert) {
+      const card = document.getElementById('certTaskCard');
+      const msg = document.getElementById('certStatusMsg');
+
+      if (!hasCert) {
+        card.classList.remove('animate-boing');
+        void card.offsetWidth;
+        card.classList.add('animate-boing');
+        msg.innerHTML = `<span class="text-rose-400 font-black">💥 BOING! ${name} saknar vaccineringstillstånd. Kulan avvisades.</span>`;
+      } else {
+        card.classList.remove('animate-boing');
+        card.classList.remove('border-l-rose-500');
+        card.classList.add('border-l-emerald-500');
+        msg.innerHTML = `<span class="text-emerald-400 font-black">✓ Behörighet OK! ${name} tilldelad kortet.</span>`;
+      }
+    }
+
+    function triggerCascadeDemo() {
+      alert("🔗 DOMINOKEDJA!\n\nSystemet noterar fördröjningen på tvätten och skjuter automatiskt fram nästa moment. Alla i teamet ser den nya tiden direkt.");
+    }
+
+    function createQuickTask(taskTitle, color, details, time) {
+      const container = document.getElementById('live-tasks-container');
+      
+      const newTaskHTML = `
+        <div class="glass-card rounded-2xl p-3 border-l-4 border-l-${color}-500 flex flex-col gap-2 animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+          <div class="flex justify-between items-start">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black bg-slate-800 text-${color}-400 px-2 py-1 rounded-lg border border-slate-700">${time}</span>
+              <div>
+                <h3 class="text-xs font-black text-white">${taskTitle}</h3>
+                <p class="text-[10px] text-slate-400 font-medium">${details}</p>
+              </div>
+            </div>
+            <span class="text-[8px] font-black bg-${color}-500/20 text-${color}-400 px-2 py-0.5 rounded-full uppercase border border-${color}-500/20">NY (MOA)</span>
+          </div>
+        </div>
+      `;
+
+      if(container) {
+        container.insertAdjacentHTML('afterbegin', newTaskHTML);
+      }
+      
+      switchView('timeline');
+    }
+  </script>
+</body>
+</html>
