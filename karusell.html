@@ -30,6 +30,12 @@
       border: 1px solid rgba(255, 255, 255, 0.15);
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
     }
+    .glass-modal {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border-t: 1px solid rgba(255, 255, 255, 0.2);
+    }
     
     /* Nedskalat kvadratiskt konvolut (230x230 px) */
     .swiper-slide {
@@ -69,7 +75,7 @@
   </div>
 
   <!-- iOS-Style Flytande Fältdocka (Fast i botten) -->
-  <nav class="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-50">
+  <nav class="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
     <div class="glass-dock rounded-3xl p-2 flex items-center justify-around gap-1">
       
       <!-- 🚨 Fältakuten -->
@@ -98,6 +104,71 @@
 
     </div>
   </nav>
+
+  <!-- 🚨 FÄLTAKUTEN MODAL / PANEL (Gömda kamera-inputs) -->
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" onchange="handleImageCaptured(this)">
+
+  <div id="akutModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex flex-col justify-end transition-opacity duration-300">
+    <div class="glass-modal w-full max-w-md mx-auto rounded-t-3xl p-6 space-y-4 shadow-2xl transform transition-transform duration-300 translate-y-0">
+      
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl animate-bounce">🚨</span>
+          <div>
+            <h3 class="text-lg font-black text-rose-400 tracking-wide">FÄLTAKUTEN</h3>
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" id="akutClientSubtitle">Snabbåtgärder i fält</p>
+          </div>
+        </div>
+        <button onclick="closeAkuten()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm hover:bg-slate-700 hover:text-white">✕</button>
+      </div>
+
+      <!-- Akutvalen -->
+      <div class="space-y-3 pt-1">
+        
+        <!-- 1. Fotografera Skada -->
+        <button onclick="triggerCamera()" class="w-full p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 hover:border-rose-500/50 flex items-center justify-between text-left transition active:scale-98 group">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl font-bold">📸</div>
+            <div>
+              <div class="text-sm font-black text-white group-hover:text-rose-400 transition">Fotografera skada</div>
+              <div class="text-xs text-slate-400">Öppna kameran och koppla bild till ordern</div>
+            </div>
+          </div>
+          <span class="text-slate-500 font-bold text-lg">→</span>
+        </button>
+
+        <!-- 2. Hitta Toalett -->
+        <button onclick="findNearestToilet()" class="w-full p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 hover:border-sky-500/50 flex items-center justify-between text-left transition active:scale-98 group">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-xl font-bold">🚽</div>
+            <div>
+              <div class="text-sm font-black text-white group-hover:text-sky-400 transition">Hitta toalett</div>
+              <div class="text-xs text-slate-400">Sök närmaste offentliga toalett eller mack</div>
+            </div>
+          </div>
+          <span class="text-slate-500 font-bold text-lg">→</span>
+        </button>
+
+        <!-- 3. Snabbmat & Käk -->
+        <button onclick="findNearestFood()" class="w-full p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/50 flex items-center justify-between text-left transition active:scale-98 group">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl font-bold">🍔</div>
+            <div>
+              <div class="text-sm font-black text-white group-hover:text-amber-400 transition">Snabbmat & käk</div>
+              <div class="text-xs text-slate-400">Närmaste matställe på kartan</div>
+            </div>
+          </div>
+          <span class="text-slate-500 font-bold text-lg">→</span>
+        </button>
+
+      </div>
+
+      <button onclick="closeAkuten()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider text-center mt-2">
+        Avbryt
+      </button>
+
+    </div>
+  </div>
 
   <script>
     const projects = [
@@ -230,26 +301,51 @@
       return projects[swiper.activeIndex || 0];
     }
 
-    // 🚨 Fältakuten-funktion
+    /* 🚨 FÄLTAKUTEN LOGIK */
     function openAkuten() {
       const p = getActiveProject();
-      alert(`🚨 FÄLTAKUTEN\n\nStartar jour- och akutläge för:\n${p.client} (#${p.id})`);
+      document.getElementById('akutClientSubtitle').innerText = `Kopplat till: ${p.client} (#${p.id})`;
+      document.getElementById('akutModal').classList.remove('hidden');
     }
 
-    // 🗺️ Navigera till kunds adress
+    function closeAkuten() {
+      document.getElementById('akutModal').classList.add('hidden');
+    }
+
+    function triggerCamera() {
+      document.getElementById('cameraInput').click();
+    }
+
+    function handleImageCaptured(input) {
+      if (input.files && input.files[0]) {
+        const p = getActiveProject();
+        alert(`📸 SKADEBILD SPARAD!\n\nBild registrerad på order #${p.id} (${p.client}). Redo för uppladdning!`);
+        closeAkuten();
+      }
+    }
+
+    function findNearestToilet() {
+      window.open('https://www.google.com/maps/search/toalett+n%C3%A4ra+mig/', '_blank');
+      closeAkuten();
+    }
+
+    function findNearestFood() {
+      window.open('https://www.google.com/maps/search/snabbmat+n%C3%A4ra+mig/', '_blank');
+      closeAkuten();
+    }
+
+    /* Standardfunktioner */
     function navigateToCurrentClient() {
       const p = getActiveProject();
       const destination = encodeURIComponent(p.address || `${p.client}, ${p.location}`);
       window.open(`https://www.google.com/maps/search/?api=1&query=${destination}`, '_blank');
     }
 
-    // 📋 Öppna Order
     function openCurrentOrder() {
       const p = getActiveProject();
       alert(`Öppnar detaljerad ordervy för #${p.id} (${p.client})`);
     }
 
-    // 📞 Generera vCard
     function exportCurrentVCard() {
       const p = getActiveProject();
       const vcardData = 
