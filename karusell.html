@@ -61,7 +61,7 @@
       <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
       Dina Uppdrag
     </div>
-    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SVEP FÖR ATT BLÄDDRA</p>
+    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SVEP ELLER TRYCK PÅ KORTET</p>
   </header>
 
   <!-- Kvadratisk 3D Cover Flow -->
@@ -328,7 +328,7 @@
 
     function renderCards() {
       const container = document.getElementById('cardContainer');
-      container.innerHTML = projects.map(p => {
+      container.innerHTML = projects.map((p, index) => {
         let logoMarkup = '';
         if (p.domain) {
           logoMarkup = `
@@ -352,7 +352,7 @@
 
         return `
           <div class="swiper-slide">
-            <div class="glass-card w-full h-full rounded-3xl p-4 flex flex-col justify-between text-center relative overflow-hidden">
+            <div onclick="handleCardClick(${index})" class="glass-card w-full h-full rounded-3xl p-4 flex flex-col justify-between text-center relative overflow-hidden cursor-pointer active:scale-95 transition-transform duration-150">
               <div>${logoMarkup}</div>
               <div class="px-1">
                 <h2 class="text-base font-black text-white leading-tight truncate">${p.client}</h2>
@@ -371,6 +371,15 @@
           </div>
         `;
       }).join('');
+    }
+
+    /* Klickhantering på kort: Öppnar order om aktivt, annars snurrar fram kortet */
+    function handleCardClick(index) {
+      if (swiper && swiper.activeIndex === index) {
+        openCurrentOrder();
+      } else if (swiper) {
+        swiper.slideTo(index);
+      }
     }
 
     function renderSuppliers() {
@@ -412,7 +421,6 @@
       return projects[swiper.activeIndex || 0];
     }
 
-    /* Uppdatera räknaren på knappen under karusellen när man bläddrar */
     function updatePackButtonCounter() {
       const p = getActiveProject();
       if (p && p.checklist) {
