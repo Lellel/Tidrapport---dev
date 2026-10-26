@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <!-- Förhindrar zoombeteenden och låser skärmen så svep fungerar felfritt -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LPV 3D Cover Flow</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+      color: #f8fafc;
+      overflow: hidden; /* Förhindrar att hela webbsidan scrollar när vi sveper */
+      touch-action: pan-y;
+    }
+
+    /* 3D Scenen */
+    .scene {
+      perspective: 1200px;
+      transform-style: preserve-3d;
+    }
+
+    /* Korten i snurran */
+    .cover-card {
+      position: absolute;
+      width: 260px;       /* Bredd för mobilen */
+      height: 360px;      /* Höjd för 3:4 proportioner */
+      left: calc(50% - 130px); /* Centrera kortet horisontellt */
+      top: calc(50% - 180px);  /* Centrera kortet vertikalt */
+      transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); /* Mjuk iTunes-effekt */
+      transform-style: preserve-3d;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    /* Glas-effekten */
+    .glass-panel {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+    
+    .glass-inner {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Fallback LPV SVG - Visas om Clearbit misslyckas */
+    .fallback-logo {
+      display: none;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col relative">
+
+  <!-- Header Info -->
+  <div class="absolute top-0 left-0 w-full p-6 text-center z-50 pointer-events-none">
+    <h1 class="text-xl font-black text-white tracking-wide shadow-black">Dina Uppdrag</h1>
+    <p class="text-xs font-bold text-sky-400 mt-1 uppercase tracking-widest">Svep för att bläddra</p>
+  </div>
+
+  <!-- 3D Karusell Scen -->
+  <div id="carousel-scene" class="scene flex-1 w-full relative touch-none mt-10">
+    <!-- Korten genereras in här av JavaScript -->
+  </div>
+
+  <!-- Knappen i botten för aktivt kort -->
+  <div class="absolute bottom-10 left-0 w-full px-8 z-50 flex justify-center">
+    <button onclick="openActiveJob()" class="w-full max-w-sm py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm uppercase tracking-wider rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.3)] transition transform active:scale-95">
+      Öppna Arbetsorder
+    </button>
+  </div>
+
+  <script>
+    // --- 1. DATABASEN (Hårdkokade Demojobb) ---
+    // Logotypen hämtas från domain. Om domänen är ogiltig laddar fallback-loggan!
+    const jobs = [
+      { id: '1041', client: 'ICA Maxi', location: 'Norrköping', domain: 'ica.se', status: 'Klar för målning', statusColor: 'bg-emerald-500 text-emerald-100', date: '14 Maj' },
+      { id: '1042', client: 'Peab Asfalt', location: 'Linköping', domain: 'peab.se', status: 'Pågående', statusColor: 'bg-amber-500 text-amber-950', date: '15 Maj' },
+      { id: '1043', client: 'Privat (Fallback)', location: 'Söderköping', domain: 'ingen-doman.se', status: 'Offert skickad', statusColor: 'bg-sky-500 text-sky-950', date: '17 Maj' },
+      { id: '1044', client: 'Skanska', location: 'Motala', domain: 'skanska.se', status: 'Avvaktar svar', statusColor: 'bg-slate-600 text-slate-200', date: '20 Maj' },
+      { id: '1045', client: 'Willys', location: 'Finspång', domain: 'willys.se', status: 'Klar för målning', statusColor: 'bg-emerald-500 text-emerald-100', date: '22 Maj' }
+    ];
+
+    let activeIndex = 2; // Vi startar på kortet i mitten (index 2 = Fallback-kortet)
+    const scene = document.getElementById('carousel-scene');
+
+    // SVG för fallback (LPV-stil som laddas när en företagslogga inte hittas)
+    const fallbackSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="%230f172a"/><text x="50" y="55" font-family="sans-serif" font-size="28" font-weight="900" fill="%2338bdf8" text-anchor="middle">LPV</text></svg>`;
+
+    // --- 2. GENERERA KORTEN ---
+    function buildCards() {
+      jobs.forEach((job, index) => {
+        const card = document.createElement('div');
+        card.className = 'cover-card rounded-3xl overflow-hidden glass-panel flex flex-col cursor-pointer';
+        
+        // När vi klickar på ett kort snurrar vi det till mitten
+        card.onclick = () => {
+          activeIndex = index;
+          updateCarousel();
+        };
+
+        // Kortets HTML-struktur
+        card.innerHTML = `
+          <!-- Övre 70% (Visuell Logo-zon) -->
+          <div class="flex-1 flex flex-col items-center justify-center p-6 relative">
+            
+            <!-- Domän/Clearbit logo med ONERROR-fallback direkt inbyggd -->
+            <div class="w-32 h-32 rounded-full glass-inner flex items-center justify-center p-4 shadow-xl">
+               <img src="https://logo.clearbit.com/${job.domain}?size=200" 
+                    onerror="this.src='${fallbackSvg}'" 
+                    alt="${job.client} Logo" 
+                    class="w-full h-full object-contain pointer-events-none drop-shadow-md rounded-full" />
+            </div>
+            
+            <div class="mt-4 text-center">
+              <h2 class="text-xl font-black text-white shadow-black">${job.client}</h2>
+              <p class="text-xs font-bold text-slate-300 mt-1">📍 ${job.location}</p>
+            </div>
+          </div>
+
+          <!-- Nedre 30% (Fundamental Info) -->
+          <div class="h-28 bg-slate-950/80 border-t border-white/10 p-5 flex flex-col justify-between backdrop-blur-xl">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Order #${job.id}</span>
+              <span class="text-[10px] font-bold text-slate-400">${job.date}</span>
+            </div>
+            <div class="${job.statusColor} px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider text-center shadow-inner">
+              ${job.status}
+            </div>
+          </div>
+        `;
+        
+        scene.appendChild(card);
+      });
+      updateCarousel();
+    }
+
+    // --- 3. MATEMATIKEN FÖR 3D-SNURRAN ---
+    function updateCarousel() {
+      const cards = document.querySelectorAll('.cover-card');
+      
+      cards.forEach((card, index) => {
+        // Räkna ut hur långt kortet är från det aktiva kortet
+        const offset = index - activeIndex; 
+        const absOffset = Math.abs(offset);
+        const direction = offset === 0 ? 0 : Math.sign(offset); // -1 för vänster, 1 för höger
+
+        // Konfigurera 3D-känslan!
+        // Ju längre bort ett kort är, desto mer åker det i sidled och bakåt.
+        let translateX = offset * 65; // % förskjutning i sidled
+        let translateZ = absOffset * -120; // Tryck kortet bakåt in i skärmen (Pixlar)
+        let rotateY = direction * -45; // Vrid kortet 45 grader bort från centrum
+        let scale = offset === 0 ? 1 : 0.85; // Minska storleken på sidokorten
+        let opacity = offset === 0 ? 1 : 0.4; // Gör sidokorten svagare
+        let zIndex = 100 - absOffset; // Se till att centerkortet ligger överst
+
+        // Applicera CSS Transforms!
+        card.style.transform = `translateX(${translateX}%) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`;
+        card.style.zIndex = zIndex;
+        card.style.opacity = opacity;
+        
+        // Gör sidokort mörka, centerkort upplyst
+        if (offset === 0) {
+          card.style.filter = "brightness(1.1) drop-shadow(0 20px 30px rgba(0,0,0,0.8))";
+        } else {
+          card.style.filter = "brightness(0.5) blur(1px)";
+        }
+      });
+    }
+
+    // --- 4. SVEP-KONTROLLER (Touch på mobil) ---
+    let startX = 0;
+    let currentX = 0;
+    
+    scene.addEventListener('touchstart', (e) => {
+      startX = e.touches[0].clientX;
+    });
+
+    scene.addEventListener('touchmove', (e) => {
+      currentX = e.touches[0].clientX;
+    });
+
+    scene.addEventListener('touchend', (e) => {
+      if (!startX || !currentX) return;
+      
+      let diffX = startX - currentX;
+
+      // Om vi sveper mer än 40 pixlar, trigga ett hopp i snurran
+      if (diffX > 40 && activeIndex < jobs.length - 1) {
+        activeIndex++; // Svep Vänster -> Nästa kort
+        updateCarousel();
+      } else if (diffX < -40 && activeIndex > 0) {
+        activeIndex--; // Svep Höger -> Föregående kort
+        updateCarousel();
+      }
+      
+      startX = 0; currentX = 0;
+    });
+
+    // Fejka en knapptryckning på aktivt kort
+    function openActiveJob() {
+      const activeJob = jobs[activeIndex];
+      alert(`Simulerar öppning av Order #${activeJob.id} för ${activeJob.client}... \n\nHär skulle ritningen, PDF-kalkylen och kartan fällas upp!`);
+    }
+
+    // Starta snurran
+    window.onload = buildCards;
+  </script>
+</body>
+</html>
