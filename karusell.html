@@ -31,7 +31,7 @@
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
     }
     .glass-modal {
-      background: rgba(15, 23, 42, 0.95);
+      background: rgba(15, 23, 42, 0.96);
       backdrop-filter: blur(30px);
       -webkit-backdrop-filter: blur(30px);
       border-t: 1px solid rgba(255, 255, 255, 0.2);
@@ -47,6 +47,10 @@
       border-color: rgba(56, 189, 248, 0.5);
       box-shadow: 0 15px 35px -10px rgba(14, 165, 233, 0.4);
     }
+
+    /* Scrollbar för modalen */
+    .modal-scroll::-webkit-scrollbar { display: none; }
+    .modal-scroll { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between pb-28 pt-2 px-4 max-w-md mx-auto select-none">
@@ -63,7 +67,7 @@
   <!-- Kvadratisk 3D Cover Flow -->
   <div class="swiper mySwiper w-full py-2 my-auto">
     <div class="swiper-wrapper" id="cardContainer">
-      <!-- Korten renderas hit -->
+      <!-- Korten renderas hit dynamiskt -->
     </div>
   </div>
 
@@ -74,7 +78,7 @@
     </a>
   </div>
 
-  <!-- iOS-Style Flytande Fältdocka (Fast i botten) -->
+  <!-- iOS-Style Flytande Fältdocka -->
   <nav class="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
     <div class="glass-dock rounded-3xl p-2 flex items-center justify-around gap-1">
       
@@ -84,19 +88,19 @@
         <span class="text-[9px] font-black uppercase tracking-tighter mt-1">Akuten</span>
       </button>
 
-      <!-- 🗺️ Navigera till kund -->
+      <!-- 🗺️ Navigera -->
       <button onclick="navigateToCurrentClient()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-sky-400 active:scale-90 transition">
         <span class="text-xl leading-none">🗺️</span>
         <span class="text-[9px] font-extrabold uppercase tracking-tighter mt-1 text-slate-300">Navigera</span>
       </button>
 
-      <!-- 📋 Öppna Order -->
+      <!-- 📋 Order -->
       <button onclick="openCurrentOrder()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 active:scale-90 transition">
         <span class="text-xl leading-none">📋</span>
         <span class="text-[9px] font-extrabold uppercase tracking-tighter mt-1">Order</span>
       </button>
 
-      <!-- 📞 Spara Kontakt -->
+      <!-- 📞 Kontakt -->
       <button onclick="exportCurrentVCard()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-sky-400 active:scale-90 transition">
         <span class="text-xl leading-none">📇</span>
         <span class="text-[9px] font-extrabold uppercase tracking-tighter mt-1 text-slate-300">Kontakt</span>
@@ -105,72 +109,106 @@
     </div>
   </nav>
 
-  <!-- 🚨 FÄLTAKUTEN MODAL / PANEL (Gömda kamera-inputs) -->
+  <!-- 🚨 FÄLTAKUTEN MODAL (Kamera Input) -->
   <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" onchange="handleImageCaptured(this)">
 
   <div id="akutModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex flex-col justify-end transition-opacity duration-300">
-    <div class="glass-modal w-full max-w-md mx-auto rounded-t-3xl p-6 space-y-4 shadow-2xl transform transition-transform duration-300 translate-y-0">
+    <div class="glass-modal w-full max-w-md mx-auto rounded-t-3xl p-5 shadow-2xl transform transition-transform duration-300 translate-y-0 max-h-[88vh] flex flex-col">
       
-      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3 shrink-0">
         <div class="flex items-center gap-2">
-          <span class="text-2xl animate-bounce">🚨</span>
+          <span class="text-2xl animate-pulse">🚨</span>
           <div>
-            <h3 class="text-lg font-black text-rose-400 tracking-wide">FÄLTAKUTEN</h3>
+            <h3 class="text-base font-black text-rose-400 tracking-wide">FÄLTAKUTEN</h3>
             <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" id="akutClientSubtitle">Snabbåtgärder i fält</p>
           </div>
         </div>
-        <button onclick="closeAkuten()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm hover:bg-slate-700 hover:text-white">✕</button>
+        <button onclick="closeAkuten()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm hover:bg-slate-700 hover:text-white transition">✕</button>
       </div>
 
-      <!-- Akutvalen -->
-      <div class="space-y-3 pt-1">
+      <!-- Innehåll i modalen (Scrollbar) -->
+      <div class="space-y-4 overflow-y-auto modal-scroll pb-2 flex-grow pr-0.5">
         
-        <!-- 1. Fotografera Skada -->
-        <button onclick="triggerCamera()" class="w-full p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 hover:border-rose-500/50 flex items-center justify-between text-left transition active:scale-98 group">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl font-bold">📸</div>
-            <div>
-              <div class="text-sm font-black text-white group-hover:text-rose-400 transition">Fotografera skada</div>
-              <div class="text-xs text-slate-400">Öppna kameran och koppla bild till ordern</div>
-            </div>
-          </div>
-          <span class="text-slate-500 font-bold text-lg">→</span>
-        </button>
+        <!-- SEKTION 1: Kritiskt (2 Kolumner) -->
+        <div>
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block mb-2">⚡ Kritiska Åtgärder</span>
+          <div class="grid grid-cols-2 gap-2">
+            
+            <!-- Fotografera skada -->
+            <button onclick="triggerCamera()" class="p-3 rounded-2xl bg-slate-800/90 border border-rose-500/30 hover:border-rose-500 flex flex-col items-start justify-between text-left transition active:scale-95 group min-h-[82px]">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-xl">📸</span>
+                <span class="text-xs text-rose-400 font-bold">Kamera</span>
+              </div>
+              <div class="text-xs font-black text-white group-hover:text-rose-400 transition leading-snug">Foto Skada</div>
+            </button>
 
-        <!-- 2. Hitta Toalett -->
-        <button onclick="findNearestToilet()" class="w-full p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 hover:border-sky-500/50 flex items-center justify-between text-left transition active:scale-98 group">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-xl font-bold">🚽</div>
-            <div>
-              <div class="text-sm font-black text-white group-hover:text-sky-400 transition">Hitta toalett</div>
-              <div class="text-xs text-slate-400">Sök närmaste offentliga toalett eller mack</div>
-            </div>
-          </div>
-          <span class="text-slate-500 font-bold text-lg">→</span>
-        </button>
+            <!-- Ring Arbetsledare -->
+            <button onclick="callProjectLeader()" class="p-3 rounded-2xl bg-slate-800/90 border border-emerald-500/30 hover:border-emerald-500 flex flex-col items-start justify-between text-left transition active:scale-95 group min-h-[82px]">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-xl">☎️</span>
+                <span class="text-xs text-emerald-400 font-bold">Direkt</span>
+              </div>
+              <div>
+                <div class="text-xs font-black text-white group-hover:text-emerald-400 transition leading-snug">Arbetsledare</div>
+                <div class="text-[9px] text-slate-400 font-medium truncate" id="akutPhoneLabel">Ring Jour</div>
+              </div>
+            </button>
 
-        <!-- 3. Snabbmat & Käk -->
-        <button onclick="findNearestFood()" class="w-full p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/50 flex items-center justify-between text-left transition active:scale-98 group">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl font-bold">🍔</div>
-            <div>
-              <div class="text-sm font-black text-white group-hover:text-amber-400 transition">Snabbmat & käk</div>
-              <div class="text-xs text-slate-400">Närmaste matställe på kartan</div>
-            </div>
           </div>
-          <span class="text-slate-500 font-bold text-lg">→</span>
-        </button>
+        </div>
+
+        <!-- SEKTION 2: Akut Material & Service (Dynamiskt Admin-redo Grid) -->
+        <div>
+          <div class="flex justify-between items-center px-1 mb-2">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">🛠️ Material & Service</span>
+            <span class="text-[9px] font-semibold text-slate-500">Admin-synkad</span>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-2" id="supplierGrid">
+            <!-- Renderas dynamiskt av JavaScript -->
+          </div>
+        </div>
+
+        <!-- SEKTION 3: Fältbehov (2 Kolumner) -->
+        <div>
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block mb-2">☕ Fältöverlevnad</span>
+          <div class="grid grid-cols-2 gap-2">
+            
+            <button onclick="findNearestToilet()" class="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-sky-500 flex items-center gap-2.5 text-left transition active:scale-95 group">
+              <span class="text-lg">🚽</span>
+              <div>
+                <div class="text-xs font-black text-white group-hover:text-sky-400 transition">Toalett</div>
+                <div class="text-[9px] text-slate-400">Närmaste WC</div>
+              </div>
+            </button>
+
+            <button onclick="findNearestFood()" class="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-amber-500 flex items-center gap-2.5 text-left transition active:scale-95 group">
+              <span class="text-lg">🍔</span>
+              <div>
+                <div class="text-xs font-black text-white group-hover:text-amber-400 transition">Snabbmat</div>
+                <div class="text-[9px] text-slate-400">Käk på vägen</div>
+              </div>
+            </button>
+
+          </div>
+        </div>
 
       </div>
 
-      <button onclick="closeAkuten()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider text-center mt-2">
-        Avbryt
-      </button>
+      <!-- Footer -->
+      <div class="shrink-0 pt-2 mt-2 border-t border-slate-800">
+        <button onclick="closeAkuten()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-black text-xs uppercase tracking-wider text-center transition active:scale-98">
+          Stäng
+        </button>
+      </div>
 
     </div>
   </div>
 
   <script>
+    /* Kundprojekt */
     const projects = [
       {
         id: "1043",
@@ -222,12 +260,22 @@
       }
     ];
 
+    /* Admin-Förberedd Leverantörslista */
+    const suppliers = [
+      { id: "biltema", name: "Biltema", icon: "🚗", query: "Biltema" },
+      { id: "jula", name: "Jula", icon: "⚙️", query: "Jula" },
+      { id: "ahlsell", name: "Ahlsell", icon: "🏢", query: "Ahlsell" },
+      { id: "hydroscand", name: "Hydroscand", icon: "🔌", query: "Hydroscand" },
+      { id: "bygghandel", name: "Bygghandel", icon: "🪵", query: "Bygghandel" },
+      { id: "el_vvs", name: "El & VVS", icon: "⚡", query: "El och VVS grossist" }
+    ];
+
     let swiper;
 
+    /* Renderera Cover Flow Korten */
     function renderCards() {
       const container = document.getElementById('cardContainer');
       container.innerHTML = projects.map(p => {
-        
         let logoMarkup = '';
         if (p.domain) {
           logoMarkup = `
@@ -252,19 +300,11 @@
         return `
           <div class="swiper-slide">
             <div class="glass-card w-full h-full rounded-3xl p-4 flex flex-col justify-between text-center relative overflow-hidden">
-              
-              <!-- Topp: Logotyp -->
-              <div>
-                ${logoMarkup}
-              </div>
-
-              <!-- Mitten: Kundnamn & Ort -->
+              <div>${logoMarkup}</div>
               <div class="px-1">
                 <h2 class="text-base font-black text-white leading-tight truncate">${p.client}</h2>
                 <p class="text-[11px] font-medium text-slate-400 mt-0.5">${p.location}</p>
               </div>
-
-              <!-- Botten: Orderinfo & Status -->
               <div class="space-y-1.5">
                 <div class="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1">
                   <span>#${p.id}</span>
@@ -274,11 +314,24 @@
                   ${p.status}
                 </div>
               </div>
-
             </div>
           </div>
         `;
       }).join('');
+    }
+
+    /* Renderera Leverantörs-Grid i Fältakuten */
+    function renderSuppliers() {
+      const grid = document.getElementById('supplierGrid');
+      grid.innerHTML = suppliers.map(s => `
+        <button onclick="searchSupplier('${s.query}')" class="p-2.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-sky-500/50 flex items-center gap-2 text-left transition active:scale-95 group">
+          <span class="text-base">${s.icon}</span>
+          <div class="truncate">
+            <div class="text-xs font-black text-white group-hover:text-sky-400 transition truncate">${s.name}</div>
+            <div class="text-[8px] text-slate-400 uppercase font-bold tracking-tight">Sök på karta</div>
+          </div>
+        </button>
+      `).join('');
     }
 
     function initSwiper() {
@@ -305,6 +358,7 @@
     function openAkuten() {
       const p = getActiveProject();
       document.getElementById('akutClientSubtitle').innerText = `Kopplat till: ${p.client} (#${p.id})`;
+      document.getElementById('akutPhoneLabel').innerText = p.phone;
       document.getElementById('akutModal').classList.remove('hidden');
     }
 
@@ -322,6 +376,18 @@
         alert(`📸 SKADEBILD SPARAD!\n\nBild registrerad på order #${p.id} (${p.client}). Redo för uppladdning!`);
         closeAkuten();
       }
+    }
+
+    function callProjectLeader() {
+      const p = getActiveProject();
+      window.location.href = `tel:${p.phone.replace(/[^0-9+]/g, '')}`;
+      closeAkuten();
+    }
+
+    function searchSupplier(query) {
+      const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(query + ' nära mig')}/`;
+      window.open(searchUrl, '_blank');
+      closeAkuten();
     }
 
     function findNearestToilet() {
@@ -371,6 +437,7 @@ END:VCARD`;
 
     window.addEventListener('DOMContentLoaded', () => {
       renderCards();
+      renderSuppliers();
       initSwiper();
     });
   </script>
