@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Kabanossen - 3D Cover Flow & CRM</title>
+  <title>Kabanossen - Kvadratiskt Konvolut & CRM</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Swiper.js för mjuk 3D Cover Flow -->
+  <!-- Swiper.js för äkta 3D Cover Flow -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
   <style>
@@ -23,21 +23,23 @@
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.1); 
     }
+    
+    /* Kvadratiskt konvolut-format (1:1) */
     .swiper-slide {
-      width: 280px;
-      height: 380px;
+      width: 290px;
+      height: 290px;
       transition: all 0.3s ease;
     }
     .swiper-slide-active .glass-card {
       border-color: rgba(56, 189, 248, 0.5);
-      box-shadow: 0 20px 40px -15px rgba(14, 165, 233, 0.3);
+      box-shadow: 0 20px 45px -10px rgba(14, 165, 233, 0.35);
     }
   </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between p-4 max-w-md mx-auto select-none">
 
   <!-- Header -->
-  <header class="text-center pt-2 pb-4">
+  <header class="text-center pt-2 pb-2">
     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-bold uppercase tracking-wider mb-1">
       <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
       Dina Uppdrag
@@ -45,15 +47,15 @@
     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SVEP FÖR ATT BLÄDDRA</p>
   </header>
 
-  <!-- 3D Cover Flow Karusell -->
-  <div class="swiper mySwiper w-full py-4">
+  <!-- Kvadratisk 3D Cover Flow -->
+  <div class="swiper mySwiper w-full py-4 flex-grow flex items-center">
     <div class="swiper-wrapper" id="cardContainer">
-      <!-- Korten genereras dynamiskt av JavaScript -->
+      <!-- Korten renderas hit -->
     </div>
   </div>
 
-  <!-- Action-knappar längst ner -->
-  <footer class="space-y-3 pb-6">
+  <!-- Knappar i botten -->
+  <footer class="space-y-3 pb-6 mt-auto">
     <div class="grid grid-cols-2 gap-3">
       <button onclick="openCurrentOrder()" class="py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition active:scale-95">
         📋 ÖPPNA ORDER
@@ -69,7 +71,6 @@
   </footer>
 
   <script>
-    // Uppdragsdata
     const projects = [
       {
         id: "1043",
@@ -78,7 +79,7 @@
         date: "17 Maj",
         status: "OFFERT SKICKAD",
         statusBg: "bg-sky-500 text-slate-950",
-        domain: "", // Privatperson - använder snygg LPV-badge
+        domain: "",
         phone: "070-123 45 67",
         email: "johansson@example.com"
       },
@@ -95,7 +96,7 @@
       },
       {
         id: "1041",
-        client: "Skanska Industrial Solutions",
+        client: "Skanska Industrial",
         location: "Norrköping",
         date: "04 Maj",
         status: "AVSLUTAD",
@@ -103,6 +104,17 @@
         domain: "skanska.se",
         phone: "011-555 12 34",
         email: "info@skanska.se"
+      },
+      {
+        id: "1040",
+        client: "Svevia AB",
+        location: "Nyköping",
+        date: "28 Apr",
+        status: "PÅGÅENDE",
+        statusBg: "bg-amber-500 text-slate-950",
+        domain: "svevia.se",
+        phone: "0155-20 30 00",
+        email: "info@svevia.se"
       }
     ];
 
@@ -110,49 +122,53 @@
 
     function renderCards() {
       const container = document.getElementById('cardContainer');
-      container.innerHTML = projects.map((p, index) => {
+      container.innerHTML = projects.map(p => {
         
-        // Snygg logotyp-hantering utan trasig HTML
         let logoMarkup = '';
         if (p.domain) {
+          // Trestegs fallback: Unavatar -> Google Favicon -> Initial Badge
           logoMarkup = `
-            <div class="h-20 w-full flex items-center justify-center p-2">
-              <img src="https://logo.clearbit.com/${p.domain}" 
+            <div class="h-16 w-16 rounded-2xl overflow-hidden bg-white/5 flex items-center justify-center relative border border-white/10 mx-auto shadow-md p-2">
+              <img src="https://unavatar.io/${p.domain}?fallback=false" 
                    alt="${p.client}" 
-                   class="max-h-full max-w-full object-contain pointer-events-none drop-shadow-md"
-                   onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" />
-              <div class="hidden w-16 h-16 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-400 font-black text-2xl">
+                   class="max-h-full max-w-full object-contain pointer-events-none drop-shadow z-10"
+                   onerror="if(!this.dataset.retried){this.dataset.retried='true';this.src='https://www.google.com/s2/favicons?domain=${p.domain}&sz=128';}else{this.style.display='none';this.nextElementSibling.classList.remove('hidden');}" />
+              <div class="hidden absolute inset-0 w-full h-full bg-sky-500/20 flex items-center justify-center text-sky-400 font-black text-2xl">
                 ${p.client.charAt(0)}
               </div>
             </div>`;
         } else {
-          // Fallback för privatpersoner eller saknad domän
+          // Privatpersoner / Saknad domän
           logoMarkup = `
-            <div class="h-20 w-full flex items-center justify-center">
-              <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-sky-400 to-emerald-400 p-0.5 shadow-lg shadow-sky-500/20">
-                <div class="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-white font-black text-2xl">
-                  ${p.client.charAt(0)}
-                </div>
-              </div>
+            <div class="h-16 w-16 rounded-2xl overflow-hidden bg-gradient-to-br from-sky-400 to-emerald-400 p-[2px] shadow-lg shadow-sky-500/20 mx-auto">
+               <div class="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-white font-black text-2xl">
+                 ${p.client.charAt(0)}
+               </div>
             </div>`;
         }
 
         return `
           <div class="swiper-slide">
-            <div class="glass-card w-full h-full rounded-3xl p-6 flex flex-col justify-between text-center relative overflow-hidden">
+            <div class="glass-card w-full h-full rounded-3xl p-5 flex flex-col justify-between text-center relative overflow-hidden">
               
-              <div class="space-y-2">
+              <!-- Topp: Logotyp -->
+              <div class="pt-1">
                 ${logoMarkup}
-                <h2 class="text-xl font-black text-white leading-tight mt-2">${p.client}</h2>
-                <p class="text-xs font-medium text-slate-400">${p.location}</p>
               </div>
 
-              <div class="space-y-3">
-                <div class="flex justify-between items-center text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2">
+              <!-- Mitten: Kundnamn & Ort -->
+              <div class="px-1">
+                <h2 class="text-lg font-black text-white leading-tight truncate">${p.client}</h2>
+                <p class="text-xs font-medium text-slate-400 mt-0.5">${p.location}</p>
+              </div>
+
+              <!-- Botten: Orderinfo & Status -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
                   <span>Order #${p.id}</span>
                   <span>${p.date}</span>
                 </div>
-                <div class="w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wider ${p.statusBg}">
+                <div class="w-full py-2 rounded-xl text-xs font-black uppercase tracking-wider ${p.statusBg}">
                   ${p.status}
                 </div>
               </div>
@@ -163,7 +179,6 @@
       }).join('');
     }
 
-    // Initiera 3D Cover Flow
     function initSwiper() {
       swiper = new Swiper(".mySwiper", {
         effect: "coverflow",
@@ -171,9 +186,9 @@
         centeredSlides: true,
         slidesPerView: "auto",
         coverflowEffect: {
-          rotate: 30,
+          rotate: 25,
           stretch: 0,
-          depth: 100,
+          depth: 120,
           modifier: 1,
           slideShadows: false,
         },
@@ -189,7 +204,6 @@
       alert(`Öppnar order #${p.id} för ${p.client}`);
     }
 
-    // Generera & Ladda ner vCard (.vcf)
     function exportCurrentVCard() {
       const p = getActiveProject();
       const vcardData = 
@@ -206,13 +220,12 @@ END:VCARD`;
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `${p.client.replace(/[^a-zA-Z0-0]/g, "_")}.vcf`);
+      link.setAttribute("download", `${p.client.replace(/[^a-zA-Z0-9]/g, "_")}.vcf`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
 
-    // Starta vid laddning
     window.addEventListener('DOMContentLoaded', () => {
       renderCards();
       initSwiper();
