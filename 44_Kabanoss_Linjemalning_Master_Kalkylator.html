@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Master Linjemålning & Ortofoto #44 (v1.7 Multi-Sektion & Kartlås)</title>
+  <title>Master Linjemålning & Ortofoto #44 (v1.8 Live PDF-Modal)</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -11,8 +11,12 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
-  <!-- Leaflet Rotate Plugin (Möjliggör tvåfingers-rotation av hela kartan) -->
+  <!-- Leaflet Rotate Plugin -->
   <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+
+  <!-- Bibliotek för PDF-generering direkt i webbläsaren -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
@@ -36,7 +40,7 @@
       <div>
         <div class="flex items-center gap-2">
           <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Ortofoto</span>
-          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-black">v1.7 (Dev)</span>
+          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-black">v1.8 (Live PDF)</span>
         </div>
         <h1 class="text-lg font-black text-white">🗺️ Linjemarkering & Sektionskamera</h1>
       </div>
@@ -45,8 +49,8 @@
       <button onclick="toggleLayer()" id="layer-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition">
         🛰️ Kartlager
       </button>
-      <button onclick="alert('Genererar komplett Offert-PDF för alla sektioner...')" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition">
-        📄 Skapa Offert-PDF
+      <button id="create-pdf-btn" onclick="generatePDFPreview()" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition flex items-center gap-1.5">
+        📄 Visa Offert-PDF
       </button>
     </div>
   </header>
@@ -172,6 +176,22 @@
 
   </div>
 
+  <!-- MODAL OVERLAY FÖR FÖRHANDSGRANSKNING AV OFFET-PDF -->
+  <div id="pdf-modal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col p-3 md:p-6">
+    <div class="flex justify-between items-center mb-3 max-w-5xl mx-auto w-full">
+      <div class="flex items-center gap-2">
+        <span class="text-amber-400 font-black text-sm">📄 Förhandsgranskning Offert-PDF</span>
+        <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-mono">Genererad i webbläsaren</span>
+      </div>
+      <button onclick="closePDFModal()" class="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-slate-950 font-black text-xs rounded-xl shadow-lg transition">
+        ❌ Stäng
+      </button>
+    </div>
+    <div class="flex-1 max-w-5xl mx-auto w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-2xl">
+      <iframe id="pdf-frame" class="w-full h-full border-0"></iframe>
+    </div>
+  </div>
+
   <script>
     // --- VARIABLER & TILLSTÅND ---
     let map, satLayer, osmLayer;
@@ -185,11 +205,11 @@
 
     // Data-hantering
     let activeStallsData = [];
-    let currentRotation = 0; // Lokala rit-vinkeln
+    let currentRotation = 0;
     let sectionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let activeSectionIndex = 0;
     
-    // Här lagras de "fotograferade/låsta" sektionerna
+    // Sparade (fotograferade/låsta) sektioner
     let savedSections = [];
 
     // Jordradie för skalenlig geografisk projicering
@@ -197,7 +217,6 @@
 
     // --- INITIERING AV KARTAN ---
     function initMap() {
-      // rotate: true och touchRotate: true är aktiverat via leaflet-rotate plugin
       map = L.map('map', { 
         zoomControl: true,
         rotate: true,
@@ -230,7 +249,6 @@
         zIndexOffset: 2000
       }).addTo(map);
 
-      // Rendera om rutmönstret i realtid när ankaret dras
       activeAnchorMarker.on('drag', () => { 
         renderActiveSection(); 
         updateTotals(); 
@@ -245,17 +263,15 @@
       const btn = document.getElementById('map-lock-btn');
 
       if (isMapLocked) {
-        // Fryser alla panerings- och zoomgester på kartan
         map.dragging.disable();
         map.touchZoom.disable();
         map.doubleClickZoom.disable();
         map.scrollWheelZoom.disable();
-        if (map.touchRotate) map.touchRotate.disable(); // Om tillägget stöder det
+        if (map.touchRotate) map.touchRotate.disable();
 
         btn.innerHTML = '🔒 Karta: LÅST';
         btn.className = 'flex-1 sm:flex-none px-4 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_10px_rgba(245,158,11,0.5)] border border-amber-400 transition';
       } else {
-        // Lås upp kartan för navigering
         map.dragging.enable();
         map.touchZoom.enable();
         map.doubleClickZoom.enable();
@@ -278,7 +294,6 @@
       const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
       const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
 
-      // Spara nuvarande layout till minnet (savedSections)
       savedSections.push({
         letter: activeLetter,
         anchorPos: activeAnchorMarker.getLatLng(),
@@ -288,25 +303,20 @@
         depth: stdDepth
       });
 
-      // Gå vidare till nästa bokstav
       activeSectionIndex++;
       document.getElementById('active-section-label').innerText = sectionLetters[activeSectionIndex];
       document.getElementById('saved-count-badge').innerText = `${savedSections.length} sparade`;
 
-      // Förskjut nästa ankar-punkt något så den inte ligger 100% ovanpå den gamla
       const currentPos = activeAnchorMarker.getLatLng();
       const newPos = addMetersToLatLng(currentPos.lat, currentPos.lng, 5, -5);
       activeAnchorMarker.setLatLng(newPos);
 
-      // Återställ aktiv sektionsdata
       activeStallsData = [];
       renderAll();
     }
 
     function removeSection(idx) {
       savedSections.splice(idx, 1);
-      
-      // Indexera om bokstäverna om man vill, eller behåll dem. (Här behåller vi dem).
       document.getElementById('saved-count-badge').innerText = `${savedSections.length} sparade`;
       renderAll();
     }
@@ -345,7 +355,6 @@
             addMetersToLatLng(sec.anchorPos.lat, sec.anchorPos.lng, rp4.x, rp4.y)
           ];
 
-          // GRÖNT TEMA FÖR LÅSTA SEKTIONER
           L.polygon(latlngs, {
             color: '#10b981', weight: 2, fillColor: '#059669', fillOpacity: 0.25, interactive: false
           }).addTo(savedSectionsGroup);
@@ -404,12 +413,10 @@
           addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp4.x, rp4.y)
         ];
 
-        // GULT TEMA FÖR AKTIV REDIGERBAR SEKTION
         const polygon = L.polygon(latlngs, {
           color: color, weight: 3, fillColor: fillColor, fillOpacity: 0.35, className: 'cursor-pointer hover:fill-opacity-50 transition-opacity'
         });
 
-        // Klicka på ruta för att byta typ (std -> hkp -> ev -> no)
         polygon.on('click', () => {
           const types = ['std', 'hkp', 'ev', 'no'];
           let nextIdx = (types.indexOf(stall.type) + 1) % types.length;
@@ -436,7 +443,6 @@
       let totalMeters = 0;
       let symbolCount = 0;
 
-      // 1. Summera låsta sektioner
       savedSections.forEach(sec => {
         sec.stallsData.forEach(stall => {
           let w = (stall.type === 'hkp') ? 3.8 : sec.width;
@@ -445,7 +451,6 @@
         });
       });
 
-      // 2. Summera den aktiva sektionen
       const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
       const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
       activeStallsData.forEach(stall => {
@@ -454,9 +459,8 @@
         if (stall.type === 'hkp' || stall.type === 'ev' || stall.type === 'no') symbolCount++;
       });
 
-      // Prislogik
-      const meterPrice = 48; // Pris per löpmeter
-      const symbolPrice = symbolCount * 550; // Pris per schablon
+      const meterPrice = 48;
+      const symbolPrice = symbolCount * 550;
       const etablering = 3500;
       const totalExMoms = Math.round((totalMeters * meterPrice) + symbolPrice + etablering);
 
@@ -484,11 +488,94 @@
       container.innerHTML = html;
     }
 
+    // --- PDF GENERERING & OVERLAY ---
+    async function generatePDFPreview() {
+      const btn = document.getElementById('create-pdf-btn');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Skapar PDF...';
+      btn.disabled = true;
+
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // 1. Rubrik & Datum
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text("OFFERTUNDERLAG - LINJEMARKERING", 14, 20);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Datum: ${new Date().toLocaleDateString('sv-SE')}`, 14, 28);
+        doc.text(`Plats/Adress: ${document.getElementById('address-input').value || 'Ej angiven'}`, 14, 34);
+
+        // 2. Sektionsspecifikation
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Sektionsspecifikation", 14, 46);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        let y = 54;
+
+        savedSections.forEach((sec) => {
+          doc.text(`• Sektion ${sec.letter}: ${sec.stallsData.length} st rutor (${sec.width}m x ${sec.depth}m, vinkel ${sec.rotation}°)`, 18, y);
+          y += 6;
+        });
+
+        const activeCount = parseInt(document.getElementById('stall-count').value);
+        if (activeCount > 0) {
+          doc.text(`• Sektion ${sectionLetters[activeSectionIndex]} (Aktiv): ${activeCount} st rutor`, 18, y);
+          y += 10;
+        }
+
+        // 3. Ekonomisk summering
+        doc.setLineWidth(0.5);
+        doc.line(14, y, 196, y);
+        y += 8;
+
+        const meters = document.getElementById('calc-meters').innerText;
+        const symbols = document.getElementById('calc-symbols').innerText;
+        const total = document.getElementById('calc-total').innerText;
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`Totalt linjemeter: ${meters}`, 14, y); y += 6;
+        doc.text(`Schabloner / Symboler: ${symbols}`, 14, y); y += 6;
+        doc.text(`Etablering & Resa: 3 500 kr`, 14, y); y += 10;
+
+        doc.setFontSize(14);
+        doc.setTextColor(16, 185, 129);
+        doc.text(`Totalt pris exkl. moms: ${total}`, 14, y);
+
+        // 4. Fånga kartbilden
+        const mapElement = document.getElementById('map');
+        const canvas = await html2canvas(mapElement, { useCORS: true, logging: false });
+        const imgData = canvas.toDataURL('image/png');
+
+        doc.addImage(imgData, 'PNG', 14, y + 10, 180, 100);
+
+        // 5. Rendera direkt i modalen på skärmen
+        const pdfBlob = doc.output('bloburl');
+        document.getElementById('pdf-frame').src = pdfBlob;
+        document.getElementById('pdf-modal').classList.remove('hidden');
+
+      } catch (err) {
+        alert("Kunde inte generera PDF-förhandsgranskning.");
+        console.error(err);
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    function closePDFModal() {
+      document.getElementById('pdf-modal').classList.add('hidden');
+    }
+
     // --- GEO-BERÄKNINGAR OCH KART-VERKTYG ---
     function addMetersToLatLng(lat, lng, dxMeters, dyMeters) {
       const pi = Math.PI;
       const new_lat = lat + (dyMeters / R_EARTH) * (180 / pi);
-      // Kompenserar exakt för breddgraden (Longitud krymper närmare polerna)
       const new_lng = lng + (dxMeters / R_EARTH) * (180 / pi) / Math.cos(lat * pi / 180);
       return [new_lat, new_lng];
     }
@@ -528,7 +615,6 @@
       const query = document.getElementById('address-input').value;
       if (!query) return;
       
-      // Lägger till 'Sweden' för snabbare och mer exakt sökning
       fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sweden')}`)
         .then(res => res.json())
         .then(data => {
@@ -541,7 +627,6 @@
         });
     }
 
-    // Starta kartan när sidan laddats
     window.onload = initMap;
   </script>
 </body>
