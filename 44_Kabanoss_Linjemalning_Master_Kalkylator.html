@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Master Linjemålning & Ortofoto #44 (v1.8 Live PDF-Modal)</title>
+  <title>Master Linjemålning & Ortofoto #44 (v1.9 Mönster & Kurvatur)</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -14,7 +14,7 @@
   <!-- Leaflet Rotate Plugin -->
   <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
 
-  <!-- Bibliotek för PDF-generering direkt i webbläsaren -->
+  <!-- PDF-bibliotek -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
@@ -26,7 +26,7 @@
     
     .stall-label {
       background: transparent; border: none; box-shadow: none;
-      color: white; font-weight: 900; font-size: 13px; text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+      color: white; font-weight: 900; font-size: 12px; text-shadow: 0 2px 4px rgba(0,0,0,0.9);
       display: flex; align-items: center; justify-content: center;
     }
   </style>
@@ -40,9 +40,9 @@
       <div>
         <div class="flex items-center gap-2">
           <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Ortofoto</span>
-          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-black">v1.8 (Live PDF)</span>
+          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-black">v1.9 (Mönster & Böjning)</span>
         </div>
-        <h1 class="text-lg font-black text-white">🗺️ Linjemarkering & Sektionskamera</h1>
+        <h1 class="text-lg font-black text-white">🗺️ Linjemarkering & Avancerad Geometri</h1>
       </div>
     </div>
     <div class="flex gap-2">
@@ -73,22 +73,36 @@
 
       <hr class="border-slate-800">
 
-      <!-- KAMERAKNAPPEN: Lås och spara sektion -->
-      <div class="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl space-y-2">
+      <!-- PARKERINGSTYP & MÖNSTER -->
+      <div class="space-y-2">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">📐 Parkeringsmönster</h2>
+        <select id="pattern-type" onchange="onPatternChange()" class="w-full p-2 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 focus:outline-none focus:border-amber-400">
+          <option value="enkel">Enkelrad (Standard)</option>
+          <option value="dubbel">Dubbelrad (Rygg-mot-rygg)</option>
+          <option value="sned_h">Snedställd Höger (45°)</option>
+          <option value="sned_v">Snedställd Vänster (45°)</option>
+          <option value="fick">Fickparkering (Längsgående)</option>
+        </select>
+      </div>
+
+      <!-- BÖJNING / KURVATUR SLIDER (NY) -->
+      <div class="space-y-1 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
         <div class="flex justify-between items-center">
-          <span class="text-xs font-extrabold text-amber-400 uppercase">Aktiv Sektion: <span id="active-section-label">A</span></span>
-          <span id="saved-count-badge" class="px-2 py-0.5 bg-slate-800 text-[10px] font-bold text-slate-300 rounded-md shadow-inner">0 sparade</span>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400">🌀 Kurvatur / Böjning</h2>
+          <span id="curve-val" class="text-xs font-mono font-black text-sky-300">0°</span>
         </div>
-        
-        <button onclick="snapshotAndAddSection()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2 transition transform active:scale-95">
-          📸 Lås in Sektion & Fortsätt
-        </button>
+        <input type="range" id="layout-curve" min="-90" max="90" step="1" value="0" oninput="updateCurve()" class="w-full mt-2 cursor-pointer">
+        <div class="flex justify-between text-[10px] text-slate-500 font-bold pt-1">
+          <button onclick="setCurve(-45)" class="hover:text-slate-300">↰ Vänster 45°</button>
+          <button onclick="setCurve(0)" class="hover:text-slate-300">Rak (0°)</button>
+          <button onclick="setCurve(45)" class="hover:text-slate-300">Höger 45° ↱</button>
+        </div>
       </div>
 
       <!-- Vinkel för Ritverktyget -->
       <div class="space-y-1 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
         <div class="flex justify-between items-center">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🎨 Vinkel (På rutorna)</h2>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🎨 Startvinkel (Inriktning)</h2>
           <span id="rotation-val" class="text-xs font-mono font-black text-amber-300">0°</span>
         </div>
         <input type="range" id="layout-rotation" min="0" max="359" step="1" value="0" oninput="updateRotation()" class="w-full mt-2 cursor-pointer">
@@ -99,6 +113,18 @@
           <button onclick="setRotation(180)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300 transition">180°</button>
           <button onclick="stepRotation(15)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300 transition">↻ +15°</button>
         </div>
+      </div>
+
+      <!-- KAMERAKNAPPEN: Lås och spara sektion -->
+      <div class="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-extrabold text-amber-400 uppercase">Aktiv Sektion: <span id="active-section-label">A</span></span>
+          <span id="saved-count-badge" class="px-2 py-0.5 bg-slate-800 text-[10px] font-bold text-slate-300 rounded-md shadow-inner">0 sparade</span>
+        </div>
+        
+        <button onclick="snapshotAndAddSection()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2 transition transform active:scale-95">
+          📸 Lås in Sektion & Fortsätt
+        </button>
       </div>
 
       <!-- Dimensioner -->
@@ -113,7 +139,7 @@
 
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="text-[10px] text-slate-400 font-bold uppercase">Standardbredd (m)</label>
+            <label class="text-[10px] text-slate-400 font-bold uppercase">Bredd (m)</label>
             <input type="number" id="stall-width" value="2.5" step="0.1" onchange="renderAll()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
           </div>
           <div>
@@ -136,7 +162,6 @@
           <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🛰️ Interaktiv Karta (Snurrbar)</h2>
           
           <div class="flex gap-2 w-full sm:w-auto">
-            <!-- MANUELL KARTLÅSNING FÖR RITBORD -->
             <button id="map-lock-btn" onclick="toggleMapLock()" class="flex-1 sm:flex-none px-4 py-1.5 bg-slate-800 border border-slate-700 text-xs font-bold rounded-xl text-slate-300 hover:bg-slate-700 transition shadow-sm">
               🔓 Karta: UPPLÅST
             </button>
@@ -146,13 +171,12 @@
           </div>
         </div>
 
-        <!-- Kart-container -->
         <div class="relative h-96 sm:h-[550px] rounded-xl overflow-hidden border border-slate-800 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
           <div id="map" class="w-full h-full z-0"></div>
         </div>
       </div>
 
-      <!-- Summerad Live-Kalkylator (Kombinerar alla sektioner) -->
+      <!-- Summerad Live-Kalkylator -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
         <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
           <div class="text-[10px] text-slate-400 font-bold uppercase">Totalt Linjemeter</div>
@@ -176,7 +200,7 @@
 
   </div>
 
-  <!-- MODAL OVERLAY FÖR FÖRHANDSGRANSKNING AV OFFET-PDF -->
+  <!-- MODAL OVERLAY FÖR FÖRHANDSGRANSKNING AV OFFERT-PDF -->
   <div id="pdf-modal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col p-3 md:p-6">
     <div class="flex justify-between items-center mb-3 max-w-5xl mx-auto w-full">
       <div class="flex items-center gap-2">
@@ -198,24 +222,20 @@
     let currentLayerMode = 'sat';
     let isMapLocked = false;
 
-    // Grupper & Markörer
     let activeAnchorMarker;
     let activeStallGroup;
     let savedSectionsGroup;
 
-    // Data-hantering
     let activeStallsData = [];
     let currentRotation = 0;
+    let currentCurve = 0; // Total kurvatur i grader
     let sectionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let activeSectionIndex = 0;
     
-    // Sparade (fotograferade/låsta) sektioner
     let savedSections = [];
 
-    // Jordradie för skalenlig geografisk projicering
     const R_EARTH = 6378137;
 
-    // --- INITIERING AV KARTAN ---
     function initMap() {
       map = L.map('map', { 
         zoomControl: true,
@@ -233,7 +253,6 @@
       savedSectionsGroup = L.featureGroup().addTo(map);
       activeStallGroup = L.featureGroup().addTo(map);
 
-      // STOR OCH TYDLIG GREPPYTA FÖR TUMMEN
       const anchorIcon = L.divIcon({
         className: 'bg-transparent',
         html: `
@@ -257,47 +276,63 @@
       renderAll();
     }
 
-    // --- KARTLÅSNING (RITBORD) ---
     function toggleMapLock() {
       isMapLocked = !isMapLocked;
       const btn = document.getElementById('map-lock-btn');
 
       if (isMapLocked) {
-        map.dragging.disable();
-        map.touchZoom.disable();
-        map.doubleClickZoom.disable();
-        map.scrollWheelZoom.disable();
+        map.dragging.disable(); map.touchZoom.disable(); map.doubleClickZoom.disable(); map.scrollWheelZoom.disable();
         if (map.touchRotate) map.touchRotate.disable();
-
         btn.innerHTML = '🔒 Karta: LÅST';
         btn.className = 'flex-1 sm:flex-none px-4 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_10px_rgba(245,158,11,0.5)] border border-amber-400 transition';
       } else {
-        map.dragging.enable();
-        map.touchZoom.enable();
-        map.doubleClickZoom.enable();
-        map.scrollWheelZoom.enable();
+        map.dragging.enable(); map.touchZoom.enable(); map.doubleClickZoom.enable(); map.scrollWheelZoom.enable();
         if (map.touchRotate) map.touchRotate.enable();
-
         btn.innerHTML = '🔓 Karta: UPPLÅST';
         btn.className = 'flex-1 sm:flex-none px-4 py-1.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 hover:bg-slate-700 transition shadow-sm';
       }
     }
 
-    function resetMapRotation() {
-      map.setBearing(0);
+    function resetMapRotation() { map.setBearing(0); }
+
+    function onPatternChange() {
+      const p = document.getElementById('pattern-type').value;
+      if (p === 'fick') {
+        document.getElementById('stall-width').value = 6.0;
+        document.getElementById('stall-depth').value = 2.2;
+      } else if (p === 'sned_h' || p === 'sned_v') {
+        document.getElementById('stall-width').value = 2.8;
+        document.getElementById('stall-depth').value = 4.8;
+      } else {
+        document.getElementById('stall-width').value = 2.5;
+        document.getElementById('stall-depth').value = 5.0;
+      }
+      renderAll();
     }
 
-    // --- SEKTIONSHANTERING (KAMERAN) ---
+    function updateCurve() {
+      currentCurve = parseInt(document.getElementById('layout-curve').value) || 0;
+      document.getElementById('curve-val').innerText = `${currentCurve}°`;
+      renderAll();
+    }
+    function setCurve(deg) {
+      document.getElementById('layout-curve').value = deg;
+      updateCurve();
+    }
+
     function snapshotAndAddSection() {
       const activeLetter = sectionLetters[activeSectionIndex];
       const count = parseInt(document.getElementById('stall-count').value);
       const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
       const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
+      const pattern = document.getElementById('pattern-type').value;
 
       savedSections.push({
         letter: activeLetter,
         anchorPos: activeAnchorMarker.getLatLng(),
         rotation: currentRotation,
+        curve: currentCurve,
+        pattern: pattern,
         stallsData: JSON.parse(JSON.stringify(activeStallsData)),
         width: stdWidth,
         depth: stdDepth
@@ -321,7 +356,6 @@
       renderAll();
     }
 
-    // --- UPPRITNING ---
     function renderAll() {
       renderSavedSections();
       renderActiveSection();
@@ -329,46 +363,12 @@
       updateSectionsUI();
     }
 
+    // --- GEOMETRIMOTOR OCH RITNING ---
     function renderSavedSections() {
       savedSectionsGroup.clearLayers();
 
       savedSections.forEach((sec) => {
-        let currentX = 0;
-        sec.stallsData.forEach((stall, idx) => {
-          let width = sec.width;
-          if (stall.type === 'hkp') width = 3.8;
-
-          let p1 = { x: currentX, y: 0 };
-          let p2 = { x: currentX + width, y: 0 };
-          let p3 = { x: currentX + width, y: sec.depth };
-          let p4 = { x: currentX, y: sec.depth };
-
-          let rp1 = rotatePoint(p1.x, p1.y, sec.rotation);
-          let rp2 = rotatePoint(p2.x, p2.y, sec.rotation);
-          let rp3 = rotatePoint(p3.x, p3.y, sec.rotation);
-          let rp4 = rotatePoint(p4.x, p4.y, sec.rotation);
-
-          let latlngs = [
-            addMetersToLatLng(sec.anchorPos.lat, sec.anchorPos.lng, rp1.x, rp1.y),
-            addMetersToLatLng(sec.anchorPos.lat, sec.anchorPos.lng, rp2.x, rp2.y),
-            addMetersToLatLng(sec.anchorPos.lat, sec.anchorPos.lng, rp3.x, rp3.y),
-            addMetersToLatLng(sec.anchorPos.lat, sec.anchorPos.lng, rp4.x, rp4.y)
-          ];
-
-          L.polygon(latlngs, {
-            color: '#10b981', weight: 2, fillColor: '#059669', fillOpacity: 0.25, interactive: false
-          }).addTo(savedSectionsGroup);
-
-          let centerLocal = rotatePoint(currentX + (width/2), sec.depth/2, sec.rotation);
-          let centerLatLng = addMetersToLatLng(sec.anchorPos.lat, sec.anchorPos.lng, centerLocal.x, centerLocal.y);
-
-          L.marker(centerLatLng, {
-            icon: L.divIcon({ className: 'stall-label text-emerald-100 opacity-75', html: `${sec.letter}${idx+1}`, iconSize: [40, 40] }),
-            interactive: false
-          }).addTo(savedSectionsGroup);
-
-          currentX += width;
-        });
+        renderSectionGeometry(sec.anchorPos, sec.rotation, sec.curve, sec.stallsData, sec.width, sec.depth, sec.pattern, sec.letter, savedSectionsGroup, false);
       });
     }
 
@@ -378,85 +378,128 @@
 
       const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
       const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
+      const pattern = document.getElementById('pattern-type').value;
 
       while (activeStallsData.length < count) activeStallsData.push({ type: 'std' });
       if (activeStallsData.length > count) activeStallsData = activeStallsData.slice(0, count);
 
       activeStallGroup.clearLayers();
       const anchorPos = activeAnchorMarker.getLatLng();
+
+      renderSectionGeometry(anchorPos, currentRotation, currentCurve, activeStallsData, stdWidth, stdDepth, pattern, sectionLetters[activeSectionIndex], activeStallGroup, true);
+    }
+
+    // HUVUDFUNKTION FÖR BERÄKNING AV BÖJNING & MÖNSTER
+    function renderSectionGeometry(anchorPos, startRotation, totalCurve, stallsData, stdWidth, stdDepth, pattern, sectionLetter, targetGroup, isInteractive) {
+      const count = stallsData.length;
+      const curveStep = (count > 1) ? (totalCurve / (count - 1)) : 0;
+
       let currentX = 0;
+      let currentY = 0;
+      let currentHeading = startRotation;
 
-      activeStallsData.forEach((stall, idx) => {
+      stallsData.forEach((stall, idx) => {
         let width = stdWidth;
-        let color = '#f59e0b';
-        let fillColor = '#0f172a';
-        let labelHTML = `${sectionLetters[activeSectionIndex]}${idx+1}`;
+        let depth = stdDepth;
+        let fillColor = isInteractive ? '#0f172a' : '#059669';
+        let strokeColor = isInteractive ? '#f59e0b' : '#10b981';
+        let labelHTML = `${sectionLetter}${idx+1}`;
 
-        if (stall.type === 'hkp') { width = 3.8; fillColor = '#0284c7'; labelHTML = '♿'; }
+        if (stall.type === 'hkp') { width = Math.max(width, 3.8); fillColor = '#0284c7'; labelHTML = '♿'; }
         if (stall.type === 'ev') { fillColor = '#059669'; labelHTML = '⚡'; }
         if (stall.type === 'no') { fillColor = '#e11d48'; labelHTML = '🚷'; }
 
-        let p1 = { x: currentX, y: 0 };
-        let p2 = { x: currentX + width, y: 0 };
-        let p3 = { x: currentX + width, y: stdDepth };
-        let p4 = { x: currentX, y: stdDepth };
+        // Beräkna lokala hörnpunkter för olika mönstertyper
+        let polys = []; // Innehåller en eller två geometrier (dubbelrad)
 
-        let rp1 = rotatePoint(p1.x, p1.y, currentRotation);
-        let rp2 = rotatePoint(p2.x, p2.y, currentRotation);
-        let rp3 = rotatePoint(p3.x, p3.y, currentRotation);
-        let rp4 = rotatePoint(p4.x, p4.y, currentRotation);
+        if (pattern === 'dubbel') {
+          // Två rader rygg-mot-rygg
+          let p1_a = { x: 0, y: 0 }, p2_a = { x: width, y: 0 }, p3_a = { x: width, y: depth }, p4_a = { x: 0, y: depth };
+          let p1_b = { x: 0, y: 0 }, p2_b = { x: width, y: 0 }, p3_b = { x: width, y: -depth }, p4_b = { x: 0, y: -depth };
+          polys.push([p1_a, p2_a, p3_a, p4_a]);
+          polys.push([p1_b, p2_b, p3_b, p4_b]);
+        } else if (pattern === 'sned_h') {
+          // 45 gr snedställd höger
+          let skew = depth * 0.7;
+          let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width + skew, y: depth }, p4 = { x: skew, y: depth };
+          polys.push([p1, p2, p3, p4]);
+        } else if (pattern === 'sned_v') {
+          // 45 gr snedställd vänster
+          let skew = depth * 0.7;
+          let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width - skew, y: depth }, p4 = { x: -skew, y: depth };
+          polys.push([p1, p2, p3, p4]);
+        } else {
+          // Enkel eller Fickparkering
+          let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width, y: depth }, p4 = { x: 0, y: depth };
+          polys.push([p1, p2, p3, p4]);
+        }
 
-        let latlngs = [
-          addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp1.x, rp1.y),
-          addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp2.x, rp2.y),
-          addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp3.x, rp3.y),
-          addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp4.x, rp4.y)
-        ];
+        // Transformera och rita ut varje polygon för rutan
+        polys.forEach(pts => {
+          let latlngs = pts.map(pt => {
+            let rp = rotatePoint(currentX + pt.x, currentY + pt.y, currentHeading);
+            return addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp.x, rp.y);
+          });
 
-        const polygon = L.polygon(latlngs, {
-          color: color, weight: 3, fillColor: fillColor, fillOpacity: 0.35, className: 'cursor-pointer hover:fill-opacity-50 transition-opacity'
+          const polygon = L.polygon(latlngs, {
+            color: strokeColor, weight: isInteractive ? 3 : 2, fillColor: fillColor, fillOpacity: isInteractive ? 0.35 : 0.25,
+            interactive: isInteractive
+          });
+
+          if (isInteractive) {
+            polygon.on('click', () => {
+              const types = ['std', 'hkp', 'ev', 'no'];
+              let nextIdx = (types.indexOf(stall.type) + 1) % types.length;
+              stallsData[idx].type = types[nextIdx];
+              renderAll();
+            });
+          }
+
+          polygon.addTo(targetGroup);
         });
 
-        polygon.on('click', () => {
-          const types = ['std', 'hkp', 'ev', 'no'];
-          let nextIdx = (types.indexOf(stall.type) + 1) % types.length;
-          activeStallsData[idx].type = types[nextIdx];
-          renderAll();
-        });
-
-        polygon.addTo(activeStallGroup);
-
-        let centerLocal = rotatePoint(currentX + (width/2), stdDepth/2, currentRotation);
+        // Etikett i mitten
+        let centerLocal = rotatePoint(currentX + (width / 2), currentY + (depth / 2), currentHeading);
         let centerLatLng = addMetersToLatLng(anchorPos.lat, anchorPos.lng, centerLocal.x, centerLocal.y);
 
         L.marker(centerLatLng, {
-          icon: L.divIcon({ className: 'stall-label', html: labelHTML, iconSize: [40, 40] }),
+          icon: L.divIcon({ className: `stall-label ${isInteractive ? '' : 'text-emerald-100 opacity-75'}`, html: labelHTML, iconSize: [40, 40] }),
           interactive: false
-        }).addTo(activeStallGroup);
+        }).addTo(targetGroup);
 
-        currentX += width;
+        // Stega fram startposition och vinkel för NÄSTA ruta i den böjda raden
+        let stepVector = rotatePoint(width, 0, currentHeading);
+        currentX += stepVector.x;
+        currentY += stepVector.y;
+        currentHeading += curveStep;
       });
     }
 
-    // --- SUMMERING OCH UX ---
+    // --- PRIS OCH SUMMERING ---
     function updateTotals() {
       let totalMeters = 0;
       let symbolCount = 0;
 
+      // Summera sparade sektioner
       savedSections.forEach(sec => {
+        let mult = (sec.pattern === 'dubbel') ? 2 : 1;
         sec.stallsData.forEach(stall => {
           let w = (stall.type === 'hkp') ? 3.8 : sec.width;
-          totalMeters += w + (sec.depth * 2);
-          if (stall.type === 'hkp' || stall.type === 'ev' || stall.type === 'no') symbolCount++;
+          totalMeters += (w + (sec.depth * 2)) * mult;
+          if (stall.type === 'hkp' || stall.type === 'ev' || stall.type === 'no') symbolCount += mult;
         });
       });
 
+      // Summera aktiv sektion
       const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
       const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
+      const pattern = document.getElementById('pattern-type').value;
+      let mult = (pattern === 'dubbel') ? 2 : 1;
+
       activeStallsData.forEach(stall => {
         let w = (stall.type === 'hkp') ? 3.8 : stdWidth;
-        totalMeters += w + (stdDepth * 2);
-        if (stall.type === 'hkp' || stall.type === 'ev' || stall.type === 'no') symbolCount++;
+        totalMeters += (w + (stdDepth * 2)) * mult;
+        if (stall.type === 'hkp' || stall.type === 'ev' || stall.type === 'no') symbolCount += mult;
       });
 
       const meterPrice = 48;
@@ -472,16 +515,16 @@
     function updateSectionsUI() {
       const container = document.getElementById('sections-list');
       if (savedSections.length === 0) {
-        container.innerHTML = `<div class="text-[11px] text-slate-500 italic text-center py-2">Inga låsta sektioner ännu. Klicka på "Lås in Sektion" när du är klar med en yta.</div>`;
+        container.innerHTML = `<div class="text-[11px] text-slate-500 italic text-center py-2">Inga låsta sektioner ännu.</div>`;
         return;
       }
 
-      let html = `<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Dina sparade sektioner:</div>`;
+      let html = `<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Sparade sektioner:</div>`;
       savedSections.forEach((sec, idx) => {
         html += `
           <div class="flex justify-between items-center bg-slate-900 border border-slate-800 p-2 rounded-xl text-xs shadow-sm">
-            <span class="font-black text-emerald-400">Sektion ${sec.letter} <span class="text-slate-400 font-medium">(${sec.stallsData.length} rutor)</span></span>
-            <button onclick="removeSection(${idx})" class="text-rose-400 hover:text-rose-300 font-bold text-[10px] bg-rose-500/10 hover:bg-rose-500/20 px-2 py-1 rounded transition">Ta bort</button>
+            <span class="font-black text-emerald-400">Sektion ${sec.letter} <span class="text-slate-400 font-medium">(${sec.stallsData.length} st, ${sec.pattern})</span></span>
+            <button onclick="removeSection(${idx})" class="text-rose-400 hover:text-rose-300 font-bold text-[10px] bg-rose-500/10 px-2 py-1 rounded transition">Ta bort</button>
           </div>
         `;
       });
@@ -499,7 +542,6 @@
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        // 1. Rubrik & Datum
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
         doc.text("OFFERTUNDERLAG - LINJEMARKERING", 14, 20);
@@ -509,7 +551,6 @@
         doc.text(`Datum: ${new Date().toLocaleDateString('sv-SE')}`, 14, 28);
         doc.text(`Plats/Adress: ${document.getElementById('address-input').value || 'Ej angiven'}`, 14, 34);
 
-        // 2. Sektionsspecifikation
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.text("Sektionsspecifikation", 14, 46);
@@ -519,7 +560,7 @@
         let y = 54;
 
         savedSections.forEach((sec) => {
-          doc.text(`• Sektion ${sec.letter}: ${sec.stallsData.length} st rutor (${sec.width}m x ${sec.depth}m, vinkel ${sec.rotation}°)`, 18, y);
+          doc.text(`• Sektion ${sec.letter}: ${sec.stallsData.length} st rutor [Mönster: ${sec.pattern}, Böjning: ${sec.curve}°]`, 18, y);
           y += 6;
         });
 
@@ -529,7 +570,6 @@
           y += 10;
         }
 
-        // 3. Ekonomisk summering
         doc.setLineWidth(0.5);
         doc.line(14, y, 196, y);
         y += 8;
@@ -547,14 +587,12 @@
         doc.setTextColor(16, 185, 129);
         doc.text(`Totalt pris exkl. moms: ${total}`, 14, y);
 
-        // 4. Fånga kartbilden
         const mapElement = document.getElementById('map');
         const canvas = await html2canvas(mapElement, { useCORS: true, logging: false });
         const imgData = canvas.toDataURL('image/png');
 
         doc.addImage(imgData, 'PNG', 14, y + 10, 180, 100);
 
-        // 5. Rendera direkt i modalen på skärmen
         const pdfBlob = doc.output('bloburl');
         document.getElementById('pdf-frame').src = pdfBlob;
         document.getElementById('pdf-modal').classList.remove('hidden');
@@ -591,7 +629,7 @@
     function updateRotation() {
       currentRotation = parseInt(document.getElementById('layout-rotation').value) || 0;
       document.getElementById('rotation-val').innerText = `${currentRotation}°`;
-      renderActiveSection();
+      renderAll();
     }
     function setRotation(deg) { document.getElementById('layout-rotation').value = deg; updateRotation(); }
     function stepRotation(delta) { 
