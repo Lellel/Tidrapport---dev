@@ -1,20 +1,24 @@
 <!DOCTYPE html>
 <html lang="sv" class="dark">
 <head>
+  <!-- ================================================================= -->
+  <!-- 1. HEAD: BIBLIOTEK, TITTSTYRNING OCH STILMALLAR                   -->
+  <!-- ================================================================= -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Master Linjemålning & Ortofoto #44 (v1.9 Mönster & Kurvatur)</title>
+  <title>Master Linjemålning & Ortofoto #44 (v1.9.1 Stenhårt Zoomlås)</title>
   
+  <!-- Tailwind CSS (Design & Layout) -->
   <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- Leaflet.js Kartbibliotek -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
-  <!-- Leaflet Rotate Plugin -->
+  <!-- Leaflet Rotate Plugin (Möjliggör tvåfingers-rotation av kartan) -->
   <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
 
-  <!-- PDF-bibliotek -->
+  <!-- PDF-bibliotek för direkt-förhandsgranskning i webbläsaren -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
@@ -33,14 +37,16 @@
 </head>
 <body class="min-h-screen p-3 md:p-6 space-y-4 max-w-6xl mx-auto">
 
-  <!-- Header -->
+  <!-- ================================================================= -->
+  <!-- 2. HTML-HEADER: TOPPMENY OCH KNAPPAR                              -->
+  <!-- ================================================================= -->
   <header class="glass-card rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
     <div class="flex items-center gap-3">
       <a href="#" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition">← Nav</a>
       <div>
         <div class="flex items-center gap-2">
           <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Ortofoto</span>
-          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-black">v1.9 (Mönster & Böjning)</span>
+          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-black">v1.9.1 (Zoom-Lås)</span>
         </div>
         <h1 class="text-lg font-black text-white">🗺️ Linjemarkering & Avancerad Geometri</h1>
       </div>
@@ -55,9 +61,12 @@
     </div>
   </header>
 
+  <!-- ================================================================= -->
+  <!-- 3. HUVUDINNEHÅLL: VÄNSTERPANEL (KONTROLLER) OCH HÖGERPANEL (KARTA) -->
+  <!-- ================================================================= -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-    <!-- Vänsterpanel: Kontroller -->
+    <!-- --- VÄNSTERPANEL: VERKTYGSFÄLT --- -->
     <div class="glass-card p-4 rounded-2xl space-y-4 lg:col-span-1">
       
       <!-- Sök Adress -->
@@ -85,7 +94,7 @@
         </select>
       </div>
 
-      <!-- BÖJNING / KURVATUR SLIDER (NY) -->
+      <!-- KURVATUR / BÖJNING -->
       <div class="space-y-1 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
         <div class="flex justify-between items-center">
           <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400">🌀 Kurvatur / Böjning</h2>
@@ -154,7 +163,7 @@
 
     </div>
 
-    <!-- Högerpanel: Kartvy -->
+    <!-- --- HÖGERPANEL: KARTA OCH PRISKALKYL --- -->
     <div class="glass-card p-4 rounded-2xl space-y-3 lg:col-span-2 flex flex-col justify-between">
       
       <div>
@@ -200,7 +209,9 @@
 
   </div>
 
-  <!-- MODAL OVERLAY FÖR FÖRHANDSGRANSKNING AV OFFERT-PDF -->
+  <!-- ================================================================= -->
+  <!-- 4. MODAL OVERLAY: PDF-FÖRHANDSGRANSKNING (DÖLJES VIA CLASS)        -->
+  <!-- ================================================================= -->
   <div id="pdf-modal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col p-3 md:p-6">
     <div class="flex justify-between items-center mb-3 max-w-5xl mx-auto w-full">
       <div class="flex items-center gap-2">
@@ -216,8 +227,11 @@
     </div>
   </div>
 
+  <!-- ================================================================= -->
+  <!-- 5. JAVASCRIPT: LOGIK, MATEMATIK, KART-STYRNING OCH PDF            -->
+  <!-- ================================================================= -->
   <script>
-    // --- VARIABLER & TILLSTÅND ---
+    // --- 5.1 GLOBAL VARIABLER & TILLSTÅND ---
     let map, satLayer, osmLayer;
     let currentLayerMode = 'sat';
     let isMapLocked = false;
@@ -228,14 +242,15 @@
 
     let activeStallsData = [];
     let currentRotation = 0;
-    let currentCurve = 0; // Total kurvatur i grader
+    let currentCurve = 0;
     let sectionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let activeSectionIndex = 0;
     
     let savedSections = [];
 
-    const R_EARTH = 6378137;
+    const R_EARTH = 6378137; // Jordradie i meter
 
+    // --- 5.2 INITIERING AV KARTAN ---
     function initMap() {
       map = L.map('map', { 
         zoomControl: true,
@@ -253,6 +268,7 @@
       savedSectionsGroup = L.featureGroup().addTo(map);
       activeStallGroup = L.featureGroup().addTo(map);
 
+      // Stor greppyta för mobiltummar
       const anchorIcon = L.divIcon({
         className: 'bg-transparent',
         html: `
@@ -276,18 +292,50 @@
       renderAll();
     }
 
+    // --- 5.3 KARTLÅSNING MED STENHÅRT ZOOM-LÅS ---
     function toggleMapLock() {
       isMapLocked = !isMapLocked;
       const btn = document.getElementById('map-lock-btn');
 
       if (isMapLocked) {
-        map.dragging.disable(); map.touchZoom.disable(); map.doubleClickZoom.disable(); map.scrollWheelZoom.disable();
+        // 1. Inaktivera gest-navigering på skärmen
+        map.dragging.disable(); 
+        map.touchZoom.disable(); 
+        map.doubleClickZoom.disable(); 
+        map.scrollWheelZoom.disable();
+        map.boxZoom.disable();
+        map.keyboard.disable();
         if (map.touchRotate) map.touchRotate.disable();
+
+        // 2. STENHÅRT ZOOM-LÅS: Frys zoom-nivån till nuvarande nivå
+        const currentZoom = map.getZoom();
+        map.setMinZoom(currentZoom);
+        map.setMaxZoom(currentZoom);
+
+        // 3. Dölj zoomknappar (+/-)
+        if (map.zoomControl) {
+          map.zoomControl.remove();
+        }
+
         btn.innerHTML = '🔒 Karta: LÅST';
         btn.className = 'flex-1 sm:flex-none px-4 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_10px_rgba(245,158,11,0.5)] border border-amber-400 transition';
       } else {
-        map.dragging.enable(); map.touchZoom.enable(); map.doubleClickZoom.enable(); map.scrollWheelZoom.enable();
+        // 1. Aktivera gest-navigering igen
+        map.dragging.enable(); 
+        map.touchZoom.enable(); 
+        map.doubleClickZoom.enable(); 
+        map.scrollWheelZoom.enable();
+        map.boxZoom.enable();
+        map.keyboard.enable();
         if (map.touchRotate) map.touchRotate.enable();
+
+        // 2. Släpp zoom-låset (återställ standardintervall)
+        map.setMinZoom(0);
+        map.setMaxZoom(21);
+
+        // 3. Återställ zoomknappar (+/-)
+        map.zoomControl = L.control.zoom({ position: 'topleft' }).addTo(map);
+
         btn.innerHTML = '🔓 Karta: UPPLÅST';
         btn.className = 'flex-1 sm:flex-none px-4 py-1.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 hover:bg-slate-700 transition shadow-sm';
       }
@@ -295,6 +343,7 @@
 
     function resetMapRotation() { map.setBearing(0); }
 
+    // --- 5.4 REGLAGE & MÖNSTER-ÄNDRINGAR ---
     function onPatternChange() {
       const p = document.getElementById('pattern-type').value;
       if (p === 'fick') {
@@ -320,6 +369,7 @@
       updateCurve();
     }
 
+    // --- 5.5 SEKTIONSHANTERING (KAMERA-LÅSNING) ---
     function snapshotAndAddSection() {
       const activeLetter = sectionLetters[activeSectionIndex];
       const count = parseInt(document.getElementById('stall-count').value);
@@ -363,7 +413,7 @@
       updateSectionsUI();
     }
 
-    // --- GEOMETRIMOTOR OCH RITNING ---
+    // --- 5.6 GEOMETRIMOTOR & KURVATUR-BERÄKNINGAR ---
     function renderSavedSections() {
       savedSectionsGroup.clearLayers();
 
@@ -389,7 +439,6 @@
       renderSectionGeometry(anchorPos, currentRotation, currentCurve, activeStallsData, stdWidth, stdDepth, pattern, sectionLetters[activeSectionIndex], activeStallGroup, true);
     }
 
-    // HUVUDFUNKTION FÖR BERÄKNING AV BÖJNING & MÖNSTER
     function renderSectionGeometry(anchorPos, startRotation, totalCurve, stallsData, stdWidth, stdDepth, pattern, sectionLetter, targetGroup, isInteractive) {
       const count = stallsData.length;
       const curveStep = (count > 1) ? (totalCurve / (count - 1)) : 0;
@@ -409,32 +458,26 @@
         if (stall.type === 'ev') { fillColor = '#059669'; labelHTML = '⚡'; }
         if (stall.type === 'no') { fillColor = '#e11d48'; labelHTML = '🚷'; }
 
-        // Beräkna lokala hörnpunkter för olika mönstertyper
-        let polys = []; // Innehåller en eller två geometrier (dubbelrad)
+        let polys = [];
 
         if (pattern === 'dubbel') {
-          // Två rader rygg-mot-rygg
           let p1_a = { x: 0, y: 0 }, p2_a = { x: width, y: 0 }, p3_a = { x: width, y: depth }, p4_a = { x: 0, y: depth };
           let p1_b = { x: 0, y: 0 }, p2_b = { x: width, y: 0 }, p3_b = { x: width, y: -depth }, p4_b = { x: 0, y: -depth };
           polys.push([p1_a, p2_a, p3_a, p4_a]);
           polys.push([p1_b, p2_b, p3_b, p4_b]);
         } else if (pattern === 'sned_h') {
-          // 45 gr snedställd höger
           let skew = depth * 0.7;
           let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width + skew, y: depth }, p4 = { x: skew, y: depth };
           polys.push([p1, p2, p3, p4]);
         } else if (pattern === 'sned_v') {
-          // 45 gr snedställd vänster
           let skew = depth * 0.7;
           let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width - skew, y: depth }, p4 = { x: -skew, y: depth };
           polys.push([p1, p2, p3, p4]);
         } else {
-          // Enkel eller Fickparkering
           let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width, y: depth }, p4 = { x: 0, y: depth };
           polys.push([p1, p2, p3, p4]);
         }
 
-        // Transformera och rita ut varje polygon för rutan
         polys.forEach(pts => {
           let latlngs = pts.map(pt => {
             let rp = rotatePoint(currentX + pt.x, currentY + pt.y, currentHeading);
@@ -458,7 +501,6 @@
           polygon.addTo(targetGroup);
         });
 
-        // Etikett i mitten
         let centerLocal = rotatePoint(currentX + (width / 2), currentY + (depth / 2), currentHeading);
         let centerLatLng = addMetersToLatLng(anchorPos.lat, anchorPos.lng, centerLocal.x, centerLocal.y);
 
@@ -467,7 +509,6 @@
           interactive: false
         }).addTo(targetGroup);
 
-        // Stega fram startposition och vinkel för NÄSTA ruta i den böjda raden
         let stepVector = rotatePoint(width, 0, currentHeading);
         currentX += stepVector.x;
         currentY += stepVector.y;
@@ -475,12 +516,11 @@
       });
     }
 
-    // --- PRIS OCH SUMMERING ---
+    // --- 5.7 PRISKALKYL & LISTA OVER SEKTIONER ---
     function updateTotals() {
       let totalMeters = 0;
       let symbolCount = 0;
 
-      // Summera sparade sektioner
       savedSections.forEach(sec => {
         let mult = (sec.pattern === 'dubbel') ? 2 : 1;
         sec.stallsData.forEach(stall => {
@@ -490,7 +530,6 @@
         });
       });
 
-      // Summera aktiv sektion
       const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
       const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
       const pattern = document.getElementById('pattern-type').value;
@@ -531,7 +570,7 @@
       container.innerHTML = html;
     }
 
-    // --- PDF GENERERING & OVERLAY ---
+    // --- 5.8 PDF GENERERING & MODAL ---
     async function generatePDFPreview() {
       const btn = document.getElementById('create-pdf-btn');
       const originalText = btn.innerHTML;
@@ -610,7 +649,7 @@
       document.getElementById('pdf-modal').classList.add('hidden');
     }
 
-    // --- GEO-BERÄKNINGAR OCH KART-VERKTYG ---
+    // --- 5.9 MATEMATISKA GEOTRANSPOSITIONER ---
     function addMetersToLatLng(lat, lng, dxMeters, dyMeters) {
       const pi = Math.PI;
       const new_lat = lat + (dyMeters / R_EARTH) * (180 / pi);
