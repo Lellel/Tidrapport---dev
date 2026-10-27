@@ -6,7 +6,13 @@
     <title>Gårds-Kabanossen Master Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0b0f19; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; touch-action: pan-x pan-y; }
+        body { 
+            background-color: #0b0f19; 
+            color: #f8fafc; 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            overflow: hidden; 
+            touch-action: pan-x pan-y;
+        }
         .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
         .glass-panel-lpv { background: rgba(2, 132, 199, 0.12); backdrop-filter: blur(16px); border: 1px solid rgba(56, 189, 248, 0.3); }
         .glass-panel-kla { background: rgba(16, 185, 129, 0.12); backdrop-filter: blur(16px); border: 1px solid rgba(16, 185, 129, 0.3); }
@@ -239,6 +245,18 @@
     </div>
 
     <script>
+        // --- 0. SAFARI & IPAD SYSTEM-SPÄRRAR (NYP-ZOOM STÖDS MED 2 FINGRAR) ---
+        document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { passive: false });
+
+        // Stoppa Safari från att zooma hela dokumentet vid flerfinger-touch
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
         // --- 1. GÅRDENS DATAMODELL ---
         const INITIAL_STATE = {
             clients: ['AVD 1 - GRISNING', 'AVD 3 - SLAKTGRIS', 'FODERCENTRALEN', 'MASKINHALLEN'],
@@ -337,7 +355,6 @@
             `).join('');
 
             // Tim-headers
-            const show15min = currentPxPerHour > 200;
             let hHtml = '';
             for (let h = START_HOUR; h < END_HOUR; h++) {
                 const left = (h - START_HOUR) * currentPxPerHour;
@@ -461,16 +478,52 @@
             draggedOrbId = null; draggedJobId = null;
         }
 
-        // --- 7. ZOOM & MODALER ---
+        // --- 7. ZOOM & NYP-GESTERS-MOTOR ---
         function adjustZoom(delta) { pxPerHour = Math.max(80, Math.min(400, pxPerHour + delta)); renderPaddaAll(); }
         function resetZoom() { pxPerHour = 150; renderPaddaAll(); }
 
+        let isZoomBound = false;
         function setupZoomAndGestures(outerId) {
             const outer = document.getElementById(outerId);
-            window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+            if (!outer || isZoomBound) return;
+            isZoomBound = true;
+
+            // Mus och Touchpad (Ctrl + Scroll)
             outer.addEventListener('wheel', (e) => {
-                if (e.ctrlKey) { e.preventDefault(); adjustZoom(e.deltaY < 0 ? 30 : -30); }
-                else outer.scrollLeft += e.deltaX;
+                if (e.ctrlKey || e.metaKey) { 
+                    e.preventDefault(); 
+                    adjustZoom(e.deltaY < 0 ? 25 : -25); 
+                } else {
+                    outer.scrollLeft += e.deltaX;
+                }
+            }, { passive: false });
+
+            // iPad / Touch-skärm Nyp-zoom direkt på tidslinjerutan
+            let touchStartDist = 0;
+            let touchStartPx = 150;
+
+            outer.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    touchStartDist = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    touchStartPx = pxPerHour;
+                }
+            }, { passive: false });
+
+            outer.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2 && touchStartDist > 0) {
+                    e.preventDefault();
+                    const currentDist = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    const scale = currentDist / touchStartDist;
+                    pxPerHour = Math.max(80, Math.min(400, Math.round(touchStartPx * scale)));
+                    renderPaddaAll();
+                }
             }, { passive: false });
         }
 
@@ -498,18 +551,7 @@
             document.getElementById('admin-modal').classList.remove('hidden'); document.getElementById('admin-modal').classList.add('flex');
         }
         function closeAdminModal() { document.getElementById('admin-modal').classList.add('hidden'); }
-// Spärra iPaddans/Safaris inbyggda pinch-zoom helt
-document.addEventListener('gesturestart', function(e) {
-    e.preventDefault();
-}, { passive: false });
 
-document.addEventListener('gesturechange', function(e) {
-    e.preventDefault();
-}, { passive: false });
-
-document.addEventListener('gestureend', function(e) {
-    e.preventDefault();
-}, { passive: false });
     </script>
 </body>
 </html>
