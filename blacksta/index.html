@@ -498,7 +498,18 @@
             document.getElementById('admin-modal').classList.remove('hidden'); document.getElementById('admin-modal').classList.add('flex');
         }
         function closeAdminModal() { document.getElementById('admin-modal').classList.add('hidden'); }
+// Spärra iPaddans/Safaris inbyggda pinch-zoom helt
+document.addEventListener('gesturestart', function(e) {
+    e.preventDefault();
+}, { passive: false });
 
+document.addEventListener('gesturechange', function(e) {
+    e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('gestureend', function(e) {
+    e.preventDefault();
+}, { passive: false });
     </script>
 </body>
 </html>
