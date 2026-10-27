@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gårds-Kabanossen Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0f19; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; }
+        .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .custom-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* GANTT KORT (Padda) */
+        .gantt-job-card { border-radius: 8px; display: flex; align-items: center; padding: 0 8px; gap: 8px; position: absolute; top: 8px; bottom: 8px; cursor: grab; z-index: 20; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+        .gantt-job-card.lpv { background: linear-gradient(145deg, #0269a4 0%, #075985 100%); border: 1px solid #38bdf8; }
+        
+        /* REALTIDSLINJE */
+        .nu-linje { position: absolute; top: 0; bottom: 0; width: 2px; background: #ef4444; z-index: 45; transition: left 1s linear; pointer-events: none; }
+        .nu-linje::before { content: 'NU'; position: absolute; top: 0; left: -13px; background: #ef4444; color: white; font-size: 9px; font-weight: bold; padding: 2px 5px; border-radius: 0 0 5px 5px; }
+
+        /* MAGIN FÖR MOBILEN (Stående vs Liggande) */
+        #mobile-portrait { display: none; }
+        #mobile-landscape { display: none; }
+        
+        @media (orientation: portrait) {
+            .show-on-mobile-portrait { display: flex !important; }
+        }
+        @media (orientation: landscape) {
+            .show-on-mobile-landscape { display: flex !important; }
+        }
+
+        /* MOBIL KARUSELL SNAP */
+        .carousel-snap { scroll-snap-type: x mandatory; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .carousel-item { scroll-snap-align: center; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col select-none">
+
+    <!-- VY 1: VÄXELN (STARTSIDAN) -->
+    <div id="view-home" class="flex-1 flex flex-col items-center justify-center p-6 z-[100] relative">
+        <h1 class="text-4xl font-black text-sky-400 mb-2 text-center shadow-sky-500/20 drop-shadow-lg">Gårds-Kabanossen</h1>
+        <p class="text-slate-400 mb-10 text-sm text-center">Välj enhet för att starta demon</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+            <!-- Padda -->
+            <button onclick="switchView('view-padda')" class="glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:bg-slate-800 transition group border-sky-500/30 hover:border-sky-400">
+                <div class="text-6xl group-hover:scale-110 transition">💻</div>
+                <h2 class="text-xl font-bold text-sky-400">Arbetsledare</h2>
+                <p class="text-xs text-slate-400 text-center">Padda/Dator med zoom, drag-and-drop och orderbok.</p>
+            </button>
+            <!-- Mobil -->
+            <button onclick="switchView('view-mobile')" class="glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:bg-slate-800 transition group border-emerald-500/30 hover:border-emerald-400">
+                <div class="text-6xl group-hover:scale-110 transition">📱</div>
+                <h2 class="text-xl font-bold text-emerald-400">Fältarbetare</h2>
+                <p class="text-xs text-slate-400 text-center">Mobilen. Uppgifter i karusell. Vrid skärmen för Miniradar.</p>
+            </button>
+            <!-- TV -->
+            <button onclick="switchView('view-tv')" class="glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:bg-slate-800 transition group border-amber-500/30 hover:border-amber-400">
+                <div class="text-6xl group-hover:scale-110 transition">📺</div>
+                <h2 class="text-xl font-bold text-amber-400">Fikarums-TV</h2>
+                <p class="text-xs text-slate-400 text-center">Passiv Dashboard. Automatisk zoom. Inget klick.</p>
+            </button>
+        </div>
+    </div>
+
+    <!-- VY 2: PADDAN (MASTER GANTT) -->
+    <div id="view-padda" class="hidden h-full w-full flex-col">
+        <header class="glass-panel h-14 flex items-center justify-between px-4 shrink-0 z-50">
+            <h1 class="font-bold text-sky-400">💻 Arbetsledare (Padda)</h1>
+            <button onclick="switchView('view-home')" class="text-xs bg-slate-800 px-3 py-1 rounded text-slate-300">Stäng</button>
+        </header>
+        <div class="flex-1 flex overflow-hidden">
+            <!-- Vänsterkolumn -->
+            <div class="w-48 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+                <div class="h-10 border-b border-slate-800 p-2 text-[10px] font-bold text-slate-400 uppercase">Stall</div>
+                <div id="padda-left-col" class="flex-1"></div>
+            </div>
+            <!-- Tidslinje -->
+            <div id="padda-timeline-outer" class="flex-1 overflow-x-auto relative bg-slate-950">
+                <div id="padda-timeline-inner" class="min-h-full relative">
+                    <div class="h-10 border-b border-slate-800 sticky top-0 bg-slate-900/90 z-20 flex" id="padda-time-headers"></div>
+                    <div id="padda-nu-linje" class="nu-linje"></div>
+                    <div id="padda-rows" class="relative z-10 pb-8"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VY 3: MOBILEN (Stående = Karusell / Liggande = Radar) -->
+    <div id="view-mobile" class="hidden h-full w-full bg-slate-950 flex-col relative">
+        <button onclick="switchView('view-home')" class="absolute top-4 right-4 z-50 text-xs bg-slate-800/80 px-3 py-1.5 rounded-full text-slate-300 border border-slate-600 backdrop-blur-md shadow-lg">✕ Avsluta</button>
+        
+        <!-- MOBIL: STÅENDE (Karusellen) -->
+        <div id="mobile-portrait" class="show-on-mobile-portrait h-full w-full flex-col p-4 pt-12">
+            <div class="text-center mb-6">
+                <h2 class="text-emerald-400 font-bold uppercase tracking-widest text-xs mb-1">Ditt skift, Fritte!</h2>
+                <p class="text-slate-400 text-sm">Svep för att se nästa uppgift</p>
+            </div>
+            
+            <div class="flex-1 w-full carousel-snap flex gap-4 pb-8 items-center" id="mobile-carousel">
+                <!-- Fylls med JS -->
+            </div>
+        </div>
+
+        <!-- MOBIL: LIGGANDE (Passiv Miniradar) -->
+        <div id="mobile-landscape" class="show-on-mobile-landscape h-full w-full flex-col">
+            <div class="h-8 bg-slate-900 border-b border-slate-800 flex items-center px-4 shrink-0 justify-between">
+                <span class="text-[10px] text-emerald-400 font-bold tracking-widest uppercase">📱 Fält-Radar</span>
+                <span class="text-[10px] text-slate-500">Vrid tillbaka för att bocka av</span>
+            </div>
+            <div class="flex-1 flex overflow-hidden">
+                <div class="w-32 bg-slate-900/80 border-r border-slate-800 flex flex-col shrink-0">
+                    <div id="mobile-left-col" class="flex-1 overflow-y-hidden"></div>
+                </div>
+                <div id="mobile-timeline-outer" class="flex-1 overflow-x-auto relative bg-slate-950 pointer-events-none">
+                    <div id="mobile-timeline-inner" class="min-h-full relative">
+                        <div class="h-6 border-b border-slate-800 sticky top-0 bg-slate-900/90 z-20 flex" id="mobile-time-headers"></div>
+                        <div id="mobile-nu-linje" class="nu-linje"></div>
+                        <div id="mobile-rows" class="relative z-10"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VY 4: FIKARUM (Passiv Dashboard) -->
+    <div id="view-tv" class="hidden h-full w-full flex-col bg-slate-950 pointer-events-none relative">
+        <button onclick="switchView('view-home')" class="absolute top-4 right-4 z-50 text-xs bg-slate-800/80 px-3 py-1.5 rounded-full text-slate-300 pointer-events-auto">✕ Stäng</button>
+        <header class="h-16 flex items-center justify-between px-8 bg-slate-900 border-b border-slate-800 shrink-0">
+            <h1 class="text-xl font-black text-amber-400 uppercase tracking-widest">📺 Gårds-Radar (Förmiddag)</h1>
+            <div class="text-lg text-slate-300 font-mono font-bold" id="tv-clock">00:00</div>
+        </header>
+        <div class="flex-1 flex overflow-hidden">
+            <div class="w-64 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0">
+                <div id="tv-left-col" class="flex-1"></div>
+            </div>
+            <div id="tv-timeline-outer" class="flex-1 overflow-hidden relative">
+                <div id="tv-timeline-inner" class="min-h-full relative w-full">
+                    <div class="h-10 border-b border-slate-800 sticky top-0 bg-slate-900/90 z-20 flex" id="tv-time-headers"></div>
+                    <div id="tv-nu-linje" class="nu-linje"></div>
+                    <div id="tv-rows" class="relative z-10"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. DATA ---
+        const farmData = {
+            clients: ['AVD 1 - GRISNING', 'AVD 3 - SLAKTGRIS', 'FODERCENTRALEN'],
+            jobs: [
+                { id: 'j1', client: 'AVD 3 - SLAKTGRIS', title: 'Högtryckstvätt', startH: 6, startM: 0, durM: 150, assigned: 'Fritte 👦', tool: '🚿', color: '#0284c7' },
+                { id: 'j2', client: 'AVD 1 - GRISNING', title: 'Vaccinering', startH: 8, startM: 30, durM: 90, assigned: 'Moa 👩‍🌾', tool: '💉', color: '#16a34a' },
+                { id: 'j3', client: 'FODERCENTRALEN', title: 'Service Skruv', startH: 10, startM: 15, durM: 120, assigned: 'Fritte 👦', tool: '🔧', color: '#0284c7' }
+            ]
+        };
+
+        const START_HOUR = 6;
+        const END_HOUR = 18;
+        const TOTAL_HOURS = END_HOUR - START_HOUR;
+
+        // --- 2. ROUTING (Byt vy) ---
+        function switchView(viewId) {
+            ['view-home', 'view-padda', 'view-mobile', 'view-tv'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+                document.getElementById(id).classList.remove('flex');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+            document.getElementById(viewId).classList.add('flex');
+            
+            if (viewId === 'view-padda') renderPadda();
+            if (viewId === 'view-mobile') renderMobile();
+            if (viewId === 'view-tv') renderTV();
+        }
+
+        // --- 3. RENDER MOTOR (Kan rita upp Padda, TV eller Liggande Mobil) ---
+        function renderGantt(prefix, pxPerHour, rowHeightPx) {
+            const inner = document.getElementById(`${prefix}-timeline-inner`);
+            inner.style.width = `${TOTAL_HOURS * pxPerHour}px`;
+
+            // Vänsterkolumn
+            const leftCol = document.getElementById(`${prefix}-left-col`);
+            leftCol.innerHTML = farmData.clients.map(c => `
+                <div class="border-b border-slate-800 flex items-center px-3 font-bold text-sky-400" style="height: ${rowHeightPx}px; font-size: ${rowHeightPx > 60 ? '12px' : '9px'}">
+                    ${c}
+                </div>`).join('');
+
+            // Tids-headers
+            const headers = document.getElementById(`${prefix}-time-headers`);
+            let hHtml = '';
+            for (let h = START_HOUR; h < END_HOUR; h++) {
+                hHtml += `<div class="absolute top-0 bottom-0 border-l border-slate-700/80 pl-1 pt-1 font-bold text-slate-400 font-mono" style="left: ${(h - START_HOUR) * pxPerHour}px; font-size: ${rowHeightPx > 60 ? '11px' : '9px'};">${h.toString().padStart(2,'0')}:00</div>`;
+            }
+            headers.innerHTML = hHtml;
+
+            // Rader & Kort
+            const rows = document.getElementById(`${prefix}-rows`);
+            rows.innerHTML = farmData.clients.map(client => {
+                const myJobs = farmData.jobs.filter(j => j.client === client);
+                const cardsHtml = myJobs.map(job => {
+                    const leftPx = (((job.startH - START_HOUR) * 60) + job.startM) / 60 * pxPerHour;
+                    const widthPx = (job.durM / 60) * pxPerHour;
+                    return `
+                        <div class="gantt-job-card" style="left: ${leftPx}px; width: ${widthPx}px; background-color: ${job.color}; opacity: 0.9;">
+                            <span class="text-lg">${job.tool}</span>
+                            <div class="flex flex-col min-w-0">
+                                <span class="text-[10px] font-bold text-white truncate">${job.title}</span>
+                                <span class="text-[8px] text-white/70">${job.assigned}</span>
+                            </div>
+                        </div>`;
+                }).join('');
+
+                return `<div class="border-b border-slate-800/40 relative group w-full" style="height: ${rowHeightPx}px;">${cardsHtml}</div>`;
+            }).join('');
+
+            // Nu-linje (Demo-läge: Tvingad till 09:30 om utanför arbetstid)
+            const nuLinje = document.getElementById(`${prefix}-nu-linje`);
+            let now = new Date(); let hr = now.getHours(); let min = now.getMinutes();
+            if (hr < START_HOUR || hr >= END_HOUR) { hr = 9; min = 30; }
+            nuLinje.style.left = `${(((hr - START_HOUR) * 60) + min) / 60 * pxPerHour}px`;
+        }
+
+        // INITIERA DE OLIKA VYERNA
+        function renderPadda() {
+            renderGantt('padda', 160, 96);
+            setupZoom('padda-timeline-outer');
+        }
+
+        function renderTV() {
+            // Skala TV-tidslinjen så förmiddagen (6 timmar) fyller skärmen
+            const tvWidth = document.getElementById('tv-timeline-outer').clientWidth;
+            renderGantt('tv', tvWidth / 6, 120); 
+            setInterval(() => {
+                let now = new Date();
+                document.getElementById('tv-clock').innerText = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
+            }, 1000);
+        }
+
+        function renderMobile() {
+            // 1. Rendera karusellen för stående vy (Filtrerat på Frittes uppgifter)
+            const carousel = document.getElementById('mobile-carousel');
+            const frittesJobs = farmData.jobs.filter(j => j.assigned.includes('Fritte'));
+            
+            carousel.innerHTML = frittesJobs.map((j, index) => `
+                <div class="carousel-item w-[85vw] shrink-0 h-[60vh] glass-panel rounded-3xl border border-slate-700 p-6 flex flex-col relative overflow-hidden shadow-2xl">
+                    <div class="absolute -top-10 -right-10 text-9xl opacity-10 blur-sm">${j.tool}</div>
+                    
+                    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">${j.client}</div>
+                    <div class="text-3xl font-black text-white mb-2 leading-tight">${j.title}</div>
+                    <div class="text-emerald-400 font-mono text-lg mb-auto">⏰ ${j.startH.toString().padStart(2,'0')}:${j.startM.toString().padStart(2,'0')} - ${Math.floor(j.startH + (j.durM/60)).toString().padStart(2,'0')}:${(j.durM%60).toString().padStart(2,'0')}</div>
+                    
+                    <div class="flex items-center gap-3 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 mb-6">
+                        <div class="text-3xl">${j.tool}</div>
+                        <div class="text-xs text-slate-300 font-bold">Kräver: ${j.title.split(' ')[0]}</div>
+                    </div>
+                    
+                    <button class="w-full py-5 bg-emerald-600 active:bg-emerald-500 text-white rounded-2xl font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition" onclick="alert('Bra jobbat! Passet bockas av.')">✅ KLAR!</button>
+                    ${index < frittesJobs.length - 1 ? '<div class="absolute bottom-6 right-6 text-slate-500 animate-pulse">Svep ➔</div>' : ''}
+                </div>
+            `).join('');
+
+            // 2. Rendera landskaps-radarn
+            renderGantt('mobile', 100, 50); 
+        }
+
+        // Padda-zoom
+        function setupZoom(outerId) {
+            const outer = document.getElementById(outerId);
+            outer.addEventListener('wheel', (e) => {
+                if (e.ctrlKey) { e.preventDefault(); outer.scrollLeft += (e.deltaY > 0 ? 50 : -50); }
+            }, { passive: false });
+        }
+
+    </script>
+</body>
+</html>
