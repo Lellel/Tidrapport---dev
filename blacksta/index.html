@@ -3,114 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gårds-Kabanossen Demo</title>
+    <title>Gårds-Kabanossen Master Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0b0f19; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; }
-        .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        body { background-color: #0b0f19; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; touch-action: pan-x pan-y; }
+        .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+        .glass-panel-lpv { background: rgba(2, 132, 199, 0.12); backdrop-filter: blur(16px); border: 1px solid rgba(56, 189, 248, 0.3); }
+        .glass-panel-kla { background: rgba(16, 185, 129, 0.12); backdrop-filter: blur(16px); border: 1px solid rgba(16, 185, 129, 0.3); }
+
         .custom-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* GANTT KORT (Padda) */
-        .gantt-job-card { border-radius: 8px; display: flex; align-items: center; padding: 0 8px; gap: 8px; position: absolute; top: 8px; bottom: 8px; cursor: grab; z-index: 20; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
-        .gantt-job-card.lpv { background: linear-gradient(145deg, #0269a4 0%, #075985 100%); border: 1px solid #38bdf8; }
-        
+        /* KULOR */
+        .orb-liten { width: 38px; height: 38px; font-size: 1.1rem; }
+        .glass-orb {
+            background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), 0 4px 8px rgba(0,0,0,0.5);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            position: relative; cursor: grab; transition: transform 0.15s;
+        }
+        .glass-orb:active { cursor: grabbing; }
+        .glass-orb:hover { transform: scale(1.08); z-index: 50; }
+
+        .owner-badge { position: absolute; bottom: -2px; right: -3px; font-size: 7px; font-weight: 900; padding: 1px 3px; border-radius: 3px; z-index: 20; color: white; border: 1px solid rgba(255,255,255,0.4); }
+        .bg-lpv { background-color: #0284c7; }
+        .bg-klaryta { background-color: #16a34a; }
+        .bg-ue { background-color: #d97706; }
+
+        /* GANTT KORT */
+        .gantt-job-card { 
+            border-radius: 10px; display: flex; align-items: center; padding: 0 8px; gap: 6px; 
+            position: absolute; top: 6px; bottom: 6px; cursor: grab; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: width 0.1s linear, left 0.1s linear;
+        }
+        .gantt-job-card.lpv { background: linear-gradient(145deg, rgba(2, 105, 164, 0.9) 0%, rgba(7, 89, 133, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.7); }
+        .gantt-job-card.kla { background: linear-gradient(145deg, rgba(6, 78, 59, 0.9) 0%, rgba(2, 44, 34, 0.95) 100%); border: 1px solid rgba(16, 185, 129, 0.7); }
+
         /* REALTIDSLINJE */
-        .nu-linje { position: absolute; top: 0; bottom: 0; width: 2px; background: #ef4444; z-index: 45; transition: left 1s linear; pointer-events: none; }
-        .nu-linje::before { content: 'NU'; position: absolute; top: 0; left: -13px; background: #ef4444; color: white; font-size: 9px; font-weight: bold; padding: 2px 5px; border-radius: 0 0 5px 5px; }
+        .nu-linje { position: absolute; top: 0; bottom: 0; width: 2px; background: #ef4444; z-index: 45; transition: left 1s linear; pointer-events: none; box-shadow: 0 0 10px rgba(239,68,68,0.8); }
+        .nu-linje::before { content: 'NU'; position: absolute; top: 0; left: -13px; background: #ef4444; color: white; font-size: 9px; font-weight: 900; padding: 2px 5px; border-radius: 0 0 5px 5px; }
 
-        /* MAGIN FÖR MOBILEN (Stående vs Liggande) */
-        #mobile-portrait { display: none; }
-        #mobile-landscape { display: none; }
-        
-        @media (orientation: portrait) {
-            .show-on-mobile-portrait { display: flex !important; }
-        }
-        @media (orientation: landscape) {
-            .show-on-mobile-landscape { display: flex !important; }
-        }
+        .tick-15min { border-left: 1px dashed rgba(255,255,255,0.08); }
+        .tick-1h { border-left: 1px solid rgba(255,255,255,0.18); }
 
-        /* MOBIL KARUSELL SNAP */
+        /* MOBIL-MAGI (Portrait vs Landscape) */
+        .show-on-mobile-portrait { display: none !important; }
+        .show-on-mobile-landscape { display: none !important; }
+        @media (orientation: portrait) { .show-on-mobile-portrait { display: flex !important; } }
+        @media (orientation: landscape) { .show-on-mobile-landscape { display: flex !important; } }
+
         .carousel-snap { scroll-snap-type: x mandatory; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .carousel-item { scroll-snap-align: center; }
+        .modal-backdrop { background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 9999; }
     </style>
 </head>
-<body class="h-screen w-screen flex flex-col select-none">
+<body class="h-screen w-screen flex flex-col bg-slate-950 select-none overflow-hidden" ondragover="allowDrop(event)" ondrop="handleGlobalDrop(event)">
 
     <!-- VY 1: VÄXELN (STARTSIDAN) -->
     <div id="view-home" class="flex-1 flex flex-col items-center justify-center p-6 z-[100] relative">
-        <h1 class="text-4xl font-black text-sky-400 mb-2 text-center shadow-sky-500/20 drop-shadow-lg">Gårds-Kabanossen</h1>
-        <p class="text-slate-400 mb-10 text-sm text-center">Välj enhet för att starta demon</p>
+        <h1 class="text-4xl font-black text-sky-400 mb-2 text-center shadow-sky-500/20 drop-shadow-lg">🐖 Gårds-Kabanossen</h1>
+        <p class="text-slate-400 mb-10 text-sm text-center">Välj vy för att starta demon</p>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
-            <!-- Padda -->
             <button onclick="switchView('view-padda')" class="glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:bg-slate-800 transition group border-sky-500/30 hover:border-sky-400">
                 <div class="text-6xl group-hover:scale-110 transition">💻</div>
                 <h2 class="text-xl font-bold text-sky-400">Arbetsledare</h2>
-                <p class="text-xs text-slate-400 text-center">Padda/Dator med zoom, drag-and-drop och orderbok.</p>
+                <p class="text-xs text-slate-400 text-center">Full planering: Kulpåse, orderbok, drag-and-drop & zoom.</p>
             </button>
-            <!-- Mobil -->
             <button onclick="switchView('view-mobile')" class="glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:bg-slate-800 transition group border-emerald-500/30 hover:border-emerald-400">
                 <div class="text-6xl group-hover:scale-110 transition">📱</div>
                 <h2 class="text-xl font-bold text-emerald-400">Fältarbetare</h2>
-                <p class="text-xs text-slate-400 text-center">Mobilen. Uppgifter i karusell. Vrid skärmen för Miniradar.</p>
+                <p class="text-xs text-slate-400 text-center">Mobilen: Egna pass i karusell. Vrid för Miniradar.</p>
             </button>
-            <!-- TV -->
             <button onclick="switchView('view-tv')" class="glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:bg-slate-800 transition group border-amber-500/30 hover:border-amber-400">
                 <div class="text-6xl group-hover:scale-110 transition">📺</div>
                 <h2 class="text-xl font-bold text-amber-400">Fikarums-TV</h2>
-                <p class="text-xs text-slate-400 text-center">Passiv Dashboard. Automatisk zoom. Inget klick.</p>
+                <p class="text-xs text-slate-400 text-center">Passiv vägg-radar för hela stallet.</p>
             </button>
         </div>
     </div>
 
-    <!-- VY 2: PADDAN (MASTER GANTT) -->
+    <!-- VY 2: ARBETSLEDARE (PADDA / DATOR) -->
     <div id="view-padda" class="hidden h-full w-full flex-col">
-        <header class="glass-panel h-14 flex items-center justify-between px-4 shrink-0 z-50">
-            <h1 class="font-bold text-sky-400">💻 Arbetsledare (Padda)</h1>
-            <button onclick="switchView('view-home')" class="text-xs bg-slate-800 px-3 py-1 rounded text-slate-300">Stäng</button>
+        <!-- TOP-HEADER -->
+        <header class="glass-panel h-14 flex items-center justify-between px-4 shrink-0 z-50 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <button onclick="switchView('view-home')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">◀ Meny</button>
+                <h1 class="text-base font-bold text-sky-400 flex items-center gap-2">🐖 Gårds-Kabanossen <span class="text-slate-500 font-normal text-xs">(Arbetsledare)</span></h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openCreateJobModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow transition">➕ Ny Rutin</button>
+                <button onclick="openAdminModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 rounded-lg text-xs font-bold transition">⚙️ Stallregister</button>
+            </div>
         </header>
-        <div class="flex-1 flex overflow-hidden">
-            <!-- Vänsterkolumn -->
-            <div class="w-48 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
-                <div class="h-10 border-b border-slate-800 p-2 text-[10px] font-bold text-slate-400 uppercase">Stall</div>
-                <div id="padda-left-col" class="flex-1"></div>
-            </div>
-            <!-- Tidslinje -->
-            <div id="padda-timeline-outer" class="flex-1 overflow-x-auto relative bg-slate-950">
-                <div id="padda-timeline-inner" class="min-h-full relative">
-                    <div class="h-10 border-b border-slate-800 sticky top-0 bg-slate-900/90 z-20 flex" id="padda-time-headers"></div>
-                    <div id="padda-nu-linje" class="nu-linje"></div>
-                    <div id="padda-rows" class="relative z-10 pb-8"></div>
+
+        <!-- HUVUDYTA -->
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- SIDOPANEL: KULPÅSEN -->
+            <aside id="resource-panel" ondragover="allowDrop(event)" ondrop="dropJobOnOrderbook(event)" class="w-72 flex flex-col border-r border-slate-800 bg-slate-900/90 shrink-0 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+                <div class="text-xs font-bold text-slate-300 uppercase tracking-wider">🎒 Kulpåsen & Resurser</div>
+                
+                <div class="glass-panel p-3 rounded-xl border border-slate-800">
+                    <div class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-2">👥 Stallpersonal</div>
+                    <div id="pool-personnel" class="flex flex-wrap gap-2 min-h-[40px]"></div>
                 </div>
-            </div>
+                <div class="glass-panel p-3 rounded-xl border border-slate-800">
+                    <div class="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-2">🛠️ Sanering & Verktyg</div>
+                    <div id="pool-tools" class="flex flex-wrap gap-2 min-h-[40px]"></div>
+                </div>
+                <div class="glass-panel p-3 rounded-xl border border-slate-800">
+                    <div class="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">🚜 Maskiner</div>
+                    <div id="pool-machines" class="flex flex-wrap gap-2 min-h-[40px]"></div>
+                </div>
+            </aside>
+
+            <!-- HUVUDINNEHÅLL -->
+            <main class="flex-1 flex flex-col overflow-y-auto p-3 space-y-3 custom-scrollbar">
+                <!-- ORDERBOK -->
+                <section class="glass-panel p-3 rounded-xl border border-slate-800 shrink-0" ondragover="allowDrop(event)" ondrop="dropJobOnOrderbook(event)">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">📋 Ej inplanerade stallpass</span>
+                        <span class="text-[10px] text-slate-500">Dra korten direkt till tidslinjen 👇</span>
+                    </div>
+                    <div id="orderbook-list" class="flex gap-3 overflow-x-auto pb-1 items-center min-h-[70px] custom-scrollbar"></div>
+                </section>
+
+                <!-- TIDSLINJE / GANTT -->
+                <section class="glass-panel p-3 rounded-xl border border-slate-800 flex-1 flex flex-col min-h-[350px] overflow-hidden">
+                    <div class="flex items-center justify-between mb-2 shrink-0">
+                        <span class="text-xs font-bold text-sky-400 uppercase tracking-wider">📅 Dagens Stallrutiner</span>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="adjustZoom(30)" class="px-2 py-0.5 bg-slate-800 text-sky-400 rounded text-xs font-bold border border-slate-700">+ Zooma</button>
+                            <button onclick="adjustZoom(-30)" class="px-2 py-0.5 bg-slate-800 text-sky-400 rounded text-xs font-bold border border-slate-700">- Zooma</button>
+                            <button onclick="resetZoom()" class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded text-xs font-bold border border-slate-700">Återställ</button>
+                        </div>
+                    </div>
+
+                    <div id="timeline-container" class="border border-slate-800 rounded-lg bg-slate-950 flex-1 flex overflow-hidden relative">
+                        <div class="w-52 shrink-0 bg-slate-900 border-r border-slate-800 z-30 flex flex-col">
+                            <div class="h-10 border-b border-slate-800 flex items-center px-3 font-bold text-[10px] text-slate-400 uppercase">Stall / Avd</div>
+                            <div id="padda-left-col" class="flex-1 bg-slate-950"></div>
+                        </div>
+                        <div id="padda-timeline-outer" class="flex-1 overflow-x-auto relative bg-slate-950 custom-scrollbar">
+                            <div id="padda-timeline-inner" class="min-h-full relative">
+                                <div class="h-10 border-b border-slate-800 sticky top-0 bg-slate-900/90 z-20 flex backdrop-blur-md" id="padda-time-headers"></div>
+                                <div id="padda-nu-linje" class="nu-linje"></div>
+                                <div id="padda-rows" class="relative z-10 pb-8"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
         </div>
     </div>
 
-    <!-- VY 3: MOBILEN (Stående = Karusell / Liggande = Radar) -->
+    <!-- VY 3: MOBILEN -->
     <div id="view-mobile" class="hidden h-full w-full bg-slate-950 flex-col relative">
-        <button onclick="switchView('view-home')" class="absolute top-4 right-4 z-50 text-xs bg-slate-800/80 px-3 py-1.5 rounded-full text-slate-300 border border-slate-600 backdrop-blur-md shadow-lg">✕ Avsluta</button>
+        <button onclick="switchView('view-home')" class="absolute top-3 right-3 z-50 text-xs bg-slate-800/80 px-3 py-1 rounded-full text-slate-300 border border-slate-600 backdrop-blur-md">✕ Avsluta</button>
         
-        <!-- MOBIL: STÅENDE (Karusellen) -->
-        <div id="mobile-portrait" class="show-on-mobile-portrait h-full w-full flex-col p-4 pt-12">
-            <div class="text-center mb-6">
-                <h2 class="text-emerald-400 font-bold uppercase tracking-widest text-xs mb-1">Ditt skift, Fritte!</h2>
-                <p class="text-slate-400 text-sm">Svep för att se nästa uppgift</p>
+        <!-- STÅENDE: KARUSELL -->
+        <div id="mobile-portrait" class="show-on-mobile-portrait h-full w-full flex-col p-4 pt-10">
+            <div class="text-center mb-4">
+                <h2 class="text-emerald-400 font-bold uppercase tracking-widest text-xs">Ditt skift, Fritte!</h2>
+                <p class="text-slate-400 text-xs">Svep för nästa pass</p>
             </div>
-            
-            <div class="flex-1 w-full carousel-snap flex gap-4 pb-8 items-center" id="mobile-carousel">
-                <!-- Fylls med JS -->
-            </div>
+            <div class="flex-1 w-full carousel-snap flex gap-4 pb-6 items-center" id="mobile-carousel"></div>
         </div>
 
-        <!-- MOBIL: LIGGANDE (Passiv Miniradar) -->
+        <!-- LIGGANDE: MINIRADAR -->
         <div id="mobile-landscape" class="show-on-mobile-landscape h-full w-full flex-col">
-            <div class="h-8 bg-slate-900 border-b border-slate-800 flex items-center px-4 shrink-0 justify-between">
-                <span class="text-[10px] text-emerald-400 font-bold tracking-widest uppercase">📱 Fält-Radar</span>
-                <span class="text-[10px] text-slate-500">Vrid tillbaka för att bocka av</span>
+            <div class="h-7 bg-slate-900 border-b border-slate-800 flex items-center px-3 shrink-0 justify-between">
+                <span class="text-[9px] text-emerald-400 font-bold tracking-widest uppercase">📱 Fält-Radar</span>
+                <span class="text-[9px] text-slate-500">Vrid tillbaka för avbockning</span>
             </div>
             <div class="flex-1 flex overflow-hidden">
-                <div class="w-32 bg-slate-900/80 border-r border-slate-800 flex flex-col shrink-0">
-                    <div id="mobile-left-col" class="flex-1 overflow-y-hidden"></div>
+                <div class="w-32 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+                    <div id="mobile-left-col" class="flex-1"></div>
                 </div>
                 <div id="mobile-timeline-outer" class="flex-1 overflow-x-auto relative bg-slate-950 pointer-events-none">
                     <div id="mobile-timeline-inner" class="min-h-full relative">
@@ -123,20 +190,20 @@
         </div>
     </div>
 
-    <!-- VY 4: FIKARUM (Passiv Dashboard) -->
+    <!-- VY 4: FIKARUM (TV) -->
     <div id="view-tv" class="hidden h-full w-full flex-col bg-slate-950 pointer-events-none relative">
-        <button onclick="switchView('view-home')" class="absolute top-4 right-4 z-50 text-xs bg-slate-800/80 px-3 py-1.5 rounded-full text-slate-300 pointer-events-auto">✕ Stäng</button>
-        <header class="h-16 flex items-center justify-between px-8 bg-slate-900 border-b border-slate-800 shrink-0">
-            <h1 class="text-xl font-black text-amber-400 uppercase tracking-widest">📺 Gårds-Radar (Förmiddag)</h1>
-            <div class="text-lg text-slate-300 font-mono font-bold" id="tv-clock">00:00</div>
+        <button onclick="switchView('view-home')" class="absolute top-3 right-3 z-50 text-xs bg-slate-800/80 px-3 py-1 rounded-full text-slate-300 pointer-events-auto">✕ Avsluta</button>
+        <header class="h-14 flex items-center justify-between px-6 bg-slate-900 border-b border-slate-800 shrink-0">
+            <h1 class="text-lg font-black text-amber-400 uppercase tracking-widest">📺 Fikarumsskärmen</h1>
+            <div class="text-base text-slate-300 font-mono font-bold" id="tv-clock">00:00</div>
         </header>
         <div class="flex-1 flex overflow-hidden">
-            <div class="w-64 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0">
+            <div class="w-56 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
                 <div id="tv-left-col" class="flex-1"></div>
             </div>
             <div id="tv-timeline-outer" class="flex-1 overflow-hidden relative">
                 <div id="tv-timeline-inner" class="min-h-full relative w-full">
-                    <div class="h-10 border-b border-slate-800 sticky top-0 bg-slate-900/90 z-20 flex" id="tv-time-headers"></div>
+                    <div class="h-8 border-b border-slate-800 sticky top-0 bg-slate-900/90 z-20 flex" id="tv-time-headers"></div>
                     <div id="tv-nu-linje" class="nu-linje"></div>
                     <div id="tv-rows" class="relative z-10"></div>
                 </div>
@@ -144,22 +211,63 @@
         </div>
     </div>
 
+    <!-- MODAL 1: SKAPA JOBB -->
+    <div id="create-job-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200]">
+        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 max-w-md w-full space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-bold text-emerald-400">➕ Skapa Ny Stallrutin</h3>
+                <button onclick="closeCreateJobModal()" class="text-slate-400">✕</button>
+            </div>
+            <form onsubmit="handleCreateJobSubmit(event)" class="space-y-3">
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Stall / Avdelning</label><select id="job-client-select" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100"></select></div>
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Rutinnamn</label><input type="text" id="job-title" placeholder="t.ex. Högtryckstvätt A3" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100"></div>
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tid (Timmar)</label><input type="number" id="job-hours" step="0.5" value="2" min="0.5" max="10" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-100"></div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="closeCreateJobModal()" class="px-3 py-1.5 text-xs text-slate-400">Avbryt</button><button type="submit" class="px-4 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-xs">Spara Pass</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ADMIN -->
+    <div id="admin-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200]">
+        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 max-w-md w-full space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-bold text-sky-400">⚙️ Stallregister & Personal</h3>
+                <button onclick="closeAdminModal()" class="text-slate-400">✕</button>
+            </div>
+            <div class="space-y-2 max-h-60 overflow-y-auto" id="admin-list-content"></div>
+        </div>
+    </div>
+
     <script>
-        // --- 1. DATA ---
-        const farmData = {
-            clients: ['AVD 1 - GRISNING', 'AVD 3 - SLAKTGRIS', 'FODERCENTRALEN'],
+        // --- 1. GÅRDENS DATAMODELL ---
+        const INITIAL_STATE = {
+            clients: ['AVD 1 - GRISNING', 'AVD 3 - SLAKTGRIS', 'FODERCENTRALEN', 'MASKINHALLEN'],
+            resources: [
+                { id: 'r1', name: 'Moa', type: 'person', ownerType: 'inhouse', icon: '👩‍🌾', color: '#0284c7' },
+                { id: 'r2', name: 'Fritte', type: 'person', ownerType: 'inhouse', icon: '👦', color: '#0284c7' },
+                { id: 'r3', name: 'Lovisa', type: 'person', ownerType: 'klaryta', icon: '👩‍⚕️', color: '#16a34a' },
+                { id: 't1', name: 'Tvätt 1', type: 'equipment', ownerType: 'klaryta', icon: '🚿', color: '#16a34a' },
+                { id: 'm1', name: 'Avant', type: 'machine', ownerType: 'inhouse', icon: '🚜', color: '#0284c7' }
+            ],
             jobs: [
-                { id: 'j1', client: 'AVD 3 - SLAKTGRIS', title: 'Högtryckstvätt', startH: 6, startM: 0, durM: 150, assigned: 'Fritte 👦', tool: '🚿', color: '#0284c7' },
-                { id: 'j2', client: 'AVD 1 - GRISNING', title: 'Vaccinering', startH: 8, startM: 30, durM: 90, assigned: 'Moa 👩‍🌾', tool: '💉', color: '#16a34a' },
-                { id: 'j3', client: 'FODERCENTRALEN', title: 'Service Skruv', startH: 10, startM: 15, durM: 120, assigned: 'Fritte 👦', tool: '🔧', color: '#0284c7' }
+                { id: 'j1', client: 'AVD 3 - SLAKTGRIS', billingCompany: 'Klaryta', title: 'Högtryckstvätt & Sanering', status: 'scheduled', assigned: ['r2', 't1'], startH: 6, startM: 30, durM: 210, hours: 3.5 },
+                { id: 'j2', client: 'AVD 1 - GRISNING', billingCompany: 'Klaryta', title: 'Vaccinering Kull 12', status: 'scheduled', assigned: ['r3'], startH: 8, startM: 0, durM: 120, hours: 2.0 },
+                { id: 'j3', client: 'AVD 1 - GRISNING', billingCompany: 'LPV', title: 'Suggflytt inför avvänjning', status: 'unscheduled', assigned: [], startH: null, startM: null, durM: 180, hours: 3.0 },
+                { id: 'j4', client: 'FODERCENTRALEN', billingCompany: 'LPV', title: 'Service Foderskruv', status: 'unscheduled', assigned: [], startH: null, startM: null, durM: 120, hours: 2.0 }
             ]
         };
 
+        let state = JSON.parse(JSON.stringify(INITIAL_STATE));
+        
         const START_HOUR = 6;
         const END_HOUR = 18;
         const TOTAL_HOURS = END_HOUR - START_HOUR;
+        let pxPerHour = 150;
 
-        // --- 2. ROUTING (Byt vy) ---
+        let draggedOrbId = null;
+        let draggedJobId = null;
+
+        // --- 2. SWITCH VIEW ---
         function switchView(viewId) {
             ['view-home', 'view-padda', 'view-mobile', 'view-tv'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
@@ -167,109 +275,229 @@
             });
             document.getElementById(viewId).classList.remove('hidden');
             document.getElementById(viewId).classList.add('flex');
-            
-            if (viewId === 'view-padda') renderPadda();
+
+            if (viewId === 'view-padda') renderPaddaAll();
             if (viewId === 'view-mobile') renderMobile();
             if (viewId === 'view-tv') renderTV();
         }
 
-        // --- 3. RENDER MOTOR (Kan rita upp Padda, TV eller Liggande Mobil) ---
-        function renderGantt(prefix, pxPerHour, rowHeightPx) {
+        // --- 3. RENDERING FOR PADDA (FULL MASTER) ---
+        function renderPaddaAll() {
+            renderKulpase();
+            renderOrderbook();
+            renderGantt('padda', pxPerHour, 80, true);
+            setupZoomAndGestures('padda-timeline-outer');
+        }
+
+        function renderKulpase() {
+            const pP = document.getElementById('pool-personnel');
+            const pT = document.getElementById('pool-tools');
+            const pM = document.getElementById('pool-machines');
+            pP.innerHTML = ''; pT.innerHTML = ''; pM.innerHTML = '';
+
+            const assignedSet = new Set();
+            state.jobs.filter(j => j.status === 'scheduled').forEach(j => j.assigned.forEach(id => assignedSet.add(id)));
+
+            state.resources.forEach(res => {
+                if (assignedSet.has(res.id)) return;
+                const badgeClass = res.ownerType === 'klaryta' ? 'bg-klaryta' : 'bg-lpv';
+                const html = `
+                    <div class="glass-orb orb-liten" style="background-color: ${res.color}" draggable="true" ondragstart="onOrbDragStart(event, '${res.id}')" title="${res.name}">
+                        <span class="z-10">${res.icon}</span>
+                        <span class="owner-badge ${badgeClass}">${res.name.substring(0,3)}</span>
+                    </div>`;
+
+                if (res.type === 'person') pP.innerHTML += html;
+                else if (res.type === 'equipment') pT.innerHTML += html;
+                else pM.innerHTML += html;
+            });
+        }
+
+        function renderOrderbook() {
+            const cont = document.getElementById('orderbook-list'); cont.innerHTML = '';
+            state.jobs.filter(j => j.status === 'unscheduled').forEach(job => {
+                const themeClass = job.billingCompany === 'Klaryta' ? 'glass-panel-kla' : 'glass-panel-lpv';
+                cont.innerHTML += `
+                    <div class="${themeClass} p-2.5 rounded-xl shrink-0 w-52 cursor-grab active:cursor-grabbing shadow" draggable="true" ondragstart="onJobDragStart(event, '${job.id}')">
+                        <div class="flex justify-between text-[9px] font-bold text-sky-400 uppercase"><span>${job.client}</span><span class="text-amber-400">${job.hours}h</span></div>
+                        <div class="font-bold text-xs text-slate-100 truncate">${job.title}</div>
+                    </div>`;
+            });
+            if (!cont.innerHTML) cont.innerHTML = '<span class="text-slate-500 text-xs italic">Alla pass inplanerade!</span>';
+        }
+
+        // --- 4. GENERELL GANTT-RENDERARE ---
+        function renderGantt(prefix, currentPxPerHour, rowHeight, isInteractive = false) {
             const inner = document.getElementById(`${prefix}-timeline-inner`);
-            inner.style.width = `${TOTAL_HOURS * pxPerHour}px`;
+            inner.style.width = `${TOTAL_HOURS * currentPxPerHour}px`;
 
             // Vänsterkolumn
-            const leftCol = document.getElementById(`${prefix}-left-col`);
-            leftCol.innerHTML = farmData.clients.map(c => `
-                <div class="border-b border-slate-800 flex items-center px-3 font-bold text-sky-400" style="height: ${rowHeightPx}px; font-size: ${rowHeightPx > 60 ? '12px' : '9px'}">
-                    ${c}
-                </div>`).join('');
+            document.getElementById(`${prefix}-left-col`).innerHTML = state.clients.map(c => `
+                <div class="border-b border-slate-800/80 flex items-center px-3 font-bold text-sky-400 truncate" style="height: ${rowHeight}px; font-size: ${rowHeight > 60 ? '11px' : '9px'}">${c}</div>
+            `).join('');
 
-            // Tids-headers
-            const headers = document.getElementById(`${prefix}-time-headers`);
+            // Tim-headers
+            const show15min = currentPxPerHour > 200;
             let hHtml = '';
             for (let h = START_HOUR; h < END_HOUR; h++) {
-                hHtml += `<div class="absolute top-0 bottom-0 border-l border-slate-700/80 pl-1 pt-1 font-bold text-slate-400 font-mono" style="left: ${(h - START_HOUR) * pxPerHour}px; font-size: ${rowHeightPx > 60 ? '11px' : '9px'};">${h.toString().padStart(2,'0')}:00</div>`;
+                const left = (h - START_HOUR) * currentPxPerHour;
+                hHtml += `<div class="absolute top-0 bottom-0 border-l border-slate-700/80 pl-1 pt-1 font-bold text-slate-400 font-mono text-[10px]" style="left: ${left}px;">${h.toString().padStart(2,'0')}:00</div>`;
             }
-            headers.innerHTML = hHtml;
+            document.getElementById(`${prefix}-time-headers`).innerHTML = hHtml;
 
-            // Rader & Kort
-            const rows = document.getElementById(`${prefix}-rows`);
-            rows.innerHTML = farmData.clients.map(client => {
-                const myJobs = farmData.jobs.filter(j => j.client === client);
-                const cardsHtml = myJobs.map(job => {
-                    const leftPx = (((job.startH - START_HOUR) * 60) + job.startM) / 60 * pxPerHour;
-                    const widthPx = (job.durM / 60) * pxPerHour;
+            // Rader
+            document.getElementById(`${prefix}-rows`).innerHTML = state.clients.map(client => {
+                const myJobs = state.jobs.filter(j => j.status === 'scheduled' && j.client === client);
+                const cards = myJobs.map(job => {
+                    const left = (((job.startH - START_HOUR) * 60) + job.startM) / 60 * currentPxPerHour;
+                    const width = (job.durM / 60) * currentPxPerHour;
+                    const theme = job.billingCompany === 'Klaryta' ? 'kla' : 'lpv';
+
+                    const orbs = job.assigned.map(resId => {
+                        const r = state.resources.find(x => x.id === resId);
+                        return r ? `<div class="glass-orb orb-liten shrink-0 border border-slate-900 -ml-1.5 first:ml-0" style="background:${r.color}" ${isInteractive ? `draggable="true" ondragstart="onOrbDragStart(event, '${r.id}')"` : ''}><span class="z-10">${r.icon}</span></div>` : '';
+                    }).join('');
+
                     return `
-                        <div class="gantt-job-card" style="left: ${leftPx}px; width: ${widthPx}px; background-color: ${job.color}; opacity: 0.9;">
-                            <span class="text-lg">${job.tool}</span>
-                            <div class="flex flex-col min-w-0">
-                                <span class="text-[10px] font-bold text-white truncate">${job.title}</span>
-                                <span class="text-[8px] text-white/70">${job.assigned}</span>
+                        <div class="gantt-job-card ${theme}" style="left:${left}px; width:${width}px;" 
+                             ${isInteractive ? `draggable="true" ondragstart="onJobDragStart(event, '${job.id}')" ondragover="allowDrop(event)" ondrop="dropOrbOnJob(event, '${job.id}')"` : ''}>
+                            <div class="flex items-center gap-1 min-w-0">
+                                <div class="flex items-center shrink-0">${orbs}</div>
+                                <span class="text-xs font-bold text-white truncate ml-1" style="display: ${width < 90 ? 'none' : 'block'}">${job.title}</span>
                             </div>
                         </div>`;
                 }).join('');
 
-                return `<div class="border-b border-slate-800/40 relative group w-full" style="height: ${rowHeightPx}px;">${cardsHtml}</div>`;
+                return `<div class="border-b border-slate-800/40 relative group w-full" style="height: ${rowHeight}px;" ${isInteractive ? `ondragover="allowDrop(event)" ondrop="dropJobOnTimelineRow(event, '${client}')"` : ''}>${cards}</div>`;
             }).join('');
 
-            // Nu-linje (Demo-läge: Tvingad till 09:30 om utanför arbetstid)
-            const nuLinje = document.getElementById(`${prefix}-nu-linje`);
+            // Nu-linje
             let now = new Date(); let hr = now.getHours(); let min = now.getMinutes();
-            if (hr < START_HOUR || hr >= END_HOUR) { hr = 9; min = 30; }
-            nuLinje.style.left = `${(((hr - START_HOUR) * 60) + min) / 60 * pxPerHour}px`;
+            if (hr < START_HOUR || hr >= END_HOUR) { hr = 10; min = 15; }
+            document.getElementById(`${prefix}-nu-linje`).style.left = `${(((hr - START_HOUR) * 60) + min) / 60 * currentPxPerHour}px`;
         }
 
-        // INITIERA DE OLIKA VYERNA
-        function renderPadda() {
-            renderGantt('padda', 160, 96);
-            setupZoom('padda-timeline-outer');
+        // --- 5. MOBIL & TV VYER ---
+        function renderMobile() {
+            const carousel = document.getElementById('mobile-carousel');
+            const frittesJobs = state.jobs.filter(j => j.assigned.some(rId => state.resources.find(r => r.id === rId && r.name === 'Fritte')));
+            
+            carousel.innerHTML = frittesJobs.map(j => `
+                <div class="carousel-item w-[85vw] shrink-0 h-[55vh] glass-panel rounded-3xl border border-slate-700 p-5 flex flex-col relative overflow-hidden shadow-2xl">
+                    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">${j.client}</div>
+                    <div class="text-2xl font-black text-white mb-2 leading-tight">${j.title}</div>
+                    <div class="text-emerald-400 font-mono text-base mb-auto">⏰ ${j.startH.toString().padStart(2,'0')}:${j.startM.toString().padStart(2,'0')} (${j.hours}h)</div>
+                    <button class="w-full py-4 bg-emerald-600 active:bg-emerald-500 text-white rounded-2xl font-black text-lg shadow-lg" onclick="alert('Passet bockades av!')">✅ BOCKA AV PASS</button>
+                </div>
+            `).join('');
+            if(!carousel.innerHTML) carousel.innerHTML = '<div class="text-slate-500 text-center w-full">Inga tilldelade pass för Fritte just nu!</div>';
+
+            renderGantt('mobile', 100, 45, false);
         }
 
         function renderTV() {
-            // Skala TV-tidslinjen så förmiddagen (6 timmar) fyller skärmen
-            const tvWidth = document.getElementById('tv-timeline-outer').clientWidth;
-            renderGantt('tv', tvWidth / 6, 120); 
+            const outer = document.getElementById('tv-timeline-outer');
+            renderGantt('tv', outer.clientWidth / 6, 100, false);
             setInterval(() => {
-                let now = new Date();
+                const now = new Date();
                 document.getElementById('tv-clock').innerText = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
             }, 1000);
         }
 
-        function renderMobile() {
-            // 1. Rendera karusellen för stående vy (Filtrerat på Frittes uppgifter)
-            const carousel = document.getElementById('mobile-carousel');
-            const frittesJobs = farmData.jobs.filter(j => j.assigned.includes('Fritte'));
-            
-            carousel.innerHTML = frittesJobs.map((j, index) => `
-                <div class="carousel-item w-[85vw] shrink-0 h-[60vh] glass-panel rounded-3xl border border-slate-700 p-6 flex flex-col relative overflow-hidden shadow-2xl">
-                    <div class="absolute -top-10 -right-10 text-9xl opacity-10 blur-sm">${j.tool}</div>
-                    
-                    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">${j.client}</div>
-                    <div class="text-3xl font-black text-white mb-2 leading-tight">${j.title}</div>
-                    <div class="text-emerald-400 font-mono text-lg mb-auto">⏰ ${j.startH.toString().padStart(2,'0')}:${j.startM.toString().padStart(2,'0')} - ${Math.floor(j.startH + (j.durM/60)).toString().padStart(2,'0')}:${(j.durM%60).toString().padStart(2,'0')}</div>
-                    
-                    <div class="flex items-center gap-3 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 mb-6">
-                        <div class="text-3xl">${j.tool}</div>
-                        <div class="text-xs text-slate-300 font-bold">Kräver: ${j.title.split(' ')[0]}</div>
-                    </div>
-                    
-                    <button class="w-full py-5 bg-emerald-600 active:bg-emerald-500 text-white rounded-2xl font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition" onclick="alert('Bra jobbat! Passet bockas av.')">✅ KLAR!</button>
-                    ${index < frittesJobs.length - 1 ? '<div class="absolute bottom-6 right-6 text-slate-500 animate-pulse">Svep ➔</div>' : ''}
-                </div>
-            `).join('');
+        // --- 6. DRAG AND DROP LOGIK ---
+        function onOrbDragStart(e, resId) { e.stopPropagation(); draggedOrbId = resId; draggedJobId = null; e.dataTransfer.setData("type", "orb"); }
+        function onJobDragStart(e, jobId) { draggedJobId = jobId; draggedOrbId = null; e.dataTransfer.setData("type", "job"); }
+        function allowDrop(e) { e.preventDefault(); }
 
-            // 2. Rendera landskaps-radarn
-            renderGantt('mobile', 100, 50); 
+        function dropOrbOnJob(e, targetJobId) {
+            e.preventDefault(); e.stopPropagation();
+            if (draggedOrbId) {
+                state.jobs.forEach(j => j.assigned = j.assigned.filter(id => id !== draggedOrbId));
+                const target = state.jobs.find(j => j.id === targetJobId);
+                if (target && !target.assigned.includes(draggedOrbId)) target.assigned.push(draggedOrbId);
+                renderPaddaAll();
+            }
+            draggedOrbId = null;
         }
 
-        // Padda-zoom
-        function setupZoom(outerId) {
+        function dropJobOnTimelineRow(e, clientName) {
+            e.preventDefault();
+            if (draggedJobId) {
+                const job = state.jobs.find(j => j.id === draggedJobId);
+                if (job) {
+                    const outer = document.getElementById('padda-timeline-outer');
+                    const rect = outer.getBoundingClientRect();
+                    const offsetX = e.clientX - rect.left + outer.scrollLeft;
+                    const hoursFromStart = offsetX / pxPerHour;
+                    let targetHour = Math.floor(START_HOUR + hoursFromStart);
+                    let targetMin = Math.round(((hoursFromStart % 1) * 60) / 15) * 15;
+
+                    job.status = 'scheduled'; job.client = clientName;
+                    job.startH = Math.max(START_HOUR, Math.min(END_HOUR - 1, targetHour));
+                    job.startM = targetMin === 60 ? 0 : targetMin;
+                    renderPaddaAll();
+                }
+            } else if (draggedOrbId) {
+                state.jobs.forEach(j => j.assigned = j.assigned.filter(id => id !== draggedOrbId));
+                renderPaddaAll();
+            }
+            draggedJobId = null; draggedOrbId = null;
+        }
+
+        function dropJobOnOrderbook(e) {
+            e.preventDefault();
+            if (draggedJobId) {
+                const job = state.jobs.find(j => j.id === draggedJobId);
+                if (job) { job.status = 'unscheduled'; job.assigned = []; renderPaddaAll(); }
+            } else if (draggedOrbId) {
+                state.jobs.forEach(j => j.assigned = j.assigned.filter(id => id !== draggedOrbId));
+                renderPaddaAll();
+            }
+            draggedJobId = null; draggedOrbId = null;
+        }
+
+        function handleGlobalDrop(e) {
+            if (draggedOrbId) { state.jobs.forEach(j => j.assigned = j.assigned.filter(id => id !== draggedOrbId)); renderPaddaAll(); }
+            draggedOrbId = null; draggedJobId = null;
+        }
+
+        // --- 7. ZOOM & MODALER ---
+        function adjustZoom(delta) { pxPerHour = Math.max(80, Math.min(400, pxPerHour + delta)); renderPaddaAll(); }
+        function resetZoom() { pxPerHour = 150; renderPaddaAll(); }
+
+        function setupZoomAndGestures(outerId) {
             const outer = document.getElementById(outerId);
+            window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
             outer.addEventListener('wheel', (e) => {
-                if (e.ctrlKey) { e.preventDefault(); outer.scrollLeft += (e.deltaY > 0 ? 50 : -50); }
+                if (e.ctrlKey) { e.preventDefault(); adjustZoom(e.deltaY < 0 ? 30 : -30); }
+                else outer.scrollLeft += e.deltaX;
             }, { passive: false });
         }
+
+        function openCreateJobModal() {
+            document.getElementById('job-client-select').innerHTML = state.clients.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('create-job-modal').classList.remove('hidden'); document.getElementById('create-job-modal').classList.add('flex');
+        }
+        function closeCreateJobModal() { document.getElementById('create-job-modal').classList.add('hidden'); }
+
+        function handleCreateJobSubmit(e) {
+            e.preventDefault();
+            const hours = parseFloat(document.getElementById('job-hours').value) || 2;
+            state.jobs.push({
+                id: 'j_' + Date.now(),
+                client: document.getElementById('job-client-select').value,
+                billingCompany: 'LPV',
+                title: document.getElementById('job-title').value.trim(),
+                status: 'unscheduled', assigned: [], startH: null, startM: null, durM: hours * 60, hours: hours
+            });
+            closeCreateJobModal(); renderPaddaAll();
+        }
+
+        function openAdminModal() {
+            document.getElementById('admin-list-content').innerHTML = state.resources.map(r => `<div class="p-2 bg-slate-950 rounded text-xs flex justify-between"><span>${r.icon} ${r.name}</span><span class="text-slate-500">${r.type}</span></div>`).join('');
+            document.getElementById('admin-modal').classList.remove('hidden'); document.getElementById('admin-modal').classList.add('flex');
+        }
+        function closeAdminModal() { document.getElementById('admin-modal').classList.add('hidden'); }
 
     </script>
 </body>
