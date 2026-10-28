@@ -3,8 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gårds-Kabanossen: Master V9 (Tvåvägs D&D & Rymlig Tidslinje)</title>
+    <title>Gårds-Kabanossen: Master V10 (Fungerande D&D + Touch Support)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- TOUCH POLYFILL FÖR NATIV DRAG-AND-DROP PÅ IPAD / MOBIL -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0/default.css">
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0/index.min.js"></script>
+
     <style>
         body {
             background-color: #0b0f19;
@@ -39,21 +44,23 @@
             box-shadow: inset 0 2px 5px rgba(255,255,255,0.3), 0 4px 12px rgba(0,0,0,0.6);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
             position: relative; cursor: grab; transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            user-select: none; -webkit-user-drag: element;
         }
         .glass-orb:active { cursor: grabbing; transform: scale(0.9); }
         .glass-orb:hover { transform: scale(1.08); z-index: 50; }
-        .owner-badge { position: absolute; bottom: -2px; right: -2px; font-size: 8px; font-weight: 900; padding: 2px 4px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .owner-badge { position: absolute; bottom: -2px; right: -2px; font-size: 8px; font-weight: 900; padding: 2px 4px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); pointer-events: none; }
         
         .bg-lpv { background-color: #0284c7; }
         .bg-klaryta { background-color: #16a34a; }
         .bg-robot { background-color: #8b5cf6; }
 
-        /* GANTT KORT - ÖKAD HÖJD (68px) OCH DUBBELRADIG STRUKTUR */
+        /* GANTT KORT (68px RADHÖJD) */
         .gantt-job-card {
             border-radius: 10px; display: flex; flex-direction: column; justify-content: center; padding: 2px 8px; gap: 1px;
             position: absolute; top: 4px; bottom: 4px; cursor: grab; z-index: 20; 
             box-shadow: 0 4px 14px rgba(0,0,0,0.5);
             transition: left 0.1s ease, width 0.1s ease, transform 0.15s ease;
+            user-select: none; -webkit-user-drag: element;
         }
         .gantt-job-card:hover { transform: translateY(-1px); z-index: 35; }
         .gantt-job-card:active { cursor: grabbing; transform: scale(0.98); }
@@ -69,23 +76,13 @@
         .nu-linje { position: absolute; top: 0; bottom: 0; width: 2px; background: #ef4444; z-index: 45; box-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
         .nu-linje::before { content: 'NU'; position: absolute; top: 0; left: 4px; background: #ef4444; color: white; font-size: 9px; padding: 2px 4px; border-radius: 4px; font-weight: bold; }
 
-        /* SIDOPANELER MED APPLE-ANIMATION */
-        .sidebar-container {
-            width: 270px; 
-            transition: margin-left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); 
-        }
+        /* SIDOPANEL APPLE-SLIDE */
+        .sidebar-container { width: 270px; transition: margin-left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .sidebar-closed { margin-left: -270px; }
 
         /* LOTTERISÄCK FÄLLBAR HÖJD */
-        .sack-container {
-            transition: all 0.3s ease-in-out;
-            max-height: 140px;
-            overflow: hidden;
-        }
-        .sack-closed {
-            max-height: 36px !important;
-            padding-bottom: 0 !important;
-        }
+        .sack-container { transition: all 0.3s ease-in-out; max-height: 140px; overflow: hidden; }
+        .sack-closed { max-height: 36px !important; padding-bottom: 0 !important; }
 
         .show-on-mobile-portrait { display: none !important; }
         .show-on-mobile-landscape { display: none !important; }
@@ -102,22 +99,22 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
     </style>
 </head>
-<body class="h-screen w-screen flex flex-col bg-slate-950 select-none overflow-hidden" ondragover="allowDrop(event)" ondrop="handleGlobalDrop(event)">
+<body class="h-screen w-screen flex flex-col bg-slate-950 select-none overflow-hidden" ondragover="allowDrop(event)">
 
     <!-- STARTSIDAN -->
     <div id="view-home" class="flex-1 flex flex-col items-center justify-center p-6 z-[100] relative">
         <h1 class="text-4xl font-black text-sky-400 mb-2 text-center shadow-sky-500/20 drop-shadow-lg">Gårds-Kabanossen</h1>
-        <p class="text-slate-400 mb-10 text-sm text-center">Master V9 (Höjdboost & Tvåvägs Drag-and-Drop)</p>
+        <p class="text-slate-400 mb-10 text-sm text-center">Master V10 (Fullt fungerande Drag-and-Drop på iPad & Dator)</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
             <button onclick="switchView('view-padda')" class="glass-panel p-8 rounded-3xl flex flex-col items-center group hover:bg-slate-800 transition">
                 <div class="text-5xl mb-4 group-hover:scale-110 transition">💻</div>
                 <h2 class="text-xl font-bold text-sky-400">Arbetsledare (Padda)</h2>
-                <p class="text-xs text-slate-400 text-center mt-2">Dra kort fritt mellan säcken och tidslinjen.</p>
+                <p class="text-xs text-slate-400 text-center mt-2">Dra kort & kulor fritt över tidslinjen.</p>
             </button>
             <button onclick="switchView('view-mobile')" class="glass-panel p-8 rounded-3xl flex flex-col items-center group hover:bg-slate-800 transition">
                 <div class="text-5xl mb-4 group-hover:scale-110 transition">📱</div>
                 <h2 class="text-xl font-bold text-emerald-400">Fältarbetare (Mobil)</h2>
-                <p class="text-xs text-slate-400 text-center mt-2">Skift, Fältradar & Extra Guldkort.</p>
+                <p class="text-xs text-slate-400 text-center mt-2">Dagens skift, Fältradar & Guldkort.</p>
             </button>
         </div>
     </div>
@@ -150,7 +147,7 @@
         </header>
 
         <div class="flex flex-1 overflow-hidden relative">
-            <!-- SIDOPANEL MED APPLE-SLIDE OCH D&D AVATARER -->
+            <!-- SIDOPANEL MED KULOR -->
             <div id="sidebar-wrapper" class="sidebar-container relative flex shrink-0 z-40 bg-slate-900/50 border-r border-slate-800">
                 <aside class="flex-1 flex flex-col p-3 space-y-4 overflow-y-auto custom-scrollbar w-full">
                     <div class="text-[11px] font-bold text-slate-300 uppercase tracking-widest pl-1">Kulpåsen (12)</div>
@@ -171,9 +168,8 @@
                 </button>
             </div>
 
-            <!-- HUVUDYTA MED FÄLLBAR LOTTERISÄCK & TIDSLINJE MED 68px RADER -->
+            <!-- HUVUDYTA MED FÄLLBAR LOTTERISÄCK & TIDSLINJE -->
             <main class="flex-1 flex flex-col p-3 space-y-3 min-w-0">
-                <!-- FÄLLBAR LOTTERISÄCK (DROP ZONE FÖR ATT AVBOKA OCH SÄTTA TILLBAKA KORT) -->
                 <section id="sack-section" class="glass-panel p-3 rounded-2xl border border-slate-800/80 shrink-0 sack-container relative transition-all" 
                          ondragover="allowDrop(event)" ondrop="dropJobOnOrderbook(event)">
                     <div class="flex items-center justify-between mb-2">
@@ -188,7 +184,6 @@
                     <div id="orderbook-list" class="flex gap-3 overflow-x-auto items-center min-h-[50px] custom-scrollbar pb-1"></div>
                 </section>
 
-                <!-- TIDSLINJE MED 68PX RADHÖJD OCH DUBBELRADIGA PASSKORT -->
                 <section class="glass-panel p-0 overflow-hidden rounded-2xl border border-slate-800/80 flex-1 flex flex-col min-h-0">
                     <div class="flex bg-slate-900/80 border-b border-slate-800/80 items-center justify-between px-4 py-1.5 shrink-0">
                         <span class="text-[11px] font-bold text-sky-400 uppercase tracking-widest" id="timeline-title-label">Tidslinje</span>
@@ -259,57 +254,18 @@
         </div>
     </div>
 
-    <!-- MODAL 1: STRÖ & PELLETS -->
-    <div id="modal-stall-config" class="fixed inset-0 modal-backdrop hidden items-center justify-center p-4">
-        <div class="glass-modal p-6 rounded-2xl max-w-md w-full space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-700/50 pb-3">
-                <h3 class="font-bold text-emerald-400 text-sm tracking-wide">⚙️ Inställningar per Stall</h3>
-                <button onclick="closeStallConfigModal()" class="text-slate-400 hover:text-white text-xs">✖</button>
-            </div>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Välj Stall / Enhet:</label>
-                    <select id="config-stall-select" onchange="loadStallConfigToModal()" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 outline-none focus:border-emerald-500"></select>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Strö-sort:</label>
-                    <select id="config-stro-type" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 outline-none">
-                        <option value="Kutterspån">Kutterspån</option>
-                        <option value="Torv">Torv</option>
-                        <option value="Hackad halm">Hackad halm</option>
-                        <option value="Långhalm">Långhalm</option>
-                    </select>
-                </div>
-            </div>
-            <div class="flex justify-end gap-2 pt-4 border-t border-slate-700/50">
-                <button onclick="closeStallConfigModal()" class="px-4 py-2 bg-slate-800 text-xs font-bold rounded-lg text-slate-300">Avbryt</button>
-                <button onclick="closeStallConfigModal()" class="px-4 py-2 bg-emerald-600 text-xs font-bold text-white rounded-lg">Spara</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL 2: SMITTSKYDDS-DIALOG -->
-    <div id="modal-biosecurity" class="fixed inset-0 modal-backdrop hidden items-center justify-center p-4">
-        <div class="glass-modal p-8 rounded-3xl max-w-sm w-full relative overflow-hidden">
-            <div id="bio-dialog-glow" class="absolute top-0 left-0 w-full h-1.5 bg-amber-500"></div>
-            <div class="flex items-center gap-3 mb-4">
-                <span class="text-3xl" id="bio-dialog-icon">🛡️</span>
-                <h3 class="font-black text-lg tracking-wide text-white" id="bio-dialog-title">Aktivera Skärpt Läge?</h3>
-            </div>
-            <p class="text-xs text-slate-300 mb-6" id="bio-dialog-desc">Bekräfta aktivering av Skärpt Smittskyddsläge med sluss-krav och besökslogg.</p>
-            <div class="flex flex-col gap-2">
-                <button id="bio-dialog-confirm-btn" onclick="executeBioSecurityToggle()" class="w-full py-3 bg-amber-600 font-black text-xs text-white rounded-xl">🛡️ Ja, Aktivera</button>
-                <button onclick="closeBioSecurityDialog()" class="w-full py-2 bg-slate-800 text-xs font-bold rounded-xl text-slate-300">Avbryt</button>
-            </div>
-        </div>
-    </div>
-
 <script>
-// SPÄRRAR FÖR IPAD TOUCH
+// SPÄRRAR FÖR IPAD ZOOM
 document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
 document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
 document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { passive: false });
-document.addEventListener('touchmove', function(e) { if (e.touches.length > 1) { e.preventDefault(); } }, { passive: false });
+
+// AKTI VERA TOUCH POLYFILL FÖR IPAD
+if (window.MobileDragDrop) {
+    MobileDragDrop.polyfill({
+        holdToDrag: 150
+    });
+}
 
 const DAYS_TO_RENDER = 147;
 const START_DATE = new Date(2026, 9, 27);
@@ -358,7 +314,7 @@ const state = {
     jobs: []
 };
 
-// FASTA BIOLOGISKA PASS INBOKADE PÅ TIDSLINJEN
+// FASTA PASS INBOKADE DIREKT
 const biologicalMilestones = [
     { id: 'bio-1', dayIndex: 0, client: 'Seminstall (Site 2)', title: 'Insem. Omgång', durM: 240, billingCompany: 'LPV', packlist: ['Semindoser'], assign: ['r1'] },
     { id: 'bio-2', dayIndex: 20, client: 'Seminstall (Site 2)', title: 'Brunstkontroll', durM: 120, billingCompany: 'LPV', packlist: [], assign: ['r1'] },
@@ -404,18 +360,12 @@ let draggedJobId = null;
 let activeGoldJob = null;
 let slussCheckConfirmed = false;
 
-// FÄLLIN/FÄLLUT LOTTERISÄCK
 function toggleLotterisack() {
     lotterisackOpen = !lotterisackOpen;
     const sack = document.getElementById('sack-section');
     const icon = document.getElementById('sack-toggle-icon');
-    if (lotterisackOpen) {
-        sack.classList.remove('sack-closed');
-        icon.innerText = "▲ Fäll ihop";
-    } else {
-        sack.classList.add('sack-closed');
-        icon.innerText = "▼ Visa Lotterisäck";
-    }
+    if (lotterisackOpen) { sack.classList.remove('sack-closed'); icon.innerText = "▲ Fäll ihop"; }
+    else { sack.classList.add('sack-closed'); icon.innerText = "▼ Visa Lotterisäck"; }
 }
 
 function toggleSidebar() {
@@ -517,7 +467,6 @@ function renderGantt(prefix, isInteractive = false) {
     const inner = document.getElementById(`${prefix}-timeline-inner`);
     inner.style.width = `${totalWidthPx}px`;
     
-    // RADERNA I VÄNSTERKOLUMNEN HAR HÖJTS TILL 68PX FÖR MELLANRUM OCH LÄSBARHET
     document.getElementById(`${prefix}-left-col`).innerHTML = state.clients.map(c => `
         <div class="h-[68px] px-2 py-1.5">
             <div class="apple-stall-box h-full flex items-center px-3">
@@ -545,7 +494,6 @@ function renderGantt(prefix, isInteractive = false) {
         if (currentZoomLevel <= 2) {
             for (let h = 6; h < 18; h++) {
                 const hourLeftPx = dayStartPx + ((h - 6) * pxPerHour);
-                
                 if (currentZoomLevel === 0) {
                     headerHtml += `<div class="absolute top-5 bottom-0 border-l border-slate-700/80 pl-1 pt-0.5 text-[8px] font-mono text-slate-400" style="left:${hourLeftPx}px; width:${pxPerHour/2}px">${h.toString().padStart(2,'0')}:00</div>`;
                     headerHtml += `<div class="absolute top-5 bottom-0 border-l border-slate-800/40 pl-1 pt-0.5 text-[7px] font-mono text-slate-600" style="left:${hourLeftPx + pxPerHour/2}px; width:${pxPerHour/2}px">:30</div>`;
@@ -557,7 +505,6 @@ function renderGantt(prefix, isInteractive = false) {
     }
     document.getElementById(`${prefix}-time-headers`).innerHTML = headerHtml;
     
-    // GANTT-KORT PÅ 68PX HÖGA RADER (MED DUBBLA RADER OCH EXAKTA TIDER)
     document.getElementById(`${prefix}-rows`).innerHTML = state.clients.map(client => {
         const myJobs = state.jobs.filter(j => j.status === 'scheduled' && j.client === client);
         
@@ -601,7 +548,6 @@ function renderGantt(prefix, isInteractive = false) {
     nuLinje.style.left = `${((10 - 6) + 15/60) * pxPerHour}px`;
 }
 
-// GULDKORTS-LOTTERI
 function drawGoldCard() {
     const unscheduled = state.jobs.filter(j => j.status === 'unscheduled');
     const display = document.getElementById('gold-card-display');
@@ -672,27 +618,39 @@ function renderMobile() {
 }
 
 // ----------------------------------------------------
-// FULLSTÄNDIG DRAG-AND-DROP MOTOR (TVÅVÄGS)
+// KORRIGERAD & SÄKRAD DRAG-AND-DROP MOTOR (MED DATA-TRANSFER & TOUCH)
 // ----------------------------------------------------
 function onOrbDragStart(e, resId) { 
     e.stopPropagation(); 
     draggedOrbId = resId; 
     draggedJobId = null; 
+    if (e.dataTransfer) {
+        e.dataTransfer.setData('text/plain', resId);
+        e.dataTransfer.effectAllowed = 'copyMove';
+    }
 }
 
 function onJobDragStart(e, jobId) { 
     draggedJobId = jobId; 
     draggedOrbId = null; 
-    e.dataTransfer.setData('text/plain', jobId); 
+    if (e.dataTransfer) {
+        e.dataTransfer.setData('text/plain', jobId);
+        e.dataTransfer.effectAllowed = 'move';
+    }
 }
 
 function allowDrop(e) { 
-    e.preventDefault(); 
+    e.preventDefault();
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'move';
+    }
 }
 
-// DROPPAR ETT KORT ELLER EN ORB PÅ TIDSLINJEN (BOKAR IN ELLER FLYTTAR)
+// DROPPAR ETT KORT PÅ EN TIDSLINJERAD (PLACERAR UT/FLYTTAR I TID OCH RAD)
 function dropJobOnTimelineRow(e, clientName) {
     e.preventDefault();
+    e.stopPropagation(); // Förhindrar att händelsen bubblar upp till body
+    
     if (draggedJobId) {
         const job = state.jobs.find(j => j.id === draggedJobId);
         if (job) { 
@@ -721,7 +679,7 @@ function dropJobOnTimelineRow(e, clientName) {
     }
 }
 
-// DROPPAR EN PERSONALKULA DIREKT PÅ ETT KORT I TIDSLINJEN
+// DROPPAR EN PERSONALKULA DIREKT PÅ ETT KORT
 function dropOrbOnJobCard(e, jobId) {
     e.preventDefault();
     e.stopPropagation();
@@ -736,13 +694,14 @@ function dropOrbOnJobCard(e, jobId) {
     }
 }
 
-// DROPPAR ETT KORT I LOTTERISÄCKEN (SLÄPP FRÅN TIDSLINJEN -> SÄCKEN)
+// DROPPAR ETT KORT I LOTTERISÄCKEN (TIDSLINJE -> LOTTERISÄCK)
 function dropJobOnOrderbook(e) {
     e.preventDefault();
+    e.stopPropagation();
     if (draggedJobId) {
         const job = state.jobs.find(j => j.id === draggedJobId);
         if (job) { 
-            job.status = 'unscheduled'; // Kastas tillbaka till säcken som avvikelse/extrajobb
+            job.status = 'unscheduled'; 
             job.assigned = []; 
             renderPaddaAll(); 
             renderMobile();
@@ -750,8 +709,6 @@ function dropJobOnOrderbook(e) {
         draggedJobId = null;
     }
 }
-
-function handleGlobalDrop(e) { draggedOrbId = null; draggedJobId = null; }
 
 function openStallConfigModal() {} 
 function closeStallConfigModal() {}
