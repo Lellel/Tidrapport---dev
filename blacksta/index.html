@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gårds-Kabanossen: Master V10 (Touch-säkrad Drag & Drop)</title>
+    <title>Gårds-Kabanossen: Master V11 (23 Boxar & Detaljkort)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- TOUCH POLYFILL FÖR NATIV DRAG-AND-DROP PÅ IPAD / MOBIL -->
+    <!-- TOUCH POLYFILL FÖR IPAD / MOBIL DRAG-AND-DROP -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0/default.css">
     <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0/index.min.js"></script>
 
@@ -19,7 +19,6 @@
             touch-action: pan-x pan-y;
         }
         
-        /* OBLIGATORISK FÖR ATT KUNNA DRA SAKER MED FINGRET (IPAD) */
         .drag-item {
             touch-action: none !important;
             user-select: none;
@@ -33,7 +32,7 @@
         .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
         .glass-panel-lpv { background: rgba(2, 132, 199, 0.15); backdrop-filter: blur(16px); border: 1px solid rgba(2, 132, 199, 0.4); }
         .glass-panel-routine { background: rgba(16, 185, 129, 0.12); backdrop-filter: blur(16px); border: 1px solid rgba(16, 185, 129, 0.3); }
-        .glass-modal { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); }
+        .glass-modal { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85); }
         
         /* GULDKORT ANIMATION */
         .gold-card {
@@ -73,7 +72,7 @@
         .gantt-job-card:active { transform: scale(0.98); }
         .gantt-job-card.lpv { background: linear-gradient(145deg, rgba(2, 105, 164, 0.95) 0%, rgba(7, 89, 133, 0.95) 100%); border: 1px solid rgba(14, 165, 233, 0.6); }
         .gantt-job-card.robot { background: linear-gradient(145deg, rgba(109, 40, 217, 0.95) 0%, rgba(76, 29, 149, 0.95) 100%); border: 1px solid rgba(167, 139, 250, 0.6); }
-        .gantt-job-card.routine { background: linear-gradient(145deg, rgba(5, 150, 105, 0.95) 0%, rgba(4, 120, 87, 0.95) 100%); border: 1px solid rgba(52, 211, 153, 0.6); }
+        .gantt-job-card.routine { background: linear-gradient(145deg, rgba(5, 150, 105, 0.85) 0%, rgba(4, 120, 87, 0.85) 100%); border: 1px solid rgba(52, 211, 153, 0.5); }
         
         .apple-stall-box {
             background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -83,11 +82,9 @@
         .nu-linje { position: absolute; top: 0; bottom: 0; width: 2px; background: #ef4444; z-index: 45; box-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
         .nu-linje::before { content: 'NU'; position: absolute; top: 0; left: 4px; background: #ef4444; color: white; font-size: 9px; padding: 2px 4px; border-radius: 4px; font-weight: bold; pointer-events: none; }
 
-        /* SIDOPANEL APPLE-SLIDE */
         .sidebar-container { width: 270px; transition: margin-left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .sidebar-closed { margin-left: -270px; }
 
-        /* LOTTERISÄCK FÄLLBAR HÖJD */
         .sack-container { transition: all 0.3s ease-in-out; max-height: 140px; overflow: hidden; }
         .sack-closed { max-height: 36px !important; padding-bottom: 0 !important; }
 
@@ -106,19 +103,18 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
     </style>
 </head>
-<!-- Global drop listener to catch and reset anything dropped outside -->
 <body class="h-screen w-screen flex flex-col bg-slate-950 select-none overflow-hidden" 
       ondragover="allowDrop(event)" ondragenter="allowDrop(event)" ondrop="handleGlobalDrop(event)">
 
     <!-- STARTSIDAN -->
     <div id="view-home" class="flex-1 flex flex-col items-center justify-center p-6 z-[100] relative">
         <h1 class="text-4xl font-black text-sky-400 mb-2 text-center shadow-sky-500/20 drop-shadow-lg">Gårds-Kabanossen</h1>
-        <p class="text-slate-400 mb-10 text-sm text-center">Master V10 (Touch-säkrad Drag & Drop)</p>
+        <p class="text-slate-400 mb-10 text-sm text-center">Master V11 (23 Boxar & Klickbara Uppdragskort)</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
             <button onclick="switchView('view-padda')" class="glass-panel p-8 rounded-3xl flex flex-col items-center group hover:bg-slate-800 transition">
                 <div class="text-5xl mb-4 group-hover:scale-110 transition">💻</div>
                 <h2 class="text-xl font-bold text-sky-400">Arbetsledare (Padda)</h2>
-                <p class="text-xs text-slate-400 text-center mt-2">Dra kort & kulor fritt över tidslinjen.</p>
+                <p class="text-xs text-slate-400 text-center mt-2">Klicka på pass för villkor & 23-boxars logik.</p>
             </button>
             <button onclick="switchView('view-mobile')" class="glass-panel p-8 rounded-3xl flex flex-col items-center group hover:bg-slate-800 transition">
                 <div class="text-5xl mb-4 group-hover:scale-110 transition">📱</div>
@@ -156,7 +152,6 @@
         </header>
 
         <div class="flex flex-1 overflow-hidden relative">
-            <!-- SIDOPANEL MED KULOR -->
             <div id="sidebar-wrapper" class="sidebar-container relative flex shrink-0 z-40 bg-slate-900/50 border-r border-slate-800">
                 <aside class="flex-1 flex flex-col p-3 space-y-4 overflow-y-auto custom-scrollbar w-full">
                     <div class="text-[11px] font-bold text-slate-300 uppercase tracking-widest pl-1">Kulpåsen (12)</div>
@@ -178,7 +173,6 @@
             </div>
 
             <main class="flex-1 flex flex-col p-3 space-y-3 min-w-0">
-                <!-- FÄLLBAR LOTTERISÄCK (DROP ZONE) -->
                 <section id="sack-section" class="glass-panel p-3 rounded-2xl border border-slate-800/80 shrink-0 sack-container relative transition-all" 
                          ondragover="allowDrop(event)" ondragenter="allowDrop(event)" ondrop="dropJobOnOrderbook(event)">
                     <div class="flex items-center justify-between mb-2">
@@ -196,7 +190,7 @@
                 <section class="glass-panel p-0 overflow-hidden rounded-2xl border border-slate-800/80 flex-1 flex flex-col min-h-0">
                     <div class="flex bg-slate-900/80 border-b border-slate-800/80 items-center justify-between px-4 py-1.5 shrink-0">
                         <span class="text-[11px] font-bold text-sky-400 uppercase tracking-widest" id="timeline-title-label">Tidslinje</span>
-                        <span class="text-[10px] text-emerald-400 font-bold">📅 Toppskiktet visar alltid Veckodag & Datum</span>
+                        <span class="text-[10px] text-emerald-400 font-bold">📅 Kapacitet: 23 Boxar per Stall</span>
                     </div>
                     <div class="flex flex-1 overflow-hidden bg-slate-950/50">
                         <div class="w-40 shrink-0 bg-slate-900/60 border-r border-slate-800/80 z-30 flex flex-col">
@@ -246,20 +240,20 @@
         </div>
     </div>
 
-    <!-- MODAL 1: STRÖ & PELLETS -->
+    <!-- MODAL 1: STRÖ & PELLETS INSTÄLLNINGAR -->
     <div id="modal-stall-config" class="fixed inset-0 modal-backdrop hidden items-center justify-center p-4 z-[200]">
         <div class="glass-modal p-6 rounded-2xl max-w-md w-full space-y-4">
             <div class="flex justify-between items-center border-b border-slate-700/50 pb-3">
-                <h3 class="font-bold text-emerald-400 text-sm tracking-wide">⚙️ Inställningar per Stall</h3>
+                <h3 class="font-bold text-emerald-400 text-sm tracking-wide">⚙️ Gårdens Stallinställningar</h3>
                 <button onclick="closeStallConfigModal()" class="text-slate-400 hover:text-white text-xs">✖</button>
             </div>
             <div class="space-y-3">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Välj Stall / Enhet:</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Välj Stall / Enhet (23 Boxar):</label>
                     <select id="config-stall-select" onchange="loadStallConfigToModal()" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 outline-none focus:border-emerald-500"></select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Strö-sort:</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Standard Strö-sort:</label>
                     <select id="config-stro-type" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 outline-none">
                         <option value="Kutterspån">Kutterspån</option>
                         <option value="Torv">Torv</option>
@@ -291,22 +285,91 @@
         </div>
     </div>
 
+    <!-- MODAL 3: UPPDRAGSKORT DETALJER (KLICKBART KORT - ÄNDRING 1, 2 & 3) -->
+    <div id="modal-job-detail" class="fixed inset-0 modal-backdrop hidden items-center justify-center p-4 z-[250]">
+        <div class="glass-modal p-6 rounded-3xl max-w-md w-full space-y-4 relative border border-slate-700/60 shadow-2xl">
+            <div class="flex justify-between items-start border-b border-slate-700/50 pb-3">
+                <div>
+                    <span id="detail-job-stall" class="text-[10px] font-black uppercase text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded-full border border-sky-600/40">Stall</span>
+                    <h3 id="detail-job-title" class="font-black text-xl text-white mt-1">Uppdragets Titel</h3>
+                </div>
+                <button onclick="closeJobDetailModal()" class="text-slate-400 hover:text-white text-xs font-bold bg-slate-800 p-1.5 rounded-lg">✖</button>
+            </div>
+
+            <!-- EXAKT SCHEMALAGD TID OCH PERSONAL -->
+            <div class="grid grid-cols-2 gap-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-800">
+                <div>
+                    <span class="text-[9px] font-bold text-slate-400 uppercase block">🕒 Schemalagd Tid:</span>
+                    <span id="detail-job-time" class="text-xs font-mono font-bold text-emerald-400">06:30 - 10:30 (4 tim)</span>
+                </div>
+                <div>
+                    <span class="text-[9px] font-bold text-slate-400 uppercase block">👨‍🌾 Tilldelad Personal:</span>
+                    <div id="detail-job-assigned" class="flex items-center gap-1 mt-0.5"></div>
+                </div>
+            </div>
+
+            <!-- ÄNDRING 3/3: 23 BOXAR OCH TVÄTTROBOTS-BERÄKNING -->
+            <div id="detail-robot-box-calc" class="hidden bg-purple-950/40 border border-purple-500/40 p-3 rounded-2xl text-xs space-y-1">
+                <div class="flex items-center gap-1.5 font-bold text-purple-300">
+                    <span>🤖 Tvättrobotens Kapacitet & Tidsberäkning</span>
+                </div>
+                <p class="text-[11px] text-purple-200/80">Kapacitet: <strong class="text-white">23 boxar</strong> per avdelning.</p>
+                <p class="text-[11px] text-purple-200/80">Tidsformel: <strong class="text-emerald-400">23 boxar × 20 min/box = 460 minuter (7,6 timmar)</strong>.</p>
+            </div>
+
+            <!-- ÄNDRING 2/3: REDIGERBARA FÄLT FÖR STRÖ OCH PELLETS NÄR PASS ÄR RUTIN -->
+            <div id="detail-routine-edit-section" class="hidden bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                <span class="text-[10px] font-bold uppercase text-emerald-400 block tracking-wider">⚙️ Redigera Strö & Pellets för detta pass:</span>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Strö-sort:</label>
+                        <select id="detail-edit-stro" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200">
+                            <option value="Kutterspån">Kutterspån</option>
+                            <option value="Torv">Torv</option>
+                            <option value="Hackad halm">Hackad halm</option>
+                            <option value="Långhalm">Långhalm</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Pellets-mängd:</label>
+                        <input type="text" id="detail-edit-pellets-amount" placeholder="t.ex. 5 kg Halmpellets" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- PACKLISTA & ANMÄRKNINGAR -->
+            <div id="detail-packlist-section" class="bg-amber-950/30 border border-amber-500/30 p-3 rounded-2xl hidden">
+                <span class="text-[10px] font-bold uppercase text-amber-400 block mb-1">🎒 Packlista & Material för 23 Boxar:</span>
+                <div id="detail-packlist-tags" class="flex flex-wrap gap-1"></div>
+            </div>
+
+            <!-- MODAL ACTION-KNAPPAR -->
+            <div class="flex justify-between items-center pt-2">
+                <button onclick="sendActiveJobToSack()" class="px-3.5 py-2 bg-amber-900/40 hover:bg-amber-800/60 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition">
+                    🎁 Kasta till Lotterisäcken
+                </button>
+                <div class="flex gap-2">
+                    <button onclick="closeJobDetailModal()" class="px-3.5 py-2 bg-slate-800 text-xs font-bold rounded-xl text-slate-300">Stäng</button>
+                    <button onclick="saveJobDetailChanges()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-black text-white rounded-xl shadow-[0_0_10px_rgba(16,185,129,0.3)] transition">
+                        Spara Ändringar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <script>
-// --- INITIATE IPAD TOUCH TO DRAG POLYFILL ---
 if (window.MobileDragDrop) {
     MobileDragDrop.polyfill({
         holdToDrag: 150, 
         dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
     });
-    // Förhindra att sidan rullar när man touch-drar
     window.addEventListener('touchmove', function() {}, {passive: false});
 }
 
-// SPÄRRAR FÖR IPAD ZOOM & SCROLL
 document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
 document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
 document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { passive: false });
-document.addEventListener('touchmove', function(e) { if (e.touches.length > 1) { e.preventDefault(); } }, { passive: false });
 
 const DAYS_TO_RENDER = 147;
 const START_DATE = new Date(2026, 9, 27);
@@ -334,6 +397,7 @@ const stallConfigs = {
 let bioSecurityMode = false;
 let sidebarOpen = true;
 let lotterisackOpen = true;
+let activeDetailJobId = null;
 
 const state = {
     clients: STALLS,
@@ -355,19 +419,19 @@ const state = {
     jobs: []
 };
 
-// LÄGG UPP BIOLOGISKA PASS & RUTINER
+// ÄNDRING 3/3: TVÄTTROBOTENS PASS BERÄKNAR TIDER OCH TITEL BASERAT PÅ 23 BOXAR (460 MIN / 7.6 TIM)
 const biologicalMilestones = [
-    { id: 'bio-1', dayIndex: 0, client: 'Seminstall (Site 2)', title: 'Insem. Omgång', durM: 240, billingCompany: 'LPV', packlist: ['Semindoser'], assign: ['r1'] },
+    { id: 'bio-1', dayIndex: 0, client: 'Seminstall (Site 2)', title: 'Insem. Omgång (23 suggor)', durM: 240, billingCompany: 'LPV', packlist: ['Semindoser (23 st)', 'Katetrar'], assign: ['r1'] },
     { id: 'bio-2', dayIndex: 20, client: 'Seminstall (Site 2)', title: 'Brunstkontroll', durM: 120, billingCompany: 'LPV', packlist: [], assign: ['r1'] },
     { id: 'bio-3', dayIndex: 41, client: 'Seminstall (Site 2)', title: 'Dräktighetstest', durM: 120, billingCompany: 'LPV', packlist: ['Ultraljudsscanner'], assign: ['r1'] },
-    { id: 'bio-4', dayIndex: 59, client: 'Stall 1', title: 'Improvac 1', durM: 180, billingCompany: 'LPV', packlist: ['Improvac'], assign: ['r1'] },
-    { id: 'bio-5', dayIndex: 107, client: 'Stall 7BB (Site 2)', title: 'Tvättrobot Sanering', durM: 480, billingCompany: 'Robot', packlist: [], assign: ['r13'] },
-    { id: 'bio-6', dayIndex: 109, client: 'Stall 7BB (Site 2)', title: 'Suggflytt till BB', durM: 180, billingCompany: 'LPV', packlist: ['Drivskivor'], assign: ['r2'] },
-    { id: 'bio-7', dayIndex: 114, client: 'Stall 7BB (Site 2)', title: 'Grisning', durM: 720, billingCompany: 'LPV', packlist: ['Handdukar'], assign: ['r2'] },
-    { id: 'bio-8', dayIndex: 116, client: 'Stall 7BB (Site 2)', title: 'Järn & Kastrering', durM: 240, billingCompany: 'LPV', packlist: ['Järnspruta', 'Kniv'], assign: ['r2'] },
-    { id: 'bio-9', dayIndex: 129, client: 'Stall 7BB (Site 2)', title: 'Vaccinering PCV2', durM: 180, billingCompany: 'LPV', packlist: ['Vaccin'], assign: ['r1'] },
-    { id: 'bio-10', dayIndex: 134, client: 'Stall 1', title: 'Improvac 2', durM: 180, billingCompany: 'LPV', packlist: ['Improvac'], assign: ['r1'] },
-    { id: 'bio-11', dayIndex: 142, client: 'Stall 7BB (Site 2)', title: 'Avvänjning', durM: 300, billingCompany: 'LPV', packlist: ['Drivskivor'], assign: ['r2'] },
+    { id: 'bio-4', dayIndex: 59, client: 'Stall 1', title: 'Improvac 1 (23 st)', durM: 180, billingCompany: 'LPV', packlist: ['Improvac (23 doser)'], assign: ['r1'] },
+    { id: 'bio-5', dayIndex: 107, client: 'Stall 7BB (Site 2)', title: 'Tvättrobot Sanering (23 boxar)', durM: 460, billingCompany: 'Robot', packlist: ['Högtrycksslang', 'Rengöringsmedel'], assign: ['r13'] },
+    { id: 'bio-6', dayIndex: 109, client: 'Stall 7BB (Site 2)', title: 'Suggflytt till BB (23 st)', durM: 180, billingCompany: 'LPV', packlist: ['Drivskivor'], assign: ['r2'] },
+    { id: 'bio-7', dayIndex: 114, client: 'Stall 7BB (Site 2)', title: 'Grisning (23 boxar)', durM: 720, billingCompany: 'LPV', packlist: ['Handdukar', 'Värmelampor'], assign: ['r2'] },
+    { id: 'bio-8', dayIndex: 116, client: 'Stall 7BB (Site 2)', title: 'Järn & Kastrering (23 kullar)', durM: 240, billingCompany: 'LPV', packlist: ['Järnspruta', 'Kniv'], assign: ['r2'] },
+    { id: 'bio-9', dayIndex: 129, client: 'Stall 7BB (Site 2)', title: 'Vaccinering PCV2', durM: 180, billingCompany: 'LPV', packlist: ['PCV2-Vaccin (23 kullar)'], assign: ['r1'] },
+    { id: 'bio-10', dayIndex: 134, client: 'Stall 1', title: 'Improvac 2 (23 st)', durM: 180, billingCompany: 'LPV', packlist: ['Improvac'], assign: ['r1'] },
+    { id: 'bio-11', dayIndex: 142, client: 'Stall 7BB (Site 2)', title: 'Avvänjning (23 boxar)', durM: 300, billingCompany: 'LPV', packlist: ['Drivskivor', 'Våg'], assign: ['r2'] },
     { id: 'bio-12', dayIndex: 146, client: 'Seminstall (Site 2)', title: 'Galt-exponering', durM: 120, billingCompany: 'LPV', packlist: ['Galtsele'], assign: ['r2'] }
 ];
 
@@ -378,13 +442,14 @@ biologicalMilestones.forEach(m => {
     });
 });
 
+// ÄNDRING 1/3: RUTINEN LÖPER ÖVER 4 TIMMAR (06:30 - 10:30) LÄNGS FÖRMIDDAGEN
 STALLS.forEach((stallName, idx) => {
     const cfg = stallConfigs[stallName];
     let pText = cfg.pelletsActive ? ` + ${cfg.pelletsAmount}` : '';
     state.jobs.push({
         id: `routine-0-${idx}`, dayIndex: 0, client: stallName, 
-        title: `Skrapa & Strö (${cfg.stro}${pText})`, assigned: ['r2'], 
-        startH: 6, startM: (idx * 45) % 60, durM: 45, status: 'scheduled', billingCompany: 'Routine', packlist: []
+        title: `Skrapa & Strö 23 boxar (${cfg.stro}${pText})`, assigned: ['r2'], 
+        startH: 6, startM: 30, durM: 240, status: 'scheduled', billingCompany: 'Routine', packlist: []
     });
 });
 
@@ -402,38 +467,26 @@ let activeGoldJob = null;
 let slussCheckConfirmed = false;
 
 // ----------------------------------------------------
-// DRAG AND DROP KÄRNA (SÄKRAD OCH EVENT-ISOLERAD)
+// DRAG AND DROP LOGIK
 // ----------------------------------------------------
-
 function onOrbDragStart(e, resId) { 
     e.stopPropagation(); 
     draggedOrbId = resId; 
     draggedJobId = null; 
-    if (e.dataTransfer) {
-        e.dataTransfer.setData('text/plain', resId);
-        e.dataTransfer.effectAllowed = 'copyMove';
-    }
+    if (e.dataTransfer) { e.dataTransfer.setData('text/plain', resId); e.dataTransfer.effectAllowed = 'copyMove'; }
 }
 
 function onJobDragStart(e, jobId) { 
     e.stopPropagation(); 
     draggedJobId = jobId; 
     draggedOrbId = null; 
-    if (e.dataTransfer) {
-        e.dataTransfer.setData('text/plain', jobId);
-        e.dataTransfer.effectAllowed = 'move';
-    }
+    if (e.dataTransfer) { e.dataTransfer.setData('text/plain', jobId); e.dataTransfer.effectAllowed = 'move'; }
 }
 
-function allowDrop(e) { 
-    e.preventDefault(); 
-    if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; }
-}
+function allowDrop(e) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; }
 
 function dropJobOnTimelineRow(e, clientName) {
-    e.preventDefault();
-    e.stopPropagation(); 
-    
+    e.preventDefault(); e.stopPropagation(); 
     if (draggedJobId) {
         const job = state.jobs.find(j => j.id === draggedJobId);
         if (job) { 
@@ -454,58 +507,137 @@ function dropJobOnTimelineRow(e, clientName) {
             job.startM = targetMin;
             job.status = 'scheduled'; 
             job.client = clientName; 
-            
-            renderPaddaAll(); 
-            renderMobile();
+            renderPaddaAll(); renderMobile();
         }
         draggedJobId = null;
     }
 }
 
 function dropOrbOnJobCard(e, jobId) {
-    // VIKTIGT: Vi dödar bara eventet HÄR om det vi drar är en KULA (Avatar). 
-    // Om vi drar ett JOBB låter vi händelsen passera rakt igenom kortet 
-    // och falla ner på `dropJobOnTimelineRow` istället!
     if (draggedOrbId) {
-        e.preventDefault();
-        e.stopPropagation();
-        
+        e.preventDefault(); e.stopPropagation();
         const job = state.jobs.find(j => j.id === jobId);
         if (job && !job.assigned.includes(draggedOrbId)) {
             job.assigned.push(draggedOrbId);
-            renderPaddaAll();
-            renderMobile();
+            renderPaddaAll(); renderMobile();
         }
         draggedOrbId = null;
     }
 }
 
 function dropJobOnOrderbook(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
+    e.preventDefault(); e.stopPropagation();
     if (draggedJobId) {
         const job = state.jobs.find(j => j.id === draggedJobId);
         if (job) { 
-            job.status = 'unscheduled'; 
-            job.assigned = []; 
-            renderPaddaAll(); 
-            renderMobile();
+            job.status = 'unscheduled'; job.assigned = []; 
+            renderPaddaAll(); renderMobile();
         }
         draggedJobId = null;
     }
 }
 
-function handleGlobalDrop(e) { 
-    e.preventDefault(); 
-    draggedOrbId = null; 
-    draggedJobId = null; 
+function handleGlobalDrop(e) { e.preventDefault(); draggedOrbId = null; draggedJobId = null; }
+
+// ----------------------------------------------------
+// KLICKBARA UPPDRAGSKORT & MODAL LOGIK (ÄNDRING 1, 2 & 3)
+// ----------------------------------------------------
+function openJobDetailModal(jobId) {
+    activeDetailJobId = jobId;
+    const job = state.jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    document.getElementById('detail-job-stall').innerText = `${job.client} (23 boxar)`;
+    document.getElementById('detail-job-title').innerText = job.title;
+
+    const endMTotal = (job.startH * 60 + job.startM) + job.durM;
+    const endH = Math.floor(endMTotal / 60);
+    const endM = endMTotal % 60;
+    const timeStr = `${job.startH.toString().padStart(2,'0')}:${job.startM.toString().padStart(2,'0')} - ${endH.toString().padStart(2,'0')}:${endM.toString().padStart(2,'0')} (${job.durM} min)`;
+    document.getElementById('detail-job-time').innerText = timeStr;
+
+    // Visa tilldelade kulor
+    const assignedContainer = document.getElementById('detail-job-assigned');
+    if (job.assigned.length === 0) {
+        assignedContainer.innerHTML = '<span class="text-xs text-slate-500 italic">Ingen tilldelad</span>';
+    } else {
+        assignedContainer.innerHTML = job.assigned.map(resId => {
+            const r = state.resources.find(x => x.id === resId);
+            return r ? `<div class="glass-orb text-xs font-bold" style="background-color:${r.color}; width:24px; height:24px;">${r.icon}</div>` : '';
+        }).join('');
+    }
+
+    // Visa 23-boxars tvätt-kalkyl om robot
+    const robotCalc = document.getElementById('detail-robot-box-calc');
+    if (job.billingCompany === 'Robot') {
+        robotCalc.classList.remove('hidden');
+    } else {
+        robotCalc.classList.add('hidden');
+    }
+
+    // Visa redigeringsfält för strö/pellets om rutin
+    const routineEdit = document.getElementById('detail-routine-edit-section');
+    if (job.billingCompany === 'Routine') {
+        routineEdit.classList.remove('hidden');
+        const cfg = stallConfigs[job.client] || { stro: 'Kutterspån', pelletsAmount: '5 kg' };
+        document.getElementById('detail-edit-stro').value = cfg.stro;
+        document.getElementById('detail-edit-pellets-amount').value = cfg.pelletsAmount || '5 kg Halmpellets';
+    } else {
+        routineEdit.classList.add('hidden');
+    }
+
+    // Visa packlista
+    const packlistSection = document.getElementById('detail-packlist-section');
+    const packlistTags = document.getElementById('detail-packlist-tags');
+    if (job.packlist && job.packlist.length > 0) {
+        packlistSection.classList.remove('hidden');
+        packlistTags.innerHTML = job.packlist.map(p => `<span class="text-[9px] bg-amber-500/20 text-amber-200 border border-amber-500/30 font-mono px-2 py-0.5 rounded-md">${p}</span>`).join('');
+    } else {
+        packlistSection.classList.add('hidden');
+    }
+
+    document.getElementById('modal-job-detail').classList.remove('hidden');
+    document.getElementById('modal-job-detail').classList.add('flex');
+}
+
+function closeJobDetailModal() {
+    document.getElementById('modal-job-detail').classList.add('hidden');
+    document.getElementById('modal-job-detail').classList.remove('flex');
+    activeDetailJobId = null;
+}
+
+function saveJobDetailChanges() {
+    if (activeDetailJobId) {
+        const job = state.jobs.find(j => j.id === activeDetailJobId);
+        if (job && job.billingCompany === 'Routine') {
+            const newStro = document.getElementById('detail-edit-stro').value;
+            const newPellets = document.getElementById('detail-edit-pellets-amount').value;
+            
+            if (stallConfigs[job.client]) {
+                stallConfigs[job.client].stro = newStro;
+                stallConfigs[job.client].pelletsAmount = newPellets;
+            }
+            job.title = `Skrapa & Strö 23 boxar (${newStro} + ${newPellets})`;
+            renderPaddaAll(); renderMobile();
+        }
+    }
+    closeJobDetailModal();
+}
+
+function sendActiveJobToSack() {
+    if (activeDetailJobId) {
+        const job = state.jobs.find(j => j.id === activeDetailJobId);
+        if (job) {
+            job.status = 'unscheduled'; job.assigned = [];
+            renderPaddaAll(); renderMobile();
+        }
+    }
+    closeJobDetailModal();
 }
 
 // ----------------------------------------------------
 // UI OCH RENDERING
 // ----------------------------------------------------
-
 function toggleLotterisack() {
     lotterisackOpen = !lotterisackOpen;
     const sack = document.getElementById('sack-section');
@@ -594,8 +726,8 @@ function renderOrderbook() {
         const siteTag = isSite2 ? `<span class="bg-amber-500/30 text-amber-300 text-[8px] font-black px-1.5 py-0.5 rounded ml-1">🚗</span>` : '';
 
         cont.innerHTML += `
-            <div class="${themeClass} drag-item p-2 rounded-xl shrink-0 w-48 shadow-lg backdrop-blur-md hover:scale-105 transition" 
-                 draggable="true" ondragstart="onJobDragStart(event, '${job.id}')">
+            <div class="${themeClass} drag-item p-2 rounded-xl shrink-0 w-48 shadow-lg backdrop-blur-md hover:scale-105 transition cursor-pointer" 
+                 draggable="true" ondragstart="onJobDragStart(event, '${job.id}')" onclick="openJobDetailModal('${job.id}')">
                 <div class="flex justify-between items-center text-[8px] font-bold text-sky-400 uppercase mb-0.5">
                     <span class="truncate pr-1">${job.client} ${siteTag}</span>
                     <span class="shrink-0 text-slate-400">D${job.dayIndex+1}</span>
@@ -617,7 +749,10 @@ function renderGantt(prefix, isInteractive = false) {
         <div class="h-[68px] px-2 py-1.5">
             <div class="apple-stall-box h-full flex items-center px-3">
                 <div class="w-2.5 h-2.5 rounded-full ${getStallColor(c)} mr-2.5 shrink-0"></div>
-                <span class="font-bold text-xs text-slate-200 tracking-wide truncate">${c}</span>
+                <div class="truncate">
+                    <span class="font-bold text-xs text-slate-200 tracking-wide block truncate">${c}</span>
+                    <span class="text-[8px] font-mono text-slate-400">23 boxar</span>
+                </div>
             </div>
         </div>
     `).join('');
@@ -676,6 +811,7 @@ function renderGantt(prefix, isInteractive = false) {
             
             return `
                 <div class="gantt-job-card drag-item ${theme}" style="left:${leftPx}px; width:${widthPx}px;" 
+                     onclick="openJobDetailModal('${job.id}')"
                      ${isInteractive ? `draggable="true" ondragstart="onJobDragStart(event, '${job.id}')" ondrop="dropOrbOnJobCard(event, '${job.id}')" ondragover="allowDrop(event)" ondragenter="allowDrop(event)"` : ''}>
                     <div class="flex items-center justify-between w-full min-w-0">
                         <span class="text-[10px] font-black text-white truncate leading-tight">${job.title}</span>
@@ -718,14 +854,10 @@ function drawGoldCard() {
 
 function acceptGoldCard() {
     if (activeGoldJob) {
-        activeGoldJob.status = 'scheduled';
-        activeGoldJob.assigned = ['r2'];
-        activeGoldJob.startH = 11;
-        activeGoldJob.startM = 0;
-        activeGoldJob = null;
+        activeGoldJob.status = 'scheduled'; activeGoldJob.assigned = ['r2'];
+        activeGoldJob.startH = 11; activeGoldJob.startM = 0; activeGoldJob = null;
         document.getElementById('gold-card-display').classList.add('hidden');
-        renderMobile();
-        renderPaddaAll();
+        renderMobile(); renderPaddaAll();
     }
 }
 
@@ -740,8 +872,7 @@ function renderMobile() {
     const warnBanner = document.getElementById('sluss-warning-banner');
     
     if (bioSecurityMode && uniqueStalls.length > 1 && !slussCheckConfirmed) {
-        warnBanner.classList.remove('hidden');
-        warnBanner.classList.add('flex');
+        warnBanner.classList.remove('hidden'); warnBanner.classList.add('flex');
     } else {
         warnBanner.classList.add('hidden');
     }
@@ -750,14 +881,14 @@ function renderMobile() {
         carousel.innerHTML = `<div class="text-slate-400 text-center w-full mt-6 text-xs italic">Inga pass! Tryck på Guldkort!</div>`;
     } else {
         carousel.innerHTML = frittesJobs.map(j => `
-            <div class="carousel-item w-[85vw] shrink-0 h-[60vh] glass-panel rounded-3xl border border-slate-700 flex flex-col p-5">
+            <div class="carousel-item w-[85vw] shrink-0 h-[60vh] glass-panel rounded-3xl border border-slate-700 flex flex-col p-5 cursor-pointer" onclick="openJobDetailModal('${j.id}')">
                 <div class="flex justify-between items-center mb-1">
-                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">${j.client}</span>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">${j.client} (23 boxar)</span>
                 </div>
                 <div class="text-2xl font-black text-white mb-1 leading-tight">${j.title}</div>
                 <div class="text-emerald-400 font-mono text-xs mb-3">🕒 Dag ${j.dayIndex+1} | ${j.startH.toString().padStart(2,'0')}:${j.startM.toString().padStart(2,'0')}</div>
                 <div class="mt-auto space-y-2 w-full">
-                    <button onclick="alert('Utförd!')" class="w-full py-3.5 bg-emerald-600 font-bold rounded-2xl text-white text-xs">✅ Utförd & Avbockad</button>
+                    <button onclick="event.stopPropagation(); alert('Utförd!')" class="w-full py-3.5 bg-emerald-600 font-bold rounded-2xl text-white text-xs">✅ Utförd & Avbockad</button>
                 </div>
             </div>`).join('');
     }
@@ -768,6 +899,7 @@ function openStallConfigModal() { document.getElementById('modal-stall-config').
 function closeStallConfigModal() { document.getElementById('modal-stall-config').classList.add('hidden'); document.getElementById('modal-stall-config').classList.remove('flex'); }
 function openBioSecurityDialog() { document.getElementById('modal-biosecurity').classList.remove('hidden'); document.getElementById('modal-biosecurity').classList.add('flex'); }
 function closeBioSecurityDialog() { document.getElementById('modal-biosecurity').classList.add('hidden'); document.getElementById('modal-biosecurity').classList.remove('flex'); }
+
 function executeBioSecurityToggle() {
     bioSecurityMode = !bioSecurityMode;
     const btnText = document.getElementById('bio-status-text');
