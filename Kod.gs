@@ -75,7 +75,7 @@ function doPost(e) {
     if (!auth) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
     }
-    const adminOnly = ["getUsers", "getUserKey", "signDocument", "saveSnowZone", "deleteSnowZone"];
+    const adminOnly = ["getUsers", "getUserKey", "signDocument", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -98,7 +98,8 @@ function doPost(e) {
     if (action === "transform_to_clay") return handleClayTransformation(data);
     if (action === "save_time_report") return handleSaveTimeReport(data);
     if (action === "save_ata") return handleSaveAta(data);
-    if (action === "getSnowZones") return handleGetSnowZones();
+    if (action === "getSnowZones") return handleGetSnowZones(auth);
+    if (action === "setSlingaDrivers") return handleSetSlingaDrivers(data, auth.user);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
 
@@ -444,7 +445,45 @@ function getSnowSheet() {
   return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Snözoner", SNOW_HEADERS);
 }
 
-function handleGetSnowZones() {
+// Fliken "Slingor": vilka förare som är tilldelade varje slinga (admin bestämmer)
+const SLINGA_HEADERS = ["Slinga", "Förare (kommaseparerade)", "Uppdaterad av", "Uppdaterad"];
+
+function getSlingaSheet() {
+  return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Slingor", SLINGA_HEADERS);
+}
+
+function readSlingaAssignments() {
+  const rows = getSlingaSheet().getDataRange().getValues();
+  const assignments = {};
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    assignments[String(rows[i][0])] = String(rows[i][1] || "").split(",").map(s => s.trim()).filter(Boolean);
+  }
+  return assignments;
+}
+
+function handleSetSlingaDrivers(data, savedBy) {
+  const slinga = sanitize(data.slinga);
+  if (!slinga) return createJsonResponse({ status: "error", message: "Ange vilken slinga." });
+  const drivers = (Array.isArray(data.drivers) ? data.drivers : []).map(d => sanitize(d).replace(/,/g, " ")).filter(Boolean);
+  const sheet = getSlingaSheet();
+  const rowData = [slinga, drivers.join(", "), sanitize(savedBy),
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm")];
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === slinga) {
+      sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
+      return createJsonResponse({ status: "success", slinga: slinga, drivers: drivers });
+    }
+  }
+  sheet.appendRow(rowData);
+  return createJsonResponse({ status: "success", slinga: slinga, drivers: drivers });
+}
+
+// Admin får alla zoner + tilldelningar. Förare får bara zoner i sina tilldelade slingor.
+function handleGetSnowZones(auth) {
+  const assignments = readSlingaAssignments();
+  const mySlingor = Object.keys(assignments).filter(s => assignments[s].indexOf(auth.user) !== -1);
   const rows = getSnowSheet().getDataRange().getValues();
   const zones = [];
   for (let i = 1; i < rows.length; i++) {
@@ -462,7 +501,10 @@ function handleGetSnowZones() {
       note: String(rows[i][7] || "")
     });
   }
-  return createJsonResponse({ status: "success", zones: zones });
+  if (auth.isAdmin) {
+    return createJsonResponse({ status: "success", zones: zones, assignments: assignments, mySlingor: mySlingor });
+  }
+  return createJsonResponse({ status: "success", zones: zones.filter(z => mySlingor.indexOf(z.slinga) !== -1), mySlingor: mySlingor });
 }
 
 function handleSaveSnowZone(zone, savedBy) {
