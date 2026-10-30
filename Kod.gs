@@ -54,7 +54,7 @@ function doPost(e) {
       data = e.parameter || {};
     }
 
-    if (data.token && data.token !== CONFIG.API_TOKEN) {
+    if (data.token !== CONFIG.API_TOKEN) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig säkerhetstoken." });
     }
 
@@ -67,8 +67,8 @@ function doPost(e) {
     if (action === "batchReports") return handleBatchReports(data);
     if (action === "getUsers") return handleGetUsers();
     if (action === "transform_to_clay") return handleClayTransformation(data);
-    if (action === "approveAta") return approveAta(data.ataId);
-    if (action === "approveOffert") return approveOffert(data.offertId);
+    if (action === "approveAta") return approveAta(data.ataId || data.documentId);
+    if (action === "approveOffert") return approveOffert(data.offertId || data.documentId);
     if (action === "save_time_report") return handleSaveTimeReport(data);
     if (action === "save_ata") return handleSaveAta(data);
     if (action === "ping") {
@@ -423,6 +423,7 @@ function saveAvatarToSheet(resursId, base64Image) {
   const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
   const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
   if (!sheet) return;
+  if (base64Image.length > 50000) return; // Cellgräns i Sheets – AI-bilden får inte plats
 
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {

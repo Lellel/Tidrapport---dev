@@ -10,6 +10,7 @@ if ('serviceWorker' in navigator) {
       .then((reg) => console.log('SW aktiv:', reg.scope))
       .catch((err) => console.error('Kunde inte starta SW:', err));
   });
+}
 
 // FORDONSPARK & UTRUSTNING (v3.5 Postis Per 3D-Glas)
 const VEHICLE_PARK = [
@@ -478,15 +479,19 @@ async function approveCustomerDocument(type, id) {
   if (statusDiv) statusDiv.innerHTML = "Sparar godkännande... ⏳";
 
   try {
-    await fetch(CONFIG.API_URL, {
+    const response = await fetch(CONFIG.API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       body: JSON.stringify({
         token: CONFIG.API_TOKEN,
         action: type === 'ata' ? 'approveAta' : 'approveOffert',
-        documentId: id
+        documentId: id,
+        ataId: type === 'ata' ? id : undefined,
+        offertId: type === 'offert' ? id : undefined
       })
     });
+    const result = await response.json();
+    if (!result.success && result.status !== 'success') throw new Error(result.message || 'Okänt svar');
     if (statusDiv) statusDiv.innerHTML = "<span style='color:#10b981;'>🎉 Tack! Dokumentet är nu godkänt och signerat.</span>";
   } catch (err) {
     if (statusDiv) statusDiv.innerHTML = "<span style='color:#ef4444;'>❌ Kunde inte spara. Försök igen.</span>";
@@ -499,6 +504,8 @@ window.sendOffertViaIMessage = sendOffertViaIMessage;
 window.approveCustomerDocument = approveCustomerDocument;
 
 // Lås maskinparken för UE (Inga tunga LPV-maskiner, och inga Admin-bubblor)
+window.originalApplyUE = window.applyUEConstraints;
+window.applyUEConstraints = function() {
   if (typeof window.originalApplyUE === 'function') window.originalApplyUE();
   const isUE = window.isUserUE;
   
@@ -518,6 +525,8 @@ window.approveCustomerDocument = approveCustomerDocument;
     addBtn.style.display = isUE ? 'none' : 'inline-flex';
   }
 };
+applyUEConstraints = window.applyUEConstraints;
+document.addEventListener('DOMContentLoaded', window.applyUEConstraints);
 
 // ==========================================
 // DYNAMISK VERSIONSMÄRKNING (v4.7.1)

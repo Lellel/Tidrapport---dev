@@ -1,410 +1,286 @@
 <!DOCTYPE html>
-<html lang="sv" class="dark">
+<html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LPV & Klaryta - Framtidsradarn (Gantt Live)</title>
-    <!-- Tailwind CSS med Dark Mode-stöd -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        ice: { 50: '#f0f9ff', 100: '#e0f2fe', 900: '#0c4a6e', 950: '#082f49' }
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden;
-            transition: background-color 0.5s ease, color 0.5s ease;
-        }
-
-        /* ICE-BLUE GLASSMORPHISM - LIGHT MODE */
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.45);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 8px 32px rgba(34, 211, 238, 0.15);
-            transition: all 0.3s ease;
-        }
-        /* ICE-BLUE GLASSMORPHISM - DARK MODE */
-        .dark .glass-panel {
-            background: rgba(8, 25, 45, 0.55);
-            border: 1px solid rgba(56, 189, 248, 0.2);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-        }
-
-        .glass-panel-lpv { border: 1px solid rgba(56, 189, 248, 0.4); }
-        .glass-panel-kla { border: 1px solid rgba(16, 185, 129, 0.4); }
-
-        .orb-kulpase-liten { width: 44px; height: 44px; font-size: 1.25rem; }
-        .orb-kulpase-medium { width: 54px; height: 54px; font-size: 1.5rem; }
-        .orb-kulpase-stor { width: 64px; height: 64px; font-size: 2rem; }
-        .orb-gantt-liten { width: 32px; height: 32px; font-size: 0.875rem; z-index: 10; }
-
-        .glass-orb {
-            background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%);
-            box-shadow: inset 0 2px 4px rgba(255,255,255,0.6), 0 4px 10px rgba(0,0,0,0.1);
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            position: relative; cursor: grab; transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .dark .glass-orb {
-            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
-            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 6px 12px rgba(0,0,0,0.5);
-        }
-        .glass-orb:active { cursor: grabbing; transform: scale(1.05); }
-
-        .sick-orb {
-            filter: grayscale(0.4) opacity(0.9);
-            border: 2px solid #ef4444 !important;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
-        }
-
-        .owner-badge {
-            position: absolute; bottom: -2px; right: -4px; font-size: 8px; font-weight: 900; 
-            padding: 2px 4px; border-radius: 4px; z-index: 20; border: 1px solid rgba(255,255,255,0.6);
-            pointer-events: none; line-height: 1; color: white;
-        }
-        .bg-lpv { background-color: #0284c7; }
-        .bg-klaryta { background-color: #16a34a; }
-        .bg-ue { background-color: #d97706; }
-
-        .gantt-job-card {
-            border-radius: 12px; display: flex; align-items: center; padding: 0 12px; gap: 12px;
-            position: relative; cursor: grab; transition: all 0.2s ease;
-        }
-        .gantt-job-card.lpv {
-            background: linear-gradient(145deg, rgba(2, 132, 199, 0.7) 0%, rgba(3, 105, 161, 0.9) 100%);
-            border: 1px solid rgba(125, 211, 252, 0.8); backdrop-filter: blur(8px);
-        }
-        .dark .gantt-job-card.lpv {
-            background: linear-gradient(145deg, rgba(2, 105, 164, 0.85) 0%, rgba(7, 89, 133, 0.95) 100%);
-            border: 1px solid rgba(56, 189, 248, 0.5);
-        }
-        
-        .gantt-job-card.kla {
-            background: linear-gradient(145deg, rgba(16, 185, 129, 0.7) 0%, rgba(5, 150, 105, 0.9) 100%);
-            border: 1px solid rgba(110, 231, 183, 0.8); backdrop-filter: blur(8px);
-        }
-        .dark .gantt-job-card.kla {
-            background: linear-gradient(145deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%);
-            border: 1px solid rgba(16, 185, 129, 0.5);
-        }
-
-        .bg-helg {
-            background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(225, 29, 72, 0.05) 10px, rgba(225, 29, 72, 0.05) 20px);
-        }
-
-        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(14, 165, 233, 0.1); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.8); }
-    </style>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+  <meta charset="UTF-8">
+  <title>LPV & Klaryta v3.0</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
 </head>
-<body class="h-screen w-screen flex flex-col bg-gradient-to-br from-sky-50 to-cyan-100 dark:from-[#030f1c] dark:to-[#082f49] text-slate-800 dark:text-slate-100 overflow-hidden">
+<body>
 
-    <!-- HEADER -->
-    <header class="glass-panel h-16 flex items-center justify-between px-6 shrink-0 z-50">
-        <div class="flex items-center gap-4">
-            <h1 class="text-xl font-bold text-sky-700 dark:text-sky-300 flex items-center gap-2 drop-shadow-md">
-                🔭 Framtidsradarn <span class="text-sky-600/70 dark:text-slate-400 font-normal text-xs">(DEV v4.8 - Ice Glass)</span>
-            </h1>
+  <!-- GLIDANDE VÄNSTERMENY (SIDE-DRAWER FÖR ADMIN & VYER) -->
+  <nav class="side-nav-drawer" id="sideNav">
+    <div class="side-nav-item" onclick="openKabanossModalWithTab('kabanoss')">
+      <span class="side-nav-icon">🌭</span>
+      <span class="side-nav-text">Kabanossen</span>
+    </div>
+    <div class="side-nav-item" onclick="openKabanossModalWithTab('radar')">
+      <span class="side-nav-icon">🔭</span>
+      <span class="side-nav-text">Framtidsradarn</span>
+    </div>
+    <div class="side-nav-item" onclick="openKabanossModalWithTab('crm')">
+      <span class="side-nav-icon">💼</span>
+      <span class="side-nav-text">CRM & Kundbild</span>
+    </div>
+    <div class="side-nav-item" onclick="openKabanossModalWithTab('offert')">
+      <span class="side-nav-icon">📄</span>
+      <span class="side-nav-text">Smart Offert</span>
+    </div>
+  </nav>
+
+  <div class="app-layout-wrapper">
+    <div class="app-container">
+      
+      <!-- HEADER -->
+      <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h1 style="font-size:28px; font-weight:700;">Tidrapport</h1>
+        <div class="header-badges" style="display:flex; gap:8px;">
+          <div class="user-pill" id="user-display" onclick="handleUserPillClick()">Daniel</div>
+          <div class="status-pill" style="display:flex; align-items:center; gap:6px;">
+            <div class="status-dot" style="width:6px; height:6px; border-radius:50%; background:#30D158;"></div>Ansluten <span id="app-version-tag" style="font-size:9px; opacity:0.75; margin-left:4px; border-left:1px solid rgba(255,255,255,0.3); padding-left:5px;">v4.7.1</span>
+          </div> 
         </div>
-        <div class="flex items-center gap-3">
-            <button onclick="toggleTheme()" class="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-lg hover:scale-110 transition shadow-lg border border-sky-200 dark:border-sky-800/50" title="Växla Ljust/Mörkt Tema">
-                <span id="theme-icon">❄️</span>
-            </button>
-            <button onclick="reloadLiveData()" class="px-4 py-2 bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700 text-xs text-sky-800 dark:text-slate-200 border border-white/60 dark:border-slate-700 rounded-xl transition shadow-sm">
-                🔄 Ladda Om
-            </button>
-            <button onclick="publishChanges()" id="btn-publish" class="px-5 py-2 bg-sky-500 hover:bg-sky-400 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl font-bold text-xs transition shadow-lg shadow-sky-500/30">
-                Spara & Publicera
-            </button>
+      </header>
+
+      <!-- KARUSELLEN HÖGST UPP -->
+      <div id="outbox-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span id="outbox-title" style="font-size:12px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase; letter-spacing:0.8px;">Dagens pass</span>
+          <button id="btnSubmitAll" class="submit-pill-btn" onclick="submitAll()" style="display:none; min-height:36px; padding:0 12px;">Skicka in</button>
         </div>
-    </header>
+        <div id="outbox-container" class="carousel-container"></div>
+      </div>
 
-    <!-- MAIN APP LAYOUT -->
-    <div class="flex flex-1 overflow-hidden relative">
-        <!-- KULPÅSE / RESURSDEPÅ -->
-        <aside id="resource-panel" class="w-[320px] flex flex-col border-r border-white/30 dark:border-sky-900/40 bg-white/20 dark:bg-slate-900/40 shrink-0 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-            <h2 class="text-xs font-bold text-sky-800 dark:text-sky-200 uppercase tracking-wider">🎒 Kulpåsen & Resursdepå</h2>
+      <!-- AVATAR & PACKLISTA -->
+      <div class="packing-card-glass" id="packing-section">
+        <div class="postman-pat-bubble" onclick="openPostmanPatModal()" style="width:110px; height:110px; margin:0 auto 12px auto; border-radius:50%; overflow:hidden; border:3px solid rgba(255,255,255,0.8); box-shadow:0 8px 20px rgba(0,0,0,0.2); cursor:pointer; background:#e2e8f0; display:flex; align-items:center; justify-content:center;">
+          <img id="user-pat-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar" style="width:100%; height:100%; object-fit:cover; display:block;">
+        </div>
+        
+        <div style="text-align:center; margin-bottom:14px;">
+          <div style="font-size:11px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase;">Postis Per 3D Edition</div>
+          <div style="font-size:18px; font-weight:800; color:var(--text-main);" id="welcome-title">God dag!</div>
+        </div>
 
-            <div class="glass-panel p-3.5 rounded-2xl">
-                <h3 class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-3">👥 Personal</h3>
-                <div id="pool-personnel" class="flex flex-wrap gap-3 min-h-[40px]"></div>
-            </div>
+        <div style="font-size:13px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">📦 Fordonscheck & Packlista</div>
+        
+        <div class="checklist-item">
+          <input type="checkbox" id="chk-1" onchange="checkPackProgress()">
+          <label for="chk-1">Skyddsskor & LPV-Väst</label>
+        </div>
+        <div class="checklist-item">
+          <input type="checkbox" id="chk-2" onchange="checkPackProgress()">
+          <label for="chk-2">Mätband / Laser & Mätblock</label>
+        </div>
+        <div class="checklist-item">
+          <input type="checkbox" id="chk-3" onchange="checkPackProgress()">
+          <label for="chk-3">Plogblad & Sandspridare checkad</label>
+        </div>
 
-            <div class="glass-panel p-3.5 rounded-2xl !bg-rose-50/50 dark:!bg-rose-950/20 !border-rose-200 dark:!border-rose-900/50">
-                <h3 class="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider mb-3">🤒 Sjukanmälda</h3>
-                <div id="pool-sick" class="flex flex-wrap gap-3 min-h-[30px]"></div>
-            </div>
+        <button type="button" id="unlock-menu-btn" class="main-btn main-btn-blue" style="width:100%; margin-top:16px;" onclick="unlockFullMenu()">
+           Visat & Packat – Lås upp Dagen
+        </button>
+      </div>
 
-            <div class="glass-panel p-3.5 rounded-2xl">
-                <h3 class="text-[11px] font-bold text-sky-600 dark:text-sky-300 uppercase tracking-wider mb-3">🚜 UE & Maskinpark</h3>
-                <div id="pool-machines" class="flex flex-wrap gap-3 min-h-[40px]"></div>
-            </div>
-        </aside>
+      <!-- TRANSFORMERAD MENY & FORMULÄR -->
+      <div class="field-tools-grid" id="field-tools-menu">
+        <div style="grid-column: 1 / -1; font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Uppdrag & Formulär</div>
+        
+        <div class="ios-card" style="grid-column: 1 / -1;">
+          <div class="type-control">
+            <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
+            <button type="button" id="btn-type-ata" class="type-btn" onclick="setJobType('ata')">ÄTA</button>
+          </div>
+          <div class="ios-row" id="row-place">
+            <span>Betalställe</span>
+            <input type="text" id="input-place" placeholder="T.ex. Blacksta" class="val-text">
+          </div>
+          <div class="chips-container" id="chips-container"></div>
+          <div class="ios-row" id="row-ata-number" style="display: none;">
+            <span>ÄTA-nr / Ref</span>
+            <input type="text" id="input-ata" placeholder="T.ex. ÄTA 04" class="val-text">
+          </div>
+          <div class="ios-row" onclick="openSheet()" style="cursor: pointer;">
+            <span>Aktivitet</span>
+            <span class="val-text" id="selected-activity">
+              Välj aktivitet ›
+            </span>
+          </div>
+        </div>
 
-        <!-- TIMELINE & ORDERBOOK -->
-        <main class="flex-1 flex flex-col overflow-y-auto p-5 space-y-5 custom-scrollbar relative z-10">
-            <!-- ORDERBOOK -->
-            <section class="glass-panel p-4 rounded-2xl">
-                <h2 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-3">📬 Ej inplanerade jobb</h2>
-                <div id="orderbook-list" class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar"></div>
-            </section>
+        <div class="ios-card" style="grid-column: 1 / -1;">
+          <div class="ios-row">
+            <span>Datum</span>
+            <input type="date" id="input-date">
+          </div>
+          <div class="ios-row">
+            <span>Start</span>
+            <input type="time" id="input-start" onchange="updateLiveHours()">
+          </div>
+          <div class="ios-row">
+            <span>Slut</span>
+            <input type="time" id="input-end" placeholder="Lämna tom för pågående" onchange="updateLiveHours()">
+          </div>
+        </div>
 
-            <!-- GANTT TIMELINE -->
-            <section class="glass-panel p-4 rounded-2xl flex-1 flex flex-col min-h-[360px]">
-                <h2 class="text-xs font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider mb-3">📅 Tidsperiod & Schemaläggning</h2>
+        <div class="ios-card" style="grid-column: 1 / -1;">
+          <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
+        </div>
 
-                <div id="timeline-container" class="border border-white/40 dark:border-sky-900/50 rounded-xl bg-white/20 dark:bg-slate-950/40 flex-1 overflow-auto custom-scrollbar relative backdrop-blur-sm">
-                    <div id="timeline-inner" class="flex flex-col min-h-full relative">
-                        <div class="h-10 border-b border-white/30 dark:border-sky-900/50 flex items-center bg-white/40 dark:bg-slate-900/70 shrink-0 sticky top-0 z-40 backdrop-blur-md">
-                            <div class="w-56 px-4 font-bold text-sky-800 dark:text-slate-300 text-[10px] uppercase tracking-wider shrink-0 sticky left-0 z-50 bg-white/60 dark:bg-slate-900/90 border-r border-white/30 dark:border-sky-900/50 h-full flex items-center">
-                                Projekt / Kund
-                            </div>
-                            <div id="timeline-header-days" class="flex text-center text-xs font-bold h-full items-center"></div>
-                        </div>
+        <button class="main-btn main-btn-blue" style="grid-column: 1 / -1;" onclick="saveToOutbox()">Spara pass lokalt</button>
+      </div>
 
-                        <div class="relative flex-1" ondragover="allowDrop(event)" ondrop="dropJobOnTimeline(event)">
-                            <div id="timeline-grid-bg" class="absolute inset-0 flex pointer-events-none z-0 min-h-full"></div>
-                            <div id="gantt-rows" class="relative z-10 pb-8"></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
     </div>
 
-    <script>
-        const APPS_SCRIPT_URL = ""; 
-        
-        const SWEDISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
-        const SWEDISH_DAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
-        const START_DATE = new Date(2026, 9, 26);
-        const TOTAL_DAYS = 35;
-        const DAY_WIDTH = 130;
+    <!-- DASHBOARD PANEL -->
+    <aside id="landscape-dashboard" class="dashboard-panel">
+      <div class="dashboard-header">
+        <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Översikt & Tider</div>
+        <span id="dash-date-badge" class="duration-pill" style="font-size:12px; font-weight:700; color:var(--accent-darkblue); background:rgba(2,132,199,0.12); padding:2px 8px; border-radius:6px;">Idag</span>
+      </div>
+      <div class="dash-stats-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="dash-total-hours">0.0 h</div>
+          <div class="stat-lbl">Totalt idag</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="dash-pass-count">0 st</div>
+          <div class="stat-lbl">Sparade pass</div>
+        </div>
+      </div>
+      <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin:10px 0 6px 0;">Dagens fördelning</div>
+      <div id="dash-activity-list" class="dash-list">
+        <div class="dash-empty">Inga registrerade pass än idag.</div>
+      </div>
 
-        let state = { clients: [], resources: [], jobs: [] };
+      <!-- ADMIN-SEKTION -->
+      <div id="admin-tools-section" style="display: none; margin-top: 16px;">
+        <div style="font-size:12px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase; margin-bottom:6px;">Administratör: Behörigheter & Länkar</div>
+        <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
+          <div class="admin-input-row">
+            <span class="admin-label">Mottagare</span>
+            <select id="admin-target-user" class="admin-select" onchange="onAdminUserSelect()">
+              <option value="">Laddar kontakter...</option>
+            </select>
+          </div>
+          <button type="button" class="main-btn" style="width:100%; margin-top:10px; background:var(--orange); color:#FFF; min-height:48px;" onclick="openKabanossModal()">
+            🌭 Öppna Flygledartornet
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
 
-        function toggleTheme() {
-            const htmlTag = document.documentElement;
-            htmlTag.classList.toggle('dark');
-            const isDark = htmlTag.classList.contains('dark');
-            document.getElementById('theme-icon').innerText = isDark ? '❄️' : '☀️';
-        }
+  <!-- ACTION SHEET FÖR AKTIVITETER (DOLD TILLS MAN KLICKAR) -->
+  <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
+    <div class="sheet-container" onclick="event.stopPropagation()">
+      <div class="sheet-header">
+        <div style="font-size:13px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Välj Aktivitet</div>
+        <button class="sheet-close" style="background:none; border:none; color:var(--accent-blue); font-size:15px; font-weight:700; cursor:pointer;" onclick="closeSheet()">Avbryt</button>
+      </div>
+      <div class="sheet-item" onclick="selectActivity('Bandgrävare')">Bandgrävare</div>
+      <div class="sheet-item" onclick="selectActivity('Stalltvätt')">Stalltvätt</div>
+      <div class="sheet-item" onclick="selectActivity('Snöröjning')">Snöröjning</div>
+      <div class="sheet-item" onclick="selectActivity('Handskottning')">Handskottning</div>
+      <div class="sheet-item" onclick="selectActivity('Kyl- & frysflytt')">Kyl- & frysflytt</div>
+      <div class="sheet-item" onclick="selectActivity('Linjemålning')">Linjemålning</div>
+      <div class="sheet-item" onclick="selectActivity('Fasadmålning')">Fasadmålning</div>
+    </div>
+  </div>
 
-        function reloadLiveData() {
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run
-                    .withSuccessHandler(onDataLoaded)
-                    .withFailureHandler(function(err) { console.error("Apps Script-fel:", err); })
-                    .handleGetKabanossData();
-            } else if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.length > 10) {
-                fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'getKabanossData', token: 'Gravmaskin2026Secure!' })
-                })
-                .then(function(r) { return r.json(); })
-                .then(onDataLoaded)
-                .catch(function(err) { console.error("Fetch-fel:", err); });
-            } else {
-                console.log("Körs offline - visar tom layout.");
-                onDataLoaded({ status: "success", clients: [], resources: [], jobs: [] });
-            }
-        }
+  <!-- FLYGLEDARTORNET / KABANOSS MODAL -->
+  <div class="kabanoss-backdrop" id="kabanossModal" onclick="closeKabanossModal()">
+    <div class="kabanoss-modal" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="display:flex; gap:8px;">
+          <button class="main-btn main-btn-blue" style="min-height:36px; padding:0 14px; font-size:13px;" onclick="switchAdminTab('kabanoss')">🌭 Kabanossen</button>
+          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('radar')">🔭 Radarn</button>
+          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('crm')">💼 CRM</button>
+          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('offert')">📄 Offert</button>
+        </div>
+        <button style="background:none; border:none; font-size:16px; font-weight:700; color:var(--orange); cursor:pointer;" onclick="closeKabanossModal()">✕ Stäng</button>
+      </div>
+      
+      <!-- VY 1: KABANOSSEN -->
+      <div id="kabanoss-view" class="kabanoss-grid">
+        <div class="kabanoss-col">
+          <div class="kabanoss-col-title">📌 Planerade</div>
+          <div class="kabanoss-item-card">Coop Kylflytt - Mån 08:00</div>
+        </div>
+        <div class="kabanoss-col"><div class="kabanoss-col-title">⏳ Vid Tillfälle</div></div>
+        <div class="kabanoss-col"><div class="kabanoss-col-title">⚡ Pågående / Klara</div></div>
+        <div class="kabanoss-col"><div class="kabanoss-col-title">💰 Klara för Faktura</div></div>
+      </div>
 
-        function onDataLoaded(res) {
-            if (res && res.status === "success") {
-                state.clients = res.clients || [];
-                state.resources = res.resources || [];
-                state.jobs = res.jobs || [];
-                initUI();
-            }
-        }
+      <!-- VY 2: RADARN -->
+      <div id="radar-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
+        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">🔭 Framtidsradarn (Gantt)</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">7-dagars tidslinje och resursbemanning.</p>
+      </div>
 
-        function initUI() {
-            buildTimelineLayout();
-            renderKulpase();
-            renderOrderbook();
-            renderGantt();
-        }
+      <!-- VY 3: CRM -->
+      <div id="crm-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
+        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">💼 360° Kundbild & CRM</h3>
+        <div class="kabanoss-item-card" style="margin-top:12px;">K-1001 Coop Sverige AB (Aktiv)</div>
+      </div>
 
-        function buildTimelineLayout() {
-            const inner = document.getElementById('timeline-inner');
-            inner.style.width = (224 + (TOTAL_DAYS * DAY_WIDTH)) + 'px';
+      <!-- VY 4: OFFERTMOTOR -->
+      <div id="offert-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
+        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">📄 Smart Offertmotor (ROT/RUT & Restid)</h3>
+        <div class="ios-card" style="margin-top:12px; padding:12px;">
+          <div class="ios-row">
+            <span>Arbetstimmar (h)</span>
+            <input type="number" id="offert-hours" placeholder="0" class="val-text" oninput="calculateOffert()" style="width:60px;">
+          </div>
+          <div class="ios-row">
+            <span>Körtid Garaget Tur/Retur (min)</span>
+            <input type="number" id="offert-travel" placeholder="0" class="val-text" oninput="calculateOffert()" style="width:60px;">
+          </div>
+          <div class="ios-row">
+            <span>Avdrag</span>
+            <select id="offert-avdrag" class="val-text" style="background:transparent; border:none;" onchange="calculateOffert()">
+              <option value="none">Inget</option>
+              <option value="rot">ROT (30%)</option>
+              <option value="rut">RUT (50%)</option>
+            </select>
+          </div>
+          <div style="margin-top:10px; padding:10px; background:rgba(255,255,255,0.6); border-radius:10px; font-size:13px;">
+            <div style="display:flex; justify-content:space-between;"><span>Totalt att betala:</span><strong id="offert-total-val" style="color:var(--accent-darkblue);">0 kr</strong></div>
+          </div>
+        </div>
+      </div>
 
-            const headerContainer = document.getElementById('timeline-header-days');
-            const gridBg = document.getElementById('timeline-grid-bg');
-            
-            headerContainer.innerHTML = '';
-            gridBg.innerHTML = '<div class="w-56 shrink-0 border-r border-white/20 dark:border-sky-900/30 sticky left-0 z-20 bg-white/30 dark:bg-slate-900/60 backdrop-blur-sm"></div>';
+    </div>
+  </div>
 
-            for (let i = 0; i < TOTAL_DAYS; i++) {
-                const d = new Date(START_DATE);
-                d.setDate(d.getDate() + i);
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script>
+    function checkPackProgress() {
+      const c1 = document.getElementById('chk-1')?.checked;
+      const c2 = document.getElementById('chk-2')?.checked;
+      const c3 = document.getElementById('chk-3')?.checked;
+      const btn = document.getElementById('unlock-menu-btn');
+      
+      if (btn && c1 && c2 && c3) {
+        btn.style.background = "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)";
+        btn.innerText = "✅ Allt Packat – Öppna Verktyg";
+      }
+    }
 
-                const dayName = SWEDISH_DAYS[(d.getDay() + 6) % 7];
-                const dateNum = d.getDate();
-                const monthName = SWEDISH_MONTHS[d.getMonth()];
-                const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
-
-                headerContainer.innerHTML += '<div class="border-r border-white/30 dark:border-sky-900/50 py-1 h-full flex flex-col justify-center items-center shrink-0 text-xs font-bold ' + (isWeekend ? 'bg-helg text-rose-500' : 'text-sky-700 dark:text-slate-400') + '" style="width: ' + DAY_WIDTH + 'px;">' +
-                    '<span>' + dayName + ' ' + dateNum + ' ' + monthName + '</span>' +
-                '</div>';
-
-                gridBg.innerHTML += '<div class="border-r border-white/20 dark:border-sky-900/30 shrink-0 ' + (isWeekend ? 'bg-helg' : '') + '" style="width: ' + DAY_WIDTH + 'px;"></div>';
-            }
-        }
-
-        function renderKulpase() {
-            const poolPersonnel = document.getElementById('pool-personnel');
-            const poolSick = document.getElementById('pool-sick');
-            const poolMachines = document.getElementById('pool-machines');
-            
-            poolPersonnel.innerHTML = ''; poolSick.innerHTML = ''; poolMachines.innerHTML = '';
-
-            const assignedIds = new Set();
-            state.jobs.filter(function(j) { return j.status === 'scheduled'; }).forEach(function(j) { 
-                j.assigned.forEach(function(id) { assignedIds.add(id); }); 
-            });
-
-            state.resources.forEach(function(res) {
-                let badgeClass = 'bg-lpv'; let ownerText = 'LPV';
-                if (res.ownerCompany && res.ownerCompany.includes('kla')) { badgeClass = 'bg-klaryta'; ownerText = 'KLA'; }
-                if (res.ownerCompany && res.ownerCompany.includes('ue')) { badgeClass = 'bg-ue'; ownerText = 'UE'; }
-
-                let sizeClass = 'orb-kulpase-' + (res.sizeClass || 'liten');
-                let hasAvatar = res.avatarBase64 && res.avatarBase64.indexOf('data:image') !== -1;
-                let displayIcon = hasAvatar 
-                    ? '<img src="' + res.avatarBase64 + '" class="w-full h-full object-cover rounded-full z-10" />' 
-                    : '<span class="z-10 text-slate-800">' + (res.icon || '👦') + '</span>';
-
-                if (res.type === 'person' && res.isSick) {
-                    poolSick.innerHTML += '<div class="flex flex-col items-center gap-1 w-[56px] shrink-0">' +
-                        '<div class="glass-orb ' + sizeClass + ' sick-orb">' +
-                            '<span class="z-10">🤒</span>' +
-                            '<span class="owner-badge bg-rose-600 text-white">SJUK</span>' +
-                        '</div>' +
-                        '<span class="text-[9px] font-bold text-rose-500 dark:text-rose-300 truncate w-full text-center">' + res.name + '</span>' +
-                    '</div>';
-                } else if (!assignedIds.has(res.id)) {
-                    const html = '<div class="flex flex-col items-center gap-1 w-[56px] shrink-0">' +
-                        '<div class="glass-orb ' + sizeClass + '" style="background-color: ' + (res.color || '#0284c7') + '" draggable="true" ondragstart="onOrbDragStart(event, \'' + res.id + '\')">' +
-                            displayIcon +
-                            '<span class="owner-badge ' + badgeClass + '">' + ownerText + '</span>' +
-                        '</div>' +
-                        '<span class="text-[9px] font-semibold text-sky-900 dark:text-slate-300 truncate w-full text-center">' + res.name + '</span>' +
-                    '</div>';
-                    
-                    if (res.type === 'person') poolPersonnel.innerHTML += html;
-                    else poolMachines.innerHTML += html;
-                }
-            });
-
-            if (!poolPersonnel.innerHTML) poolPersonnel.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga tillgängliga</span>';
-            if (!poolMachines.innerHTML) poolMachines.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga maskiner</span>';
-        }
-
-        function renderOrderbook() {
-            const container = document.getElementById('orderbook-list');
-            container.innerHTML = '';
-            state.jobs.filter(function(j) { return j.status === 'unscheduled'; }).forEach(function(job) {
-                container.innerHTML += '<div class="glass-panel p-3 rounded-xl shrink-0 w-56 cursor-grab" draggable="true" ondragstart="onJobDragStart(event, \'' + job.id + '\')">' +
-                    '<div class="flex items-center justify-between text-[10px] font-bold uppercase mb-1">' +
-                        '<span class="truncate text-sky-800 dark:text-slate-300">' + job.client + '</span>' +
-                        '<span class="text-amber-500 dark:text-amber-400">' + job.hours + 'h</span>' +
-                    '</div>' +
-                    '<div class="font-bold text-xs text-sky-950 dark:text-slate-100 truncate">' + job.title + '</div>' +
-                '</div>';
-            });
-            if (!container.innerHTML) container.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga nya beställningar</span>';
-        }
-
-        function renderGantt() {
-            const container = document.getElementById('gantt-rows');
-            container.innerHTML = '';
-
-            state.jobs.filter(function(j) { return j.status === 'scheduled'; }).forEach(function(job) {
-                let orbsHtml = job.assigned.map(function(id) {
-                    const res = state.resources.find(function(r) { return r.id === id; });
-                    if (!res) return '';
-                    let sizeClass = 'orb-gantt-' + (res.sizeClass || 'liten');
-                    let displayIcon = res.avatarBase64 && res.avatarBase64.indexOf('data:image') !== -1 
-                        ? '<img src="' + res.avatarBase64 + '" class="w-full h-full object-cover rounded-full z-10" />' 
-                        : '<span class="z-10 text-slate-800">' + (res.icon || '👦') + '</span>';
-
-                    return '<div class="glass-orb ' + sizeClass + ' border border-white/60 dark:border-slate-800 shrink-0" style="background-color:' + (res.color || '#0284c7') + '" draggable="true" ondragstart="onOrbDragStart(event, \'' + id + '\')">' +
-                        displayIcon +
-                    '</div>';
-                }).join('');
-
-                const leftPx = (job.dayIndex || 0) * DAY_WIDTH + 8;
-                const widthPx = Math.ceil(job.hours / 8) * DAY_WIDTH - 16;
-
-                container.innerHTML += '<div class="flex items-center h-[76px] border-b border-white/20 dark:border-slate-800/40 relative">' +
-                    '<div class="w-56 p-2 shrink-0 h-full flex items-center z-30 sticky left-0 border-r border-white/30 dark:border-sky-900/50 bg-white/40 dark:bg-slate-900/70 backdrop-blur-md">' +
-                        '<div class="glass-panel p-2 rounded-xl w-full border-white/60 dark:border-slate-700">' +
-                            '<div class="text-[9px] font-bold text-sky-700 dark:text-slate-400 uppercase truncate">' + job.client + '</div>' +
-                            '<div class="font-bold text-xs text-sky-950 dark:text-slate-100 truncate">' + job.title + '</div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="flex-1 h-full relative">' +
-                        '<div class="gantt-job-card ' + (job.billingCompany === 'Klaryta' ? 'kla' : 'lpv') + ' absolute top-[6px] bottom-[6px] shadow-lg shadow-sky-900/10 dark:shadow-black/40" style="left: ' + leftPx + 'px; width: ' + widthPx + 'px;" draggable="true" ondragstart="onJobDragStart(event, \'' + job.id + '\')" ondrop="dropOrbOnJob(event, \'' + job.id + '\')" ondragover="allowDrop(event)">' +
-                            '<div class="flex items-center gap-1 z-40 relative">' + orbsHtml + '</div>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-            });
-        }
-
-        function onOrbDragStart(e, resId) { e.stopPropagation(); e.dataTransfer.setData("type", "orb"); e.dataTransfer.setData("id", resId); }
-        function onJobDragStart(e, jobId) { e.dataTransfer.setData("type", "job"); e.dataTransfer.setData("id", jobId); }
-        function allowDrop(e) { e.preventDefault(); }
-
-        function dropJobOnTimeline(e) {
-            e.preventDefault();
-            const type = e.dataTransfer.getData("type");
-            const id = e.dataTransfer.getData("id");
-            if (type === "job") {
-                const job = state.jobs.find(function(j) { return j.id === id; });
-                if (job) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const offsetX = e.clientX - (rect.left + 224);
-                    if (offsetX >= 0) {
-                        job.status = 'scheduled';
-                        job.dayIndex = Math.max(0, Math.floor(offsetX / DAY_WIDTH));
-                        initUI();
-                    }
-                }
-            }
-        }
-
-        function dropOrbOnJob(e, jobId) {
-            e.preventDefault(); e.stopPropagation();
-            const type = e.dataTransfer.getData("type");
-            const resId = e.dataTransfer.getData("id");
-            if (type === "orb" && resId) {
-                state.jobs.forEach(function(j) { 
-                    j.assigned = j.assigned.filter(function(aid) { return aid !== resId; }); 
-                });
-                const job = state.jobs.find(function(j) { return j.id === jobId; });
-                if (job && job.assigned.indexOf(resId) === -1) job.assigned.push(resId);
-                initUI();
-            }
-        }
-
-        function publishChanges() { alert("Ändringar sparade!"); }
-
-        document.addEventListener('DOMContentLoaded', reloadLiveData);
-    </script>
+    function unlockFullMenu() {
+      const menu = document.getElementById('field-tools-menu');
+      const btn = document.getElementById('unlock-menu-btn');
+      if (menu) menu.classList.add('unlocked');
+      if (btn) btn.style.display = 'none';
+    }
+  </script>
+<script src="avatar_onboarding.js?v=4.7.1"></script>
 </body>
 </html>
+
