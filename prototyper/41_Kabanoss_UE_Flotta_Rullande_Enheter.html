@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Storflotta #41</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 max-w-4xl mx-auto space-y-4">
+  <header class="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
+    <a href="prototyper.html" class="text-xs text-sky-400 font-bold">← Prototypnav</a>
+    <h1 class="text-base font-black">🚜 Storflotta & Rullande Enheter (#41)</h1>
+  </header>
+  <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4">
+    <div class="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
+      <span class="text-xs font-bold text-slate-300">Generera Aktiva Maskinekipage (1–25):</span>
+      <button onclick="genFlotta()" class="px-4 py-2 bg-sky-500 text-slate-950 font-bold rounded-xl text-xs">🔄 Slumpa Flotta</button>
+    </div>
+    <div id="flotta-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+  </div>
+  <script>
+    function genFlotta(){
+      const grid = document.getElementById('flotta-grid');
+      grid.innerHTML = '';
+      const typs = ['Wille 665', 'Ljungby L9', 'Kramer 8095', 'Traktor Valtra'];
+      for(let i=1; i<=12; i++){
+        const typ = typs[Math.floor(Math.random()*typs.length)];
+        const isOk = Math.random() > 0.2;
+        grid.innerHTML += `
+          <div class="p-3 bg-slate-950 border ${isOk ? 'border-slate-800' : 'border-rose-500/50'} rounded-xl space-y-1">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-mono font-bold text-sky-400">ENHET #${i}</span>
+              <span class="w-2 h-2 rounded-full ${isOk ? 'bg-emerald-400' : 'bg-rose-500 animate-ping'}"></span>
+            </div>
+            <div class="text-xs font-extrabold text-white">${typ}</div>
+            <div class="text-[10px] text-slate-400">${isOk ? 'Rullar i Flen' : '⚠️ Punktering'}</div>
+          </div>
+        `;
+      }
+    }
+    genFlotta();
+  </script>
+</body>
+</html>

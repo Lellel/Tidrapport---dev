@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kabanossen - Cover Flow & Packlista</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Swiper.js för äkta 3D Cover Flow -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background-color: #020617; 
+      color: #f8fafc; 
+      overflow-x: hidden;
+      touch-action: manipulation;
+    }
+    .glass-card { 
+      background: rgba(15, 23, 42, 0.85); 
+      backdrop-filter: blur(20px); 
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1); 
+    }
+    .glass-dock {
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+    .glass-modal {
+      background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border-t: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Kvadratiskt konvolut (230x230 px) */
+    .swiper-slide {
+      width: 230px;
+      height: 230px;
+      transition: all 0.3s ease;
+    }
+    .swiper-slide-active .glass-card {
+      border-color: rgba(56, 189, 248, 0.5);
+      box-shadow: 0 15px 35px -10px rgba(14, 165, 233, 0.4);
+    }
+
+    /* Modals-scroll utan synliga balkar */
+    .modal-scroll::-webkit-scrollbar { display: none; }
+    .modal-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between pb-24 pt-2 px-4 max-w-md mx-auto select-none">
+
+  <!-- Header -->
+  <header class="text-center pt-2 pb-1">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-bold uppercase tracking-wider mb-1">
+      <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+      Dina Uppdrag
+    </div>
+    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SVEP ELLER TRYCK PÅ KORTET</p>
+  </header>
+
+  <!-- Kvadratisk 3D Cover Flow -->
+  <div class="swiper mySwiper w-full py-2 my-auto">
+    <div class="swiper-wrapper" id="cardContainer">
+      <!-- Korten renderas hit dynamiskt -->
+    </div>
+  </div>
+
+  <!-- 🧰 DYNAMISK PACKKNAPP UNDER KARUSELLEN -->
+  <div class="w-full px-2 my-2">
+    <button onclick="openPacklista()" class="w-full py-3.5 px-4 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-between shadow-lg transition active:scale-95 group">
+      <div class="flex items-center gap-2.5">
+        <span class="text-lg">🧰</span>
+        <span class="group-hover:text-amber-300 transition">Packlista & Material</span>
+      </div>
+      <span id="packBadgeCounter" class="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-black text-amber-300">
+        0/0 packat
+      </span>
+    </button>
+  </div>
+
+  <!-- Tillbaka-länk över dockan -->
+  <div class="text-center my-1">
+    <a href="prototyper.html" class="inline-block py-1 px-3 text-xs font-semibold text-slate-400 hover:text-white transition">
+      ← Tillbaka till Prototypnav
+    </a>
+  </div>
+
+  <!-- iOS-Style Flytande Fältdocka (4 knappar) -->
+  <nav class="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
+    <div class="glass-dock rounded-3xl p-2 flex items-center justify-around gap-1">
+      
+      <!-- 🚨 Fältakuten -->
+      <button onclick="openAkuten()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 active:scale-90 transition">
+        <span class="text-xl leading-none">🚨</span>
+        <span class="text-[9px] font-black uppercase tracking-tighter mt-1">Akuten</span>
+      </button>
+
+      <!-- 🗺️ Navigera -->
+      <button onclick="navigateToCurrentClient()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-sky-400 active:scale-90 transition">
+        <span class="text-xl leading-none">🗺️</span>
+        <span class="text-[9px] font-extrabold uppercase tracking-tighter mt-1 text-slate-300">Navigera</span>
+      </button>
+
+      <!-- 📋 Order -->
+      <button onclick="openCurrentOrder()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 active:scale-90 transition">
+        <span class="text-xl leading-none">📋</span>
+        <span class="text-[9px] font-extrabold uppercase tracking-tighter mt-1">Order</span>
+      </button>
+
+      <!-- 📞 Kontakt -->
+      <button onclick="exportCurrentVCard()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-sky-400 active:scale-90 transition">
+        <span class="text-xl leading-none">📇</span>
+        <span class="text-[9px] font-extrabold uppercase tracking-tighter mt-1 text-slate-300">Kontakt</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- 🧰 PACKLISTA MODAL (SLIDE-UP SHEET) -->
+  <div id="packModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex flex-col justify-end transition-opacity duration-300">
+    <div class="glass-modal w-full max-w-md mx-auto rounded-t-3xl p-5 shadow-2xl transform transition-transform duration-300 translate-y-0 max-h-[85vh] flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl font-bold">🧰</div>
+          <div>
+            <h3 class="text-base font-black text-amber-400 tracking-wide">PACKLISTA & MATERIAL</h3>
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" id="packClientSubtitle">Prylar för uppdraget</p>
+          </div>
+        </div>
+        <button onclick="closePacklista()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm hover:bg-slate-700 hover:text-white transition">✕</button>
+      </div>
+
+      <!-- Status-indikator -->
+      <div class="bg-slate-900/80 rounded-2xl p-3 border border-slate-800 mb-3 flex items-center justify-between shrink-0">
+        <span class="text-xs font-bold text-slate-300">Status i servicebilen:</span>
+        <span id="packProgressText" class="text-xs font-black text-amber-400">0/0 packat</span>
+      </div>
+
+      <!-- Checklistan (Scrollbar) -->
+      <div class="space-y-2 overflow-y-auto modal-scroll pb-2 flex-grow pr-0.5" id="checklistContainer">
+        <!-- Renderas dynamiskt -->
+      </div>
+
+      <!-- Footer -->
+      <div class="shrink-0 pt-3 mt-2 border-t border-slate-800">
+        <button onclick="closePacklista()" class="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-black text-xs uppercase tracking-wider text-center transition active:scale-98 shadow-lg shadow-amber-500/20">
+          Klar – Redo att åka 🚚
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 🚨 FÄLTAKUTEN MODAL -->
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" onchange="handleImageCaptured(this)">
+
+  <div id="akutModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex flex-col justify-end transition-opacity duration-300">
+    <div class="glass-modal w-full max-w-md mx-auto rounded-t-3xl p-5 shadow-2xl transform transition-transform duration-300 translate-y-0 max-h-[88vh] flex flex-col">
+      
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3 shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl animate-pulse">🚨</span>
+          <div>
+            <h3 class="text-base font-black text-rose-400 tracking-wide">FÄLTAKUTEN</h3>
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" id="akutClientSubtitle">Snabbåtgärder i fält</p>
+          </div>
+        </div>
+        <button onclick="closeAkuten()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm hover:bg-slate-700 hover:text-white transition">✕</button>
+      </div>
+
+      <div class="space-y-4 overflow-y-auto modal-scroll pb-2 flex-grow pr-0.5">
+        <div>
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block mb-2">⚡ Kritiska Åtgärder</span>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="triggerCamera()" class="p-3 rounded-2xl bg-slate-800/90 border border-rose-500/30 hover:border-rose-500 flex flex-col items-start justify-between text-left transition active:scale-95 group min-h-[82px]">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-xl">📸</span>
+                <span class="text-xs text-rose-400 font-bold">Kamera</span>
+              </div>
+              <div class="text-xs font-black text-white group-hover:text-rose-400 transition leading-snug">Foto Skada</div>
+            </button>
+
+            <button onclick="callProjectLeader()" class="p-3 rounded-2xl bg-slate-800/90 border border-emerald-500/30 hover:border-emerald-500 flex flex-col items-start justify-between text-left transition active:scale-95 group min-h-[82px]">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-xl">☎️</span>
+                <span class="text-xs text-emerald-400 font-bold">Direkt</span>
+              </div>
+              <div>
+                <div class="text-xs font-black text-white group-hover:text-emerald-400 transition leading-snug">Arbetsledare</div>
+                <div class="text-[9px] text-slate-400 font-medium truncate" id="akutPhoneLabel">Ring Jour</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center px-1 mb-2">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">🛠️ Material & Service</span>
+            <span class="text-[9px] font-semibold text-slate-500">Admin-synkad</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2" id="supplierGrid"></div>
+        </div>
+
+        <div>
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block mb-2">☕ Fältöverlevnad</span>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="findNearestToilet()" class="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-sky-500 flex items-center gap-2.5 text-left transition active:scale-95 group">
+              <span class="text-lg">🚽</span>
+              <div>
+                <div class="text-xs font-black text-white group-hover:text-sky-400 transition">Toalett</div>
+                <div class="text-[9px] text-slate-400">Närmaste WC</div>
+              </div>
+            </button>
+
+            <button onclick="findNearestFood()" class="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-amber-500 flex items-center gap-2.5 text-left transition active:scale-95 group">
+              <span class="text-lg">🍔</span>
+              <div>
+                <div class="text-xs font-black text-white group-hover:text-amber-400 transition">Snabbmat</div>
+                <div class="text-[9px] text-slate-400">Käk på vägen</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="shrink-0 pt-2 mt-2 border-t border-slate-800">
+        <button onclick="closeAkuten()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-black text-xs uppercase tracking-wider text-center transition active:scale-98">
+          Stäng
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* Kundprojekt med datamodell för Admin-synkade packlistor */
+    const projects = [
+      {
+        id: "1043",
+        client: "Johansson (Privat)",
+        location: "Söderköping",
+        address: "Storgatan 12, Söderköping",
+        date: "17 Maj",
+        status: "OFFERT SKICKAD",
+        statusBg: "bg-sky-500 text-slate-950",
+        domain: "",
+        phone: "070-123 45 67",
+        email: "johansson@example.com",
+        checklist: [
+          { id: 1, item: "Fasadskrapa & Stålborste", packed: false },
+          { id: 2, item: "Grundfärg Fasad (10L)", packed: false },
+          { id: 3, item: "Maskeringstejp (Bred extra stryk)", packed: false },
+          { id: 4, item: "Teleskopskaft & Penselsats", packed: false }
+        ]
+      },
+      {
+        id: "1042",
+        client: "Peab Asfalt",
+        location: "Linköping",
+        address: "Gärstadgatan 4, Linköping",
+        date: "12 Maj",
+        status: "PÅGÅENDE",
+        statusBg: "bg-amber-500 text-slate-950",
+        domain: "peab.se",
+        phone: "013-987 65 43",
+        email: "kontakt@peab.se",
+        checklist: [
+          { id: 1, item: "Asfaltsraka & Bultpistol", packed: false },
+          { id: 2, item: "Varningskoner (6 st)", packed: false },
+          { id: 3, item: "Asfaltsklistrare / Bitumen", packed: false },
+          { id: 4, item: "Värmepistol & Gasolflaska", packed: false }
+        ]
+      },
+      {
+        id: "1041",
+        client: "Skanska Industrial",
+        location: "Norrköping",
+        address: "Händelövägen 1, Norrköping",
+        date: "04 Maj",
+        status: "AVSLUTAD",
+        statusBg: "bg-emerald-500 text-slate-950",
+        domain: "skanska.se",
+        phone: "011-555 12 34",
+        email: "info@skanska.se",
+        checklist: [
+          { id: 1, item: "Mätlaser & Stativ", packed: false },
+          { id: 2, item: "Säkerhetssele & Fallskydd", packed: false },
+          { id: 3, item: "Mutterdragare (18V)", packed: false }
+        ]
+      },
+      {
+        id: "1040",
+        client: "Svevia AB",
+        location: "Nyköping",
+        address: "Blommenhovsvägen 26, Nyköping",
+        date: "28 Apr",
+        status: "PÅGÅENDE",
+        statusBg: "bg-amber-500 text-slate-950",
+        domain: "svevia.se",
+        phone: "0155-20 30 00",
+        email: "info@svevia.se",
+        checklist: [
+          { id: 1, item: "Linjemålningsmaskin", packed: false },
+          { id: 2, item: "Vägskyltar (Sänkt hastighet)", packed: false },
+          { id: 3, item: "Reflexvästar & Hjälm", packed: false }
+        ]
+      }
+    ];
+
+    const suppliers = [
+      { id: "biltema", name: "Biltema", icon: "🚗", query: "Biltema" },
+      { id: "jula", name: "Jula", icon: "⚙️", query: "Jula" },
+      { id: "ahlsell", name: "Ahlsell", icon: "🏢", query: "Ahlsell" },
+      { id: "hydroscand", name: "Hydroscand", icon: "🔌", query: "Hydroscand" },
+      { id: "bygghandel", name: "Bygghandel", icon: "🪵", query: "Bygghandel" },
+      { id: "el_vvs", name: "El & VVS", icon: "⚡", query: "El och VVS grossist" }
+    ];
+
+    let swiper;
+
+    function renderCards() {
+      const container = document.getElementById('cardContainer');
+      container.innerHTML = projects.map((p, index) => {
+        let logoMarkup = '';
+        if (p.domain) {
+          logoMarkup = `
+            <div class="h-14 w-14 rounded-2xl overflow-hidden bg-white/5 flex items-center justify-center relative border border-white/10 mx-auto shadow-md p-1.5">
+              <img src="https://unavatar.io/${p.domain}?fallback=false" 
+                   alt="${p.client}" 
+                   class="max-h-full max-w-full object-contain pointer-events-none drop-shadow z-10"
+                   onerror="if(!this.dataset.retried){this.dataset.retried='true';this.src='https://www.google.com/s2/favicons?domain=${p.domain}&sz=128';}else{this.style.display='none';this.nextElementSibling.classList.remove('hidden');}" />
+              <div class="hidden absolute inset-0 w-full h-full bg-sky-500/20 flex items-center justify-center text-sky-400 font-black text-xl">
+                ${p.client.charAt(0)}
+              </div>
+            </div>`;
+        } else {
+          logoMarkup = `
+            <div class="h-14 w-14 rounded-2xl overflow-hidden bg-gradient-to-br from-sky-400 to-emerald-400 p-[2px] shadow-lg shadow-sky-500/20 mx-auto">
+               <div class="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-white font-black text-xl">
+                 ${p.client.charAt(0)}
+               </div>
+            </div>`;
+        }
+
+        return `
+          <div class="swiper-slide">
+            <div onclick="handleCardClick(${index})" class="glass-card w-full h-full rounded-3xl p-4 flex flex-col justify-between text-center relative overflow-hidden cursor-pointer active:scale-95 transition-transform duration-150">
+              <div>${logoMarkup}</div>
+              <div class="px-1">
+                <h2 class="text-base font-black text-white leading-tight truncate">${p.client}</h2>
+                <p class="text-[11px] font-medium text-slate-400 mt-0.5">${p.location}</p>
+              </div>
+              <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                  <span>#${p.id}</span>
+                  <span>${p.date}</span>
+                </div>
+                <div class="w-full py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider ${p.statusBg}">
+                  ${p.status}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* Klickhantering på kort: Öppnar order om aktivt, annars snurrar fram kortet */
+    function handleCardClick(index) {
+      if (swiper && swiper.activeIndex === index) {
+        openCurrentOrder();
+      } else if (swiper) {
+        swiper.slideTo(index);
+      }
+    }
+
+    function renderSuppliers() {
+      const grid = document.getElementById('supplierGrid');
+      grid.innerHTML = suppliers.map(s => `
+        <button onclick="searchSupplier('${s.query}')" class="p-2.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-sky-500/50 flex items-center gap-2 text-left transition active:scale-95 group">
+          <span class="text-base">${s.icon}</span>
+          <div class="truncate">
+            <div class="text-xs font-black text-white group-hover:text-sky-400 transition truncate">${s.name}</div>
+            <div class="text-[8px] text-slate-400 uppercase font-bold tracking-tight">Sök på karta</div>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    function initSwiper() {
+      swiper = new Swiper(".mySwiper", {
+        effect: "coverflow",
+        grabCursor: true,
+        centeredSlides: true,
+        slidesPerView: "auto",
+        coverflowEffect: {
+          rotate: 20,
+          stretch: 0,
+          depth: 100,
+          modifier: 1,
+          slideShadows: false,
+        },
+        on: {
+          slideChange: function () {
+            updatePackButtonCounter();
+          }
+        }
+      });
+      updatePackButtonCounter();
+    }
+
+    function getActiveProject() {
+      return projects[swiper.activeIndex || 0];
+    }
+
+    function updatePackButtonCounter() {
+      const p = getActiveProject();
+      if (p && p.checklist) {
+        const packed = p.checklist.filter(c => c.packed).length;
+        const total = p.checklist.length;
+        const counter = document.getElementById('packBadgeCounter');
+        counter.innerText = `${packed}/${total} packat`;
+        if (packed === total && total > 0) {
+          counter.className = "px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-black text-emerald-400";
+        } else {
+          counter.className = "px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-black text-amber-300";
+        }
+      }
+    }
+
+    /* 🧰 PACKLISTA LOGIK */
+    function openPacklista() {
+      const p = getActiveProject();
+      document.getElementById('packClientSubtitle').innerText = `Verktyg för ${p.client} (#${p.id})`;
+      renderChecklist(p);
+      document.getElementById('packModal').classList.remove('hidden');
+    }
+
+    function closePacklista() {
+      document.getElementById('packModal').classList.add('hidden');
+    }
+
+    function renderChecklist(project) {
+      const container = document.getElementById('checklistContainer');
+      const packedCount = project.checklist.filter(c => c.packed).length;
+      
+      document.getElementById('packProgressText').innerText = `${packedCount}/${project.checklist.length} packat`;
+      if (packedCount === project.checklist.length && project.checklist.length > 0) {
+        document.getElementById('packProgressText').className = "text-xs font-black text-emerald-400 animate-pulse";
+      } else {
+        document.getElementById('packProgressText').className = "text-xs font-black text-amber-400";
+      }
+
+      container.innerHTML = project.checklist.map(item => `
+        <div onclick="toggleCheckItem(${project.id}, ${item.id})" class="p-3.5 rounded-2xl ${item.packed ? 'bg-emerald-950/40 border-emerald-500/40' : 'bg-slate-800/90 border-slate-700/80'} border flex items-center justify-between text-left transition active:scale-98 cursor-pointer group">
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 rounded-lg ${item.packed ? 'bg-emerald-500 text-slate-950' : 'bg-slate-700 text-transparent'} flex items-center justify-center text-xs font-black transition">
+              ✓
+            </div>
+            <span class="text-xs font-bold ${item.packed ? 'line-through text-slate-400' : 'text-white'} transition">
+              ${item.item}
+            </span>
+          </div>
+          <span class="text-[10px] font-extrabold uppercase ${item.packed ? 'text-emerald-400' : 'text-slate-500'}">
+            ${item.packed ? 'PACKAD' : 'SAKNAS'}
+          </span>
+        </div>
+      `).join('');
+    }
+
+    function toggleCheckItem(projectId, itemId) {
+      const p = projects.find(proj => proj.id == projectId);
+      if (p) {
+        const item = p.checklist.find(i => i.id == itemId);
+        if (item) {
+          item.packed = !item.packed;
+          renderChecklist(p);
+          updatePackButtonCounter();
+        }
+      }
+    }
+
+    /* 🚨 FÄLTAKUTEN LOGIK */
+    function openAkuten() {
+      const p = getActiveProject();
+      document.getElementById('akutClientSubtitle').innerText = `Kopplat till: ${p.client} (#${p.id})`;
+      document.getElementById('akutPhoneLabel').innerText = p.phone;
+      document.getElementById('akutModal').classList.remove('hidden');
+    }
+
+    function closeAkuten() {
+      document.getElementById('akutModal').classList.add('hidden');
+    }
+
+    function triggerCamera() {
+      document.getElementById('cameraInput').click();
+    }
+
+    function handleImageCaptured(input) {
+      if (input.files && input.files[0]) {
+        const p = getActiveProject();
+        alert(`📸 SKADEBILD SPARAD!\n\nBild registrerad på order #${p.id} (${p.client}). Redo för uppladdning!`);
+        closeAkuten();
+      }
+    }
+
+    function callProjectLeader() {
+      const p = getActiveProject();
+      window.location.href = `tel:${p.phone.replace(/[^0-9+]/g, '')}`;
+      closeAkuten();
+    }
+
+    function searchSupplier(query) {
+      const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(query + ' nära mig')}/`;
+      window.open(searchUrl, '_blank');
+      closeAkuten();
+    }
+
+    function findNearestToilet() {
+      window.open('https://www.google.com/maps/search/toalett+n%C3%A4ra+mig/', '_blank');
+      closeAkuten();
+    }
+
+    function findNearestFood() {
+      window.open('https://www.google.com/maps/search/snabbmat+n%C3%A4ra+mig/', '_blank');
+      closeAkuten();
+    }
+
+    /* Standardfunktioner */
+    function navigateToCurrentClient() {
+      const p = getActiveProject();
+      const destination = encodeURIComponent(p.address || `${p.client}, ${p.location}`);
+      window.open(`https://www.google.com/maps/search/?api=1&query=${destination}`, '_blank');
+    }
+
+    function openCurrentOrder() {
+      const p = getActiveProject();
+      alert(`Öppnar detaljerad ordervy för #${p.id} (${p.client})`);
+    }
+
+    function exportCurrentVCard() {
+      const p = getActiveProject();
+      const vcardData = 
+`BEGIN:VCARD
+VERSION:3.0
+FN:${p.client}
+ORG:${p.client}
+TEL;TYPE=CELL:${p.phone}
+EMAIL:${p.email}
+ADR;TYPE=WORK:;;${p.address || p.location};;;;
+NOTE:Kabanossen PWA - Order #${p.id}
+END:VCARD`;
+
+      const blob = new Blob([vcardData], { type: "text/vcard;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${p.client.replace(/[^a-zA-Z0-9]/g, "_")}.vcf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderCards();
+      renderSuppliers();
+      initSwiper();
+    });
+  </script>
+</body>
+</html>

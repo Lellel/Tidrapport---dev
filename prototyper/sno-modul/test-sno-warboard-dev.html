@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snö-Warboard Flens Kommun - Control Center v1.0.5-SNO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { background-color: #0b0f19; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+        .glass-panel { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        #map-container { width: 100%; height: 100%; min-height: 450px; background: #0f172a; position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; }
+        .dark-tiles .leaflet-tile-container img { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        .custom-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-weight: bold; font-size: 10px; box-shadow: 0 0 12px rgba(0,0,0,0.9); border: 2px solid #ffffff; transition: transform 0.2s; cursor: pointer; }
+        .custom-marker:hover { transform: scale(1.35); z-index: 9999 !important; }
+        .marker-unstarted { background-color: #ef4444; border-color: #fca5a5; }
+        .marker-in-progress { background-color: #f59e0b; border-color: #fcd34d; animation: pulse 1.5s infinite; }
+        .marker-completed { background-color: #10b981; border-color: #6ee7b7; }
+        .marker-haveri { background-color: #dc2626; border-color: #ffffff; animation: bounce 0.8s infinite; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 3px; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-slate-950 overflow-hidden">
+    <header class="glass-panel h-16 flex items-center justify-between px-6 shrink-0 z-50 border-b border-slate-800">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-sky-400 flex items-center gap-2">
+                ❄️ Snö-Warboard 
+                <span class="text-xs text-slate-300 font-semibold border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 rounded-full">Flens Kommun</span>
+                <span class="text-xs text-emerald-400 font-mono font-bold bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 rounded-full">v1.0.5-SNO</span>
+            </h1>
+            <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-bold">
+                <button onclick="filterDistrict('alla')" id="btn-dist-alla" class="px-3 py-1 rounded-lg bg-sky-600 text-white transition">Alla Stadsdelar</button>
+                <button onclick="filterDistrict('Centrum')" id="btn-dist-Centrum" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition">Centrum</button>
+                <button onclick="filterDistrict('Salsta')" id="btn-dist-Salsta" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition">Salsta</button>
+                <button onclick="filterDistrict('Södra Flen')" id="btn-dist-Södra Flen" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition">Södra Flen</button>
+                <button onclick="filterDistrict('Industri')" id="btn-dist-Industri" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition">Industri</button>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3 text-xs font-mono bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+                <span>Fastigheter: <strong id="stat-total" class="text-sky-400">40</strong></span>
+                <span class="text-slate-700">|</span>
+                <span>Röjda: <strong id="stat-done" class="text-emerald-400">0/40 (0%)</strong></span>
+            </div>
+            <div class="flex items-center gap-1.5 bg-slate-900 p-1 border border-slate-800 rounded-xl text-xs font-bold">
+                <button onclick="setMapProvider('dark')" id="btn-map-dark" class="px-2.5 py-1 rounded-lg bg-sky-600 text-white transition">🌙 Mörk Karta</button>
+                <button onclick="setMapProvider('street')" id="btn-map-street" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">🗺️ Vägkarta</button>
+                <button onclick="setMapProvider('sat')" id="btn-map-sat" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">🛰️ Satellit</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        <aside class="w-[380px] flex flex-col border-r border-slate-800 bg-slate-900/90 shrink-0 p-4 space-y-4 overflow-y-auto custom-scrollbar z-30">
+            <div class="glass-panel p-4 rounded-2xl space-y-3">
+                <h2 class="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>🚜 Aktiva Plog- & Handskottslingor</span>
+                    <span class="text-[10px] text-slate-500 font-normal">Flen Zoner</span>
+                </h2>
+                <div id="slingor-list" class="space-y-2.5"></div>
+            </div>
+            <div class="glass-panel p-4 rounded-2xl space-y-3 flex-1">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-bold text-emerald-400 uppercase tracking-wider">👥 Förare (Minst belastade först)</h2>
+                    <span class="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono">Timutjämning</span>
+                </div>
+                <div id="drivers-kulpase" class="space-y-2"></div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col bg-slate-950 p-4 relative overflow-hidden">
+            <div class="glass-panel flex-1 rounded-2xl border border-slate-800 relative flex flex-col overflow-hidden">
+                <div class="h-12 bg-slate-900/90 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 z-20">
+                    <div class="flex items-center gap-2 text-xs font-bold text-slate-300">
+                        <span>📍 Realtidskarta Flens Kommun</span>
+                        <span id="active-district-tag" class="text-[10px] text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full">Alla Stadsdelar</span>
+                    </div>
+                    <div class="flex items-center gap-4 text-[11px]">
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-rose-500"></span> Ej påbörjad</span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span> Pågående</span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Snöröjd</span>
+                    </div>
+                </div>
+
+                <div class="flex-1 relative w-full h-full">
+                    <div id="map-container" class="dark-tiles"></div>
+                    <div id="property-card-modal" class="hidden absolute bottom-6 left-6 max-w-sm w-full glass-panel p-4 rounded-2xl border border-sky-500/50 shadow-2xl z-[9999] space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <h3 id="prop-address" class="text-sm font-bold text-white truncate">Drottninggatan 4</h3>
+                            <button onclick="closePropCard()" class="text-slate-400 hover:text-white text-xs">✕</button>
+                        </div>
+                        <div class="text-xs space-y-1.5 text-slate-300">
+                            <p>🏢 <strong>Stadsdel:</strong> <span id="prop-district">Centrum</span></p>
+                            <p>📍 <strong>Röjningstyp:</strong> <span id="prop-type">Parkering & Entré</span></p>
+                            <p>🚜 <strong>Tilldelad Slinga:</strong> <span id="prop-slinga" class="text-amber-400 font-bold">Slinga 1</span></p>
+                            <div id="prop-hazards" class="flex flex-wrap gap-1 pt-1"></div>
+                        </div>
+                        <div class="pt-2 border-t border-slate-800 flex gap-2">
+                            <button onclick="togglePropStatus()" id="btn-toggle-status" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition">Markera som Snöröjd 🟢</button>
+                        </div>
+                    </div>
+
+                    <div id="haveri-recommendation-modal" class="hidden absolute top-6 right-6 max-w-md w-full glass-panel p-5 rounded-2xl border border-rose-500/60 shadow-2xl z-[9999] space-y-3 bg-slate-900/95">
+                        <div class="flex items-center justify-between border-b border-rose-500/30 pb-2">
+                            <h3 class="text-sm font-bold text-rose-400 flex items-center gap-2">🚨 Traktorhaveri Rapporterat!</h3>
+                            <button onclick="closeHaveriModal()" class="text-slate-400 hover:text-white text-xs">✕</button>
+                        </div>
+                        <div class="text-xs text-slate-300 space-y-2">
+                            <p>Maskinen <strong id="haveri-machine-name" class="text-white">Kramer 8095</strong> har drabbats av stopp på <span id="haveri-slinga-name" class="text-amber-400 font-bold">Slinga 1</span>.</p>
+                            <div class="glass-card p-3 rounded-xl border border-emerald-500/40 space-y-1">
+                                <span class="text-[10px] font-bold text-emerald-400 uppercase">💡 Rekommenderad Ersättare (Lägst Timmar)</span>
+                                <p class="text-sm font-bold text-white" id="rec-driver-name">Mats UE (Volvo L70)</p>
+                                <p class="text-[10px] text-slate-400">Matchar maskinstorlek: <span class="text-sky-400 font-bold">Stor</span> | Timmar i skiftet: <span class="text-amber-400 font-bold">16h</span></p>
+                            </div>
+                        </div>
+                        <button onclick="applyReplacement()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition">Koppla in Ersättare på Slingan 🔄</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const PROPERTIES = [
+            { id: 'p1', address: 'Drottninggatan 4, Flen', district: 'Centrum', type: 'Parkering & Entré', slingaId: 's1', lat: 59.0572, lng: 16.5880, hazards: ['⚠️ Kantsten', '🛑 Avloppslucka'] },
+            { id: 'p2', address: 'Drottninggatan 12, Flen', district: 'Centrum', type: 'Gångbana', slingaId: 's1', lat: 59.0578, lng: 16.5892, hazards: ['⚠️ Kantsten'] },
+            { id: 'p3', address: 'Sveavägen 8, Flen', district: 'Centrum', type: 'Torg & Entré', slingaId: 's1', lat: 59.0565, lng: 16.5875, hazards: ['🛑 Avloppslucka'] },
+            { id: 'p4', address: 'Sveavägen 15, Flen', district: 'Centrum', type: 'Gångbana', slingaId: 's1', lat: 59.0559, lng: 16.5862, hazards: ['⚠️ Trång passage'] },
+            { id: 'p5', address: 'Orrestagatan 3, Flen', district: 'Centrum', type: 'Boendeparkering', slingaId: 's1', lat: 59.0582, lng: 16.5910, hazards: [] },
+            { id: 'p6', address: 'Skiljevägen 10, Flen', district: 'Centrum', type: 'Gångbana', slingaId: 's1', lat: 59.0550, lng: 16.5895, hazards: ['⚠️ Kantsten'] },
+            { id: 'p7', address: 'Södra Kungsgatan 2, Flen', district: 'Centrum', type: 'Butiksentré', slingaId: 's1', lat: 59.0542, lng: 16.5880, hazards: ['🛑 Avloppslucka'] },
+            { id: 'p8', address: 'Södra Kungsgatan 14, Flen', district: 'Centrum', type: 'Gångbana', slingaId: 's1', lat: 59.0535, lng: 16.5870, hazards: [] },
+            { id: 'p9', address: 'Norra Kungsgatan 5, Flen', district: 'Centrum', type: 'Gångbana', slingaId: 's1', lat: 59.0590, lng: 16.5885, hazards: ['⚠️ Kantsten'] },
+            { id: 'p10', address: 'Skolgatan 1, Flen', district: 'Centrum', type: 'Skolgård & Entré', slingaId: 's1', lat: 59.0598, lng: 16.5860, hazards: ['⚠️ Barn i rörelse'] },
+            { id: 'p11', address: 'Salstagatan 5, Flen', district: 'Salsta', type: 'Gångbana', slingaId: 's2', lat: 59.0630, lng: 16.5750, hazards: ['⚠️ Trappa'] },
+            { id: 'p12', address: 'Salstagatan 18, Flen', district: 'Salsta', type: 'Gångbana', slingaId: 's2', lat: 59.0642, lng: 16.5770, hazards: [] },
+            { id: 'p13', address: 'Brogatan 2, Flen', district: 'Salsta', type: 'Gångbro', slingaId: 's2', lat: 59.0620, lng: 16.5785, hazards: ['⚠️ Smal bro'] },
+            { id: 'p14', address: 'Brogatan 9, Flen', district: 'Salsta', type: 'Entréytor', slingaId: 's2', lat: 59.0612, lng: 16.5800, hazards: [] },
+            { id: 'p15', address: 'Hedbacksvägen 7, Flen', district: 'Salsta', type: 'Gångstig', slingaId: 's2', lat: 59.0650, lng: 16.5730, hazards: ['⚠️ Brant backe'] },
+            { id: 'p16', address: 'Talpaviljongsvägen 1, Flen', district: 'Salsta', type: 'Parkgång', slingaId: 's2', lat: 59.0662, lng: 16.5710, hazards: [] },
+            { id: 'p17', address: 'Skogsvägen 11, Flen', district: 'Salsta', type: 'Gångbana', slingaId: 's2', lat: 59.0625, lng: 16.5690, hazards: ['🛑 Avloppslucka'] },
+            { id: 'p18', address: 'Ängsvägen 3, Flen', district: 'Salsta', type: 'Gångbana', slingaId: 's2', lat: 59.0610, lng: 16.5670, hazards: [] },
+            { id: 'p19', address: 'Solvägen 8, Flen', district: 'Salsta', type: 'Trappentré', slingaId: 's2', lat: 59.0640, lng: 16.5805, hazards: ['⚠️ Trappa'] },
+            { id: 'p20', address: 'Björkvägen 12, Flen', district: 'Salsta', type: 'Gångbana', slingaId: 's2', lat: 59.0655, lng: 16.5820, hazards: [] },
+            { id: 'p21', address: 'Nyköpingsvägen 10, Flen', district: 'Södra Flen', type: 'Väg & Busshållplats', slingaId: 's3', lat: 59.0490, lng: 16.5920, hazards: ['⚠️ Kantsten'] },
+            { id: 'p22', address: 'Nyköpingsvägen 22, Flen', district: 'Södra Flen', type: 'Huvudväg', slingaId: 's3', lat: 59.0475, lng: 16.5950, hazards: [] },
+            { id: 'p23', address: 'Katrineholmsvägen 3, Flen', district: 'Södra Flen', type: 'Korsning', slingaId: 's3', lat: 59.0505, lng: 16.5850, hazards: ['🛑 Avloppslucka'] },
+            { id: 'p24', address: 'Katrineholmsvägen 17, Flen', district: 'Södra Flen', type: 'Väg & P-remsa', slingaId: 's3', lat: 59.0495, lng: 16.5810, hazards: [] },
+            { id: 'p25', address: 'Stenhammarsvägen 4, Flen', district: 'Södra Flen', type: 'Bostadsväg', slingaId: 's3', lat: 59.0515, lng: 16.6000, hazards: [] },
+            { id: 'p26', address: 'Stenhammarsvägen 12, Flen', district: 'Södra Flen', type: 'Vändplan', slingaId: 's3', lat: 59.0500, lng: 16.6040, hazards: ['⚠️ Trång vändplan'] },
+            { id: 'p27', address: 'Lindvägen 5, Flen', district: 'Södra Flen', type: 'Bostadsväg', slingaId: 's3', lat: 59.0465, lng: 16.5980, hazards: [] },
+            { id: 'p28', address: 'Stora Malmsvägen 10, Flen', district: 'Södra Flen', type: 'Väg', slingaId: 's3', lat: 59.0450, lng: 16.5910, hazards: ['⚠️ Kantsten'] },
+            { id: 'p29', address: 'Malmgatan 3, Flen', district: 'Södra Flen', type: 'Bostadsväg', slingaId: 's3', lat: 59.0440, lng: 16.5870, hazards: [] },
+            { id: 'p30', address: 'Åsgatan 7, Flen', district: 'Södra Flen', type: 'Backe', slingaId: 's3', lat: 59.0520, lng: 16.5910, hazards: ['⚠️ Brant backe'] },
+            { id: 'p31', address: 'Industrivägen 6, Flen', district: 'Industri', type: 'Tung Lastzon', slingaId: 's4', lat: 59.0620, lng: 16.6050, hazards: ['🚜 Kräver Stor Traktor'] },
+            { id: 'p32', address: 'Industrivägen 14, Flen', district: 'Industri', type: 'Logistikyta', slingaId: 's4', lat: 59.0632, lng: 16.6100, hazards: ['🚜 Kräver Stor Traktor'] },
+            { id: 'p33', address: 'Verkstadsgatan 2, Flen', district: 'Industri', type: 'Industriparkering', slingaId: 's4', lat: 59.0605, lng: 16.6020, hazards: ['🛑 Avloppslucka'] },
+            { id: 'p34', address: 'Spårgatan 5, Flen', district: 'Industri', type: 'Godsintag', slingaId: 's4', lat: 59.0645, lng: 16.6130, hazards: [] },
+            { id: 'p35', address: 'Järnvägsgatan 1, Flen', district: 'Industri', type: 'Stationsyta', slingaId: 's4', lat: 59.0585, lng: 16.5980, hazards: ['⚠️ Kantsten'] },
+            { id: 'p36', address: 'Stationsgatan 4, Flen', district: 'Industri', type: 'Bussterminal', slingaId: 's4', lat: 59.0575, lng: 16.5960, hazards: [] },
+            { id: 'p37', address: 'Parkgatan 6, Flen', district: 'Industri', type: 'Parkering', slingaId: 's4', lat: 59.0650, lng: 16.6000, hazards: [] },
+            { id: 'p38', address: 'Tegelbruksvägen 3, Flen', district: 'Industri', type: 'Lagerplan', slingaId: 's4', lat: 59.0660, lng: 16.6150, hazards: ['🚜 Kräver Stor Traktor'] },
+            { id: 'p39', address: 'Götgatan 6, Flen', district: 'Centrum', type: 'Gångbana', slingaId: 's1', lat: 59.0560, lng: 16.5840, hazards: [] },
+            { id: 'p40', address: 'COOP Parkering Flen', district: 'Centrum', type: 'Storparkering', slingaId: 's1', lat: 59.0580, lng: 16.5855, hazards: ['🚜 Kräver Stor Traktor'] }
+        ];
+
+        let MACHINES = [
+            { id: 'm7', name: 'Bobcat 5600', driver: 'Lisa', type: 'Liten', hours: 6, company: 'Klaryta', status: 'ready', icon: '🟡' },
+            { id: 'm4', name: 'Avant 760i', driver: 'Sven UE', type: 'Liten', hours: 8, company: 'UE', status: 'ready', icon: '🟡' },
+            { id: 'm9', name: 'Kramer 5085', driver: 'Olof', type: 'Medium', hours: 10, company: 'LPV', status: 'ready', icon: '🚜' },
+            { id: 'm1', name: 'Kramer 8095', driver: 'Basse', type: 'Stor', hours: 12, company: 'LPV', status: 'active', icon: '🚜' },
+            { id: 'm5', name: 'Ljungby L9', driver: 'Pontus UE', type: 'Stor', hours: 14, company: 'Svevia UE', status: 'active', icon: '🚜' },
+            { id: 'm10', name: 'Volvo L70', driver: 'Mats UE', type: 'Stor', hours: 16, company: 'Svevia UE', status: 'ready', icon: '🚜' },
+            { id: 'm2', name: 'Volvo L30', driver: 'Erik', type: 'Medium', hours: 18, company: 'LPV', status: 'active', icon: '🚜' },
+            { id: 'm3', name: 'Kramer 5035', driver: 'Ali', type: 'Liten', hours: 22, company: 'LPV', status: 'active', icon: '🟡' },
+            { id: 'm8', name: 'CAT 906M', driver: 'Johan UE', type: 'Medium', hours: 26, company: 'PEAB UE', status: 'ready', icon: '🚜' },
+            { id: 'm6', name: 'Kramer 8075', driver: 'Kalle', type: 'Medium', hours: 30, company: 'LPV', status: 'ready', icon: '🚜' }
+        ];
+
+        let SLINGOR = [
+            { id: 's1', name: 'Slinga 1: Centrum Plog', machineId: 'm1', type: 'Stor Plog', color: '#0284c7' },
+            { id: 's2', name: 'Slinga 2: Salsta Handskott', machineId: 'm3', type: 'Handskottning', color: '#16a34a' },
+            { id: 's3', name: 'Slinga 3: Södra Väg', machineId: 'm2', type: 'Väg & Backe', color: '#f59e0b' },
+            { id: 's4', name: 'Slinga 4: Industri & Lager', machineId: 'm5', type: 'Tung Plog', color: '#8b5cf6' }
+        ];
+
+        let map, activeTileLayer = null, currentProvider = 'dark', mapMarkers = {}, routePolylines = [], propStates = {}, activeDistrict = 'alla', selectedPropId = null, activeHaveriSlingaId = null;
+
+        const TILE_URLS = {
+            street: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+            dark: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            sat: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        };
+
+        function initMap() {
+            if (typeof L === 'undefined') return;
+            try {
+                map = L.map('map-container', { zoomControl: false }).setView([59.057, 16.588], 14);
+                setMapProvider('dark');
+                L.control.zoom({ position: 'bottomright' }).addTo(map);
+                setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+            } catch (err) { console.error("Kartfel:", err); }
+        }
+
+        function setMapProvider(provider) {
+            if (!map) return;
+            currentProvider = provider;
+            const mapEl = document.getElementById('map-container');
+            if (activeTileLayer) map.removeLayer(activeTileLayer);
+            if (provider === 'dark') {
+                mapEl.classList.add('dark-tiles');
+                activeTileLayer = L.tileLayer(TILE_URLS.dark, { maxZoom: 19 }).addTo(map);
+            } else if (provider === 'street') {
+                mapEl.classList.remove('dark-tiles');
+                activeTileLayer = L.tileLayer(TILE_URLS.street, { maxZoom: 19 }).addTo(map);
+            } else if (provider === 'sat') {
+                mapEl.classList.remove('dark-tiles');
+                activeTileLayer = L.tileLayer(TILE_URLS.sat, { maxZoom: 19 }).addTo(map);
+            }
+            ['dark', 'street', 'sat'].forEach(p => {
+                const btn = document.getElementById(`btn-map-${p}`);
+                if (btn) btn.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition";
+            });
+            const activeBtn = document.getElementById(`btn-map-${provider}`);
+            if (activeBtn) activeBtn.className = "px-2.5 py-1 rounded-lg bg-sky-600 text-white transition";
+        }
+
+        function init() {
+            PROPERTIES.forEach(p => { if (!propStates[p.id]) propStates[p.id] = 'unstarted'; });
+            renderSlingor(); renderDriversKulpase(); renderMapMarkers(); updateStats();
+        }
+
+        function renderSlingor() {
+            const container = document.getElementById('slingor-list');
+            if (!container) return;
+            container.innerHTML = '';
+            SLINGOR.forEach(s => {
+                const machine = MACHINES.find(m => m.id === s.machineId);
+                const props = PROPERTIES.filter(p => p.slingaId === s.id);
+                const doneCount = props.filter(p => propStates[p.id] === 'completed').length;
+                const isHaveri = machine && machine.status === 'haveri';
+                container.innerHTML += `
+                    <div class="glass-card p-3 rounded-xl border ${isHaveri ? 'border-rose-500 bg-rose-950/30' : 'border-slate-800'} space-y-2">
+                        <div class="flex items-center justify-between text-xs font-bold">
+                            <span style="color: ${s.color}" class="truncate">${s.name}</span>
+                            <span class="text-[10px] font-mono ${doneCount === props.length ? 'text-emerald-400' : 'text-amber-400'}">${doneCount}/${props.length}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-slate-300">
+                            <span class="flex items-center gap-1">${machine ? machine.icon : '❓'} <strong>${machine ? machine.driver : 'Saknas'}</strong> (${machine ? machine.name : ''})</span>
+                            ${isHaveri ? '<span class="text-rose-400 font-bold animate-pulse">🚨 HAVERI</span>' : `<button onclick="triggerHaveri('${s.id}')" class="text-[9px] bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 px-1.5 py-0.5 rounded transition">Simulera Haveri</button>`}
+                        </div>
+                        <div class="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden">
+                            <div class="h-full bg-emerald-500 transition-all duration-300" style="width: ${(doneCount/props.length)*100}%"></div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderDriversKulpase() {
+            const container = document.getElementById('drivers-kulpase');
+            if (!container) return;
+            container.innerHTML = '';
+            const sorted = [...MACHINES].sort((a,b) => a.hours - b.hours);
+            sorted.forEach(m => {
+                let badgeColor = m.company === 'LPV' ? 'bg-sky-500/20 text-sky-300' : 'bg-amber-500/20 text-amber-300';
+                container.innerHTML += `
+                    <div class="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">${m.icon}</span>
+                            <div>
+                                <div class="font-bold text-white leading-tight">${m.driver}</div>
+                                <div class="text-[9px] text-slate-400">${m.name} (${m.type})</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-bold text-amber-400 font-mono">${m.hours}h</span>
+                            <div class="text-[8px] px-1.5 py-0.5 rounded font-black uppercase ${badgeColor}">${m.company}</div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderMapMarkers() {
+            if (!map) return;
+            Object.values(mapMarkers).forEach(m => map.removeLayer(m));
+            routePolylines.forEach(l => map.removeLayer(l));
+            mapMarkers = {}; routePolylines = [];
+
+            SLINGOR.forEach(s => {
+                const props = PROPERTIES.filter(p => p.slingaId === s.id && (activeDistrict === 'alla' || p.district === activeDistrict));
+                if (props.length > 1) {
+                    const latLngs = props.map(p => [p.lat, p.lng]);
+                    const polyline = L.polyline(latLngs, { color: s.color, weight: 3, dashArray: '6, 8', opacity: 0.7 }).addTo(map);
+                    routePolylines.push(polyline);
+                }
+            });
+
+            PROPERTIES.forEach(p => {
+                if (activeDistrict !== 'alla' && p.district !== activeDistrict) return;
+                const status = propStates[p.id];
+                let statusClass = 'marker-unstarted';
+                if (status === 'in_progress') statusClass = 'marker-in-progress';
+                if (status === 'completed') statusClass = 'marker-completed';
+                const machine = MACHINES.find(m => { const slinga = SLINGOR.find(s => s.id === p.slingaId); return slinga && slinga.machineId === m.id; });
+                if (machine && machine.status === 'haveri') statusClass = 'marker-haveri';
+
+                const customIcon = L.divIcon({ className: `custom-marker ${statusClass}`, html: `<span>${p.id.replace('p','')}</span>`, iconSize: [26, 26], iconAnchor: [13, 13] });
+                const marker = L.marker([p.lat, p.lng], { icon: customIcon }).addTo(map);
+                marker.on('click', () => openPropCard(p.id));
+                mapMarkers[p.id] = marker;
+            });
+        }
+
+        function openPropCard(id) {
+            selectedPropId = id;
+            const p = PROPERTIES.find(item => item.id === id);
+            const slinga = SLINGOR.find(s => s.id === p.slingaId);
+            document.getElementById('prop-address').innerText = p.address;
+            document.getElementById('prop-district').innerText = p.district;
+            document.getElementById('prop-type').innerText = p.type;
+            document.getElementById('prop-slinga').innerText = slinga ? slinga.name : 'Ingen';
+            const hazContainer = document.getElementById('prop-hazards');
+            hazContainer.innerHTML = '';
+            p.hazards.forEach(h => { hazContainer.innerHTML += `<span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded text-[9px] font-bold">${h}</span>`; });
+            const btn = document.getElementById('btn-toggle-status');
+            if (propStates[id] === 'completed') {
+                btn.innerText = 'Återställ till Ej Påbörjad 🔴'; btn.className = "flex-1 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition";
+            } else {
+                btn.innerText = 'Markera som Snöröjd 🟢'; btn.className = "flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition";
+            }
+            document.getElementById('property-card-modal').classList.remove('hidden');
+        }
+
+        function closePropCard() { document.getElementById('property-card-modal').classList.add('hidden'); }
+
+        function togglePropStatus() {
+            if (!selectedPropId) return;
+            propStates[selectedPropId] = propStates[selectedPropId] === 'completed' ? 'unstarted' : 'completed';
+            closePropCard(); init();
+        }
+
+        function triggerHaveri(slingaId) {
+            activeHaveriSlingaId = slingaId;
+            const slinga = SLINGOR.find(s => s.id === slingaId);
+            const machine = MACHINES.find(m => m.id === slinga.machineId);
+            if (!machine) return;
+            machine.status = 'haveri';
+            const candidate = MACHINES.filter(m => m.status === 'ready' && m.type === machine.type).sort((a,b) => a.hours - b.hours)[0] || MACHINES.filter(m => m.status === 'ready').sort((a,b) => a.hours - b.hours)[0];
+            document.getElementById('haveri-machine-name').innerText = `${machine.name} (${machine.driver})`;
+            document.getElementById('haveri-slinga-name').innerText = slinga.name;
+            document.getElementById('rec-driver-name').innerText = candidate ? `${candidate.driver} (${candidate.name})` : "Ingen ledig förare hittades!";
+            document.getElementById('haveri-recommendation-modal').classList.remove('hidden');
+            init();
+        }
+
+        function applyReplacement() {
+            const slinga = SLINGOR.find(s => s.id === activeHaveriSlingaId);
+            const machine = MACHINES.find(m => m.id === slinga.machineId);
+            const candidate = MACHINES.filter(m => m.status === 'ready' && m.type === machine.type).sort((a,b) => a.hours - b.hours)[0] || MACHINES.filter(m => m.status === 'ready').sort((a,b) => a.hours - b.hours)[0];
+            if (candidate && slinga) {
+                candidate.status = 'active'; slinga.machineId = candidate.id;
+                alert(`✅ Ersättare inkopplad! ${candidate.driver} tar över ${slinga.name}.`);
+            }
+            closeHaveriModal(); init();
+        }
+
+        function closeHaveriModal() { document.getElementById('haveri-recommendation-modal').classList.add('hidden'); }
+
+        function filterDistrict(dist) {
+            activeDistrict = dist;
+            document.querySelectorAll('[id^="btn-dist-"]').forEach(btn => { btn.className = "px-3 py-1 rounded-lg text-slate-400 hover:text-white transition"; });
+            document.getElementById(`btn-dist-${dist}`).className = "px-3 py-1 rounded-lg bg-sky-600 text-white transition";
+            document.getElementById('active-district-tag').innerText = dist === 'alla' ? 'Alla Stadsdelar' : dist;
+            if (map) {
+                const distProps = PROPERTIES.filter(p => dist === 'alla' || p.district === dist);
+                if (distProps.length > 0) { const group = L.featureGroup(distProps.map(p => L.marker([p.lat, p.lng]))); map.fitBounds(group.getBounds().pad(0.1)); }
+            }
+            renderMapMarkers();
+        }
+
+        function updateStats() {
+            const total = PROPERTIES.length;
+            const done = PROPERTIES.filter(p => propStates[p.id] === 'completed').length;
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-done').innerText = `${done}/${total} (${Math.round((done/total)*100)}%)`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { initMap(); init(); });
+    </script>
+</body>
+</html>

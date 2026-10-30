@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPV & Klaryta - Framtidsradarn (v8 Ghost Preview & Day Highlight)</title>
+    <!-- Tailwind CSS med Dark Mode-stöd -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        ice: { 50: '#f0f9ff', 100: '#e0f2fe', 900: '#0c4a6e', 950: '#082f49' }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* ICE-BLUE GLASSMORPHISM */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 32px rgba(34, 211, 238, 0.15);
+            transition: all 0.3s ease;
+        }
+        .dark .glass-panel {
+            background: rgba(8, 25, 45, 0.55);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .orb-kulpase-liten { width: 44px; height: 44px; font-size: 1.25rem; }
+        .orb-kulpase-medium { width: 54px; height: 54px; font-size: 1.5rem; }
+        .orb-kulpase-stor { width: 64px; height: 64px; font-size: 2rem; }
+        .orb-gantt-liten { width: 32px; height: 32px; font-size: 0.875rem; z-index: 10; }
+
+        .glass-orb {
+            background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.6), 0 4px 10px rgba(0,0,0,0.1);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            position: relative; cursor: grab; transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .dark .glass-orb {
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 6px 12px rgba(0,0,0,0.5);
+        }
+        .glass-orb:active { cursor: grabbing; transform: scale(1.05); }
+
+        .sick-orb {
+            filter: grayscale(0.4) opacity(0.9);
+            border: 2px solid #ef4444 !important;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
+        }
+
+        .owner-badge {
+            position: absolute; bottom: -2px; right: -4px; font-size: 8px; font-weight: 900; 
+            padding: 2px 4px; border-radius: 4px; z-index: 20; border: 1px solid rgba(255,255,255,0.6);
+            pointer-events: none; line-height: 1; color: white;
+        }
+        .bg-lpv { background-color: #0284c7; }
+        .bg-klaryta { background-color: #16a34a; }
+        .bg-ue { background-color: #d97706; }
+
+        .gantt-job-card {
+            border-radius: 12px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 12px; gap: 8px; position: relative; cursor: grab; transition: all 0.2s ease; overflow: hidden;
+        }
+        .gantt-job-card.lpv {
+            background: linear-gradient(145deg, rgba(2, 132, 199, 0.7) 0%, rgba(3, 105, 161, 0.9) 100%);
+            border: 1px solid rgba(125, 211, 252, 0.8);
+        }
+        .dark .gantt-job-card.lpv {
+            background: linear-gradient(145deg, rgba(2, 105, 164, 0.85) 0%, rgba(7, 89, 133, 0.95) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.5);
+        }
+        .gantt-job-card.kla {
+            background: linear-gradient(145deg, rgba(16, 185, 129, 0.7) 0%, rgba(5, 150, 105, 0.9) 100%);
+            border: 1px solid rgba(110, 231, 183, 0.8);
+        }
+        .dark .gantt-job-card.kla {
+            background: linear-gradient(145deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+        }
+
+        .gantt-job-card-content {
+            position: relative; z-index: 40; display: flex; align-items: center; gap: 4px; width: 100%; justify-content: space-between;
+        }
+
+        .bg-helg {
+            background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(225, 29, 72, 0.05) 10px, rgba(225, 29, 72, 0.05) 20px);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(14, 165, 233, 0.1); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.8); }
+
+        .modal-backdrop { background: rgba(3, 15, 28, 0.75); backdrop-filter: blur(10px); }
+        .chip-checkbox:checked + label { background-color: rgba(56, 189, 248, 0.25); border-color: #38bdf8; color: #f0f9ff; }
+
+        .orb-placeholder {
+            width: 30px; height: 30px; border: 2px dashed rgba(255, 255, 255, 0.4); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 10px; color: rgba(255, 255, 255, 0.7); pointer-events: none;
+        }
+
+        /* HIGHLIGHT-EFFEKTER OCH SPÖKPREVIEW */
+        .day-header-cell { transition: all 0.15s ease; }
+        .day-header-highlight {
+            background-color: rgba(56, 189, 248, 0.25) !important;
+            color: #38bdf8 !important;
+            box-shadow: inset 0 0 0 2px #38bdf8 !important;
+        }
+
+        .job-card-hover { outline: 3px solid #38bdf8 !important; box-shadow: 0 0 16px rgba(56, 189, 248, 0.8) !important; }
+        .pool-drag-active { background-color: rgba(217, 119, 6, 0.15) !important; outline: 2px dashed #f59e0b !important; }
+
+        .holiday-marker { position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background-color: #ef4444; border-top-left-radius: 2px; border-top-right-radius: 2px; }
+        
+        /* GHOST PREVIEW CARD */
+        #ghost-job-preview {
+            position: absolute; top: 8px; height: 60px;
+            border: 2px dashed #38bdf8; background: rgba(56, 189, 248, 0.18);
+            border-radius: 12px; pointer-events: none; z-index: 50;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px); transition: left 0.05s ease, width 0.05s ease;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-gradient-to-br from-sky-50 to-cyan-100 dark:from-[#030f1c] dark:to-[#082f49] text-slate-800 dark:text-slate-100 overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="glass-panel h-16 flex items-center justify-between px-6 shrink-0 z-50">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-sky-700 dark:text-sky-300 flex items-center gap-2 drop-shadow-md">
+                🔭 Framtidsradarn <span class="text-sky-600/70 dark:text-slate-400 font-normal text-xs">(v8 Precision Drag & Highlight)</span>
+            </h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="openCreateJobModal()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5">
+                <span>➕</span> Skapa nytt jobb
+            </button>
+            <button onclick="openAdminModal()" class="px-3.5 py-2 bg-sky-600/20 hover:bg-sky-600/40 text-sky-700 dark:text-sky-300 border border-sky-400/30 rounded-xl font-bold text-xs transition flex items-center gap-1.5">
+                <span>⚙️</span> Register & UE
+            </button>
+            <button onclick="reloadLiveData()" class="px-3.5 py-2 bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700 text-xs text-sky-800 dark:text-slate-200 border border-white/60 dark:border-slate-700 rounded-xl transition shadow-sm">
+                🔄 Ladda Om
+            </button>
+            <button onclick="publishChanges()" id="btn-publish" class="px-5 py-2 bg-sky-500 hover:bg-sky-400 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl font-bold text-xs transition shadow-lg shadow-sky-500/30">
+                Spara & Publicera
+            </button>
+            <button onclick="toggleTheme()" class="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-lg hover:scale-110 transition shadow-lg border border-sky-200 dark:border-sky-800/50" title="Växla Ljust/Mörkt Tema">
+                <span id="theme-icon">❄️</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APP LAYOUT -->
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- KULPÅSE / RESURSDEPÅ (SLÄPPZON FÖR AVBOKNING) -->
+        <aside id="resource-panel" 
+               ondragover="allowPoolDrop(event)" 
+               ondragleave="leavePoolDrop(event)"
+               ondrop="dropOrbToPool(event)"
+               class="w-[320px] flex flex-col border-r border-white/30 dark:border-sky-900/40 bg-white/20 dark:bg-slate-900/40 shrink-0 overflow-y-auto p-4 space-y-4 custom-scrollbar transition-all">
+            
+            <div class="flex items-center justify-between">
+                <h2 class="text-xs font-bold text-sky-800 dark:text-sky-200 uppercase tracking-wider">🎒 Kulpåsen & Resursdepå</h2>
+                <span class="text-[9px] text-sky-500/70">Släpp kula här för avbokning</span>
+            </div>
+
+            <!-- EGEN PERSONAL -->
+            <div class="glass-panel p-3.5 rounded-2xl flex flex-col">
+                <h3 class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-3">👥 Personal</h3>
+                <div id="pool-personnel" class="flex flex-wrap gap-3 min-h-[40px] mb-3"></div>
+                <button onclick="openQuickAddModal('person')" class="w-full py-1.5 border border-dashed border-sky-400/50 dark:border-sky-600 text-sky-700 dark:text-sky-400 text-[10px] font-bold rounded-lg hover:bg-sky-400/10 transition">
+                    + Ta in extra handtag (UE)
+                </button>
+            </div>
+
+            <!-- SJUKANMÄLDA -->
+            <div class="glass-panel p-3.5 rounded-2xl !bg-rose-50/50 dark:!bg-rose-950/20 !border-rose-200 dark:!border-rose-900/50">
+                <h3 class="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider mb-3">🤒 Sjukanmälda</h3>
+                <div id="pool-sick" class="flex flex-wrap gap-3 min-h-[30px]"></div>
+            </div>
+
+            <!-- MASKINER & UE -->
+            <div class="glass-panel p-3.5 rounded-2xl flex flex-col">
+                <h3 class="text-[11px] font-bold text-sky-600 dark:text-sky-300 uppercase tracking-wider mb-3">🚜 UE & Maskinpark</h3>
+                <div id="pool-machines" class="flex flex-wrap gap-3 min-h-[40px] mb-3"></div>
+                <button onclick="openQuickAddModal('machine')" class="w-full py-1.5 border border-dashed border-amber-500/50 dark:border-amber-600 text-amber-600 dark:text-amber-400 text-[10px] font-bold rounded-lg hover:bg-amber-400/10 transition">
+                    + Hyr in maskin (UE)
+                </button>
+            </div>
+        </aside>
+
+        <!-- TIMELINE & ORDERBOOK -->
+        <main class="flex-1 flex flex-col overflow-y-auto p-5 space-y-5 custom-scrollbar relative z-10">
+            <!-- ORDERBOOK -->
+            <section class="glass-panel p-4 rounded-2xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">📬 Ej inplanerade jobb (Orderboken)</h2>
+                    <button onclick="openCreateJobModal()" class="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-bold">+ Nytt Jobb</button>
+                </div>
+                <div id="orderbook-list" class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar"></div>
+            </section>
+
+            <!-- GANTT TIMELINE -->
+            <section class="glass-panel p-4 rounded-2xl flex-1 flex flex-col min-h-[360px]">
+                <h2 class="text-xs font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider mb-3">📅 Tidsperiod & Schemaläggning</h2>
+
+                <div id="timeline-container" class="border border-white/40 dark:border-sky-900/50 rounded-xl bg-white/20 dark:bg-slate-950/40 flex-1 overflow-auto custom-scrollbar relative backdrop-blur-sm">
+                    <div id="timeline-inner" class="flex flex-col min-h-full relative">
+                        <div class="h-10 border-b border-white/30 dark:border-sky-900/50 flex items-center bg-white/40 dark:bg-slate-900/70 shrink-0 sticky top-0 z-40 backdrop-blur-md">
+                            <div class="w-56 px-4 font-bold text-sky-800 dark:text-slate-300 text-[10px] uppercase tracking-wider shrink-0 sticky left-0 z-50 bg-white/60 dark:bg-slate-900/90 border-r border-white/30 dark:border-sky-900/50 h-full flex items-center">
+                                Projekt / Kund
+                            </div>
+                            <div id="timeline-header-days" class="flex text-center text-xs font-bold h-full items-center"></div>
+                        </div>
+
+                        <!-- DROP-ZON FÖR JOBB -->
+                        <div id="timeline-drop-area" 
+                             class="relative flex-1 transition-all" 
+                             ondragover="allowTimelineDrop(event)" 
+                             ondragleave="leaveTimelineDrop(event)" 
+                             ondrop="dropJobOnTimeline(event)">
+                            
+                            <!-- GHOST PREVIEW CARD -->
+                            <div id="ghost-job-preview" class="hidden">
+                                <span id="ghost-job-text" class="text-xs font-extrabold text-sky-300 flex items-center gap-1 drop-shadow">
+                                    📍 <span id="ghost-details">Placera här</span>
+                                </span>
+                            </div>
+
+                            <div id="timeline-grid-bg" class="absolute inset-0 flex pointer-events-none z-0 min-h-full"></div>
+                            <div id="gantt-rows" class="relative z-10 pb-8"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL 1: SKAPA NYTT JOBB / KRAVPROFIL -->
+    <div id="create-job-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200] p-4">
+        <div class="glass-panel !bg-slate-900/95 border border-emerald-500/30 max-w-lg w-full rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-emerald-400 flex items-center gap-2">
+                    <span>➕</span> Skapa nytt jobb / Kravprofil
+                </h3>
+                <button onclick="closeCreateJobModal()" class="text-slate-400 hover:text-white transition">✕</button>
+            </div>
+            
+            <form onsubmit="handleCreateJobSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Fakturerande / Utförande Enhet *</label>
+                    <select id="job-billing-company" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                        <option value="LPV">LPV AB (Blå)</option>
+                        <option value="Klaryta">Klaryta AB (Grön)</option>
+                        <option value="UE">Underentreprenör / UE (Orange)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Kund / Uppdragsgivare *</label>
+                    <select id="job-client-select" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Projekttitel / Beskrivning *</label>
+                    <input type="text" id="job-title" required placeholder="t.ex. Snöröjning Coop Norrköping" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                    <div>
+                        <label class="block text-[10px] font-bold text-sky-400 uppercase mb-1">Max Maskinstorlek</label>
+                        <select id="job-required-size" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                            <option value="alla">⚪ Valfri storlek</option>
+                            <option value="liten">🟢 Endast Liten (Trångt/Garageröjning)</option>
+                            <option value="medium">🔵 Medium (Standard Parkering/Gata)</option>
+                            <option value="stor">🔴 Stor / Heavy Duty (Tunga lyft/Ytor)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-sky-400 uppercase mb-1">Krävd Kompetens / Redskap</label>
+                        <select id="job-required-skill" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                            <option value="">Inga särskilda krav</option>
+                            <option value="Elektriker">⚡ Elektriker</option>
+                            <option value="VVS">💧 VVS / Röris</option>
+                            <option value="Heta Arbeten">🔥 Heta Arbeten</option>
+                            <option value="APV">🚧 Arbete på Väg (APV)</option>
+                            <option value="Vikplog">❄️ Vikplog</option>
+                            <option value="Sandspridare">🧂 Sandspridare</option>
+                            <option value="Pallgafflar">🏗️ Pallgafflar</option>
+                            <option value="Sopvals">🧹 Sopvals</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">📍 Arbetsplatsadress</label>
+                    <input type="text" id="job-site-address" placeholder="Storgatan 12, Norrköping" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Kontaktperson på plats</label>
+                        <input type="text" id="job-contact-name" placeholder="Jan-Erik" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Telefon kontakt</label>
+                        <input type="text" id="job-contact-phone" placeholder="070-123 45 67" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Beräknade timmar</label>
+                        <input type="number" id="job-hours" min="1" max="100" value="16" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Skift</label>
+                        <select id="job-shift" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                            <option value="Dagpass">☀️ Dagpass</option>
+                            <option value="Kvällspass">🌆 Kvällspass</option>
+                            <option value="Nattpass">🌙 Nattpass</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeCreateJobModal()" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition">Avbryt</button>
+                    <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-900/50 transition">
+                        Skapa Beställning ➕
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: DMT QUICK ADD UE MICRO-MODAL -->
+    <div id="quick-add-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200] p-4">
+        <div class="glass-panel !bg-slate-900/95 border border-amber-500/30 max-w-sm w-full rounded-2xl p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 id="qa-title" class="text-sm font-bold text-amber-400 flex items-center gap-2">
+                    ➕ Hyr in Resurs
+                </h3>
+                <button onclick="closeQuickAddModal()" class="text-slate-400 hover:text-white transition">✕</button>
+            </div>
+            
+            <form onsubmit="handleQuickAddSubmit(event)" class="space-y-3">
+                <input type="hidden" id="qa-type" value="person">
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Leverantör (UE) *</label>
+                    <select id="qa-supplier" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+                        <option value="Svevia">Svevia</option>
+                        <option value="PEAB">PEAB</option>
+                        <option value="Bravida">Bravida</option>
+                        <option value="Bemannia">Bemannia (Personal)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label id="qa-name-label" class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Namn / Förare *</label>
+                    <input type="text" id="qa-name" required placeholder="t.ex. Kalle" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div id="qa-skills-area">
+                    <label id="qa-skills-label" class="block text-[10px] font-bold text-amber-400 uppercase mb-1">Medhavda Redskap</label>
+                    <div id="qa-skills-container" class="flex flex-wrap gap-2 text-[11px]"></div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-800">
+                    <button type="submit" class="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-amber-900/50 transition">
+                        Lägg i Kulpåsen 🎒
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: ADMIN & KUNDREGISTER -->
+    <div id="admin-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-[200] p-4">
+        <div class="glass-panel !bg-slate-900/95 border border-sky-500/30 max-w-2xl w-full rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex gap-4">
+                    <button id="tab-btn-staff" onclick="switchAdminTab('staff')" class="text-sm font-bold pb-1 border-b-2 border-sky-400 text-sky-400 transition">
+                        👥 Personal, Maskiner & UE
+                    </button>
+                    <button id="tab-btn-client" onclick="switchAdminTab('client')" class="text-sm font-bold pb-1 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+                        🏢 Kundregister
+                    </button>
+                </div>
+                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white transition">✕</button>
+            </div>
+
+            <!-- FLIK 1: PERSONAL & MASKINER -->
+            <div id="tab-content-staff" class="space-y-4">
+                <form onsubmit="submitStaffForm(event)" class="grid grid-cols-2 gap-3 p-4 bg-slate-950/60 rounded-xl border border-slate-800">
+                    <div class="col-span-2 flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800">
+                        <span class="text-xs font-bold text-sky-400 uppercase tracking-wider">Typ av resurs:</span>
+                        <div class="flex gap-2">
+                            <label class="cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white" id="label-type-person">
+                                <input type="radio" name="res-type-toggle" value="person" checked onchange="toggleResourceTypeForm()" class="hidden"> 👦 Person / Anställd
+                            </label>
+                            <label class="cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400" id="label-type-machine">
+                                <input type="radio" name="res-type-toggle" value="machine" onchange="toggleResourceTypeForm()" class="hidden"> 🚜 Maskin / Redskap
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1" id="field-label-name">Namn / Person *</label>
+                        <input type="text" id="staff-name" required placeholder="t.ex. Janus Svensson" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Leverantör / Ägare *</label>
+                        <select id="staff-owner" required class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                            <option value="LPV">LPV AB (Blå)</option>
+                            <option value="Klaryta">Klaryta AB (Grön)</option>
+                            <option value="ue">Underentreprenör / UE (Orange)</option>
+                        </select>
+                    </div>
+
+                    <div id="container-role">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Yrkesroll / Titel</label>
+                        <input type="text" id="staff-role" placeholder="t.ex. Maskinförare / Elektriker" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                    </div>
+
+                    <div id="container-phone">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Telefon</label>
+                        <input type="text" id="staff-phone" placeholder="070-123 45 67" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500">
+                    </div>
+
+                    <div id="container-skills-person" class="col-span-2 space-y-1.5">
+                        <label class="block text-[10px] font-bold text-sky-400 uppercase">Specialkompetenser & Certifikat</label>
+                        <div class="flex flex-wrap gap-2 text-[11px]">
+                            <input type="checkbox" id="sk-el" value="Elektriker" class="hidden chip-checkbox">
+                            <label for="sk-el" class="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 cursor-pointer select-none transition">⚡ Elektriker</label>
+                            <input type="checkbox" id="sk-vvs" value="VVS" class="hidden chip-checkbox">
+                            <label for="sk-vvs" class="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 cursor-pointer select-none transition">💧 VVS / Rör</label>
+                            <input type="checkbox" id="sk-heta" value="Heta Arbeten" class="hidden chip-checkbox">
+                            <label for="sk-heta" class="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 cursor-pointer select-none transition">🔥 Heta Arbeten</label>
+                            <input type="checkbox" id="sk-apv" value="APV" class="hidden chip-checkbox">
+                            <label for="sk-apv" class="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 cursor-pointer select-none transition">🚧 APV (Arbete på väg)</label>
+                        </div>
+                    </div>
+
+                    <div id="container-skills-machine" class="col-span-2 space-y-1.5 hidden">
+                        <label class="block text-[10px] font-bold text-amber-400 uppercase">Tillgänglig Utrustning & Redskap</label>
+                        <div class="flex flex-wrap gap-2 text-[11px]">
+                            <input type="checkbox" id="eq-plog" value="Vikplog" class="hidden chip-checkbox">
+                            <label for="eq-plog" class="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 cursor-pointer select-none transition">❄️ Vikplog</label>
+                            <input type="checkbox" id="eq-sand" value="Sandspridare" class="hidden chip-checkbox">
+                            <label for="eq-sand" class="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 cursor-pointer select-none transition">🧂 Sandspridare</label>
+                        </div>
+                    </div>
+
+                    <div class="col-span-2 flex justify-end pt-2">
+                        <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg text-xs transition">Spara Resurs</button>
+                    </div>
+                </form>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase">Registrerade Resurser</h4>
+                    <div id="admin-staff-list" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                </div>
+            </div>
+
+            <!-- FLIK 2: KUNDREGISTER -->
+            <div id="tab-content-client" class="space-y-4 hidden">
+                <form onsubmit="submitClientForm(event)" class="grid grid-cols-2 gap-3 p-4 bg-slate-950/60 rounded-xl border border-slate-800">
+                    <div class="col-span-2 text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">➕ Registrera Ny Kund</div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Kundnamn / Företag *</label>
+                        <input type="text" id="client-name" required placeholder="t.ex. Coop Norrköping" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fakturerande Bolag *</label>
+                        <select id="client-billing" required class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                            <option value="LPV">LPV AB</option>
+                            <option value="Klaryta">Klaryta AB</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Org.nr / Personnummer</label>
+                        <input type="text" id="client-idnr" placeholder="556000-0000" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">ROT / RUT</label>
+                        <select id="client-rotrut" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                            <option value="none">Ej ROT/RUT</option>
+                            <option value="ROT">ROT-avdrag</option>
+                            <option value="RUT">RUT-avdrag</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fastighetsbeteckning</label>
+                        <input type="text" id="client-property" placeholder="t.ex. Eken 1:12" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="col-span-2 flex justify-end pt-2">
+                        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition">Spara Kund</button>
+                    </div>
+                </form>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase">Befintliga Kunder</h4>
+                    <div id="admin-client-list" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const APPS_SCRIPT_URL = ""; 
+        
+        const SWEDISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+        const SWEDISH_DAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
+        const START_DATE = new Date(2026, 9, 21); // Startar på en onsdag
+        const TOTAL_DAYS = 35;
+        const DAY_WIDTH = 130;
+
+        const HOLIDAYS = ["2026-10-23", "2026-11-01"];
+
+        let state = { clients: [], resources: [], jobs: [] };
+        let timelineDays = [];
+        let draggingJob = null;
+
+        function toggleTheme() {
+            const htmlTag = document.documentElement;
+            htmlTag.classList.toggle('dark');
+            const isDark = htmlTag.classList.contains('dark');
+            document.getElementById('theme-icon').innerText = isDark ? '❄️' : '☀️';
+        }
+
+        /* --- APPS SCRIPT BACKEND DATA LOAD --- */
+        function reloadLiveData() {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(onDataLoaded)
+                    .withFailureHandler(function(err) { console.error("Apps Script-fel:", err); })
+                    .handleGetKabanossData();
+            } else if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.length > 10) {
+                fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getKabanossData', token: 'Gravmaskin2026Secure!' })
+                })
+                .then(function(r) { return r.json(); })
+                .then(onDataLoaded)
+                .catch(function(err) { console.error("Fetch-fel:", err); });
+            } else {
+                console.log("Körs i lokalt test-läge med mock-data.");
+                onDataLoaded({
+                    status: "success",
+                    clients: [
+                        { name: "Coop Norrköping", billingCompany: "LPV", idNr: "556123-4567", rotRut: "none", propertyId: "Eken 1:12" },
+                        { name: "Svevia Fastighet", billingCompany: "Klaryta", idNr: "556987-6543", rotRut: "none", propertyId: "Viken 2:4" }
+                    ],
+                    resources: [
+                        { id: "Johan", name: "Johan Svensson", type: "person", ownerCompany: "LPV", color: "#0284c7", icon: "👦", skills: "C-Kort, APV", role: "Arbetsledare" },
+                        { id: "Pelle", name: "Pelle Röris", type: "person", ownerCompany: "ue", color: "#d97706", icon: "👷‍♂️", skills: "VVS", role: "UE VVS" },
+                        { id: "Sjuk_Lasse", name: "Lasse N", type: "person", ownerCompany: "LPV", color: "#0284c7", icon: "👦", isSick: true },
+                        { id: "Kramer_37", name: "Kramer 37.8", type: "machine", sizeClass: "stor", ownerCompany: "LPV", color: "#0284c7", icon: "🚜", skills: "Vikplog" },
+                        { id: "Avant_528", name: "Avant 528", type: "machine", sizeClass: "liten", ownerCompany: "Klaryta", color: "#16a34a", icon: "🚜", skills: "Sopvals" }
+                    ],
+                    jobs: [
+                        { id: "j1", client: "Coop Norrköping", billingCompany: "LPV", title: "Långjobb Snö (16h)", status: "unscheduled", hours: 16, assigned: [], requiredSkill: "Vikplog", requiredSize: "stor" },
+                        { id: "j2", client: "Svevia Fastighet", billingCompany: "Klaryta", title: "Garagestädning (8h)", status: "unscheduled", hours: 8, assigned: [], requiredSkill: "Sopvals", requiredSize: "liten" }
+                    ]
+                });
+            }
+        }
+
+        function onDataLoaded(res) {
+            if (res && res.status === "success") {
+                state.clients = res.clients || [];
+                state.resources = res.resources || [];
+                state.jobs = res.jobs || [];
+                initUI();
+            }
+        }
+
+        function initUI() {
+            buildTimelineData();
+            buildTimelineLayout();
+            renderKulpase();
+            renderOrderbook();
+            renderGantt();
+            renderAdminLists();
+            populateClientSelect();
+        }
+
+        function populateClientSelect() {
+            const sel = document.getElementById('job-client-select');
+            if(!sel) return;
+            sel.innerHTML = '';
+            state.clients.forEach(c => sel.innerHTML += `<option value="${c.name}">${c.name} (${c.billingCompany || 'LPV'})</option>`);
+        }
+
+        function buildTimelineData() {
+            timelineDays = [];
+            for (let i = 0; i < TOTAL_DAYS; i++) {
+                let d = new Date(START_DATE);
+                d.setDate(d.getDate() + i);
+                
+                const isoDate = d.toISOString().split('T')[0];
+                const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
+                const isHoliday = HOLIDAYS.includes(isoDate);
+
+                timelineDays.push({
+                    dateObj: d, isoDate: isoDate, isWeekend: isWeekend, isHoliday: isHoliday,
+                    isWorkingDay: !isWeekend && !isHoliday
+                });
+            }
+        }
+
+        function buildTimelineLayout() {
+            const inner = document.getElementById('timeline-inner');
+            inner.style.width = (224 + (TOTAL_DAYS * DAY_WIDTH)) + 'px';
+
+            const headerContainer = document.getElementById('timeline-header-days');
+            const gridBg = document.getElementById('timeline-grid-bg');
+            
+            headerContainer.innerHTML = '';
+            gridBg.innerHTML = '<div class="w-56 shrink-0 border-r border-white/20 dark:border-sky-900/30 sticky left-0 z-20 bg-white/30 dark:bg-slate-900/60 backdrop-blur-sm"></div>';
+
+            timelineDays.forEach((day, index) => {
+                const dayName = SWEDISH_DAYS[(day.dateObj.getDay() + 6) % 7];
+                const dateNum = day.dateObj.getDate();
+                const monthName = SWEDISH_MONTHS[day.dateObj.getMonth()];
+                
+                let bgClass = '';
+                let textClass = 'text-sky-700 dark:text-slate-400';
+                let holidayMarker = '';
+
+                if (day.isWeekend) { bgClass = 'bg-helg'; textClass = 'text-rose-500'; }
+                else if (day.isHoliday) { bgClass = 'bg-rose-50 dark:bg-rose-950/30'; textClass = 'text-rose-600 font-extrabold'; holidayMarker = '<div class="holiday-marker" title="Helgdag/Röd dag"></div>'; }
+
+                headerContainer.innerHTML += `
+                    <div id="day-header-${index}" class="day-header-cell border-r border-white/30 dark:border-sky-900/50 py-1 h-full flex flex-col justify-center items-center shrink-0 text-xs font-bold ${bgClass} ${textClass} relative" style="width: ${DAY_WIDTH}px;">
+                        <span>${dayName} ${dateNum} ${monthName}</span>
+                        ${holidayMarker}
+                    </div>
+                `;
+                gridBg.innerHTML += `<div class="border-r border-white/20 dark:border-sky-900/30 shrink-0 ${bgClass}" style="width: ${DAY_WIDTH}px;"></div>`;
+            });
+        }
+
+        function calculateJobScope(startIndex, hours) {
+            let workDaysNeeded = Math.ceil(hours / 8);
+            let daysSpanned = 0;
+            let workDaysCounted = 0;
+            let currentIndex = startIndex;
+
+            while (workDaysCounted < workDaysNeeded && currentIndex < TOTAL_DAYS) {
+                daysSpanned++;
+                if (timelineDays[currentIndex].isWorkingDay) workDaysCounted++;
+                currentIndex++;
+            }
+            return daysSpanned; 
+        }
+
+        function renderGantt() {
+            const container = document.getElementById('gantt-rows');
+            container.innerHTML = '';
+
+            state.jobs.filter(j => j.status === 'scheduled').forEach(job => {
+                let orbsHtml = job.assigned.map(id => {
+                    const res = state.resources.find(r => r.id === id);
+                    if (!res) return '';
+                    let sizeClass = 'orb-gantt-' + (res.sizeClass || 'liten');
+                    let displayContent = res.avatarBase64 
+                        ? `<img src="${res.avatarBase64}" class="w-full h-full object-cover rounded-full z-10" />`
+                        : `<span class="z-10 text-slate-800">${res.icon || '👦'}</span>`;
+
+                    return `<div class="glass-orb ${sizeClass} border border-white/60 dark:border-slate-800 shrink-0 cursor-grab hover:scale-110 transition-transform" style="background-color:${res.color || '#0284c7'}" draggable="true" ondragstart="onOrbDragStart(event, '${id}')" title="${res.name} (Dra till vänster för att avboka)">${displayContent}</div>`;
+                }).join('');
+
+                let emptyPlaceholder = '<div class="orb-placeholder" title="Dra in resurs">+</div>';
+
+                const leftPx = (job.dayIndex || 0) * DAY_WIDTH + 8;
+                const kalenderDagar = calculateJobScope(job.dayIndex || 0, job.hours);
+                const widthPx = kalenderDagar * DAY_WIDTH - 16;
+                const workDays = Math.ceil(job.hours / 8);
+
+                container.innerHTML += `
+                <div class="flex items-center h-[76px] border-b border-white/20 dark:border-slate-800/40 relative">
+                    <div class="w-56 p-2 shrink-0 h-full flex items-center z-30 sticky left-0 border-r border-white/30 dark:border-sky-900/50 bg-white/40 dark:bg-slate-900/70 backdrop-blur-md">
+                        <div class="glass-panel p-2 rounded-xl w-full border-white/60 dark:border-slate-700">
+                            <div class="text-[9px] font-bold text-sky-700 dark:text-slate-400 uppercase truncate">${job.client}</div>
+                            <div class="font-bold text-xs text-sky-950 dark:text-slate-100 truncate">${job.title}</div>
+                        </div>
+                    </div>
+                    <div class="flex-1 h-full relative">
+                        <div id="job-card-${job.id}" class="gantt-job-card ${job.billingCompany === 'Klaryta' ? 'kla' : 'lpv'} absolute top-[6px] bottom-[6px] shadow-lg transition-all"
+                             style="left: ${leftPx}px; width: ${widthPx}px;"
+                             draggable="true" ondragstart="onJobDragStart(event, '${job.id}')" ondragend="onJobDragEnd(event)"
+                             ondragover="allowJobCardDrop(event, '${job.id}')" ondragleave="leaveJobCardDrop(event, '${job.id}')" ondrop="dropOrbOnJob(event, '${job.id}')">
+                            
+                            ${kalenderDagar > workDays ? '<div class="absolute inset-0 pointer-events-none opacity-20" style="background: repeating-linear-gradient(45deg, transparent, transparent 10px, #000 10px, #000 20px);"></div>' : ''}
+
+                            <div class="gantt-job-card-content">
+                                <div class="flex items-center gap-1">${orbsHtml}${emptyPlaceholder}</div>
+                                <div class="text-[9px] font-extrabold bg-black/40 text-sky-200 px-1.5 py-0.5 rounded shrink-0">${job.hours}h (${kalenderDagar} kd)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        function renderKulpase() {
+            const poolP = document.getElementById('pool-personnel'); const poolS = document.getElementById('pool-sick'); const poolM = document.getElementById('pool-machines');
+            poolP.innerHTML = ''; poolS.innerHTML = ''; poolM.innerHTML = '';
+            const assignedIds = new Set(); state.jobs.filter(j => j.status === 'scheduled').forEach(j => j.assigned.forEach(id => assignedIds.add(id)));
+
+            state.resources.forEach(res => {
+                let badge = (res.ownerCompany !== 'LPV' && res.ownerCompany !== 'Klaryta') ? 'bg-ue' : (res.ownerCompany === 'Klaryta' ? 'bg-klaryta' : 'bg-lpv');
+                let oText = badge === 'bg-ue' ? 'UE' : res.ownerCompany;
+                let sClass = 'orb-kulpase-' + (res.sizeClass || 'liten');
+                let sHtml = res.skills ? `<div class="text-[8px] bg-sky-950/80 text-sky-300 border border-sky-500/30 rounded px-1 py-0.5 mt-0.5 truncate">${res.skills.split(',')[0]}</div>` : '';
+
+                let displayContent = res.avatarBase64 
+                    ? `<img src="${res.avatarBase64}" class="w-full h-full object-cover rounded-full z-10" />`
+                    : `<span class="z-10 text-slate-800">${res.icon || '👦'}</span>`;
+
+                if (res.type === 'person' && res.isSick) {
+                    poolS.innerHTML += `<div class="flex flex-col items-center gap-1 w-[56px] shrink-0"><div class="glass-orb ${sClass} sick-orb"><span class="z-10">🤒</span><span class="owner-badge bg-rose-600">SJUK</span></div><span class="text-[9px] font-bold text-rose-500 truncate">${res.name}</span></div>`;
+                } else if (!assignedIds.has(res.id)) {
+                    const html = `<div class="flex flex-col items-center gap-1 w-[56px] shrink-0"><div class="glass-orb ${sClass}" style="background-color: ${res.color}" draggable="true" ondragstart="onOrbDragStart(event, '${res.id}')">${displayContent}<span class="owner-badge ${badge}">${oText}</span></div><span class="text-[9px] font-semibold text-sky-900 dark:text-slate-300 truncate">${res.name}</span>${sHtml}</div>`;
+                    if (res.type === 'person') poolP.innerHTML += html; else poolM.innerHTML += html;
+                }
+            });
+        }
+
+        function renderOrderbook() {
+            const container = document.getElementById('orderbook-list'); container.innerHTML = '';
+            state.jobs.filter(j => j.status === 'unscheduled').forEach(job => {
+                let reqHtml = job.requiredSkill ? `<span class="text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded">REQ: ${job.requiredSkill}</span>` : '';
+                container.innerHTML += `<div class="glass-panel p-3 rounded-xl shrink-0 w-60 cursor-grab hover:scale-[1.02] transition-transform border border-emerald-500/30" draggable="true" ondragstart="onJobDragStart(event, '${job.id}')" ondragend="onJobDragEnd(event)"><div class="flex items-center justify-between text-[10px] font-bold uppercase mb-1"><span class="truncate">${job.client}</span><span class="bg-amber-500/10 text-amber-500 px-1.5 rounded">${job.hours}h</span></div><div class="font-bold text-xs truncate mb-1.5">${job.title}</div><div class="flex items-center justify-between text-[9px] text-slate-400">${reqHtml}<span class="text-emerald-400 font-semibold">🖐 Dra till tidslinjen</span></div></div>`;
+            });
+        }
+
+        /* --- DRAG & DROP WITH PRECISION PREVIEW --- */
+        function onOrbDragStart(e, id) { e.stopPropagation(); e.dataTransfer.setData("type", "orb"); e.dataTransfer.setData("id", id); }
+        
+        function onJobDragStart(e, id) { 
+            e.dataTransfer.setData("type", "job"); 
+            e.dataTransfer.setData("id", id); 
+            draggingJob = state.jobs.find(j => j.id === id);
+        }
+
+        function onJobDragEnd(e) {
+            draggingJob = null;
+            clearDragPreview();
+        }
+
+        function allowTimelineDrop(e) { 
+            e.preventDefault(); 
+            if (!draggingJob) return;
+
+            const rect = document.getElementById('timeline-drop-area').getBoundingClientRect();
+            const offsetX = e.clientX - (rect.left + 224);
+            
+            if (offsetX >= 0) {
+                let proposedIndex = Math.max(0, Math.floor(offsetX / DAY_WIDTH));
+                updateDragPreview(proposedIndex, draggingJob);
+            }
+        }
+
+        function leaveTimelineDrop(e) { 
+            // Rensar endast vid drop eller dragend för jämn känsla
+        }
+
+        function updateDragPreview(startIndex, job) {
+            // Highlighta den exakta dagen i kalenderraden
+            for (let i = 0; i < TOTAL_DAYS; i++) {
+                const headerCell = document.getElementById('day-header-' + i);
+                if (headerCell) {
+                    if (i === startIndex) headerCell.classList.add('day-header-highlight');
+                    else headerCell.classList.remove('day-header-highlight');
+                }
+            }
+
+            // Visa Spök-blocket som matchar tidsblockets EXAKTA beräknade bredd
+            const ghost = document.getElementById('ghost-job-preview');
+            const ghostDetails = document.getElementById('ghost-details');
+            if (ghost && ghostDetails) {
+                const kalenderDagar = calculateJobScope(startIndex, job.hours);
+                const leftPx = startIndex * DAY_WIDTH + 8;
+                const widthPx = kalenderDagar * DAY_WIDTH - 16;
+
+                ghost.style.left = leftPx + 'px';
+                ghost.style.width = widthPx + 'px';
+                ghostDetails.innerText = `${job.title} (${job.hours}h -> ${kalenderDagar}d)`;
+                ghost.classList.remove('hidden');
+            }
+        }
+
+        function clearDragPreview() {
+            const ghost = document.getElementById('ghost-job-preview');
+            if (ghost) ghost.classList.add('hidden');
+
+            for (let i = 0; i < TOTAL_DAYS; i++) {
+                const headerCell = document.getElementById('day-header-' + i);
+                if (headerCell) headerCell.classList.remove('day-header-highlight');
+            }
+        }
+
+        function dropJobOnTimeline(e) {
+            e.preventDefault(); 
+            clearDragPreview();
+            
+            if (e.dataTransfer.getData("type") === "job") {
+                const job = state.jobs.find(j => j.id === e.dataTransfer.getData("id"));
+                if (job) {
+                    const rect = document.getElementById('timeline-drop-area').getBoundingClientRect();
+                    const offsetX = e.clientX - (rect.left + 224);
+                    if (offsetX >= 0) {
+                        let proposedIndex = Math.max(0, Math.floor(offsetX / DAY_WIDTH));
+                        while(proposedIndex < TOTAL_DAYS && !timelineDays[proposedIndex].isWorkingDay) proposedIndex++;
+                        job.status = 'scheduled'; 
+                        job.dayIndex = proposedIndex; 
+                        initUI();
+                    }
+                }
+            }
+        }
+
+        function allowJobCardDrop(e, id) { e.preventDefault(); e.stopPropagation(); document.getElementById('job-card-'+id).classList.add('job-card-hover'); }
+        function leaveJobCardDrop(e, id) { document.getElementById('job-card-'+id).classList.remove('job-card-hover'); }
+        function dropOrbOnJob(e, jobId) {
+            e.preventDefault(); e.stopPropagation(); leaveJobCardDrop(e, jobId);
+            if (e.dataTransfer.getData("type") === "orb") {
+                const resId = e.dataTransfer.getData("id");
+                state.jobs.forEach(j => j.assigned = j.assigned.filter(aid => aid !== resId));
+                const job = state.jobs.find(j => j.id === jobId);
+                if (job && !job.assigned.includes(resId)) job.assigned.push(resId);
+                initUI();
+            }
+        }
+
+        function allowPoolDrop(e) { e.preventDefault(); document.getElementById('resource-panel').classList.add('pool-drag-active'); }
+        function leavePoolDrop(e) { document.getElementById('resource-panel').classList.remove('pool-drag-active'); }
+        function dropOrbToPool(e) {
+            e.preventDefault(); leavePoolDrop(e);
+            if (e.dataTransfer.getData("type") === "orb") {
+                const resId = e.dataTransfer.getData("id");
+                state.jobs.forEach(j => j.assigned = j.assigned.filter(aid => aid !== resId));
+                initUI();
+            }
+        }
+
+        /* --- DMT MICRO-MODAL LOGIK --- */
+        function openQuickAddModal(type) {
+            document.getElementById('qa-type').value = type;
+            const title = document.getElementById('qa-title');
+            const nameLabel = document.getElementById('qa-name-label');
+            const skillsLabel = document.getElementById('qa-skills-label');
+            const skillsContainer = document.getElementById('qa-skills-container');
+
+            if (type === 'person') {
+                title.innerHTML = '👥 Ta in extra personal (UE)';
+                nameLabel.innerText = 'Namn / Förare *';
+                skillsLabel.innerText = 'Kompetenser (Klicka i)';
+                skillsContainer.innerHTML = `
+                    <input type="checkbox" id="qa-sk-el" value="Elektriker" class="hidden chip-checkbox">
+                    <label for="qa-sk-el" class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer text-xs select-none">⚡ El</label>
+                    <input type="checkbox" id="qa-sk-vvs" value="VVS" class="hidden chip-checkbox">
+                    <label for="qa-sk-vvs" class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer text-xs select-none">💧 VVS</label>
+                    <input type="checkbox" id="qa-sk-heta" value="Heta Arbeten" class="hidden chip-checkbox">
+                    <label for="qa-sk-heta" class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer text-xs select-none">🔥 Heta</label>
+                `;
+            } else {
+                title.innerHTML = '🚜 Hyr in Maskin (UE)';
+                nameLabel.innerText = 'Maskinmodell *';
+                skillsLabel.innerText = 'Medhavda Redskap (Klicka i)';
+                skillsContainer.innerHTML = `
+                    <input type="checkbox" id="qa-eq-plog" value="Vikplog" class="hidden chip-checkbox">
+                    <label for="qa-eq-plog" class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer text-xs select-none">❄️ Plog</label>
+                    <input type="checkbox" id="qa-eq-sand" value="Sandspridare" class="hidden chip-checkbox">
+                    <label for="qa-eq-sand" class="px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer text-xs select-none">🧂 Sand</label>
+                `;
+            }
+
+            document.getElementById('quick-add-modal').classList.remove('hidden');
+            document.getElementById('quick-add-modal').classList.add('flex');
+            document.getElementById('qa-name').focus();
+        }
+
+        function closeQuickAddModal() {
+            document.getElementById('quick-add-modal').classList.add('hidden');
+            document.getElementById('quick-add-modal').classList.remove('flex');
+            document.getElementById('qa-name').value = '';
+        }
+
+        function handleQuickAddSubmit(e) {
+            e.preventDefault();
+            const type = document.getElementById('qa-type').value;
+            const name = document.getElementById('qa-name').value;
+            const supplier = document.getElementById('qa-supplier').value;
+
+            const checkedBoxes = document.querySelectorAll('#qa-skills-container input:checked');
+            const selectedSkills = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
+
+            const newRes = {
+                id: name + "_" + Date.now(), name: name, type: type, ownerCompany: supplier,
+                color: '#d97706', icon: type === 'person' ? '👷‍♂️' : '🚜', sizeClass: type === 'person' ? 'liten' : 'stor',
+                skills: selectedSkills || (type === 'person' ? 'Arbetare' : 'Maskin')
+            };
+
+            state.resources.push(newRes);
+            closeQuickAddModal();
+            initUI();
+        }
+
+        /* --- ADMIN & REGISTER MODAL --- */
+        function openAdminModal(tab) {
+            document.getElementById('admin-modal').classList.remove('hidden');
+            document.getElementById('admin-modal').classList.add('flex');
+            if (tab) switchAdminTab(tab);
+        }
+        function closeAdminModal() {
+            document.getElementById('admin-modal').classList.add('hidden');
+            document.getElementById('admin-modal').classList.remove('flex');
+        }
+
+        function switchAdminTab(tab) {
+            const btnStaff = document.getElementById('tab-btn-staff');
+            const btnClient = document.getElementById('tab-btn-client');
+            const contentStaff = document.getElementById('tab-content-staff');
+            const contentClient = document.getElementById('tab-content-client');
+
+            if (tab === 'staff') {
+                btnStaff.className = "text-sm font-bold pb-1 border-b-2 border-sky-400 text-sky-400 transition";
+                btnClient.className = "text-sm font-bold pb-1 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+                contentStaff.classList.remove('hidden'); contentClient.classList.add('hidden');
+            } else {
+                btnClient.className = "text-sm font-bold pb-1 border-b-2 border-emerald-400 text-emerald-400 transition";
+                btnStaff.className = "text-sm font-bold pb-1 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+                contentClient.classList.remove('hidden'); contentStaff.classList.add('hidden');
+            }
+        }
+
+        function toggleResourceTypeForm() {
+            const isPerson = document.querySelector('input[name="res-type-toggle"]:checked').value === 'person';
+            const btnP = document.getElementById('label-type-person');
+            const btnM = document.getElementById('label-type-machine');
+            const cPerson = document.getElementById('container-skills-person');
+            const cMachine = document.getElementById('container-skills-machine');
+            const fieldLabelName = document.getElementById('field-label-name');
+
+            if (isPerson) {
+                btnP.className = "cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white";
+                btnM.className = "cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400";
+                cPerson.classList.remove('hidden'); cMachine.classList.add('hidden');
+                fieldLabelName.innerText = "Namn / Person *";
+            } else {
+                btnM.className = "cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-amber-600 text-white";
+                btnP.className = "cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400";
+                cMachine.classList.remove('hidden'); cPerson.classList.add('hidden');
+                fieldLabelName.innerText = "Maskinmodell / Namn *";
+            }
+        }
+
+        function renderAdminLists() {
+            const staffList = document.getElementById('admin-staff-list');
+            const clientList = document.getElementById('admin-client-list');
+            if(!staffList || !clientList) return;
+
+            staffList.innerHTML = ''; clientList.innerHTML = '';
+
+            state.resources.forEach(r => {
+                let badgeBg = r.ownerCompany && r.ownerCompany.toLowerCase().includes('kla') ? 'bg-emerald-600' : (r.ownerCompany && r.ownerCompany.toLowerCase().includes('ue') ? 'bg-amber-600' : 'bg-sky-600');
+                staffList.innerHTML += `<div class="flex items-center justify-between p-2 bg-slate-950/40 rounded-lg text-xs border border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full ${badgeBg}"></span>
+                        <span class="font-bold text-slate-200">${r.name}</span>
+                        <span class="text-[10px] text-slate-400">(${r.role || r.ownerCompany})</span>
+                    </div>
+                    <div class="text-[10px] text-sky-400">${r.skills || 'Inga taggar'}</div>
+                </div>`;
+            });
+
+            state.clients.forEach(c => {
+                clientList.innerHTML += `<div class="flex items-center justify-between p-2 bg-slate-950/40 rounded-lg text-xs border border-slate-800">
+                    <div>
+                        <div class="font-bold text-slate-200">${c.name}</div>
+                        <div class="text-[10px] text-slate-400">${c.billingCompany || 'LPV'} | Org: ${c.idNr || 'Ej angivet'} | Fastighet: ${c.propertyId || '-'}</div>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">${c.rotRut !== 'none' ? c.rotRut : 'Standard'}</span>
+                </div>`;
+            });
+        }
+
+        function submitStaffForm(e) {
+            e.preventDefault();
+            const isPerson = document.querySelector('input[name="res-type-toggle"]:checked').value === 'person';
+            const checkedBoxes = document.querySelectorAll(isPerson ? '#container-skills-person input:checked' : '#container-skills-machine input:checked');
+            const selectedSkills = Array.from(checkedBoxes).map(cb => cb.value).join(', ');
+
+            const nameVal = document.getElementById('staff-name').value;
+            const ownerVal = document.getElementById('staff-owner').value;
+
+            state.resources.push({
+                id: nameVal + "_" + Date.now(), name: nameVal, type: isPerson ? "person" : "machine",
+                ownerCompany: ownerVal, role: isPerson ? document.getElementById('staff-role').value : "Maskin",
+                phone: isPerson ? document.getElementById('staff-phone').value : "", skills: selectedSkills,
+                color: ownerVal === 'ue' ? '#d97706' : (ownerVal === 'Klaryta' ? '#16a34a' : '#0284c7'),
+                icon: isPerson ? "👦" : "🚜", sizeClass: isPerson ? "liten" : "stor"
+            });
+
+            initUI();
+            alert("✅ Resurs sparad!");
+        }
+
+        function submitClientForm(e) {
+            e.preventDefault();
+            state.clients.push({
+                name: document.getElementById('client-name').value,
+                billingCompany: document.getElementById('client-billing').value,
+                idNr: document.getElementById('client-idnr').value,
+                rotRut: document.getElementById('client-rotrut').value,
+                propertyId: document.getElementById('client-property').value
+            });
+
+            initUI();
+            alert("✅ Kund sparad!");
+        }
+
+        /* --- JOBB MODAL --- */
+        function openCreateJobModal() { populateClientSelect(); document.getElementById('create-job-modal').classList.remove('hidden'); document.getElementById('create-job-modal').classList.add('flex'); }
+        function closeCreateJobModal() { document.getElementById('create-job-modal').classList.add('hidden'); document.getElementById('create-job-modal').classList.remove('flex'); }
+        
+        function handleCreateJobSubmit(e) {
+            e.preventDefault();
+            state.jobs.push({
+                id: "j_" + Date.now(),
+                client: document.getElementById('job-client-select').value || "Standard Kund",
+                billingCompany: document.getElementById('job-billing-company').value,
+                title: document.getElementById('job-title').value,
+                requiredSize: document.getElementById('job-required-size').value,
+                requiredSkill: document.getElementById('job-required-skill').value,
+                siteAddress: document.getElementById('job-site-address').value,
+                siteContactName: document.getElementById('job-contact-name').value,
+                siteContactPhone: document.getElementById('job-contact-phone').value,
+                hours: Number(document.getElementById('job-hours').value) || 8,
+                shift: document.getElementById('job-shift').value,
+                status: "unscheduled", assigned: []
+            });
+            closeCreateJobModal(); initUI();
+        }
+
+        function publishChanges() { alert("Ändringar sparade och redo för publicering!"); }
+
+        document.addEventListener('DOMContentLoaded', reloadLiveData);
+    </script>
+</body>
+</html>

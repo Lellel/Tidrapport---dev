@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Touch Gestkontroll #33</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 max-w-4xl mx-auto space-y-4">
+  <header class="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
+    <a href="prototyper.html" class="text-xs text-sky-400 font-bold">← Prototypnav</a>
+    <h1 class="text-base font-black">🤏 iPad Touch & Gestkontroll (#33)</h1>
+  </header>
+  <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-2">
+    <p class="text-xs text-slate-400">Dra med fingret för att flytta P-rutan direkt på iPad-skärmen.</p>
+    <div id="touch-area" class="h-96 rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden touch-none">
+      <div id="draggable" class="absolute top-1/3 left-1/3 w-40 h-28 border-4 border-amber-400 bg-amber-500/20 rounded-xl flex items-center justify-center font-black text-amber-300 cursor-move shadow-2xl">
+        🖐️ Dra Mig
+      </div>
+    </div>
+  </div>
+  <script>
+    const el = document.getElementById('draggable');
+    let isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
+
+    const area = document.getElementById('touch-area');
+    area.addEventListener('touchstart', dragStart, false);
+    area.addEventListener('touchend', dragEnd, false);
+    area.addEventListener('touchmove', drag, false);
+    area.addEventListener('mousedown', dragStart, false);
+    area.addEventListener('mouseup', dragEnd, false);
+    area.addEventListener('mousemove', drag, false);
+
+    function dragStart(e) {
+      initialX = (e.type === "touchstart" ? e.touches[0].clientX : e.clientX) - xOffset;
+      initialY = (e.type === "touchstart" ? e.touches[0].clientY : e.clientY) - yOffset;
+      if (e.target === el || el.contains(e.target)) isDragging = true;
+    }
+    function dragEnd() { initialX = currentX; initialY = currentY; isDragging = false; }
+    function drag(e) {
+      if (isDragging) {
+        e.preventDefault();
+        currentX = (e.type === "touchmove" ? e.touches[0].clientX : e.clientX) - initialX;
+        currentY = (e.type === "touchmove" ? e.touches[0].clientY : e.clientY) - initialY;
+        xOffset = currentX; yOffset = currentY;
+        el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+      }
+    }
+  </script>
+</body>
+</html>

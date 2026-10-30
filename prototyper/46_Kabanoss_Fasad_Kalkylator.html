@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fasadkalkylator, UE & ROT #46 (v1.1)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .leaflet-control-zoom a { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
+    input[type="file"] { display: none; }
+  </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 space-y-4 max-w-7xl mx-auto">
+
+  <!-- Header v1.1 -->
+  <header class="glass-card rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+    <div class="flex items-center gap-3">
+      <a href="prototyper.html" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition">
+        ← Prototypnav
+      </a>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Modul #46 • Fasad & UE-Kalkyl</span>
+          <span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[10px] font-black">v1.1 (Dev)</span>
+        </div>
+        <h1 class="text-lg font-black text-white">🏠 Fasadkalkyl med UE-Motor & ROT-Avdrag</h1>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <!-- Dynamisk UE-Statusbadge -->
+      <span id="ue-status-badge" class="px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-black flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>Målas In-House</span>
+      </span>
+      <button id="save-btn" onclick="saveQuote()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition">
+        💾 Spara & Skapa UE-Underlag
+      </button>
+    </div>
+  </header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <!-- VÄNSTER: Karta & Mätning (1 Kolumn) -->
+    <div class="glass-card p-4 rounded-2xl space-y-4 flex flex-col lg:col-span-1">
+      <div class="flex justify-between items-center mb-1">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400">1. Mät upp väggarna på kartan</h2>
+        <button onclick="clearMap()" class="text-[10px] bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300">🗑️ Rensa</button>
+      </div>
+
+      <div class="relative h-60 rounded-xl overflow-hidden border border-slate-800 shadow-xl">
+        <div id="map" class="w-full h-full z-0"></div>
+      </div>
+
+      <!-- Kalkylator Geometri -->
+      <div class="grid grid-cols-3 gap-2">
+        <div class="bg-slate-900 p-2 rounded-lg border border-slate-800 text-center">
+          <div class="text-[9px] text-slate-400 uppercase font-bold">Längd</div>
+          <div id="wall-length" class="text-xs font-black text-white mt-0.5">0.0 m</div>
+        </div>
+        <div class="bg-slate-900 p-2 rounded-lg border border-sky-500/30 text-center">
+          <div class="text-[9px] text-sky-400 uppercase font-bold">Höjd (m)</div>
+          <input type="number" id="wall-height" value="4.0" step="0.5" oninput="calculateAll()" class="w-full bg-transparent text-center text-xs font-black text-sky-300 outline-none">
+        </div>
+        <div class="bg-slate-900 p-2 rounded-lg border border-emerald-500/30 text-center">
+          <div class="text-[9px] text-emerald-400 uppercase font-bold">Bruttoyta</div>
+          <div id="gross-area" class="text-xs font-black text-emerald-300 mt-0.5">0 m²</div>
+        </div>
+      </div>
+
+      <!-- Fönster & Dörrar -->
+      <div class="space-y-2 pt-2 border-t border-slate-800">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400">2. Avdrag för öppningar</h2>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800">
+            <span class="text-xs font-bold text-white">Fönster</span>
+            <div class="flex items-center gap-2">
+              <button onclick="changeCount('windows', -1)" class="w-6 h-6 bg-slate-800 rounded-lg text-white font-black text-xs">-</button>
+              <span id="val-windows" class="font-black text-xs w-3 text-center">0</span>
+              <button onclick="changeCount('windows', 1)" class="w-6 h-6 bg-slate-800 rounded-lg text-white font-black text-xs">+</button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800">
+            <span class="text-xs font-bold text-white">Dörrar</span>
+            <div class="flex items-center gap-2">
+              <button onclick="changeCount('doors', -1)" class="w-6 h-6 bg-slate-800 rounded-lg text-white font-black text-xs">-</button>
+              <span id="val-doors" class="font-black text-xs w-3 text-center">0</span>
+              <button onclick="changeCount('doors', 1)" class="w-6 h-6 bg-slate-800 rounded-lg text-white font-black text-xs">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MITTEN: Tillstånd, UE-Motor & Bildkrav (1 Kolumn) -->
+    <div class="glass-card p-4 rounded-2xl space-y-4 lg:col-span-1">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">3. Fasadens Skick & UE-Behov</h2>
+
+      <div class="grid grid-cols-3 gap-2">
+        <label class="cursor-pointer">
+          <input type="radio" name="condition" value="good" class="peer hidden" onchange="updateCondition()" checked>
+          <div class="p-2.5 rounded-xl border-2 border-slate-800 bg-slate-900 peer-checked:border-emerald-500 peer-checked:bg-emerald-950/30 transition text-center">
+            <div class="text-lg">🟢</div>
+            <div class="text-[10px] font-black uppercase text-white mt-1">Bra</div>
+            <div class="text-[8px] text-slate-400">In-house</div>
+          </div>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="condition" value="medium" class="peer hidden" onchange="updateCondition()">
+          <div class="p-2.5 rounded-xl border-2 border-slate-800 bg-slate-900 peer-checked:border-amber-500 peer-checked:bg-amber-950/30 transition text-center">
+            <div class="text-lg">🟡</div>
+            <div class="text-[10px] font-black uppercase text-white mt-1">Slitet</div>
+            <div class="text-[8px] text-slate-400">Skrapning</div>
+          </div>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="condition" value="bad" class="peer hidden" onchange="updateCondition()">
+          <div class="p-2.5 rounded-xl border-2 border-slate-800 bg-slate-900 peer-checked:border-rose-500 peer-checked:bg-rose-950/30 transition text-center">
+            <div class="text-lg">🔴</div>
+            <div class="text-[10px] font-black uppercase text-white mt-1">Röta</div>
+            <div class="text-[8px] text-amber-400 font-bold">🚨 UE-Krav</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- KAMERAKRAV FÖR SKADA -->
+      <div id="photo-requirement" class="hidden">
+        <div class="bg-rose-950/70 border border-rose-500/50 rounded-xl p-3 space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">📸</span>
+            <div class="text-[10px] font-black uppercase text-rose-300">Obligatoriskt Skadefoto för UE</div>
+          </div>
+          <label class="block w-full text-center bg-rose-600 hover:bg-rose-500 text-white text-xs font-black py-2 rounded-lg cursor-pointer transition">
+            ÖPPNA KAMERA & FOTA SKADAN
+            <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+          </label>
+          <div id="photo-preview-container" class="hidden text-center">
+            <img id="photo-preview" class="h-20 w-full object-cover rounded-lg border border-rose-400 mt-1" src="" alt="Skada">
+            <span class="text-[9px] text-emerald-400 font-bold">✔️ Foto bifogat i UE-Order</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- UE-PANEL (Visas automatiskt vid Röta/Slitet) -->
+      <div id="ue-panel" class="space-y-3 p-3 bg-slate-950 border border-amber-500/30 rounded-xl hidden">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-black uppercase text-amber-400">👷 UE-Specifikation</span>
+          <span class="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-bold">Snickeriarbete</span>
+        </div>
+
+        <!-- Prismodell UE -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[9px] text-slate-400 font-bold uppercase">UE Arbetskostnad (kr)</label>
+            <input type="number" id="ue-labor" value="18000" step="500" oninput="calculateAll()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-emerald-300 border border-slate-700">
+            <span class="text-[8px] text-emerald-400">ROT-Grundande!</span>
+          </div>
+          <div>
+            <label class="text-[9px] text-slate-400 font-bold uppercase">UE Mat. & Ställning (kr)</label>
+            <input type="number" id="ue-material" value="6000" step="500" oninput="calculateAll()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
+            <span class="text-[8px] text-slate-500">Ej ROT-Grundande</span>
+          </div>
+        </div>
+
+        <!-- Påslag / Marginal -->
+        <div>
+          <div class="flex justify-between text-[10px] font-bold mb-1">
+            <span class="text-slate-400">Vårt Påslag (Marginal):</span>
+            <span id="markup-val" class="text-amber-400 font-black">25 %</span>
+          </div>
+          <input type="range" id="markup-percent" min="0" max="60" value="25" oninput="calculateAll()" class="w-full">
+        </div>
+
+        <!-- UE Compliance Checkboxar -->
+        <div class="space-y-1.5 pt-1 border-t border-slate-800">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="chk-fskatt" checked class="rounded bg-slate-800 border-slate-700 text-emerald-500">
+            <span class="text-[10px] font-bold text-slate-300">UE F-skatt verifierad hos Skatteverket</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="chk-spec" checked class="rounded bg-slate-800 border-slate-700 text-emerald-500">
+            <span class="text-[10px] font-bold text-slate-300">Kräv specad arbetstid på UE-fakturan</span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- HÖGER: Sammanställning, ROT & Slutpris (1 Kolumn) -->
+    <div class="glass-card p-4 rounded-2xl space-y-4 flex flex-col justify-between lg:col-span-1">
+      <div>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">4. Slutkalkyl & ROT-Bokföring</h2>
+
+        <!-- ROT TOGGLE -->
+        <div class="bg-slate-900 p-3 rounded-xl border border-sky-500/30 flex justify-between items-center mb-4">
+          <div>
+            <div class="text-xs font-black text-white">Tillämpa ROT-Avdrag (30%)</div>
+            <div class="text-[9px] text-sky-300">Dras av på kundens arbetskostnad</div>
+          </div>
+          <input type="checkbox" id="rot-active" checked onchange="calculateAll()" class="w-5 h-5 rounded border-slate-700 text-sky-500 cursor-pointer">
+        </div>
+
+        <!-- Ekonomiska Posterna -->
+        <div class="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-bold">
+          <div class="flex justify-between text-slate-400">
+            <span>Yta att måla:</span>
+            <span id="disp-net-area" class="text-white">0 m²</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Målningsarbete (In-house):</span>
+            <span id="disp-paint-cost" class="text-white">0 kr</span>
+          </div>
+          <div id="row-ue-labor" class="flex justify-between text-slate-400 hidden">
+            <span>UE Snickare (Arbete + Påslag):</span>
+            <span id="disp-ue-labor" class="text-emerald-400">0 kr</span>
+          </div>
+          <div id="row-ue-mat" class="flex justify-between text-slate-400 hidden">
+            <span>UE Mat./Ställning (+ Påslag):</span>
+            <span id="disp-ue-mat" class="text-white">0 kr</span>
+          </div>
+          
+          <hr class="border-slate-800 my-2">
+          
+          <div class="flex justify-between text-slate-200">
+            <span>Totalt Före ROT (Exkl. Moms):</span>
+            <span id="disp-subtotal-ex" class="font-black">0 kr</span>
+          </div>
+          <div class="flex justify-between text-slate-200">
+            <span>Totalt Före ROT (Inkl. Moms):</span>
+            <span id="disp-subtotal-inc" class="font-black">0 kr</span>
+          </div>
+          
+          <div id="row-rot-discount" class="flex justify-between text-sky-400 font-black py-1 bg-sky-950/40 px-2 rounded border border-sky-500/30">
+            <span>- ROT-Avdrag (30% på arbete):</span>
+            <span id="disp-rot-discount">0 kr</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLUTPRISER OCH SKATTEVERKET -->
+      <div class="space-y-2 pt-2">
+        <div class="bg-emerald-950/30 border border-emerald-500/40 p-3 rounded-xl">
+          <div class="text-[10px] font-black uppercase text-emerald-400">KUNDEN BETALAR (Inkl. Moms)</div>
+          <div id="disp-customer-pay" class="text-2xl font-black text-emerald-300 mt-0.5">0 kr</div>
+        </div>
+
+        <div id="box-skatteverket" class="bg-sky-950/30 border border-sky-500/40 p-3 rounded-xl">
+          <div class="text-[10px] font-black uppercase text-sky-400">UTBETALNING FRÅN SKATTEVERKET</div>
+          <div id="disp-skatteverket-pay" class="text-lg font-black text-sky-300 mt-0.5">0 kr</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    let map, satLayer, polyline;
+    let markers = [];
+    let totalLengthMeters = 0;
+    
+    let windowsCount = 0;
+    let doorsCount = 0;
+    let photoAttached = false;
+
+    const pricePerM2 = 280; // Standardmålning per m2 exkl. moms
+
+    function initMap() {
+      map = L.map('map', { zoomControl: true }).setView([58.5877, 16.1924], 19);
+      satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 21, maxNativeZoom: 19
+      }).addTo(map);
+
+      polyline = L.polyline([], { color: '#38bdf8', weight: 4, opacity: 0.8, dashArray: '10, 10' }).addTo(map);
+
+      map.on('click', function(e) {
+        const marker = L.circleMarker(e.latlng, { radius: 5, color: '#fff', fillColor: '#0284c7', fillOpacity: 1 }).addTo(map);
+        markers.push(marker);
+        polyline.addLatLng(e.latlng);
+        calculateDistance();
+      });
+    }
+
+    function clearMap() {
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+      polyline.setLatLngs([]);
+      totalLengthMeters = 0;
+      calculateAll();
+    }
+
+    function calculateDistance() {
+      const latlngs = polyline.getLatLngs();
+      let dist = 0;
+      for (let i = 1; i < latlngs.length; i++) dist += map.distance(latlngs[i-1], latlngs[i]);
+      totalLengthMeters = dist;
+      document.getElementById('wall-length').innerText = totalLengthMeters.toFixed(1) + ' m';
+      calculateAll();
+    }
+
+    function changeCount(type, delta) {
+      if(type === 'windows') windowsCount = Math.max(0, windowsCount + delta);
+      else doorsCount = Math.max(0, doorsCount + delta);
+      document.getElementById('val-windows').innerText = windowsCount;
+      document.getElementById('val-doors').innerText = doorsCount;
+      calculateAll();
+    }
+
+    function updateCondition() {
+      const condition = document.querySelector('input[name="condition"]:checked').value;
+      const reqBox = document.getElementById('photo-requirement');
+      const uePanel = document.getElementById('ue-panel');
+      const statusBadge = document.getElementById('ue-status-badge');
+
+      if (condition === 'good') {
+        reqBox.classList.add('hidden');
+        uePanel.classList.add('hidden');
+        statusBadge.className = 'px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-black flex items-center gap-1.5';
+        statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Målas In-House';
+      } else {
+        reqBox.classList.remove('hidden');
+        uePanel.classList.remove('hidden');
+        statusBadge.className = 'px-3 py-1.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-black flex items-center gap-1.5';
+        statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> 🚨 UE-KRAV: Snickare';
+      }
+      calculateAll();
+    }
+
+    function handlePhoto(event) {
+      const file = event.target.files[0];
+      if(file) {
+        photoAttached = true;
+        document.getElementById('photo-preview').src = URL.createObjectURL(file);
+        document.getElementById('photo-preview-container').classList.remove('hidden');
+      }
+    }
+
+    function calculateAll() {
+      const height = parseFloat(document.getElementById('wall-height').value) || 0;
+      const grossArea = totalLengthMeters * height;
+      document.getElementById('gross-area').innerText = Math.round(grossArea) + ' m²';
+
+      const deduction = (windowsCount * 1.5) + (doorsCount * 2.0);
+      const netArea = Math.max(0, grossArea - deduction);
+      document.getElementById('disp-net-area').innerText = Math.round(netArea) + ' m²';
+
+      // Målningskostnad in-house
+      const paintCostEx = netArea * pricePerM2;
+      document.getElementById('disp-paint-cost').innerText = Math.round(paintCostEx).toLocaleString('sv-SE') + ' kr';
+
+      // UE Logik
+      const condition = document.querySelector('input[name="condition"]:checked').value;
+      const isUE = (condition !== 'good');
+      
+      let ueLaborCustEx = 0;
+      let ueMatCustEx = 0;
+
+      if (isUE) {
+        const ueLaborRaw = parseFloat(document.getElementById('ue-labor').value) || 0;
+        const ueMatRaw = parseFloat(document.getElementById('ue-material').value) || 0;
+        const markupPercent = parseInt(document.getElementById('markup-percent').value) || 0;
+        document.getElementById('markup-val').innerText = `${markupPercent} %`;
+
+        const markupFactor = 1 + (markupPercent / 100);
+        ueLaborCustEx = ueLaborRaw * markupFactor;
+        ueMatCustEx = ueMatRaw * markupFactor;
+
+        document.getElementById('row-ue-labor').classList.remove('hidden');
+        document.getElementById('row-ue-mat').classList.remove('hidden');
+        document.getElementById('disp-ue-labor').innerText = Math.round(ueLaborCustEx).toLocaleString('sv-SE') + ' kr';
+        document.getElementById('disp-ue-mat').innerText = Math.round(ueMatCustEx).toLocaleString('sv-SE') + ' kr';
+      } else {
+        document.getElementById('row-ue-labor').classList.add('hidden');
+        document.getElementById('row-ue-mat').classList.add('hidden');
+      }
+
+      // Totalskalkyl
+      const totalLaborEx = paintCostEx + ueLaborCustEx;
+      const totalMatEx = ueMatCustEx;
+      const totalExMoms = totalLaborEx + totalMatEx;
+      const totalIncMoms = totalExMoms * 1.25;
+
+      document.getElementById('disp-subtotal-ex').innerText = Math.round(totalExMoms).toLocaleString('sv-SE') + ' kr';
+      document.getElementById('disp-subtotal-inc').innerText = Math.round(totalIncMoms).toLocaleString('sv-SE') + ' kr';
+
+      // ROT-Avdrag (30% på allt Arbete inkl. moms)
+      const rotActive = document.getElementById('rot-active').checked;
+      let rotDiscount = 0;
+
+      if (rotActive) {
+        const totalLaborIncMoms = totalLaborEx * 1.25;
+        rotDiscount = totalLaborIncMoms * 0.30; // 30% ROT
+        document.getElementById('row-rot-discount').classList.remove('hidden');
+        document.getElementById('box-skatteverket').classList.remove('hidden');
+      } else {
+        document.getElementById('row-rot-discount').classList.add('hidden');
+        document.getElementById('box-skatteverket').classList.add('hidden');
+      }
+
+      const customerPay = totalIncMoms - rotDiscount;
+
+      document.getElementById('disp-rot-discount').innerText = '-' + Math.round(rotDiscount).toLocaleString('sv-SE') + ' kr';
+      document.getElementById('disp-customer-pay').innerText = Math.round(customerPay).toLocaleString('sv-SE') + ' kr';
+      document.getElementById('disp-skatteverket-pay').innerText = Math.round(rotDiscount).toLocaleString('sv-SE') + ' kr';
+    }
+
+    function saveQuote() {
+      const condition = document.querySelector('input[name="condition"]:checked').value;
+      if (condition !== 'good' && !photoAttached) {
+        alert("⚠️ OBLIGATORISKT: Du måste fota skadorna innan du kan skicka UE-underlaget!");
+        return;
+      }
+      alert("✅ Offert & UE-Arbetsorder sparad! Arbetstimmar och ROT-underlag redo för Skatteverket.");
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>
