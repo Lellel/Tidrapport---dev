@@ -21,6 +21,25 @@ function sanitize(input) {
 }
 
 // ==========================================
+// GODKÄNN BEHÖRIGHETER – kör EN gång från editorn efter att ny kod klistrats in:
+// välj "godkannBehorigheter" i listan överst och tryck ▶ Kör. Google frågar då om
+// alla behörigheter som koden behöver (kalkylark, Drive, e-post, externa anrop).
+// Resultatet syns i Körningsloggen längst ner.
+// ==========================================
+function godkannBehorigheter() {
+  const rad = (ok, text) => Logger.log((ok ? "✅ " : "❌ ") + text);
+  try { rad(true, "Kalkylark: " + getSS().getName()); } catch (e) { rad(false, "Kalkylark: " + e.message); }
+  try { rad(true, "Drive: bildmappen " + DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES).getName()); } catch (e) { rad(false, "Drive/bildmapp (FOLDER_ID_ROOT_IMAGES): " + e.message); }
+  try { rad(true, "E-post: " + MailApp.getRemainingDailyQuota() + " mejl kvar idag"); } catch (e) { rad(false, "E-post: " + e.message); }
+  try { rad(true, "Ditt konto: " + Session.getEffectiveUser().getEmail()); } catch (e) { rad(false, "Konto: " + e.message); }
+  try { const g = geocodeAddress("Drottninggatan 1", "Flen"); rad(!!g, "Kartsökning: " + (g ? g.ort + " " + g.lat.toFixed(3) + ", " + g.lng.toFixed(3) : "hittade inget")); } catch (e) { rad(false, "Kartsökning: " + e.message); }
+  try { UrlFetchApp.fetch("https://generativelanguage.googleapis.com/", { muteHttpExceptions: true }); rad(true, "Externa anrop (AI) tillåtna"); } catch (e) { rad(false, "Externa anrop: " + e.message); }
+  const key = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  rad(!!key, key ? "GEMINI_API_KEY finns (AI-kulor och kulörförslag)" : "GEMINI_API_KEY saknas – lägg in den under Projektinställningar → Skriptegenskaper");
+  Logger.log("Klart. Glöm inte: Distribuera → Hantera distributioner → ✏️ → Ny version → Distribuera.");
+}
+
+// ==========================================
 // 2. MAIN GET & POST HANDLERS (WEBAPP ROUTER)
 // ==========================================
 function doGet(e) {
