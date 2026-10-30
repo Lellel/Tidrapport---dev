@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snö-Kartritare (iPad) - v1.0.1-RIT</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* HEADER */
+        header {
+            height: 64px;
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 50;
+            flex-shrink: 0;
+        }
+        .header-title { font-size: 18px; font-weight: bold; color: #38bdf8; display: flex; align-items: center; gap: 8px; }
+        .badge { font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+        .badge-tag { background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); color: #cbd5e1; }
+        .badge-ver { background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; font-family: monospace; }
+
+        /* MAIN CONTENT */
+        .app-container { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+        /* SIDEBAR */
+        aside {
+            width: 320px;
+            background: rgba(15, 23, 42, 0.92);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            z-index: 30;
+            flex-shrink: 0;
+        }
+
+        .panel {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .panel-title { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        select, textarea {
+            width: 100%;
+            background: #020617;
+            border: 1px solid #1e293b;
+            color: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            outline: none;
+        }
+
+        /* BUTTONS */
+        .btn-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        button {
+            background: #020617;
+            border: 1px solid #1e293b;
+            color: #f8fafc;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        button:active { transform: scale(0.97); }
+
+        .tool-btn.active {
+            background: #0284c7;
+            border-color: #38bdf8;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+
+        .btn-success { background: #059669; border: none; justify-content: center; padding: 12px; }
+        .btn-danger { background: rgba(225, 29, 72, 0.2); border: 1px solid rgba(225, 29, 72, 0.4); color: #fecdd3; justify-content: center; }
+
+        /* MAP AREA */
+        main { flex: 1; padding: 12px; position: relative; display: flex; flex-direction: column; }
+        .map-frame { flex: 1; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; position: relative; }
+        #map-container { width: 100%; height: 100%; background: #0f172a; }
+
+        .status-pill {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* MODAL */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            width: 100%;
+            max-width: 480px;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
+
+        .hazard-badge {
+            display: flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 50%; font-size: 14px;
+            background: rgba(15, 23, 42, 0.9); border: 2px solid #f59e0b;
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOPBAR -->
+    <header>
+        <div class="header-title">
+            ✏️ Snö-Kartritare (iPad)
+            <span class="badge badge-tag">Flens Kommun</span>
+            <span class="badge badge-ver">v1.0.1-RIT</span>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button onclick="openBulkModal()" style="padding: 6px 12px;">📦 Bulk-import</button>
+            <button onclick="setMapProvider('sat')" id="btn-map-sat" class="active" style="padding: 6px 12px;">🛰️ Satellit</button>
+            <button onclick="setMapProvider('street')" id="btn-map-street" style="padding: 6px 12px;">🗺️ Vägkarta</button>
+        </div>
+    </header>
+
+    <!-- MAIN -->
+    <div class="app-container">
+        
+        <!-- SIDEBAR -->
+        <aside>
+            <div class="panel">
+                <span class="panel-title" style="color: #38bdf8;">📍 Välj Fastighet</span>
+                <select id="property-select" onchange="selectProperty(this.value)">
+                    <option value="p1">Drottninggatan 4, Flen (Centrum)</option>
+                    <option value="p11">Salstagatan 5, Flen (Salsta)</option>
+                    <option value="p31">Industrivägen 6, Flen (Industri)</option>
+                    <option value="p40">COOP Parkering, Flen (Centrum)</option>
+                </select>
+            </div>
+
+            <div class="panel">
+                <span class="panel-title" style="color: #34d399;">🖌️ Ritverktyg (Finger/Pencil)</span>
+                <div class="btn-grid">
+                    <button id="tool-zone" onclick="setTool('zone')" class="tool-btn active">
+                        <span>🟩 Måla Plogzon</span>
+                        <span style="font-size: 10px; opacity: 0.6;">Yta</span>
+                    </button>
+                    <button id="tool-path" onclick="setTool('path')" class="tool-btn">
+                        <span>🟦 Måla Gångbana</span>
+                        <span style="font-size: 10px; opacity: 0.6;">Linje</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <span class="panel-title" style="color: #fbbf24;">⚠️ Placera Hinder</span>
+                <div class="btn-grid-2">
+                    <button id="tool-kantsten" onclick="setTool('kantsten')" class="tool-btn" style="justify-content: center;">⚠️ Kantsten</button>
+                    <button id="tool-lucka" onclick="setTool('lucka')" class="tool-btn" style="justify-content: center;">🛑 Lucka</button>
+                    <button id="tool-trappa" onclick="setTool('trappa')" class="tool-btn" style="justify-content: center;">🪜 Trappa</button>
+                    <button id="tool-traktor" onclick="setTool('traktor')" class="tool-btn" style="justify-content: center;">🚜 Stor Traktor</button>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: auto;">
+                <button onclick="finishShape()" class="btn-success">✅ Slutför & Spara Yta</button>
+                <button onclick="clearCurrentDrawing()" class="btn-danger">🗑️ Rensa Pågående</button>
+            </div>
+        </aside>
+
+        <!-- MAP AREA -->
+        <main>
+            <div class="map-frame">
+                <div id="map-container"></div>
+                <div class="status-pill">
+                    Aktivt verktyg: <span id="current-tool-text" style="color: #38bdf8;">🟩 Måla Plogzon</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- BULK MODAL -->
+    <div id="bulk-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 style="color: #38bdf8; font-size: 14px;">📦 Bulk-importera Fastigheter</h3>
+            <p style="font-size: 11px; color: #94a3b8;">Klistra in adresser (en per rad). Systemet skapar upp fastighetskort automatiskt.</p>
+            <textarea id="bulk-text" rows="5" placeholder="Drottninggatan 10, Flen&#10;Sveavägen 20, Flen"></textarea>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button onclick="closeBulkModal()">Avbryt</button>
+                <button onclick="processBulkImport()" style="background: #059669; border: none;">Kör Import 🚀</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PROPERTIES = {
+            p1: { name: 'Drottninggatan 4, Flen', lat: 59.0572, lng: 16.5880 },
+            p11: { name: 'Salstagatan 5, Flen', lat: 59.0630, lng: 16.5750 },
+            p31: { name: 'Industrivägen 6, Flen', lat: 59.0620, lng: 16.6050 },
+            p40: { name: 'COOP Parkering, Flen', lat: 59.0580, lng: 16.5855 }
+        };
+
+        let map, activeTileLayer;
+        let currentTool = 'zone';
+        let drawingPoints = [];
+        let currentPolyline = null;
+        let drawnLayers = [];
+
+        const TILE_URLS = {
+            sat: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            street: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+        };
+
+        function initMap() {
+            map = L.map('map-container', { zoomControl: false }).setView([59.0572, 16.5880], 17);
+            activeTileLayer = L.tileLayer(TILE_URLS.sat, { maxZoom: 19 }).addTo(map);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            map.on('click', handleMapClick);
+        }
+
+        function setMapProvider(p) {
+            if (activeTileLayer) map.removeLayer(activeTileLayer);
+            activeTileLayer = L.tileLayer(TILE_URLS[p], { maxZoom: 19 }).addTo(map);
+            document.getElementById('btn-map-sat').className = p === 'sat' ? 'active' : '';
+            document.getElementById('btn-map-street').className = p === 'street' ? 'active' : '';
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            finishShape();
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`tool-${tool}`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            const labels = {
+                zone: '🟩 Måla Plogzon', path: '🟦 Måla Gångbana',
+                kantsten: '⚠️ Kantsten', lucka: '🛑 Lucka',
+                trappa: '🪜 Trappa', traktor: '🚜 Stor Traktor'
+            };
+            document.getElementById('current-tool-text').innerText = labels[tool] || tool;
+        }
+
+        function handleMapClick(e) {
+            const { lat, lng } = e.latlng;
+            if (currentTool === 'zone' || currentTool === 'path') {
+                drawingPoints.push([lat, lng]);
+                if (currentPolyline) map.removeLayer(currentPolyline);
+                const color = currentTool === 'zone' ? '#10b981' : '#38bdf8';
+                currentPolyline = L.polyline(drawingPoints, { color: color, weight: 4 }).addTo(map);
+            } else {
+                const icons = { kantsten: '⚠️', lucka: '🛑', trappa: '🪜', traktor: '🚜' };
+                const hazardIcon = L.divIcon({ className: 'hazard-badge', html: `<span>${icons[currentTool]}</span>`, iconSize: [28, 28] });
+                const marker = L.marker([lat, lng], { icon: hazardIcon }).addTo(map);
+                drawnLayers.push(marker);
+            }
+        }
+
+        function finishShape() {
+            if (drawingPoints.length < 2) return;
+            if (currentTool === 'zone' && drawingPoints.length >= 3) {
+                const polygon = L.polygon(drawingPoints, { color: '#10b981', fillColor: '#10b981', fillOpacity: 0.35, weight: 3 }).addTo(map);
+                drawnLayers.push(polygon);
+            } else if (currentTool === 'path') {
+                const line = L.polyline(drawingPoints, { color: '#38bdf8', weight: 5 }).addTo(map);
+                drawnLayers.push(line);
+            }
+            clearCurrentDrawing();
+        }
+
+        function clearCurrentDrawing() {
+            if (currentPolyline) map.removeLayer(currentPolyline);
+            currentPolyline = null;
+            drawingPoints = [];
+        }
+
+        function selectProperty(key) {
+            const prop = PROPERTIES[key];
+            if (prop) map.flyTo([prop.lat, prop.lng], 17);
+        }
+
+        function openBulkModal() { document.getElementById('bulk-modal').style.display = 'flex'; }
+        function closeBulkModal() { document.getElementById('bulk-modal').style.display = 'none'; }
+
+        function processBulkImport() {
+            const text = document.getElementById('bulk-text').value.trim();
+            if (!text) return;
+            const lines = text.split('\n');
+            const select = document.getElementById('property-select');
+            lines.forEach((line, index) => {
+                const key = 'bulk_' + Date.now() + '_' + index;
+                PROPERTIES[key] = { name: line.trim(), lat: 59.057 + (Math.random() * 0.01 - 0.005), lng: 16.588 + (Math.random() * 0.01 - 0.005) };
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.innerText = line.trim();
+                select.appendChild(opt);
+            });
+            alert(`✅ ${lines.length} fastigheter importerade!`);
+            closeBulkModal();
+        }
+
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>

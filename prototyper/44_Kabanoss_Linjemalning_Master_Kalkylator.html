@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <!-- ================================================================= -->
+  <!-- 1. HEAD: BIBLIOTEK, TITTSTYRNING OCH STILMALLAR                   -->
+  <!-- ================================================================= -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Master Linjemålning & Ortofoto #44 (v1.9.1 Stenhårt Zoomlås)</title>
+  
+  <!-- Tailwind CSS (Design & Layout) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Leaflet.js Kartbibliotek -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Leaflet Rotate Plugin (Möjliggör tvåfingers-rotation av kartan) -->
+  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+
+  <!-- PDF-bibliotek för direkt-förhandsgranskning i webbläsaren -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; overscroll-behavior: none; }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .leaflet-control-zoom a { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
+    
+    .stall-label {
+      background: transparent; border: none; box-shadow: none;
+      color: white; font-weight: 900; font-size: 12px; text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+      display: flex; align-items: center; justify-content: center;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 space-y-4 max-w-6xl mx-auto">
+
+  <!-- ================================================================= -->
+  <!-- 2. HTML-HEADER: TOPPMENY OCH KNAPPAR                              -->
+  <!-- ================================================================= -->
+  <header class="glass-card rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+    <div class="flex items-center gap-3">
+      <a href="#" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition">← Nav</a>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Modul #44 • Ortofoto</span>
+          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-black">v1.9.1 (Zoom-Lås)</span>
+        </div>
+        <h1 class="text-lg font-black text-white">🗺️ Linjemarkering & Avancerad Geometri</h1>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="toggleLayer()" id="layer-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition">
+        🛰️ Kartlager
+      </button>
+      <button id="create-pdf-btn" onclick="generatePDFPreview()" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-lg transition flex items-center gap-1.5">
+        📄 Visa Offert-PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- ================================================================= -->
+  <!-- 3. HUVUDINNEHÅLL: VÄNSTERPANEL (KONTROLLER) OCH HÖGERPANEL (KARTA) -->
+  <!-- ================================================================= -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <!-- --- VÄNSTERPANEL: VERKTYGSFÄLT --- -->
+    <div class="glass-card p-4 rounded-2xl space-y-4 lg:col-span-1">
+      
+      <!-- Sök Adress -->
+      <div>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-1.5">📍 Sök Plats eller Adress</h2>
+        <div class="flex gap-2">
+          <input type="text" id="address-input" value="Norrköping" placeholder="Sök adress..." class="flex-1 p-2 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 focus:outline-none focus:border-sky-400">
+          <button onclick="searchAddress()" class="px-3 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs rounded-xl transition">
+            🔍 Sök
+          </button>
+        </div>
+      </div>
+
+      <hr class="border-slate-800">
+
+      <!-- PARKERINGSTYP & MÖNSTER -->
+      <div class="space-y-2">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">📐 Parkeringsmönster</h2>
+        <select id="pattern-type" onchange="onPatternChange()" class="w-full p-2 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 focus:outline-none focus:border-amber-400">
+          <option value="enkel">Enkelrad (Standard)</option>
+          <option value="dubbel">Dubbelrad (Rygg-mot-rygg)</option>
+          <option value="sned_h">Snedställd Höger (45°)</option>
+          <option value="sned_v">Snedställd Vänster (45°)</option>
+          <option value="fick">Fickparkering (Längsgående)</option>
+        </select>
+      </div>
+
+      <!-- KURVATUR / BÖJNING -->
+      <div class="space-y-1 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400">🌀 Kurvatur / Böjning</h2>
+          <span id="curve-val" class="text-xs font-mono font-black text-sky-300">0°</span>
+        </div>
+        <input type="range" id="layout-curve" min="-90" max="90" step="1" value="0" oninput="updateCurve()" class="w-full mt-2 cursor-pointer">
+        <div class="flex justify-between text-[10px] text-slate-500 font-bold pt-1">
+          <button onclick="setCurve(-45)" class="hover:text-slate-300">↰ Vänster 45°</button>
+          <button onclick="setCurve(0)" class="hover:text-slate-300">Rak (0°)</button>
+          <button onclick="setCurve(45)" class="hover:text-slate-300">Höger 45° ↱</button>
+        </div>
+      </div>
+
+      <!-- Vinkel för Ritverktyget -->
+      <div class="space-y-1 bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🎨 Startvinkel (Inriktning)</h2>
+          <span id="rotation-val" class="text-xs font-mono font-black text-amber-300">0°</span>
+        </div>
+        <input type="range" id="layout-rotation" min="0" max="359" step="1" value="0" oninput="updateRotation()" class="w-full mt-2 cursor-pointer">
+        <div class="grid grid-cols-5 gap-1 pt-2">
+          <button onclick="stepRotation(-15)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300 transition">↺ -15°</button>
+          <button onclick="setRotation(0)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300 transition">0°</button>
+          <button onclick="setRotation(90)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300 transition">90°</button>
+          <button onclick="setRotation(180)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300 transition">180°</button>
+          <button onclick="stepRotation(15)" class="py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded text-slate-300 transition">↻ +15°</button>
+        </div>
+      </div>
+
+      <!-- KAMERAKNAPPEN: Lås och spara sektion -->
+      <div class="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-extrabold text-amber-400 uppercase">Aktiv Sektion: <span id="active-section-label">A</span></span>
+          <span id="saved-count-badge" class="px-2 py-0.5 bg-slate-800 text-[10px] font-bold text-slate-300 rounded-md shadow-inner">0 sparade</span>
+        </div>
+        
+        <button onclick="snapshotAndAddSection()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2 transition transform active:scale-95">
+          📸 Lås in Sektion & Fortsätt
+        </button>
+      </div>
+
+      <!-- Dimensioner -->
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between text-xs font-bold">
+            <span class="text-slate-400">Antal P-Rutor:</span>
+            <span id="count-val" class="text-amber-400 font-extrabold">8 st</span>
+          </div>
+          <input type="range" id="stall-count" min="1" max="50" value="8" onchange="renderAll()" oninput="renderAll()" class="w-full mt-1 cursor-pointer">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-400 font-bold uppercase">Bredd (m)</label>
+            <input type="number" id="stall-width" value="2.5" step="0.1" onchange="renderAll()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 font-bold uppercase">Rutdjup (m)</label>
+            <input type="number" id="stall-depth" value="5.0" step="0.1" onchange="renderAll()" class="w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700">
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista över låsta sektioner -->
+      <div id="sections-list" class="space-y-2 pt-2 border-t border-slate-800 mt-4"></div>
+
+    </div>
+
+    <!-- --- HÖGERPANEL: KARTA OCH PRISKALKYL --- -->
+    <div class="glass-card p-4 rounded-2xl space-y-3 lg:col-span-2 flex flex-col justify-between">
+      
+      <div>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400">🛰️ Interaktiv Karta (Snurrbar)</h2>
+          
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button id="map-lock-btn" onclick="toggleMapLock()" class="flex-1 sm:flex-none px-4 py-1.5 bg-slate-800 border border-slate-700 text-xs font-bold rounded-xl text-slate-300 hover:bg-slate-700 transition shadow-sm">
+              🔓 Karta: UPPLÅST
+            </button>
+            <button onclick="resetMapRotation()" class="px-2 py-1.5 bg-slate-800 border border-slate-700 text-[10px] font-bold rounded-xl text-slate-300 hover:bg-slate-700 transition" title="Återställ kompass till Norr">
+              🧭 Norr
+            </button>
+          </div>
+        </div>
+
+        <div class="relative h-96 sm:h-[550px] rounded-xl overflow-hidden border border-slate-800 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+          <div id="map" class="w-full h-full z-0"></div>
+        </div>
+      </div>
+
+      <!-- Summerad Live-Kalkylator -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Totalt Linjemeter</div>
+          <div id="calc-meters" class="text-lg font-black text-amber-400 mt-0.5">0 m</div>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Symboler/Schabloner</div>
+          <div id="calc-symbols" class="text-lg font-black text-sky-400 mt-0.5">0 st</div>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-inner">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Etablering & Resa</div>
+          <div class="text-lg font-black text-slate-200 mt-0.5">3 500 kr</div>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 shadow-[0_0_10px_rgba(245,158,11,0.05)]">
+          <div class="text-[10px] text-amber-400 font-bold uppercase">Totalt Exkl. Moms</div>
+          <div id="calc-total" class="text-xl font-black text-emerald-400 mt-0.5">0 kr</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- 4. MODAL OVERLAY: PDF-FÖRHANDSGRANSKNING (DÖLJES VIA CLASS)        -->
+  <!-- ================================================================= -->
+  <div id="pdf-modal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col p-3 md:p-6">
+    <div class="flex justify-between items-center mb-3 max-w-5xl mx-auto w-full">
+      <div class="flex items-center gap-2">
+        <span class="text-amber-400 font-black text-sm">📄 Förhandsgranskning Offert-PDF</span>
+        <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-mono">Genererad i webbläsaren</span>
+      </div>
+      <button onclick="closePDFModal()" class="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-slate-950 font-black text-xs rounded-xl shadow-lg transition">
+        ❌ Stäng
+      </button>
+    </div>
+    <div class="flex-1 max-w-5xl mx-auto w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-2xl">
+      <iframe id="pdf-frame" class="w-full h-full border-0"></iframe>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- 5. JAVASCRIPT: LOGIK, MATEMATIK, KART-STYRNING OCH PDF            -->
+  <!-- ================================================================= -->
+  <script>
+    // --- 5.1 GLOBAL VARIABLER & TILLSTÅND ---
+    let map, satLayer, osmLayer;
+    let currentLayerMode = 'sat';
+    let isMapLocked = false;
+
+    let activeAnchorMarker;
+    let activeStallGroup;
+    let savedSectionsGroup;
+
+    let activeStallsData = [];
+    let currentRotation = 0;
+    let currentCurve = 0;
+    let sectionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let activeSectionIndex = 0;
+    
+    let savedSections = [];
+
+    const R_EARTH = 6378137; // Jordradie i meter
+
+    // --- 5.2 INITIERING AV KARTAN ---
+    function initMap() {
+      map = L.map('map', { 
+        zoomControl: true,
+        rotate: true,
+        touchRotate: true,
+        bearing: 0 
+      }).setView([58.5877, 16.1924], 19);
+
+      satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 20, maxNativeZoom: 19, attribution: 'Esri World Imagery'
+      }).addTo(map);
+
+      osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+
+      savedSectionsGroup = L.featureGroup().addTo(map);
+      activeStallGroup = L.featureGroup().addTo(map);
+
+      // Stor greppyta för mobiltummar
+      const anchorIcon = L.divIcon({
+        className: 'bg-transparent',
+        html: `
+          <div class="flex items-center gap-1.5 bg-amber-500 text-slate-950 font-black px-3 py-1.5 rounded-full shadow-[0_5px_15px_rgba(0,0,0,0.8)] border-2 border-white text-[12px] cursor-grab -translate-x-1/2 -translate-y-1/2 whitespace-nowrap active:scale-95 transition-transform">
+            <span>🖐️ Flytta Sektion</span>
+          </div>`,
+        iconSize: [0, 0]
+      });
+
+      activeAnchorMarker = L.marker([58.5877, 16.1924], {
+        icon: anchorIcon,
+        draggable: true,
+        zIndexOffset: 2000
+      }).addTo(map);
+
+      activeAnchorMarker.on('drag', () => { 
+        renderActiveSection(); 
+        updateTotals(); 
+      });
+
+      renderAll();
+    }
+
+    // --- 5.3 KARTLÅSNING MED STENHÅRT ZOOM-LÅS ---
+    function toggleMapLock() {
+      isMapLocked = !isMapLocked;
+      const btn = document.getElementById('map-lock-btn');
+
+      if (isMapLocked) {
+        // 1. Inaktivera gest-navigering på skärmen
+        map.dragging.disable(); 
+        map.touchZoom.disable(); 
+        map.doubleClickZoom.disable(); 
+        map.scrollWheelZoom.disable();
+        map.boxZoom.disable();
+        map.keyboard.disable();
+        if (map.touchRotate) map.touchRotate.disable();
+
+        // 2. STENHÅRT ZOOM-LÅS: Frys zoom-nivån till nuvarande nivå
+        const currentZoom = map.getZoom();
+        map.setMinZoom(currentZoom);
+        map.setMaxZoom(currentZoom);
+
+        // 3. Dölj zoomknappar (+/-)
+        if (map.zoomControl) {
+          map.zoomControl.remove();
+        }
+
+        btn.innerHTML = '🔒 Karta: LÅST';
+        btn.className = 'flex-1 sm:flex-none px-4 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_10px_rgba(245,158,11,0.5)] border border-amber-400 transition';
+      } else {
+        // 1. Aktivera gest-navigering igen
+        map.dragging.enable(); 
+        map.touchZoom.enable(); 
+        map.doubleClickZoom.enable(); 
+        map.scrollWheelZoom.enable();
+        map.boxZoom.enable();
+        map.keyboard.enable();
+        if (map.touchRotate) map.touchRotate.enable();
+
+        // 2. Släpp zoom-låset (återställ standardintervall)
+        map.setMinZoom(0);
+        map.setMaxZoom(21);
+
+        // 3. Återställ zoomknappar (+/-)
+        map.zoomControl = L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        btn.innerHTML = '🔓 Karta: UPPLÅST';
+        btn.className = 'flex-1 sm:flex-none px-4 py-1.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 hover:bg-slate-700 transition shadow-sm';
+      }
+    }
+
+    function resetMapRotation() { map.setBearing(0); }
+
+    // --- 5.4 REGLAGE & MÖNSTER-ÄNDRINGAR ---
+    function onPatternChange() {
+      const p = document.getElementById('pattern-type').value;
+      if (p === 'fick') {
+        document.getElementById('stall-width').value = 6.0;
+        document.getElementById('stall-depth').value = 2.2;
+      } else if (p === 'sned_h' || p === 'sned_v') {
+        document.getElementById('stall-width').value = 2.8;
+        document.getElementById('stall-depth').value = 4.8;
+      } else {
+        document.getElementById('stall-width').value = 2.5;
+        document.getElementById('stall-depth').value = 5.0;
+      }
+      renderAll();
+    }
+
+    function updateCurve() {
+      currentCurve = parseInt(document.getElementById('layout-curve').value) || 0;
+      document.getElementById('curve-val').innerText = `${currentCurve}°`;
+      renderAll();
+    }
+    function setCurve(deg) {
+      document.getElementById('layout-curve').value = deg;
+      updateCurve();
+    }
+
+    // --- 5.5 SEKTIONSHANTERING (KAMERA-LÅSNING) ---
+    function snapshotAndAddSection() {
+      const activeLetter = sectionLetters[activeSectionIndex];
+      const count = parseInt(document.getElementById('stall-count').value);
+      const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
+      const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
+      const pattern = document.getElementById('pattern-type').value;
+
+      savedSections.push({
+        letter: activeLetter,
+        anchorPos: activeAnchorMarker.getLatLng(),
+        rotation: currentRotation,
+        curve: currentCurve,
+        pattern: pattern,
+        stallsData: JSON.parse(JSON.stringify(activeStallsData)),
+        width: stdWidth,
+        depth: stdDepth
+      });
+
+      activeSectionIndex++;
+      document.getElementById('active-section-label').innerText = sectionLetters[activeSectionIndex];
+      document.getElementById('saved-count-badge').innerText = `${savedSections.length} sparade`;
+
+      const currentPos = activeAnchorMarker.getLatLng();
+      const newPos = addMetersToLatLng(currentPos.lat, currentPos.lng, 5, -5);
+      activeAnchorMarker.setLatLng(newPos);
+
+      activeStallsData = [];
+      renderAll();
+    }
+
+    function removeSection(idx) {
+      savedSections.splice(idx, 1);
+      document.getElementById('saved-count-badge').innerText = `${savedSections.length} sparade`;
+      renderAll();
+    }
+
+    function renderAll() {
+      renderSavedSections();
+      renderActiveSection();
+      updateTotals();
+      updateSectionsUI();
+    }
+
+    // --- 5.6 GEOMETRIMOTOR & KURVATUR-BERÄKNINGAR ---
+    function renderSavedSections() {
+      savedSectionsGroup.clearLayers();
+
+      savedSections.forEach((sec) => {
+        renderSectionGeometry(sec.anchorPos, sec.rotation, sec.curve, sec.stallsData, sec.width, sec.depth, sec.pattern, sec.letter, savedSectionsGroup, false);
+      });
+    }
+
+    function renderActiveSection() {
+      const count = parseInt(document.getElementById('stall-count').value);
+      document.getElementById('count-val').innerText = `${count} st`;
+
+      const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
+      const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
+      const pattern = document.getElementById('pattern-type').value;
+
+      while (activeStallsData.length < count) activeStallsData.push({ type: 'std' });
+      if (activeStallsData.length > count) activeStallsData = activeStallsData.slice(0, count);
+
+      activeStallGroup.clearLayers();
+      const anchorPos = activeAnchorMarker.getLatLng();
+
+      renderSectionGeometry(anchorPos, currentRotation, currentCurve, activeStallsData, stdWidth, stdDepth, pattern, sectionLetters[activeSectionIndex], activeStallGroup, true);
+    }
+
+    function renderSectionGeometry(anchorPos, startRotation, totalCurve, stallsData, stdWidth, stdDepth, pattern, sectionLetter, targetGroup, isInteractive) {
+      const count = stallsData.length;
+      const curveStep = (count > 1) ? (totalCurve / (count - 1)) : 0;
+
+      let currentX = 0;
+      let currentY = 0;
+      let currentHeading = startRotation;
+
+      stallsData.forEach((stall, idx) => {
+        let width = stdWidth;
+        let depth = stdDepth;
+        let fillColor = isInteractive ? '#0f172a' : '#059669';
+        let strokeColor = isInteractive ? '#f59e0b' : '#10b981';
+        let labelHTML = `${sectionLetter}${idx+1}`;
+
+        if (stall.type === 'hkp') { width = Math.max(width, 3.8); fillColor = '#0284c7'; labelHTML = '♿'; }
+        if (stall.type === 'ev') { fillColor = '#059669'; labelHTML = '⚡'; }
+        if (stall.type === 'no') { fillColor = '#e11d48'; labelHTML = '🚷'; }
+
+        let polys = [];
+
+        if (pattern === 'dubbel') {
+          let p1_a = { x: 0, y: 0 }, p2_a = { x: width, y: 0 }, p3_a = { x: width, y: depth }, p4_a = { x: 0, y: depth };
+          let p1_b = { x: 0, y: 0 }, p2_b = { x: width, y: 0 }, p3_b = { x: width, y: -depth }, p4_b = { x: 0, y: -depth };
+          polys.push([p1_a, p2_a, p3_a, p4_a]);
+          polys.push([p1_b, p2_b, p3_b, p4_b]);
+        } else if (pattern === 'sned_h') {
+          let skew = depth * 0.7;
+          let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width + skew, y: depth }, p4 = { x: skew, y: depth };
+          polys.push([p1, p2, p3, p4]);
+        } else if (pattern === 'sned_v') {
+          let skew = depth * 0.7;
+          let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width - skew, y: depth }, p4 = { x: -skew, y: depth };
+          polys.push([p1, p2, p3, p4]);
+        } else {
+          let p1 = { x: 0, y: 0 }, p2 = { x: width, y: 0 }, p3 = { x: width, y: depth }, p4 = { x: 0, y: depth };
+          polys.push([p1, p2, p3, p4]);
+        }
+
+        polys.forEach(pts => {
+          let latlngs = pts.map(pt => {
+            let rp = rotatePoint(currentX + pt.x, currentY + pt.y, currentHeading);
+            return addMetersToLatLng(anchorPos.lat, anchorPos.lng, rp.x, rp.y);
+          });
+
+          const polygon = L.polygon(latlngs, {
+            color: strokeColor, weight: isInteractive ? 3 : 2, fillColor: fillColor, fillOpacity: isInteractive ? 0.35 : 0.25,
+            interactive: isInteractive
+          });
+
+          if (isInteractive) {
+            polygon.on('click', () => {
+              const types = ['std', 'hkp', 'ev', 'no'];
+              let nextIdx = (types.indexOf(stall.type) + 1) % types.length;
+              stallsData[idx].type = types[nextIdx];
+              renderAll();
+            });
+          }
+
+          polygon.addTo(targetGroup);
+        });
+
+        let centerLocal = rotatePoint(currentX + (width / 2), currentY + (depth / 2), currentHeading);
+        let centerLatLng = addMetersToLatLng(anchorPos.lat, anchorPos.lng, centerLocal.x, centerLocal.y);
+
+        L.marker(centerLatLng, {
+          icon: L.divIcon({ className: `stall-label ${isInteractive ? '' : 'text-emerald-100 opacity-75'}`, html: labelHTML, iconSize: [40, 40] }),
+          interactive: false
+        }).addTo(targetGroup);
+
+        let stepVector = rotatePoint(width, 0, currentHeading);
+        currentX += stepVector.x;
+        currentY += stepVector.y;
+        currentHeading += curveStep;
+      });
+    }
+
+    // --- 5.7 PRISKALKYL & LISTA OVER SEKTIONER ---
+    function updateTotals() {
+      let totalMeters = 0;
+      let symbolCount = 0;
+
+      savedSections.forEach(sec => {
+        let mult = (sec.pattern === 'dubbel') ? 2 : 1;
+        sec.stallsData.forEach(stall => {
+          let w = (stall.type === 'hkp') ? 3.8 : sec.width;
+          totalMeters += (w + (sec.depth * 2)) * mult;
+          if (stall.type === 'hkp' || stall.type === 'ev' || stall.type === 'no') symbolCount += mult;
+        });
+      });
+
+      const stdWidth = parseFloat(document.getElementById('stall-width').value) || 2.5;
+      const stdDepth = parseFloat(document.getElementById('stall-depth').value) || 5.0;
+      const pattern = document.getElementById('pattern-type').value;
+      let mult = (pattern === 'dubbel') ? 2 : 1;
+
+      activeStallsData.forEach(stall => {
+        let w = (stall.type === 'hkp') ? 3.8 : stdWidth;
+        totalMeters += (w + (stdDepth * 2)) * mult;
+        if (stall.type === 'hkp' || stall.type === 'ev' || stall.type === 'no') symbolCount += mult;
+      });
+
+      const meterPrice = 48;
+      const symbolPrice = symbolCount * 550;
+      const etablering = 3500;
+      const totalExMoms = Math.round((totalMeters * meterPrice) + symbolPrice + etablering);
+
+      document.getElementById('calc-meters').innerText = `${Math.round(totalMeters)} m`;
+      document.getElementById('calc-symbols').innerText = `${symbolCount} st`;
+      document.getElementById('calc-total').innerText = `${totalExMoms.toLocaleString('sv-SE')} kr`;
+    }
+
+    function updateSectionsUI() {
+      const container = document.getElementById('sections-list');
+      if (savedSections.length === 0) {
+        container.innerHTML = `<div class="text-[11px] text-slate-500 italic text-center py-2">Inga låsta sektioner ännu.</div>`;
+        return;
+      }
+
+      let html = `<div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Sparade sektioner:</div>`;
+      savedSections.forEach((sec, idx) => {
+        html += `
+          <div class="flex justify-between items-center bg-slate-900 border border-slate-800 p-2 rounded-xl text-xs shadow-sm">
+            <span class="font-black text-emerald-400">Sektion ${sec.letter} <span class="text-slate-400 font-medium">(${sec.stallsData.length} st, ${sec.pattern})</span></span>
+            <button onclick="removeSection(${idx})" class="text-rose-400 hover:text-rose-300 font-bold text-[10px] bg-rose-500/10 px-2 py-1 rounded transition">Ta bort</button>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // --- 5.8 PDF GENERERING & MODAL ---
+    async function generatePDFPreview() {
+      const btn = document.getElementById('create-pdf-btn');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Skapar PDF...';
+      btn.disabled = true;
+
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text("OFFERTUNDERLAG - LINJEMARKERING", 14, 20);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Datum: ${new Date().toLocaleDateString('sv-SE')}`, 14, 28);
+        doc.text(`Plats/Adress: ${document.getElementById('address-input').value || 'Ej angiven'}`, 14, 34);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Sektionsspecifikation", 14, 46);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        let y = 54;
+
+        savedSections.forEach((sec) => {
+          doc.text(`• Sektion ${sec.letter}: ${sec.stallsData.length} st rutor [Mönster: ${sec.pattern}, Böjning: ${sec.curve}°]`, 18, y);
+          y += 6;
+        });
+
+        const activeCount = parseInt(document.getElementById('stall-count').value);
+        if (activeCount > 0) {
+          doc.text(`• Sektion ${sectionLetters[activeSectionIndex]} (Aktiv): ${activeCount} st rutor`, 18, y);
+          y += 10;
+        }
+
+        doc.setLineWidth(0.5);
+        doc.line(14, y, 196, y);
+        y += 8;
+
+        const meters = document.getElementById('calc-meters').innerText;
+        const symbols = document.getElementById('calc-symbols').innerText;
+        const total = document.getElementById('calc-total').innerText;
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`Totalt linjemeter: ${meters}`, 14, y); y += 6;
+        doc.text(`Schabloner / Symboler: ${symbols}`, 14, y); y += 6;
+        doc.text(`Etablering & Resa: 3 500 kr`, 14, y); y += 10;
+
+        doc.setFontSize(14);
+        doc.setTextColor(16, 185, 129);
+        doc.text(`Totalt pris exkl. moms: ${total}`, 14, y);
+
+        const mapElement = document.getElementById('map');
+        const canvas = await html2canvas(mapElement, { useCORS: true, logging: false });
+        const imgData = canvas.toDataURL('image/png');
+
+        doc.addImage(imgData, 'PNG', 14, y + 10, 180, 100);
+
+        const pdfBlob = doc.output('bloburl');
+        document.getElementById('pdf-frame').src = pdfBlob;
+        document.getElementById('pdf-modal').classList.remove('hidden');
+
+      } catch (err) {
+        alert("Kunde inte generera PDF-förhandsgranskning.");
+        console.error(err);
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    function closePDFModal() {
+      document.getElementById('pdf-modal').classList.add('hidden');
+    }
+
+    // --- 5.9 MATEMATISKA GEOTRANSPOSITIONER ---
+    function addMetersToLatLng(lat, lng, dxMeters, dyMeters) {
+      const pi = Math.PI;
+      const new_lat = lat + (dyMeters / R_EARTH) * (180 / pi);
+      const new_lng = lng + (dxMeters / R_EARTH) * (180 / pi) / Math.cos(lat * pi / 180);
+      return [new_lat, new_lng];
+    }
+
+    function rotatePoint(x, y, angleDeg) {
+      const rad = angleDeg * Math.PI / 180;
+      return {
+        x: x * Math.cos(rad) - y * Math.sin(rad),
+        y: x * Math.sin(rad) + y * Math.cos(rad)
+      };
+    }
+
+    function updateRotation() {
+      currentRotation = parseInt(document.getElementById('layout-rotation').value) || 0;
+      document.getElementById('rotation-val').innerText = `${currentRotation}°`;
+      renderAll();
+    }
+    function setRotation(deg) { document.getElementById('layout-rotation').value = deg; updateRotation(); }
+    function stepRotation(delta) { 
+      let val = parseInt(document.getElementById('layout-rotation').value);
+      document.getElementById('layout-rotation').value = (val + delta + 360) % 360; 
+      updateRotation(); 
+    }
+
+    function toggleLayer() {
+      const btn = document.getElementById('layer-btn');
+      if (currentLayerMode === 'sat') {
+        map.removeLayer(satLayer); map.addLayer(osmLayer); currentLayerMode = 'osm';
+        btn.innerText = '🗺️ Vägkarta';
+      } else {
+        map.removeLayer(osmLayer); map.addLayer(satLayer); currentLayerMode = 'sat';
+        btn.innerText = '🛰️ Satellit';
+      }
+    }
+
+    function searchAddress() {
+      const query = document.getElementById('address-input').value;
+      if (!query) return;
+      
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Sweden')}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat); const lon = parseFloat(data[0].lon);
+            map.setView([lat, lon], 19);
+            activeAnchorMarker.setLatLng([lat, lon]);
+            renderAll();
+          } else { alert("Hittade tyvärr inte adressen."); }
+        });
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>

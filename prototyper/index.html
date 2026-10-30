@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Kabanossen - Index & Glaskulor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+  </style>
+</head>
+<body class="p-4 md:p-8 space-y-6">
+
+  <!-- Ekonomisk Header -->
+  <header class="grid grid-cols-3 gap-4 mb-6">
+    <div class="glass-card p-4 rounded-2xl border-l-4 border-l-sky-500">
+      <div class="text-[10px] uppercase font-bold text-slate-400">Offertvolym (Totalt)</div>
+      <div class="text-2xl font-black text-white mt-1">1 240 000 kr</div>
+    </div>
+    <div class="glass-card p-4 rounded-2xl border-l-4 border-l-emerald-500">
+      <div class="text-[10px] uppercase font-bold text-slate-400">Snittmarginal (TB)</div>
+      <div class="text-2xl font-black text-emerald-400 mt-1">32.4 %</div>
+    </div>
+    <div class="glass-card p-4 rounded-2xl border-l-4 border-l-sky-500">
+      <div class="text-[10px] uppercase font-bold text-slate-400">Förväntat ROT-anspråk</div>
+      <div class="text-2xl font-black text-white mt-1">185 000 kr</div>
+    </div>
+  </header>
+
+  <h2 class="text-lg font-black text-white uppercase tracking-widest mb-4">Aktiva Orderkort (Kulpåsar)</h2>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    
+    <!-- KORT 1: RÖTT KORT (GLASKULOR KVAR) -->
+    <div class="glass-card rounded-2xl p-5 border-2 border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.15)] relative overflow-hidden">
+      <div class="absolute top-0 right-0 bg-rose-600 text-[10px] font-black uppercase px-3 py-1 rounded-bl-xl shadow-lg">Offertspärr PÅ</div>
+      
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h3 class="text-xl font-black text-white">Fasadmålning Brf Solen</h3>
+          <div class="text-xs text-slate-400 font-bold mt-1">Svårighet: 🌭🌭🌭</div>
+        </div>
+      </div>
+
+      <div class="bg-slate-950 rounded-xl p-4 border border-rose-500/30 mb-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-lg">🛍️</span>
+          <span class="text-xs font-black uppercase text-rose-400">Kulpåsen (3 Glaskulor kvar)</span>
+        </div>
+        <ul class="text-[11px] text-slate-300 space-y-1.5 font-bold">
+          <li class="flex items-center gap-2"><span>🔮</span> Exakta m²-mått saknas på kartan</li>
+          <li class="flex items-center gap-2"><span>🔮</span> <span class="text-rose-400">OBLIGATORISKT: Skadefoto på röta saknas!</span></li>
+          <li class="flex items-center gap-2"><span>🔮</span> <span class="text-amber-400">UE-Snickare: Inget fastpris bekräftat</span></li>
+        </ul>
+      </div>
+
+      <div class="flex justify-between items-end border-t border-slate-800 pt-3">
+        <div>
+          <div class="text-[10px] text-slate-400 uppercase font-bold">Tidsblock & Resurs</div>
+          <div class="text-xs font-black text-white">40h (Behöver 2 målare)</div>
+        </div>
+        <button class="px-4 py-2 bg-slate-800 text-slate-500 rounded-lg text-xs font-black cursor-not-allowed border border-slate-700">Skicka Offert (Låst)</button>
+      </div>
+    </div>
+
+    <!-- KORT 2: GRÖNT KORT (TOM PÅSE) -->
+    <div class="glass-card rounded-2xl p-5 border-2 border-emerald-500/50 relative overflow-hidden">
+      <div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-bl-xl shadow-lg">Redo för fält</div>
+      
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h3 class="text-xl font-black text-white">Linjemålning ICA Maxi</h3>
+          <div class="text-xs text-slate-400 font-bold mt-1">Svårighet: 🌭🌭</div>
+        </div>
+      </div>
+
+      <div class="bg-slate-950 rounded-xl p-4 border border-emerald-500/30 mb-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-lg">🛍️</span>
+          <span class="text-xs font-black uppercase text-emerald-400">Kulpåsen är TOM!</span>
+        </div>
+        <ul class="text-[11px] text-emerald-300 space-y-1.5 font-bold">
+          <li class="flex items-center gap-2"><span>✔️</span> Kartvektorer låsta (25 st rutor)</li>
+          <li class="flex items-center gap-2"><span>✔️</span> Pris & Marginal säkrad (38%)</li>
+          <li class="flex items-center gap-2"><span>✔️</span> Inga UE-beroenden</li>
+        </ul>
+      </div>
+
+      <div class="flex justify-between items-end border-t border-slate-800 pt-3">
+        <div>
+          <div class="text-[10px] text-slate-400 uppercase font-bold">Tidsblock & Resurs</div>
+          <div class="text-xs font-black text-white">16h (1 maskin, 1 gubbe)</div>
+        </div>
+        <button class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-xs font-black transition shadow-lg">Skicka till Appen</button>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

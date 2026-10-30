@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fasadmålning & Kamerakalkylator #43</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6 space-y-4 max-w-4xl mx-auto">
+
+  <!-- Header -->
+  <header class="glass-card rounded-2xl p-4 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <a href="prototyper.html" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition">
+        ← Prototypnav
+      </a>
+      <div>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Modul #43 • Offertbesök</span>
+        <h1 class="text-lg font-black text-white">🏠 Fasadmålning & Kamerakalkyl</h1>
+      </div>
+    </div>
+    <span class="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-xs font-bold">
+      OFFERTKALKYLATOR
+    </span>
+  </header>
+
+  <!-- Kamera-mockup & Snabbskanning -->
+  <div class="glass-card p-4 rounded-2xl space-y-3">
+    <div class="flex justify-between items-center">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400">📷 AR-Kameramätning (Simulering)</h2>
+      <span class="text-[10px] text-slate-400">Sikta kameran mot fasaden</span>
+    </div>
+    <div class="relative h-56 sm:h-72 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center">
+      <div class="absolute inset-0 bg-cover bg-center opacity-40" style="background-image: url('https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80');"></div>
+      
+      <!-- AR Styrkors / Mätpunkter -->
+      <div class="absolute inset-0 border-2 border-dashed border-sky-400/50 m-6 rounded-lg flex flex-col justify-between p-4 pointer-events-none">
+        <div class="flex justify-between">
+          <span class="bg-sky-500/80 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded">📐 Bredd: 8.5 m</span>
+          <span class="bg-amber-500/80 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded">🔺 Spets: +2.2 m</span>
+        </div>
+        <div class="text-center">
+          <span class="bg-emerald-500/90 text-slate-950 text-xs font-black px-3 py-1 rounded-full shadow-lg">
+            ✅ AI Identifierade: Gavelvägg + 3 Fönster
+          </span>
+        </div>
+        <div class="flex justify-between">
+          <span class="bg-sky-500/80 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded">📐 Vägghöjd: 3.8 m</span>
+          <span class="bg-rose-500/80 text-white text-[10px] font-black px-2 py-0.5 rounded">🚪 Avdrag: 4.5 m²</span>
+        </div>
+      </div>
+
+      <button onclick="applyCameraData()" class="relative z-10 px-4 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-xl transition transform active:scale-95">
+        📸 Läs av värden från kamera
+      </button>
+    </div>
+  </div>
+
+  <!-- Väggbyggare (Hanterar L-hus & Gavelspetsar) -->
+  <div class="glass-card p-4 rounded-2xl space-y-4">
+    <div class="flex justify-between items-center">
+      <div>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400">🧱 Ytberäkning Vägg för Vägg</h2>
+        <p class="text-[10px] text-slate-400 mt-0.5">L-hus? Lägg bara till fler fasadväggar i listan.</p>
+      </div>
+      <button onclick="addWall()" class="px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 font-bold text-xs rounded-xl transition">
+        ＋ Lägg till Fasadvägg
+      </button>
+    </div>
+
+    <!-- Vägglista Container -->
+    <div id="wall-list" class="space-y-3">
+      <!-- Vägg 1 (Standard start) -->
+      <div class="wall-item bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3">
+        <div class="flex justify-between items-center">
+          <input type="text" value="Vägg 1: Gavel Syd (L-vinkel)" class="bg-transparent font-extrabold text-sm text-white focus:outline-none border-b border-transparent focus:border-sky-500">
+          <select class="wall-type bg-slate-800 text-xs font-bold text-sky-300 p-1.5 rounded-lg border border-slate-700" onchange="calculateTotal()">
+            <option value="gavel">Gavel (Rektangel + Triangelspets)</option>
+            <option value="rak">Rak Fasad (Enbart Rektangel)</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Bredd (m)</label>
+            <input type="number" value="8.5" step="0.1" class="wall-w w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700" oninput="calculateTotal()">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Vägghöjd (m)</label>
+            <input type="number" value="3.8" step="0.1" class="wall-h w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700" oninput="calculateTotal()">
+          </div>
+          <div class="gable-height-box">
+            <label class="text-[10px] font-bold text-amber-400 uppercase">Spetshöjd 🔺 (m)</label>
+            <input type="number" value="2.2" step="0.1" class="wall-peak w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-amber-300 border border-slate-700" oninput="calculateTotal()">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-rose-400 uppercase">Fönster/Dörr (-m²)</label>
+            <input type="number" value="4.5" step="0.5" class="wall-sub w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-rose-300 border border-slate-700" oninput="calculateTotal()">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summering & Färgåtgång -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div class="glass-card p-4 rounded-2xl">
+      <div class="text-[10px] text-slate-400 font-bold uppercase">Total Målningsyta</div>
+      <div id="stat-total-m2" class="text-2xl font-black text-sky-400 mt-1">0 m²</div>
+      <div class="text-[10px] text-slate-500 mt-1">Exklusive fönsteravdrag</div>
+    </div>
+    <div class="glass-card p-4 rounded-2xl">
+      <div class="text-[10px] text-slate-400 font-bold uppercase">Beräknad Färg (2 Strykningar)</div>
+      <div id="stat-paint-liters" class="text-2xl font-black text-amber-400 mt-1">0 Liter</div>
+      <div class="text-[10px] text-slate-500 mt-1">Schablon: 6 m² / liter</div>
+    </div>
+    <div class="glass-card p-4 rounded-2xl">
+      <div class="text-[10px] text-slate-400 font-bold uppercase">Uppskattat Arbetstid</div>
+      <div id="stat-work-hours" class="text-2xl font-black text-emerald-400 mt-1">0 tim</div>
+      <div class="text-[10px] text-slate-500 mt-1">Tvätt, skrapning & målning</div>
+    </div>
+  </div>
+
+  <!-- Åtgärd -->
+  <button onclick="alert('Fasadkalkyl sparat i Kabanossen!')" class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl transition transform active:scale-98">
+    💾 Spara Fasadkalkyl till Offert
+  </button>
+
+  <script>
+    let wallCount = 1;
+
+    function addWall() {
+      wallCount++;
+      const container = document.getElementById('wall-list');
+      const div = document.createElement('div');
+      div.className = 'wall-item bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3';
+      div.innerHTML = `
+        <div class="flex justify-between items-center">
+          <input type="text" value="Vägg ${wallCount}: Fasad" class="bg-transparent font-extrabold text-sm text-white focus:outline-none border-b border-transparent focus:border-sky-500">
+          <div class="flex items-center gap-2">
+            <select class="wall-type bg-slate-800 text-xs font-bold text-sky-300 p-1.5 rounded-lg border border-slate-700" onchange="toggleGable(this); calculateTotal();">
+              <option value="rak">Rak Fasad (Enbart Rektangel)</option>
+              <option value="gavel">Gavel (Rektangel + Triangelspets)</option>
+            </select>
+            <button onclick="this.closest('.wall-item').remove(); calculateTotal();" class="text-rose-400 hover:text-rose-300 font-bold text-xs p-1">🗑️</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Bredd (m)</label>
+            <input type="number" value="6.0" step="0.1" class="wall-w w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700" oninput="calculateTotal()">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Vägghöjd (m)</label>
+            <input type="number" value="3.5" step="0.1" class="wall-h w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-white border border-slate-700" oninput="calculateTotal()">
+          </div>
+          <div class="gable-height-box hidden">
+            <label class="text-[10px] font-bold text-amber-400 uppercase">Spetshöjd 🔺 (m)</label>
+            <input type="number" value="2.0" step="0.1" class="wall-peak w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-amber-300 border border-slate-700" oninput="calculateTotal()">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-rose-400 uppercase">Fönster/Dörr (-m²)</label>
+            <input type="number" value="2.0" step="0.5" class="wall-sub w-full mt-1 p-2 bg-slate-800 rounded-lg text-xs font-bold text-rose-300 border border-slate-700" oninput="calculateTotal()">
+          </div>
+        </div>
+      `;
+      container.appendChild(div);
+      calculateTotal();
+    }
+
+    function toggleGable(selectEl) {
+      const item = selectEl.closest('.wall-item');
+      const peakBox = item.querySelector('.gable-height-box');
+      if (selectEl.value === 'gavel') {
+        peakBox.classList.remove('hidden');
+      } else {
+        peakBox.classList.add('hidden');
+      }
+    }
+
+    function calculateTotal() {
+      let totalM2 = 0;
+      const walls = document.querySelectorAll('.wall-item');
+
+      walls.forEach(w => {
+        const type = w.querySelector('.wall-type').value;
+        const width = parseFloat(w.querySelector('.wall-w').value) || 0;
+        const height = parseFloat(w.querySelector('.wall-h').value) || 0;
+        const peak = parseFloat(w.querySelector('.wall-peak').value) || 0;
+        const sub = parseFloat(w.querySelector('.wall-sub').value) || 0;
+
+        let area = width * height; // Rektangel
+
+        if (type === 'gavel') {
+          area += (width * peak) / 2; // Triangelspets
+        }
+
+        area -= sub; // Dra av fönster
+        if (area < 0) area = 0;
+
+        totalM2 += area;
+      });
+
+      document.getElementById('stat-total-m2').innerText = `${Math.round(totalM2 * 10) / 10} m²`;
+      
+      // Färg: 2 strykningar, ca 6 m² per liter per strykning => Totalt m² / 3
+      const liters = Math.ceil((totalM2 * 2) / 6);
+      document.getElementById('stat-paint-liters').innerText = `${liters} Liter`;
+
+      // Tid: Ca 4 m² i timmen totalt inkl förarbete
+      const hours = Math.round(totalM2 / 4);
+      document.getElementById('stat-work-hours').innerText = `${hours} tim`;
+    }
+
+    function applyCameraData() {
+      alert("Kameramått inlästa! Värden uppdaterade för Vägg 1.");
+      calculateTotal();
+    }
+
+    calculateTotal();
+  </script>
+</body>
+</html>
