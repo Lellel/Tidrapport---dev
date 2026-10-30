@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Offerter & ÄTA</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     :root { --bg: #0b1220; --panel: #111a2e; --card: #16213a; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8;
             --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; }
@@ -62,6 +63,14 @@
     .wall { background: var(--card); border-radius: 10px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
     .wall .full { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
     .result { background: var(--card); border-radius: 10px; padding: 10px; font-size: 14px; }
+    #line-map { height: 320px; flex-shrink: 0; border-radius: 12px; border: 1px solid var(--line); position: relative; }
+    .modal > * { flex-shrink: 0; }
+    .map-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+    .map-tools button { min-height: 34px; font-size: 12px; }
+    .placing { outline: 3px solid var(--warn); }
+    .sec-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .sec-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; }
+    input[type=range] { padding: 0; }
     @media (max-width: 520px) { .orow { grid-template-columns: 1fr 1fr; } .wall { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
@@ -73,8 +82,10 @@
     <div class="modal" id="modal"></div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="config.js"></script>
   <script src="sno.js"></script>
+  <script src="linjer.js"></script>
   <script>
     // Offerter & ÄTA (admin). Belopp räknas likadant här som i Kod.gs (computeOfferTotals) – backend är facit.
     let offers = [], settings = null;
@@ -179,6 +190,7 @@
           <input placeholder="Rubrik, t.ex. Målning av fasad, 2 strykningar" value="${esc(draft.title)}" ${dis} oninput="draft.title=this.value">
           <textarea placeholder="Beskrivning som kunden ser" ${dis} oninput="draft.description=this.value">${esc(draft.description)}</textarea>
           <div class="rows">${draft.rows.map((r, i) => renderRow(r, i, dis)).join('') || '<div class="muted">Inga rader ännu – lägg till nedan.</div>'}</div>
+          ${draft.layout && layoutHasPlacedSections(draft.layout) ? '<div class="banner info">🗺️ P-platserna är utritade på karta – kunden ser ritningen på sin offertsida.</div>' : ''}
           ${locked() ? '' : `<div class="addbtns">
             <button onclick="addRow('arbete')">➕ Arbete</button>
             <button onclick="addRow('maskin')">➕ Maskin</button>
@@ -186,7 +198,7 @@
             <button onclick="addRow('material')">➕ Material</button>
             <button onclick="addRow('ovrigt')">➕ Övrigt</button>
             <button onclick="openFacade()">🏠 Fasadmålning</button>
-            <button onclick="openLines()">🅿️ Linjemålning</button>
+            <button onclick="openLines()">🅿️ ${draft.layout ? 'Ändra linjeritning' : 'Linjemålning'}</button>
           </div>`}
         </div>
 
@@ -367,13 +379,132 @@
     }
 
     // ================= MALL: LINJEMÅLNING =================
-    // Rutor som står bredvid varandra delar sidolinje: n rutor = n+1 sidolinjer (+ ev. bakkant)
+    // Rutor som står bredvid varandra delar sidolinje: n rutor = n+1 sidolinjer (+ ev. bakkant).
+    // Sektionerna placeras på kartan och sparas med offerten (draft.layout) – kunden ser ritningen.
     let lineSections = [];
     let lineSymbols = 0;
+    let lineMap = null, lineLayer = null, lineAnchors = [];
+    let placingIdx = -1;
+    let lineSat = false;
+    const LINE_ROW_PREFIXES = ['Linjemålning parkering', 'Symboler (schablon)', 'Etablering'];
+
     function openLines() {
-      if (!lineSections.length) lineSections = [{ count: 10, width: 2.5, depth: 5, back: false, double: false }];
-      renderLines();
+      const saved = draft.layout && draft.layout.sections;
+      lineSections = saved ? JSON.parse(JSON.stringify(saved)) : [{ count: 10, width: 2.5, depth: 5, back: false, double: false, rotation: 0, anchor: null }];
+      lineSymbols = draft.layout ? draft.layout.symbols || 0 : 0;
+      placingIdx = -1;
+      openModal(`
+        <h2>🅿️ Linjemålning</h2>
+        <div class="muted">Lägg till sektioner (en rad rutor = en sektion), tryck <b>📍 Placera</b> och sedan på kartan där radens första ruta börjar. Vrid med reglaget, dra i pricken för att flytta.</div>
+        <div class="map-tools">
+          <button onclick="toggleLineTiles()">🛰️ Satellit / karta</button>
+          <button onclick="fitLineMap()">🔍 Visa alla</button>
+        </div>
+        <div id="line-map"></div>
+        <div id="line-sections"></div>
+        <button onclick="addLineSection()">➕ Sektion</button>
+        <div><label>Symboler (HKP, elbil, pilar…)</label><input type="number" value="${lineSymbols}" oninput="lineSymbols=this.value; linesRefresh()"></div>
+        <div class="result" id="lines-result"></div>
+        <div class="grid2"><button onclick="closeModal()">Avbryt</button><button class="ok" onclick="applyLines()">Lägg till i offerten</button></div>`);
+      renderLineSections();
+      initLineMap();
     }
+
+    async function initLineMap() {
+      if (typeof SNO_MAP_MISSING !== 'undefined' && SNO_MAP_MISSING) {
+        document.getElementById('line-map').innerHTML = '<div class="muted" style="padding:20px;text-align:center;">Kartan kan inte visas utan täckning – siffrorna fungerar ändå.</div>';
+        return;
+      }
+      if (lineMap) { lineMap.remove(); lineMap = null; }
+      lineMap = L.map('line-map', { zoomControl: true, maxZoom: 21 });
+      lineMap._tiles = L.tileLayer(SNO_TILES.street, { maxZoom: 21, maxNativeZoom: 19 }).addTo(lineMap);
+      lineMap.on('click', (e) => {
+        if (placingIdx < 0) return;
+        lineSections[placingIdx].anchor = [e.latlng.lat, e.latlng.lng];
+        placingIdx = -1;
+        renderLineSections(); redrawLines();
+      });
+      setTimeout(() => lineMap.invalidateSize(), 50);
+      if (lineSections.some(sec => Array.isArray(sec.anchor))) { redrawLines(); fitLineMap(); return; }
+      lineMap.setView(SNO_FLEN_CENTER, 15);
+      if (draft.site) {
+        try {
+          const geo = await snoApi({ action: 'geocode', address: draft.site });
+          if (geo.status === 'success' && lineMap) lineMap.setView([geo.lat, geo.lng], 19);
+        } catch (err) { /* stanna på Flen */ }
+      }
+    }
+
+    function toggleLineTiles() {
+      if (!lineMap) return;
+      lineSat = !lineSat;
+      lineMap.removeLayer(lineMap._tiles);
+      lineMap._tiles = L.tileLayer(lineSat ? SNO_TILES.sat : SNO_TILES.street, { maxZoom: 21, maxNativeZoom: 19 }).addTo(lineMap);
+    }
+
+    function fitLineMap() {
+      if (lineMap && lineLayer && lineLayer.getLayers().length) lineMap.fitBounds(lineLayer.getBounds(), { padding: [30, 30], maxZoom: 20 });
+    }
+
+    function redrawLines() {
+      if (lineMap) {
+        if (lineLayer) lineMap.removeLayer(lineLayer);
+        lineAnchors.forEach(m => lineMap.removeLayer(m));
+        lineLayer = drawLineLayout(lineMap, { sections: lineSections });
+        // Dragbar prick vid varje sektions ankare
+        lineAnchors = lineSections.map((sec, i) => {
+          if (!Array.isArray(sec.anchor)) return null;
+          const m = L.marker(sec.anchor, { draggable: true, icon: L.divIcon({ className: '', iconSize: [22, 22],
+            html: `<div style="width:22px;height:22px;border-radius:50%;background:${LINE_COLORS[i % LINE_COLORS.length]};border:3px solid #fff;box-shadow:0 1px 4px #000;"></div>` }) }).addTo(lineMap);
+          m.on('drag', (e) => { lineSections[i].anchor = [e.latlng.lat, e.latlng.lng]; redrawLinesOnly(); });
+          return m;
+        }).filter(Boolean);
+      }
+      linesRefresh();
+    }
+
+    function redrawLinesOnly() {
+      if (!lineMap) return;
+      if (lineLayer) lineMap.removeLayer(lineLayer);
+      lineLayer = drawLineLayout(lineMap, { sections: lineSections });
+    }
+
+    function renderLineSections() {
+      document.getElementById('line-sections').innerHTML = lineSections.map((sec, i) => `<div class="wall ${placingIdx === i ? 'placing' : ''}">
+        <div class="full sec-head">
+          <b><span class="sec-dot" style="background:${LINE_COLORS[i % LINE_COLORS.length]}"></span>Sektion ${String.fromCharCode(65 + i)}${Array.isArray(sec.anchor) ? '' : ' <span class="muted">(ej placerad)</span>'}</b>
+          <span style="display:flex;gap:6px;">
+            <button style="min-height:32px" onclick="startPlacing(${i})">📍 ${placingIdx === i ? 'Tryck på kartan…' : (Array.isArray(sec.anchor) ? 'Flytta' : 'Placera')}</button>
+            <button class="danger" style="min-height:32px" onclick="lineSections.splice(${i},1); renderLineSections(); redrawLines()">Ta bort</button>
+          </span>
+        </div>
+        <div><label>Antal rutor</label><input type="number" value="${sec.count}" oninput="lineSections[${i}].count=this.value; redrawLinesOnly(); linesRefresh()"></div>
+        <div><label>Bredd m</label><input type="number" step="0.1" value="${sec.width}" oninput="lineSections[${i}].width=this.value; redrawLinesOnly(); linesRefresh()"></div>
+        <div><label>Djup m</label><input type="number" step="0.1" value="${sec.depth}" oninput="lineSections[${i}].depth=this.value; redrawLinesOnly(); linesRefresh()"></div>
+        <div style="display:flex;flex-direction:column;gap:4px;justify-content:end;font-size:12px;">
+          <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none"><input type="checkbox" ${sec.back ? 'checked' : ''} onchange="lineSections[${i}].back=this.checked; redrawLinesOnly(); linesRefresh()"> Bakkant</label>
+          <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none"><input type="checkbox" ${sec.double ? 'checked' : ''} onchange="lineSections[${i}].double=this.checked; redrawLinesOnly(); linesRefresh()"> Dubbel</label>
+        </div>
+        <div class="full" style="gap:8px;">
+          <label style="margin:0;white-space:nowrap;">Vrid <span id="rot-${i}">${sec.rotation || 0}°</span></label>
+          <input type="range" min="0" max="359" value="${sec.rotation || 0}" style="flex:1" oninput="lineSections[${i}].rotation=Number(this.value); document.getElementById('rot-${i}').innerText=this.value+'°'; redrawLinesOnly()">
+          <button style="min-height:32px" onclick="lineSections[${i}].rotation=((Number(lineSections[${i}].rotation)||0)+90)%360; renderLineSections(); redrawLinesOnly()">↻ 90°</button>
+        </div>
+      </div>`).join('');
+    }
+
+    function startPlacing(i) {
+      placingIdx = placingIdx === i ? -1 : i;
+      renderLineSections();
+    }
+
+    function addLineSection() {
+      const last = lineSections[lineSections.length - 1];
+      lineSections.push({ count: 10, width: 2.5, depth: 5, back: false, double: false, rotation: last ? last.rotation || 0 : 0, anchor: null });
+      placingIdx = lineSections.length - 1;
+      renderLineSections();
+    }
+
     function linesCalc() {
       const meters = lineSections.reduce((s, sec) => {
         const n = Math.max(0, Number(sec.count) || 0);
@@ -383,35 +514,21 @@
       }, 0);
       return { meters: Math.ceil(meters), stalls: lineSections.reduce((s, sec) => s + (Number(sec.count) || 0) * (sec.double ? 2 : 1), 0) };
     }
-    function renderLines() {
-      openModal(`
-        <h2>🅿️ Linjemålning</h2>
-        <div class="muted">En sektion = en rad rutor bredvid varandra. "Dubbel" = två rader rygg mot rygg.</div>
-        ${lineSections.map((sec, i) => `<div class="wall">
-          <div class="full"><b>Sektion ${String.fromCharCode(65 + i)}</b><button class="danger" style="min-height:32px" onclick="lineSections.splice(${i},1); renderLines()">Ta bort</button></div>
-          <div><label>Antal rutor</label><input type="number" value="${sec.count}" oninput="lineSections[${i}].count=this.value; linesRefresh()"></div>
-          <div><label>Bredd m</label><input type="number" step="0.1" value="${sec.width}" oninput="lineSections[${i}].width=this.value; linesRefresh()"></div>
-          <div><label>Djup m</label><input type="number" step="0.1" value="${sec.depth}" oninput="lineSections[${i}].depth=this.value; linesRefresh()"></div>
-          <div style="display:flex;flex-direction:column;gap:4px;justify-content:end;font-size:12px;">
-            <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none"><input type="checkbox" ${sec.back ? 'checked' : ''} onchange="lineSections[${i}].back=this.checked; linesRefresh()"> Bakkant</label>
-            <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none"><input type="checkbox" ${sec.double ? 'checked' : ''} onchange="lineSections[${i}].double=this.checked; linesRefresh()"> Dubbel</label>
-          </div>
-        </div>`).join('')}
-        <button onclick="lineSections.push({ count: 10, width: 2.5, depth: 5, back: false, double: false }); renderLines()">➕ Sektion</button>
-        <div><label>Symboler (HKP, elbil, pilar…)</label><input type="number" value="${lineSymbols}" oninput="lineSymbols=this.value; linesRefresh()"></div>
-        <div class="result" id="lines-result">${linesResult(linesCalc())}</div>
-        <div class="grid2"><button onclick="closeModal()">Avbryt</button><button class="ok" onclick="applyLines()">Lägg till i offerten</button></div>`);
-    }
     function linesResult(c) {
+      const unplaced = lineSections.filter(sec => !Array.isArray(sec.anchor)).length;
       return `<b>${c.stalls} rutor · ${c.meters} linjemeter</b> · ${Number(lineSymbols) || 0} symboler<br>
-        ${money(c.meters * settings.lineMeterPrice)} + ${money((Number(lineSymbols) || 0) * settings.lineSymbolPrice)} + etablering ${money(settings.lineEstablishment)}`;
+        ${money(c.meters * settings.lineMeterPrice)} + ${money((Number(lineSymbols) || 0) * settings.lineSymbolPrice)} + etablering ${money(settings.lineEstablishment)}
+        ${unplaced ? `<br><span style="color:var(--warn)">⚠️ ${unplaced} sektion${unplaced > 1 ? 'er' : ''} inte placerad${unplaced > 1 ? 'e' : ''} – kunden ser bara de placerade på kartan.</span>` : ''}`;
     }
-    function linesRefresh() { document.getElementById('lines-result').innerHTML = linesResult(linesCalc()); }
+    function linesRefresh() { const el = document.getElementById('lines-result'); if (el) el.innerHTML = linesResult(linesCalc()); }
     function applyLines() {
       const c = linesCalc();
+      // Ersätt tidigare linjerader så att mallen kan öppnas och justeras flera gånger
+      draft.rows = draft.rows.filter(r => !LINE_ROW_PREFIXES.some(p => String(r.text).startsWith(p)));
       draft.rows.push({ kind: 'ovrigt', text: `Linjemålning parkering, ${c.stalls} rutor`, qty: c.meters, unit: 'm', price: settings.lineMeterPrice, deductible: false });
       if (Number(lineSymbols) > 0) draft.rows.push({ kind: 'ovrigt', text: 'Symboler (schablon)', qty: Number(lineSymbols), unit: 'st', price: settings.lineSymbolPrice, deductible: false });
       draft.rows.push({ kind: 'ovrigt', text: 'Etablering', qty: 1, unit: 'st', price: settings.lineEstablishment, deductible: false });
+      draft.layout = { sections: lineSections.map(sec => ({ ...sec, count: Number(sec.count) || 0, width: Number(sec.width) || 2.5, depth: Number(sec.depth) || 5 })), symbols: Number(lineSymbols) || 0 };
       if (!draft.title) draft.title = 'Linjemålning parkering';
       closeModal(); render();
     }
@@ -448,7 +565,10 @@
 
     // ================= RAM =================
     function openModal(html) { document.getElementById('modal').innerHTML = html; document.getElementById('modal-bg').classList.add('open'); }
-    function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+    function closeModal() {
+      document.getElementById('modal-bg').classList.remove('open');
+      if (lineMap) { lineMap.remove(); lineMap = null; lineLayer = null; lineAnchors = []; }
+    }
 
     function render() {
       const app = document.getElementById('app');

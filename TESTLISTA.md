@@ -67,6 +67,13 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] **➕ Ny offert** → kund (privat), e-post, mobil, arbetsplats, rubrik
 - [ ] **🏠 Fasadmålning** → lägg till väggar, gavelspets, fönsteravdrag → timmar och liter ser rimliga ut
 - [ ] **🅿️ Linjemålning** → 10 rutor 2,5 × 5 m utan bakkant ≈ 55 m (rutor delar sidolinje)
+- [ ] Kartan i linjemallen startar på offertens adress
+- [ ] **📍 Placera** → tryck där radens första ruta börjar → rutorna ritas ut. Vrid med reglaget / **↻ 90°**
+- [ ] Dra i den runda pricken → sektionen flyttas. **🛰️ Satellit / karta** byter bakgrund
+- [ ] Mät mot verkligheten på satellitbilden – stämmer rutornas storlek?
+- [ ] Öppna mallen igen → sektionerna finns kvar, "Lägg till" ger inte dubbla rader
+- [ ] Kunden ser **"🅿️ Så här blir p-platserna"** med ritningen på karta (kan zooma)
+- [ ] Ändra ritningen på en skickad offert → ny version
 - [ ] **➕ Restid / Arbete / Material** → summan uppdateras direkt
 - [ ] ROT dras bara på rader med "ROT/RUT-grund" (arbete), inte på material/restid
 - [ ] Byt till **Företag/BRF** → avdraget försvinner
