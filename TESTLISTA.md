@@ -66,6 +66,9 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 **Skapa & skicka**
 - [ ] **➕ Ny offert** → kund (privat), e-post, mobil, arbetsplats, rubrik
 - [ ] **🏠 Fasadmålning** → lägg till väggar, gavelspets, fönsteravdrag → timmar och liter ser rimliga ut
+- [ ] Lägg till fler huskroppar (**➕ Garage / Förråd / Annan**) → egna väggar och egen summa per huskropp
+- [ ] Offerten får egna rader per huskropp ("Fasadmålning garage 14 m²" + "Fasadfärg garage")
+- [ ] Öppna mallen igen (**Ändra fasadmått**) → alla huskroppar och väggar finns kvar, raderna dubbleras inte
 - [ ] **🅿️ Linjemålning** → 10 rutor 2,5 × 5 m utan bakkant ≈ 55 m (rutor delar sidolinje)
 - [ ] Kartan i linjemallen startar på offertens adress
 - [ ] **📍 Placera** → tryck där radens första ruta börjar → rutorna ritas ut. Vrid med reglaget / **↻ 90°**
@@ -100,6 +103,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] **🗑️ Makulera** → kundlänken slutar fungera
 
 **🎨 Kulörförslag (fasad)**
+- [ ] Välj **huskropp** (Bostadshus, Garage …) – varje huskropp har sitt eget foto och egna förslag
 - [ ] I offerten: **📷 Foto av huset** → ta en bild rakt framifrån i dagsljus
 - [ ] Välj **Fasad**, **Detaljer** (knutar, foder, vindskivor) och **Fönster & dörrar** – "Behåll" lämnar dem orörda
 - [ ] **✨ Skapa förslag** → efter 10–30 s kommer en ommålad bild. Ser huset ut som samma hus?
@@ -107,7 +111,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Bilderna hamnar i Drive-mappen **Kulörförslag**
 - [ ] Byt ut startpaletten mot era Alcro-kulörer under ⚙️ → **Kulörer** (Namn | NCS | #färg)
 - [ ] PDF:en har rubriken **Kulörförslag** med bilderna
-- [ ] Kunden ser förslagen, kan växla före/efter och **måste välja ett** innan godkännande (när det finns flera)
+- [ ] Kunden ser förslagen grupperade per huskropp, kan växla före/efter och **måste välja ett per huskropp** innan godkännande (när det finns flera)
 - [ ] Valet syns i adminvyn ("Kunden valde …") och i mejlet om godkännandet
 
 **Offertbesök i fält**
