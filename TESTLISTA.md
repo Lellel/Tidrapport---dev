@@ -7,7 +7,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
 ## 0. Förberedelser (en gång)
 
-- [ ] Ladda upp nya `Kod.gs` med `./ladda-upp-kod.sh` (kräver clasp och klonat projekt i `~/Dev-repot/AppsScript-dev`) → **Distribuera → Hantera distributioner → Redigera → Ny version**
+- [ ] Ladda upp nya `Kod.gs` med `./ladda-upp-kod.sh` (kräver clasp och klonat projekt i `~/Dev-repot/AppsScript-dev`) – skapar även ny version av webbappen
 - [ ] Godkänn de nya behörigheterna när Apps Script frågar (Kartor/Maps, Drive och **Gmail/MailApp** för offert-mejl)
 - [ ] `GEMINI_API_KEY` finns i **Projektinställningar → Skriptegenskaper** (för AI-kulorna)
 - [ ] Kolla att `config.js` i dev pekar på dev-versionens Apps Script-URL (inte prod)
