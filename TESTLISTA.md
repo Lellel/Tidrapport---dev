@@ -166,6 +166,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 ## Innan deploy till PROD
 
 - [ ] Avsnitt 1, 3 och 4 är helt gröna
+- [ ] Klistra in samma `Kod.gs` i **PROD**-versionens Apps Script (prod har en egen backend) → Ny version
 - [ ] Kör deploy (GitHub Actions → "Deploy to Production")
 - [ ] Öppna prod-appen och spara ett riktigt testpass
 - [ ] Skicka nya inloggningslänkar till alla förare
