@@ -846,7 +846,7 @@ function handleRemovePropertyPhoto(id, photoId) {
 const OFFER_HEADERS = ["Offert-ID", "Typ", "Version", "Status", "Kundnamn", "Kundtyp", "Telefon", "E-post", "Arbetsplats",
   "Titel", "Beskrivning", "Rader (JSON)", "Avdrag (rot/rut/inget)", "Antal personer avdrag", "Giltig till",
   "Att betala (kr)", "Skapad", "Skapad av", "Skickad", "Öppnad", "Besvarad", "Godkänd av", "Kundens kommentar", "PDF (Drive-ID)", "Jobb-ID",
-  "Karta (JSON)", "Kulörförslag (JSON)", "Vald kulör"];
+  "Karta (JSON)", "Kulörförslag (JSON)", "Vald kulör", "Fasadmått (JSON)"];
 const OFFER_STATUSES = ["utkast", "skickad", "öppnad", "godkänd", "avböjd", "makulerad"];
 
 const DEFAULT_OFFER_SETTINGS = {
@@ -939,7 +939,8 @@ function offerFromRow(row) {
     approvedBy: String(row[21] || ""), customerComment: String(row[22] || ""), pdfId: String(row[23] || ""), jobId: String(row[24] || ""),
     layout: parseLayout(row[25]),
     colorOptions: parseColorOptions(row[26]),
-    chosenColor: String(row[27] || "")
+    chosenColor: String(row[27] || ""),
+    facade: parseFacade(row[28])
   };
 }
 
@@ -947,9 +948,28 @@ function offerFromRow(row) {
 function cleanColorOptions(list) {
   const id = v => /^[A-Za-z0-9_-]{10,100}$/.test(String(v || "")) ? String(v) : "";
   const color = c => c ? { name: sanitize(c.name).slice(0, 60), ncs: sanitize(c.ncs).slice(0, 30), hex: /^#[0-9a-fA-F]{6}$/.test(String(c.hex || "")) ? c.hex : "" } : null;
-  return (Array.isArray(list) ? list : []).slice(0, 6).map(o => ({
-    imageId: id(o.imageId), beforeId: id(o.beforeId), main: color(o.main), detail: color(o.detail), windows: color(o.windows), label: sanitize(o.label).slice(0, 120)
+  return (Array.isArray(list) ? list : []).slice(0, 12).map(o => ({
+    imageId: id(o.imageId), beforeId: id(o.beforeId), main: color(o.main), detail: color(o.detail), windows: color(o.windows), label: sanitize(o.label).slice(0, 120),
+    building: sanitize(o.building).slice(0, 60)
   })).filter(o => o.imageId);
+}
+
+// Fasadmått per huskropp (bostadshus, garage …) så att mallen kan öppnas och justeras igen
+function cleanFacade(input) {
+  if (!input || !Array.isArray(input.buildings)) return null;
+  const num = (v, max) => { const n = Number(v); return isFinite(n) ? Math.min(max, Math.max(0, n)) : 0; };
+  const buildings = input.buildings.slice(0, 10).map(b => ({
+    name: sanitize(b.name).slice(0, 60) || "Huskropp",
+    walls: (Array.isArray(b.walls) ? b.walls : []).slice(0, 30).map(w => ({
+      name: sanitize(w.name).slice(0, 40), width: num(w.width, 200), height: num(w.height, 50), peak: num(w.peak, 30), sub: num(w.sub, 500)
+    }))
+  }));
+  return buildings.length ? { buildings: buildings } : null;
+}
+
+function parseFacade(cell) {
+  if (!cell) return null;
+  try { return cleanFacade(JSON.parse(cell)); } catch (e) { return null; }
 }
 
 function parseColorOptions(cell) {
@@ -984,7 +1004,7 @@ function offerToRow(o) {
   return [o.id, o.type, o.version, o.status, o.customerName, o.customerType, o.phone, o.email, o.site, o.title, o.description,
     JSON.stringify(o.rows), o.deduction, o.deductionPersons, o.validUntil, o.toPay, o.created, o.createdBy, o.sent, o.opened,
     o.answered, o.approvedBy, o.customerComment, o.pdfId, o.jobId, o.layout ? JSON.stringify(o.layout) : "",
-    o.colorOptions && o.colorOptions.length ? JSON.stringify(o.colorOptions) : "", o.chosenColor || ""];
+    o.colorOptions && o.colorOptions.length ? JSON.stringify(o.colorOptions) : "", o.chosenColor || "", o.facade ? JSON.stringify(o.facade) : ""];
 }
 
 function nextOfferId(type) {
@@ -1020,7 +1040,7 @@ function handleGetOffers() {
 
 // Innehållet som kunden ser – ändras det på en skickad offert blir det en ny version
 function offerContentKey(o) {
-  return JSON.stringify([o.customerName, o.customerType, o.site, o.title, o.description, o.rows, o.deduction, o.deductionPersons, o.validUntil, o.layout || null, o.colorOptions || []]);
+  return JSON.stringify([o.customerName, o.customerType, o.site, o.title, o.description, o.rows, o.deduction, o.deductionPersons, o.validUntil, o.layout || null, o.colorOptions || [], o.facade || null]);
 }
 
 function handleSaveOffer(input, savedBy) {
@@ -1048,7 +1068,8 @@ function handleSaveOffer(input, savedBy) {
     approvedBy: old ? old.approvedBy : "", customerComment: old ? old.customerComment : "", pdfId: old ? old.pdfId : "", jobId: old ? old.jobId : "",
     layout: cleanLayout(input.layout),
     colorOptions: cleanColorOptions(input.colorOptions),
-    chosenColor: old ? old.chosenColor : ""
+    chosenColor: old ? old.chosenColor : "",
+    facade: cleanFacade(input.facade)
   };
   if (!offer.customerName) return createJsonResponse({ status: "error", message: "Ange kundens namn." });
   if (!offer.rows.length) return createJsonResponse({ status: "error", message: "Lägg till minst en rad." });
@@ -1225,17 +1246,28 @@ function handleRecolorHouse(data) {
 // Kulörförslagen i PDF:en (max 4 bilder, hämtas från Drive och bäddas in)
 function colorOptionsPdfHtml(o) {
   if (!o.colorOptions || !o.colorOptions.length) return "";
-  let html = '<div style="page-break-inside:avoid;margin-top:18px;"><h2 style="font-size:13pt">Kulörförslag</h2><table style="margin:0"><tr>';
-  o.colorOptions.slice(0, 4).forEach((c, i) => {
-    let img = "";
-    try {
-      const blob = DriveApp.getFileById(c.imageId).getBlob();
-      img = '<img src="data:image/jpeg;base64,' + Utilities.base64Encode(blob.getBytes()) + '" style="width:100%;border-radius:6px;">';
-    } catch (e) { img = ""; }
-    html += '<td style="border:none;vertical-align:top;width:50%;padding:4px;">' + img + '<div style="font-size:9pt;margin-top:4px;"><b>Alternativ ' + (i + 1) + '</b> ' + escapeHtml(c.label) + '</div></td>';
-    if (i % 2 === 1) html += '</tr><tr>';
+  let html = '<div style="margin-top:18px;"><h2 style="font-size:13pt">Kulörförslag</h2>';
+  const groups = [];
+  o.colorOptions.forEach((c, i) => {
+    const name = c.building || "";
+    let g = groups.find(x => x.name === name);
+    if (!g) { g = { name: name, items: [] }; groups.push(g); }
+    g.items.push({ c: c, i: i });
   });
-  html += '</tr></table><p class="muted">Bilderna är AI-illustrationer. Färger på skärm och papper skiljer sig från verklig kulör – vi rekommenderar färgprov på plats.</p></div>';
+  groups.forEach(g => {
+    html += '<div style="page-break-inside:avoid;">' + (g.name ? '<h3 style="font-size:11pt;margin:10px 0 4px;">' + escapeHtml(g.name) + '</h3>' : '') + '<table style="margin:0"><tr>';
+    g.items.slice(0, 4).forEach((item, n) => {
+      let img = "";
+      try {
+        const blob = DriveApp.getFileById(item.c.imageId).getBlob();
+        img = '<img src="data:image/jpeg;base64,' + Utilities.base64Encode(blob.getBytes()) + '" style="width:100%;border-radius:6px;">';
+      } catch (e) { img = ""; }
+      html += '<td style="border:none;vertical-align:top;width:50%;padding:4px;">' + img + '<div style="font-size:9pt;margin-top:4px;"><b>Alternativ ' + (item.i + 1) + '</b> ' + escapeHtml(item.c.label) + '</div></td>';
+      if (n % 2 === 1) html += '</tr><tr>';
+    });
+    html += '</tr></table></div>';
+  });
+  html += '<p class="muted">Bilderna är AI-illustrationer. Färger på skärm och papper skiljer sig från verklig kulör – vi rekommenderar färgprov på plats.</p></div>';
   return html;
 }
 
@@ -1263,7 +1295,7 @@ function customerView(o, settings) {
     validUntil: o.validUntil, expired: o.validUntil < today && o.status !== "godkänd", approvedBy: o.approvedBy, answered: o.answered,
     totals: computeOfferTotals(o, settings), pdfUrl: o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "",
     layout: o.layout,
-    colorOptions: (o.colorOptions || []).map(c => ({ url: driveImageUrl(c.imageId), beforeUrl: c.beforeId ? driveImageUrl(c.beforeId) : "", main: c.main, detail: c.detail, windows: c.windows, label: c.label })),
+    colorOptions: (o.colorOptions || []).map(c => ({ url: driveImageUrl(c.imageId), beforeUrl: c.beforeId ? driveImageUrl(c.beforeId) : "", main: c.main, detail: c.detail, windows: c.windows, label: c.label, building: c.building })),
     chosenColor: o.chosenColor,
     company: { name: settings.companyName, phone: settings.companyPhone, email: settings.companyEmail }
   };
@@ -1311,9 +1343,15 @@ function handleRespondOffer(data) {
     o.answered = nowStamp();
     o.approvedBy = name;
     o.customerComment = sanitize(data.comment).slice(0, 1000);
-    const pick = Number(data.chosenColor);
-    if (decision === "godkänd" && o.colorOptions && o.colorOptions[pick]) {
-      o.chosenColor = "Alternativ " + (pick + 1) + ": " + (o.colorOptions[pick].label || "");
+    // Ett val per huskropp: chosenColors = [index, …] (äldre klienter skickar ett enda chosenColor)
+    const picks = Array.isArray(data.chosenColors) ? data.chosenColors : (data.chosenColor !== undefined ? [data.chosenColor] : []);
+    if (decision === "godkänd" && o.colorOptions && o.colorOptions.length) {
+      const seen = {};
+      const chosen = picks.map(Number).filter(i => o.colorOptions[i]).filter(i => {
+        const b = o.colorOptions[i].building || ""; if (seen[b]) return false; seen[b] = true; return true;
+      });
+      o.chosenColor = chosen.map(i => (o.colorOptions[i].building ? o.colorOptions[i].building + ": " : "") +
+        "Alternativ " + (i + 1) + " (" + (o.colorOptions[i].label || "") + ")").join("; ");
     }
     if (decision === "godkänd") {
       // Ett jobb i planeringen med riktig kund, titel och arbetstimmar

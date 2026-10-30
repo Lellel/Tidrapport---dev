@@ -158,14 +158,13 @@
       // Från fältet: offerter.html?ny=offert&kund=...&plats=...
       const q = new URLSearchParams(location.search);
       if (q.get('plats')) draft.site = q.get('plats');
-      colorPhoto = ''; colorBeforeId = '';
+      resetColorState();
       view = 'edit'; message = ''; render();
     }
 
     function openOffer(id) {
       draft = JSON.parse(JSON.stringify(offers.find(o => o.id === id)));
-      const withPhoto = (draft.colorOptions || []).find(c => c.beforeId);
-      colorPhoto = ''; colorBeforeId = withPhoto ? withPhoto.beforeId : '';
+      resetColorState();
       view = 'edit'; message = ''; render();
     }
 
@@ -210,7 +209,7 @@
             <button onclick="addRow('resa')">➕ Restid</button>
             <button onclick="addRow('material')">➕ Material</button>
             <button onclick="addRow('ovrigt')">➕ Övrigt</button>
-            <button onclick="openFacade()">🏠 Fasadmålning</button>
+            <button onclick="openFacade()">🏠 ${draft.facade ? 'Ändra fasadmått' : 'Fasadmålning'}</button>
             <button onclick="openLines()">🅿️ ${draft.layout ? 'Ändra linjeritning' : 'Linjemålning'}</button>
           </div>`}
         </div>
@@ -355,8 +354,9 @@
     }
 
     // ================= KULÖRFÖRSLAG (AI målar om ett foto av huset) =================
-    let colorPhoto = '';          // foto som ska målas om (dataURL, finns bara i telefonen tills första förslaget)
-    let colorBeforeId = '';       // samma foto i Drive efter första förslaget – återanvänds
+    // Ett foto och egna förslag per huskropp. Kunden väljer ett alternativ per huskropp.
+    let colorPhotos = {};          // huskropp -> { photo: dataURL (bara i telefonen), beforeId: Drive-ID efter första förslaget }
+    let colorBuilding = '';        // vald huskropp för nästa förslag
     let colorPick = { main: 0, detail: -1, windows: -1 };  // index i paletten, -1 = behåll befintlig
     let colorBusy = false;
 
@@ -367,6 +367,17 @@
       }).filter(Boolean);
     }
     const driveImg = (id) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w800`;
+
+    function knownBuildings() {
+      const names = [...(draft.facade ? draft.facade.buildings.map(b => b.name) : []), ...(draft.colorOptions || []).map(o => o.building)];
+      return [...new Set(names.filter(Boolean))];
+    }
+    function photoState() { return colorPhotos[colorBuilding] || (colorPhotos[colorBuilding] = { photo: '', beforeId: '' }); }
+    function resetColorState() {
+      colorPhotos = {};
+      (draft.colorOptions || []).forEach(o => { if (o.beforeId && !colorPhotos[o.building || '']) colorPhotos[o.building || ''] = { photo: '', beforeId: o.beforeId }; });
+      colorBuilding = knownBuildings()[0] || '';
+    }
 
     function swatchRow(key, allowKeep) {
       const pal = palette();
@@ -381,21 +392,31 @@
 
     function renderColorCard(dis) {
       const opts = draft.colorOptions || [];
+      const groups = [...new Set(opts.map(o => o.building || ''))];
+      const buildings = knownBuildings();
+      const ps = photoState();
       return `<div class="card">
         <h2>🎨 Kulörförslag ${opts.length ? `<span class="muted">(${opts.length})</span>` : ''}</h2>
-        ${opts.length ? `<div class="colors-grid">${opts.map((o, i) => `<div class="copt">
+        ${groups.map(g => `${g || groups.length > 1 ? `<h2 style="font-size:13px;margin:4px 0 0;">${esc(g || 'Utan huskropp')}</h2>` : ''}
+          <div class="colors-grid">${opts.map((o, i) => (o.building || '') !== g ? '' : `<div class="copt">
             <img src="${driveImg(o.imageId)}" data-after="${driveImg(o.imageId)}" data-before="${o.beforeId ? driveImg(o.beforeId) : ''}" onclick="if (this.dataset.before) this.src = this.src === this.dataset.after ? this.dataset.before : this.dataset.after" alt="Alternativ ${i + 1}">
             <div class="cbody"><span><b>Alternativ ${i + 1}</b><br>${esc(o.label)}</span>${dis ? '' : `<button class="danger" style="min-height:30px" onclick="draft.colorOptions.splice(${i},1); render()">✕</button>`}</div>
-          </div>`).join('')}</div><div class="muted">Tryck på en bild för att växla före/efter. Kunden väljer alternativ när hen godkänner.</div>` : ''}
+          </div>`).join('')}</div>`).join('')}
+        ${opts.length ? '<div class="muted">Tryck på en bild för att växla före/efter. Kunden väljer ett alternativ per huskropp.</div>' : ''}
         ${dis ? (draft.chosenColor ? `<div class="banner good">Kunden valde: <b>${esc(draft.chosenColor)}</b></div>` : '') : `
-          ${colorPhoto || colorBeforeId ? `<img class="photo-prev" src="${colorPhoto || driveImg(colorBeforeId)}" alt="Foto av huset">` : '<div class="muted">Ta ett foto rakt framifrån i dagsljus – AI:n målar om fasaden och låter resten vara.</div>'}
+          <div><label>Huskropp</label><div class="chips">
+            ${buildings.map(n => `<button class="${colorBuilding === n ? 'active' : ''}" onclick="colorBuilding=${esc(JSON.stringify(n))}; render()">${esc(n)}</button>`).join('')}
+            <button onclick="const n = prompt('Namn på huskroppen:', ''); if (n && n.trim()) { colorBuilding = n.trim(); render(); }">➕ Annan</button>
+            ${colorBuilding && !buildings.includes(colorBuilding) ? `<button class="active">${esc(colorBuilding)}</button>` : ''}
+          </div>${!buildings.length && !colorBuilding ? '<div class="muted">Lägg till huskroppar i fasadmallen, eller tryck "Annan".</div>' : ''}</div>
+          ${ps.photo || ps.beforeId ? `<img class="photo-prev" src="${ps.photo || driveImg(ps.beforeId)}" alt="Foto av ${esc(colorBuilding || 'huset')}">` : `<div class="muted">Ta ett foto av ${esc(colorBuilding ? colorBuilding.toLowerCase() : 'huset')} rakt framifrån i dagsljus – AI:n målar om fasaden och låter resten vara.</div>`}
           <input type="file" id="color-photo" accept="image/*" style="display:none" onchange="pickColorPhoto(event)">
-          <button onclick="document.getElementById('color-photo').click()">📷 ${colorPhoto || colorBeforeId ? 'Byt foto' : 'Foto av huset'}</button>
+          <button onclick="document.getElementById('color-photo').click()">📷 ${ps.photo || ps.beforeId ? 'Byt foto' : 'Foto av ' + esc(colorBuilding ? colorBuilding.toLowerCase() : 'huset')}</button>
           <div><label>Fasad</label>${swatchRow('main', false)}</div>
           <div><label>Detaljer – knutar, foder, vindskivor</label>${swatchRow('detail', true)}</div>
           <div><label>Fönster & dörrar</label>${swatchRow('windows', true)}</div>
-          <button class="primary" ${colorBusy || !(colorPhoto || colorBeforeId) || opts.length >= 6 ? 'disabled' : ''} onclick="createColorOption()">${colorBusy ? '✨ AI målar… (10–30 s)' : '✨ Skapa förslag'}</button>
-          ${opts.length >= 6 ? '<div class="muted">Max 6 förslag per offert.</div>' : ''}`}
+          <button class="primary" ${colorBusy || !(ps.photo || ps.beforeId) || opts.length >= 12 ? 'disabled' : ''} onclick="createColorOption()">${colorBusy ? '✨ AI målar… (10–30 s)' : `✨ Skapa förslag${colorBuilding ? ' för ' + esc(colorBuilding.toLowerCase()) : ''}`}</button>
+          ${opts.length >= 12 ? '<div class="muted">Max 12 förslag per offert.</div>' : ''}`}
         <div class="muted">Färger på skärm skiljer sig från verklig kulör – rekommendera färgprov.</div>
       </div>`;
     }
@@ -403,8 +424,9 @@
     async function pickColorPhoto(event) {
       const file = event.target.files[0];
       if (!file) return;
-      colorPhoto = await compressPhoto(file, 1600);
-      colorBeforeId = '';
+      const ps = photoState();
+      ps.photo = await compressPhoto(file, 1600);
+      ps.beforeId = '';
       render();
     }
 
@@ -433,14 +455,16 @@
       const pick = (i) => i >= 0 && pal[i] ? pal[i] : null;
       const choice = { main: pick(colorPick.main), detail: pick(colorPick.detail), windows: pick(colorPick.windows) };
       if (!choice.main) { setMessage('Välj en fasadfärg.'); return; }
+      const ps = photoState();
+      const building = colorBuilding;
       colorBusy = true; message = ''; render();
       try {
-        const res = await snoApi({ action: 'recolorHouse', ...choice, beforeId: colorBeforeId, imageBase64: colorBeforeId ? '' : colorPhoto });
-        if (res.beforeId) { colorBeforeId = res.beforeId; colorPhoto = ''; }
+        const res = await snoApi({ action: 'recolorHouse', ...choice, beforeId: ps.beforeId, imageBase64: ps.beforeId ? '' : ps.photo });
+        if (res.beforeId) { ps.beforeId = res.beforeId; ps.photo = ''; }
         if (res.status !== 'success') { message = '❌ ' + esc(res.message || 'AI:n svarade inte.'); }
         else {
           draft.colorOptions = draft.colorOptions || [];
-          draft.colorOptions.push({ imageId: res.imageId, beforeId: res.beforeId, ...choice, label: colorLabel(choice) });
+          draft.colorOptions.push({ imageId: res.imageId, beforeId: res.beforeId, ...choice, label: colorLabel(choice), building });
           message = '🎨 Nytt kulörförslag – kom ihåg att spara/skicka offerten.';
         }
       } catch (err) {
@@ -450,42 +474,75 @@
     }
 
     // ================= MALL: FASADMÅLNING =================
-    let walls = [];
+    // En eller flera huskroppar (bostadshus, garage, förråd …), var och en med egna väggar.
+    // Varje huskropp blir egna rader i offerten. Måtten sparas med offerten (draft.facade).
+    let facadeBuildings = [];
+    const FACADE_ROW_PREFIXES = ['Fasadmålning', 'Fasadfärg'];
+    const BUILDING_NAMES = ['Bostadshus', 'Garage', 'Förråd', 'Gäststuga', 'Carport', 'Ladugård'];
+
     function openFacade() {
-      if (!walls.length) walls = [{ name: 'Vägg 1', width: 8, height: 3, peak: 0, sub: 3 }];
+      facadeBuildings = draft.facade && draft.facade.buildings
+        ? JSON.parse(JSON.stringify(draft.facade.buildings))
+        : [{ name: 'Bostadshus', walls: [{ name: 'Vägg 1', width: 8, height: 3, peak: 0, sub: 3 }] }];
       renderFacade();
     }
-    function facadeCalc() {
-      const m2 = walls.reduce((s, w) => s + Math.max(0, (Number(w.width) || 0) * (Number(w.height) || 0) + (Number(w.width) || 0) * (Number(w.peak) || 0) / 2 - (Number(w.sub) || 0)), 0);
-      const hours = Math.ceil(m2 / (settings.facadeM2PerHour || 1));
-      const liters = Math.ceil(m2 * settings.facadeCoats / (settings.facadeM2PerLiter || 1));
-      return { m2, hours, liters };
+    function wallArea(w) {
+      const width = Number(w.width) || 0;
+      return Math.max(0, width * (Number(w.height) || 0) + width * (Number(w.peak) || 0) / 2 - (Number(w.sub) || 0));
+    }
+    function buildingCalc(bld) {
+      const m2 = bld.walls.reduce((s, w) => s + wallArea(w), 0);
+      return { m2, hours: Math.ceil(m2 / (settings.facadeM2PerHour || 1)), liters: Math.ceil(m2 * settings.facadeCoats / (settings.facadeM2PerLiter || 1)) };
     }
     function renderFacade() {
-      const c = facadeCalc();
+      const unused = BUILDING_NAMES.filter(n => !facadeBuildings.some(b => b.name === n));
       openModal(`
         <h2>🏠 Fasadmålning</h2>
-        <div class="muted">Mät vägg för vägg. Gavelspets = höjden på triangeln ovanför väggen. Avdrag = fönster och dörrar i m².</div>
-        ${walls.map((w, i) => `<div class="wall">
-          <div class="full"><input value="${esc(w.name)}" oninput="walls[${i}].name=this.value" style="max-width:60%"><button class="danger" style="min-height:32px" onclick="walls.splice(${i},1); renderFacade()">Ta bort</button></div>
-          <div><label>Bredd m</label><input type="number" step="0.1" value="${w.width}" oninput="walls[${i}].width=this.value; facadeRefresh()"></div>
-          <div><label>Höjd m</label><input type="number" step="0.1" value="${w.height}" oninput="walls[${i}].height=this.value; facadeRefresh()"></div>
-          <div><label>Gavelspets m</label><input type="number" step="0.1" value="${w.peak}" oninput="walls[${i}].peak=this.value; facadeRefresh()"></div>
-          <div><label>Avdrag m²</label><input type="number" step="0.5" value="${w.sub}" oninput="walls[${i}].sub=this.value; facadeRefresh()"></div>
+        <div class="muted">Lägg till varje huskropp och mät vägg för vägg. Gavelspets = höjden på triangeln ovanför väggen. Avdrag = fönster och dörrar i m².</div>
+        ${facadeBuildings.map((bld, b) => `<div class="card" style="padding:10px;gap:8px;">
+          <div class="sec-head"><input value="${esc(bld.name)}" oninput="facadeBuildings[${b}].name=this.value" style="font-weight:800;max-width:60%">
+            ${facadeBuildings.length > 1 ? `<button class="danger" style="min-height:32px" onclick="facadeBuildings.splice(${b},1); renderFacade()">Ta bort huskropp</button>` : ''}</div>
+          ${bld.walls.map((w, i) => `<div class="wall">
+            <div class="full"><input value="${esc(w.name)}" oninput="facadeBuildings[${b}].walls[${i}].name=this.value" style="max-width:60%"><button class="danger" style="min-height:32px" onclick="facadeBuildings[${b}].walls.splice(${i},1); renderFacade()">Ta bort</button></div>
+            <div><label>Bredd m</label><input type="number" step="0.1" value="${w.width}" oninput="facadeBuildings[${b}].walls[${i}].width=this.value; facadeRefresh()"></div>
+            <div><label>Höjd m</label><input type="number" step="0.1" value="${w.height}" oninput="facadeBuildings[${b}].walls[${i}].height=this.value; facadeRefresh()"></div>
+            <div><label>Gavelspets m</label><input type="number" step="0.1" value="${w.peak}" oninput="facadeBuildings[${b}].walls[${i}].peak=this.value; facadeRefresh()"></div>
+            <div><label>Avdrag m²</label><input type="number" step="0.5" value="${w.sub}" oninput="facadeBuildings[${b}].walls[${i}].sub=this.value; facadeRefresh()"></div>
+          </div>`).join('')}
+          <button onclick="facadeBuildings[${b}].walls.push({ name: 'Vägg ' + (facadeBuildings[${b}].walls.length + 1), width: 6, height: 2.5, peak: 0, sub: 0 }); renderFacade()">➕ Vägg</button>
+          <div class="muted" id="facade-res-${b}">${buildingResult(buildingCalc(bld))}</div>
         </div>`).join('')}
-        <button onclick="walls.push({ name: 'Vägg ' + (walls.length + 1), width: 8, height: 3, peak: 0, sub: 0 }); renderFacade()">➕ Vägg</button>
-        <div class="result" id="facade-result">${facadeResult(c)}</div>
+        <div class="addbtns">${unused.slice(0, 4).map(n => `<button onclick="addBuilding('${n}')">➕ ${n}</button>`).join('')}<button onclick="addBuilding(prompt('Namn på huskroppen:', '') || '')">➕ Annan</button></div>
+        <div class="result" id="facade-result">${facadeTotal()}</div>
         <div class="grid2"><button onclick="closeModal()">Avbryt</button><button class="ok" onclick="applyFacade()">Lägg till i offerten</button></div>`);
     }
-    function facadeResult(c) {
-      return `<b>${Math.round(c.m2)} m²</b> · ${settings.facadeCoats} strykningar<br>
-        Arbete: <b>${c.hours} tim</b> (${settings.facadeM2PerHour} m²/tim) · Färg: <b>${c.liters} liter</b> (${settings.facadeM2PerLiter} m²/liter)`;
+    function addBuilding(name) {
+      if (!name.trim()) return;
+      facadeBuildings.push({ name: name.trim(), walls: [{ name: 'Vägg 1', width: 6, height: 2.5, peak: 0, sub: 0 }] });
+      renderFacade();
     }
-    function facadeRefresh() { document.getElementById('facade-result').innerHTML = facadeResult(facadeCalc()); }
+    function buildingResult(c) { return `<b>${Math.round(c.m2)} m²</b> · ${c.hours} tim · ${c.liters} liter färg`; }
+    function facadeTotal() {
+      const t = facadeBuildings.map(buildingCalc).reduce((s, c) => ({ m2: s.m2 + c.m2, hours: s.hours + c.hours, liters: s.liters + c.liters }), { m2: 0, hours: 0, liters: 0 });
+      return `Totalt <b>${Math.round(t.m2)} m²</b> · ${settings.facadeCoats} strykningar<br>Arbete: <b>${t.hours} tim</b> (${settings.facadeM2PerHour} m²/tim) · Färg: <b>${t.liters} liter</b> (${settings.facadeM2PerLiter} m²/liter)`;
+    }
+    function facadeRefresh() {
+      facadeBuildings.forEach((bld, b) => { const el = document.getElementById('facade-res-' + b); if (el) el.innerHTML = buildingResult(buildingCalc(bld)); });
+      document.getElementById('facade-result').innerHTML = facadeTotal();
+    }
     function applyFacade() {
-      const c = facadeCalc();
-      draft.rows.push({ kind: 'arbete', text: `Fasadmålning ${Math.round(c.m2)} m², ${settings.facadeCoats} strykningar inkl. förarbete`, qty: c.hours, unit: 'tim', price: settings.hourlyWork, deductible: true });
-      draft.rows.push({ kind: 'material', text: 'Fasadfärg', qty: c.liters, unit: 'liter', price: settings.facadePaintPerLiter, deductible: false });
+      // Ersätt tidigare fasadrader så att mallen kan öppnas och justeras flera gånger
+      draft.rows = draft.rows.filter(r => !FACADE_ROW_PREFIXES.some(p => String(r.text).startsWith(p)));
+      const many = facadeBuildings.length > 1;
+      facadeBuildings.forEach(bld => {
+        const c = buildingCalc(bld);
+        if (c.m2 <= 0) return;
+        const name = many || bld.name !== 'Bostadshus' ? ' ' + bld.name.toLowerCase() : '';
+        draft.rows.push({ kind: 'arbete', text: `Fasadmålning${name} ${Math.round(c.m2)} m², ${settings.facadeCoats} strykningar inkl. förarbete`, qty: c.hours, unit: 'tim', price: settings.hourlyWork, deductible: true });
+        draft.rows.push({ kind: 'material', text: `Fasadfärg${name}`, qty: c.liters, unit: 'liter', price: settings.facadePaintPerLiter, deductible: false });
+      });
+      draft.facade = { buildings: facadeBuildings };
+      if (!colorBuilding) colorBuilding = facadeBuildings[0] ? facadeBuildings[0].name : '';
       if (!draft.title) draft.title = 'Fasadmålning';
       closeModal(); render();
     }

@@ -1258,7 +1258,8 @@ window.calculateOffert = calcOffert;
 // Offerter skapas och skickas i offerter.html.
 // ==========================================
 let customerDoc = { type: '', id: '', code: '' };
-let customerPickedColor = -1;
+let customerPicks = {};          // huskropp -> valt alternativ (index)
+let customerColorGroups = [];     // huskroppar där kunden måste välja
 
 function checkCustomerUrlParams() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -1312,21 +1313,29 @@ function drawCustomerOffer(o) {
   const label = o.type === 'ata' ? 'Tilläggsarbete (ÄTA)' : 'Offert';
   const t = o.totals;
   const hasLayout = !!(o.layout && Array.isArray(o.layout.sections) && o.layout.sections.some(sec => Array.isArray(sec.anchor)));
-  // Kulörförslag: tryck på bilden = före/efter, välj alternativ innan godkännande
+  // Kulörförslag per huskropp: tryck på bilden = före/efter, välj ett alternativ per huskropp
   const colors = o.colorOptions || [];
-  const canPick = colors.length > 1 && !['godkänd', 'avböjd'].includes(o.status) && !o.expired;
+  const groups = [...new Set(colors.map(c => c.building || ''))];
+  const open = !['godkänd', 'avböjd'].includes(o.status) && !o.expired;
   const dot = (c) => c && c.hex ? `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${customerEsc(c.hex)};border:1px solid #cbd5e1;vertical-align:-1px;margin-right:4px;"></span>` : '';
-  const colorsHtml = colors.length ? `<div style="margin-top:14px;"><div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">🎨 Kulörförslag${colors.length > 1 ? ' – välj det du gillar' : ''}</div>
-    ${colors.map((c, i) => `<label style="display:block;border:2px solid ${customerPickedColor === i ? '#0369a1' : '#e2e8f0'};border-radius:14px;overflow:hidden;margin-bottom:10px;cursor:pointer;">
+  const colorCard = (c, i, canPick, g) => `<label style="display:block;border:2px solid ${customerPicks[g] === i ? '#0369a1' : '#e2e8f0'};border-radius:14px;overflow:hidden;margin-bottom:10px;cursor:pointer;">
       <img src="${customerEsc(c.url)}" data-after="${customerEsc(c.url)}" data-before="${customerEsc(c.beforeUrl || '')}" alt="Alternativ ${i + 1}" style="width:100%;display:block;"
         onclick="event.preventDefault(); if (this.dataset.before) { const after = this.src.endsWith(this.dataset.after) || this.src === this.dataset.after; this.src = after ? this.dataset.before : this.dataset.after; this.nextElementSibling.firstElementChild.textContent = after ? 'FÖRE' : 'EFTER'; }">
       <div style="padding:8px 10px;font-size:13px;color:#334155;display:flex;gap:8px;align-items:flex-start;">
         <span style="font-size:10px;font-weight:800;background:#0f172a;color:#fff;border-radius:6px;padding:2px 6px;">EFTER</span>
         <span style="flex:1;"><b>Alternativ ${i + 1}</b><br>${dot(c.main)}Fasad: ${customerEsc(c.main ? c.main.name : '')}${c.detail ? `<br>${dot(c.detail)}Detaljer: ${customerEsc(c.detail.name)}` : ''}${c.windows ? `<br>${dot(c.windows)}Fönster/dörrar: ${customerEsc(c.windows.name)}` : ''}</span>
-        ${canPick ? `<input type="radio" name="cust-color" value="${i}" ${customerPickedColor === i ? 'checked' : ''} onchange="customerPickedColor=${i}" style="width:22px;height:22px;">` : ''}
-      </div></label>`).join('')}
+        ${canPick ? `<input type="radio" name="cust-color-${groups.indexOf(g)}" value="${i}" ${customerPicks[g] === i ? 'checked' : ''} onchange="customerPicks[${customerEsc(JSON.stringify(g))}]=${i}" style="width:22px;height:22px;">` : ''}
+      </div></label>`;
+  const colorsHtml = colors.length ? `<div style="margin-top:14px;"><div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">🎨 Kulörförslag${open && colors.length > 1 ? ' – välj det du gillar' + (groups.length > 1 ? ' för varje byggnad' : '') : ''}</div>
+    ${groups.map(g => {
+      const items = colors.map((c, i) => ({ c, i })).filter(x => (x.c.building || '') === g);
+      const canPick = open && items.length > 1;
+      if (open && items.length === 1) customerPicks[g] = items[0].i; // bara ett förslag = automatiskt valt
+      return `${g ? `<div style="font-size:15px;font-weight:800;color:#0f172a;margin:12px 0 6px;">${customerEsc(g)}</div>` : ''}${items.map(x => colorCard(x.c, x.i, canPick, g)).join('')}`;
+    }).join('')}
     <div style="font-size:12px;color:#64748b;">Tryck på bilden för att se före/efter. Bilderna är AI-illustrationer – färger på skärm skiljer sig från verklig kulör.</div>
     ${o.chosenColor ? `<div style="font-size:13px;color:#166534;margin-top:6px;">Valt: <b>${customerEsc(o.chosenColor)}</b></div>` : ''}</div>` : '';
+  customerColorGroups = groups.filter(g => colors.filter(c => (c.building || '') === g).length > 1);
   const rows = o.rows.map(r => `<tr><td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;">${customerEsc(r.text)}<div style="font-size:12px;color:#64748b;">${r.qty} ${customerEsc(r.unit)} × ${customerMoney(r.price)}</div></td>
     <td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${customerMoney(r.qty * r.price)}</td></tr>`).join('');
   let action = '';
@@ -1404,14 +1413,17 @@ async function respondCustomerOffer(decision) {
   const name = (document.getElementById('cust-name')?.value || '').trim();
   const comment = (document.getElementById('cust-comment')?.value || '').trim();
   if (decision === 'godkänd' && name.length < 2) { statusDiv.style.color = '#b91c1c'; statusDiv.textContent = 'Skriv ditt namn för att godkänna.'; return; }
-  if (decision === 'godkänd' && document.querySelectorAll('input[name=cust-color]').length && customerPickedColor < 0) {
-    statusDiv.style.color = '#b91c1c'; statusDiv.textContent = 'Välj ett av kulörförslagen ovan.'; return;
+  const missing = customerColorGroups.filter(g => customerPicks[g] === undefined);
+  if (decision === 'godkänd' && missing.length) {
+    statusDiv.style.color = '#b91c1c';
+    statusDiv.textContent = 'Välj ett kulörförslag' + (missing.some(Boolean) ? ' för ' + missing.filter(Boolean).join(' och ').toLowerCase() : '') + ' ovan.';
+    return;
   }
   if (decision === 'avböjd' && !confirm('Vill du tacka nej?')) return;
   document.querySelectorAll('button').forEach(b => { b.disabled = true; });
   statusDiv.style.color = '#334155'; statusDiv.textContent = 'Skickar… ⏳';
   try {
-    const res = await customerApi({ action: 'respondOffer', decision, name, comment, chosenColor: customerPickedColor >= 0 ? customerPickedColor : (document.querySelectorAll('input[name=cust-color]').length ? -1 : 0) });
+    const res = await customerApi({ action: 'respondOffer', decision, name, comment, chosenColors: Object.values(customerPicks) });
     if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
     drawCustomerOffer(res.offer);
   } catch (err) {
