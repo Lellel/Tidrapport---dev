@@ -94,6 +94,20 @@
         .carousel-snap::-webkit-scrollbar { display: none; }
         .carousel-item { scroll-snap-align: center; }
 
+        /* 3D COVER FLOW (porträttläge, från karusell.html) */
+        .cover-scene {
+            position: relative; width: 100%; height: min(60vh, 460px);
+            perspective: 1200px; transform-style: preserve-3d;
+            touch-action: pan-y;
+        }
+        .cover-card {
+            position: absolute; top: 0; height: 100%;
+            width: min(78vw, 320px); left: calc(50% - min(39vw, 160px));
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s, filter 0.5s;
+            transform-style: preserve-3d; user-select: none; -webkit-user-select: none;
+        }
+        #view-mobile .show-on-mobile-portrait { overflow-x: hidden; }
+
         .zoom-btn-active { background-color: #0284c7 !important; color: white !important; font-weight: bold; box-shadow: 0 0 10px rgba(2, 132, 199, 0.5); }
         .modal-backdrop { background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); z-index: 200; }
         .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
@@ -225,7 +239,8 @@
                 </button>
             </div>
 
-            <div class="w-full carousel-snap flex gap-4 pb-4 items-center shrink-0" id="mobile-carousel"></div>
+            <div class="cover-scene shrink-0" id="mobile-carousel"></div>
+            <div id="mobile-carousel-counter" class="text-center text-[10px] text-slate-500 font-mono mt-3 shrink-0"></div>
 
             <div class="mt-2 w-full flex flex-col items-center">
                 <button onclick="drawGoldCard()" class="w-full py-3.5 rounded-2xl font-black text-amber-300 bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-700 shadow-[0_0_20px_rgba(245,158,11,0.5)] border border-yellow-200 active:scale-95 transition flex items-center justify-center gap-2 text-xs tracking-wide">
@@ -935,11 +950,14 @@ function renderMobile() {
         warnBanner.classList.add('hidden');
     }
 
+    frittesJobs.sort((a, b) => (a.dayIndex - b.dayIndex) || (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
+    mobileActiveIndex = Math.max(0, Math.min(mobileActiveIndex, frittesJobs.length - 1));
+
     if (frittesJobs.length === 0) {
         carousel.innerHTML = `<div class="text-slate-400 text-center w-full mt-6 text-xs italic">Inga pass! Tryck på Guldkort!</div>`;
     } else {
-        carousel.innerHTML = frittesJobs.map(j => `
-            <div class="carousel-item w-[85vw] shrink-0 h-[60vh] glass-panel rounded-3xl border border-slate-700 flex flex-col p-5 cursor-pointer" onclick="openJobDetailModal('${j.id}')">
+        carousel.innerHTML = frittesJobs.map((j, idx) => `
+            <div class="cover-card glass-panel rounded-3xl border border-slate-700 flex flex-col p-5 cursor-pointer" onclick="onCoverCardClick(${idx}, '${j.id}')">
                 <div class="flex justify-between items-center mb-1">
                     <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">${j.client} (23 boxar)</span>
                 </div>
@@ -950,9 +968,61 @@ function renderMobile() {
                 </div>
             </div>`).join('');
     }
+    updateCoverFlow();
     // Mobilvyn har ingen egen tidslinje i HTML:en – rita bara om den finns
     if (document.getElementById('mobile-timeline-inner')) renderGantt('mobile', false);
 }
+
+// ----------------------------------------------------
+// 3D COVER FLOW I PORTRÄTTLÄGE (matematik från karusell.html)
+// ----------------------------------------------------
+let mobileActiveIndex = 0;
+let coverSwipe = { x: null, y: null, swiped: false };
+
+function updateCoverFlow() {
+    const cards = document.querySelectorAll('#mobile-carousel .cover-card');
+    cards.forEach((card, index) => {
+        const offset = index - mobileActiveIndex;
+        const absOffset = Math.abs(offset);
+        const direction = offset === 0 ? 0 : Math.sign(offset);
+        card.style.transform = `translateX(${offset * 65}%) translateZ(${absOffset * -120}px) rotateY(${direction * -45}deg) scale(${offset === 0 ? 1 : 0.85})`;
+        card.style.zIndex = 100 - absOffset;
+        card.style.opacity = absOffset > 2 ? 0 : (offset === 0 ? 1 : 0.4);
+        card.style.pointerEvents = absOffset > 2 ? 'none' : 'auto';
+        card.style.filter = offset === 0 ? 'brightness(1.1) drop-shadow(0 20px 30px rgba(0,0,0,0.8))' : 'brightness(0.5) blur(1px)';
+    });
+    const counter = document.getElementById('mobile-carousel-counter');
+    if (counter) counter.innerText = cards.length ? `${mobileActiveIndex + 1} / ${cards.length}` : '';
+}
+
+function stepCoverFlow(delta) {
+    const count = document.querySelectorAll('#mobile-carousel .cover-card').length;
+    const next = Math.max(0, Math.min(count - 1, mobileActiveIndex + delta));
+    if (next !== mobileActiveIndex) { mobileActiveIndex = next; updateCoverFlow(); }
+}
+
+// Tryck på sidokort = rotera fram det, tryck på mittkortet = öppna passet
+function onCoverCardClick(index, jobId) {
+    if (coverSwipe.swiped) return;
+    if (index !== mobileActiveIndex) { mobileActiveIndex = index; updateCoverFlow(); }
+    else openJobDetailModal(jobId);
+}
+
+(function setupCoverSwipe() {
+    const scene = document.getElementById('mobile-carousel');
+    scene.addEventListener('pointerdown', (e) => { coverSwipe = { x: e.clientX, y: e.clientY, swiped: false }; });
+    scene.addEventListener('pointerup', (e) => {
+        if (coverSwipe.x === null) return;
+        const dx = coverSwipe.x - e.clientX, dy = coverSwipe.y - e.clientY;
+        coverSwipe.x = null;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+            coverSwipe.swiped = true;
+            stepCoverFlow(dx > 0 ? 1 : -1);
+            setTimeout(() => { coverSwipe.swiped = false; }, 50);
+        }
+    });
+    scene.addEventListener('pointercancel', () => { coverSwipe.x = null; });
+})();
 
 function openStallConfigModal() { document.getElementById('modal-stall-config').classList.remove('hidden'); document.getElementById('modal-stall-config').classList.add('flex'); }
 function closeStallConfigModal() { document.getElementById('modal-stall-config').classList.add('hidden'); document.getElementById('modal-stall-config').classList.remove('flex'); }
