@@ -72,6 +72,8 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Dra i den runda pricken → sektionen flyttas. **🛰️ Satellit / karta** byter bakgrund
 - [ ] Mät mot verkligheten på satellitbilden – stämmer rutornas storlek?
 - [ ] Öppna mallen igen → sektionerna finns kvar, "Lägg till" ger inte dubbla rader
+- [ ] Offerten visar en förhandsvisning av ritningen (norrpil, skalstock, mått per sektion)
+- [ ] PDF:en har rubriken **Ritning** med samma bild under beloppen
 - [ ] Kunden ser **"🅿️ Så här blir p-platserna"** med ritningen på karta (kan zooma)
 - [ ] Ändra ritningen på en skickad offert → ny version
 - [ ] **➕ Restid / Arbete / Material** → summan uppdateras direkt

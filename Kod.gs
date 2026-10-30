@@ -119,7 +119,7 @@ function doPost(e) {
       return createJsonResponse(geo ? { status: "success", lat: geo.lat, lng: geo.lng } : { status: "error", message: "Hittade inte adressen." });
     }
     if (action === "saveOffer") return handleSaveOffer(data.offer, auth.user);
-    if (action === "sendOffer") return handleSendOffer(data.id, data.appUrl);
+    if (action === "sendOffer") return handleSendOffer(data.id, data.appUrl, data.drawingPng);
     if (action === "cancelOffer") return handleCancelOffer(data.id);
     if (action === "getOfferSettings") return createJsonResponse({ status: "success", settings: getOfferSettings() });
     if (action === "saveOfferSettings") return handleSaveOfferSettings(data.settings);
@@ -1066,7 +1066,7 @@ function escapeHtml(text) {
 }
 
 // PDF byggs från HTML i Apps Script och sparas i Drive-mappen "Offerter"
-function buildOfferPdf(o, settings) {
+function buildOfferPdf(o, settings, drawing) {
   const t = computeOfferTotals(o, settings);
   const label = o.type === "ata" ? "ÄTA – tilläggsarbete" : "Offert";
   let logo = "";
@@ -1098,7 +1098,8 @@ function buildOfferPdf(o, settings) {
     (t.deduction ? '<tr><td>' + t.deductionLabel + ' *</td><td style="text-align:right">−' + moneySv(t.deduction) + '</td></tr>' : '') +
     '<tr><td class="big">Att betala</td><td class="big" style="text-align:right">' + moneySv(t.toPay) + '</td></tr></table>' +
     (t.deduction ? '<p class="muted">* Avdraget gäller arbetskostnaden inkl. moms (' + moneySv(t.deductibleNet * (1 + settings.vatPercent / 100)) + ') och förutsätter att Skatteverket godkänner det.</p>' : '') +
-    (o.layout && o.layout.sections.some(sec => sec.anchor) ? '<p><b>Ritning:</b> p-platserna finns utritade på karta i länken i mejlet/SMS:et.</p>' : '') +
+    (drawing ? '<div style="page-break-inside:avoid;margin-top:18px;"><h2 style="font-size:13pt">Ritning</h2><img src="' + drawing + '" style="width:100%;border:1px solid #e2e8f0;"><p class="muted">Ritningen finns även på karta i länken i mejlet/SMS:et.</p></div>'
+      : (o.layout && o.layout.sections.some(sec => sec.anchor) ? '<p><b>Ritning:</b> p-platserna finns utritade på karta i länken i mejlet/SMS:et.</p>' : '')) +
     '<p class="muted">' + escapeHtml(settings.terms) + '</p></body></html>';
   const pdf = Utilities.newBlob(html, "text/html", o.id + ".html").getAs("application/pdf").setName(o.id + (o.version > 1 ? "-v" + o.version : "") + ".pdf");
   const root = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
@@ -1111,7 +1112,7 @@ function buildOfferPdf(o, settings) {
 
 // Skickar (eller skickar om) offerten: ny PDF, ny länk, e-post till kunden om adress finns.
 // SMS skickas från admins telefon med länken som returneras.
-function handleSendOffer(id, appUrl) {
+function handleSendOffer(id, appUrl, drawingPng) {
   const sheet = getOfferSheet();
   const hit = findRowById(sheet, id);
   if (!hit) return createJsonResponse({ status: "error", message: "Offerten hittades inte." });
@@ -1119,7 +1120,9 @@ function handleSendOffer(id, appUrl) {
   if (o.status === "godkänd" || o.status === "makulerad") return createJsonResponse({ status: "error", message: "Offerten är " + o.status + "." });
   const settings = getOfferSettings();
   let pdfFile = null, pdfNote = "";
-  try { pdfFile = buildOfferPdf(o, settings); o.pdfId = pdfFile.getId(); }
+  // Ritningen (PNG från appen) tas bara med om den är en giltig och rimligt stor PNG
+  const drawing = /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(String(drawingPng || "")) && String(drawingPng).length < 3000000 ? String(drawingPng) : "";
+  try { pdfFile = buildOfferPdf(o, settings, drawing); o.pdfId = pdfFile.getId(); }
   catch (err) { pdfNote = "PDF kunde inte skapas: " + err.message; }
   o.status = "skickad";
   o.sent = nowStamp();

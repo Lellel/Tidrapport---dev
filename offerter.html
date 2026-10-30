@@ -190,7 +190,8 @@
           <input placeholder="Rubrik, t.ex. Målning av fasad, 2 strykningar" value="${esc(draft.title)}" ${dis} oninput="draft.title=this.value">
           <textarea placeholder="Beskrivning som kunden ser" ${dis} oninput="draft.description=this.value">${esc(draft.description)}</textarea>
           <div class="rows">${draft.rows.map((r, i) => renderRow(r, i, dis)).join('') || '<div class="muted">Inga rader ännu – lägg till nedan.</div>'}</div>
-          ${draft.layout && layoutHasPlacedSections(draft.layout) ? '<div class="banner info">🗺️ P-platserna är utritade på karta – kunden ser ritningen på sin offertsida.</div>' : ''}
+          ${draft.layout && layoutHasPlacedSections(draft.layout) ? `<div class="banner info">🗺️ P-platserna är utritade – kunden ser dem på karta, och den här ritningen kommer med i PDF:en:
+            <img src="${renderLayoutPng(draft.layout, { title: draft.title || 'Ritning p-platser' })}" alt="Ritning" style="width:100%;margin-top:8px;border-radius:8px;background:#fff;"></div>` : ''}
           ${locked() ? '' : `<div class="addbtns">
             <button onclick="addRow('arbete')">➕ Arbete</button>
             <button onclick="addRow('maskin')">➕ Maskin</button>
@@ -297,7 +298,9 @@
       if (!res0) return;
       setMessage('📨 Skapar PDF och skickar…');
       const appUrl = location.origin + location.pathname.replace(/offerter\.html$/, 'index.html');
-      const res = await snoApi({ action: 'sendOffer', id: draft.id, appUrl });
+      // Skalenlig ritning av p-platserna följer med in i PDF:en
+      const drawingPng = draft.layout && layoutHasPlacedSections(draft.layout) ? renderLayoutPng(draft.layout, { title: draft.title || 'Ritning p-platser' }) : '';
+      const res = await snoApi({ action: 'sendOffer', id: draft.id, appUrl, drawingPng });
       if (res.status !== 'success') { setMessage('❌ ' + esc(res.message || 'Kunde inte skicka.')); return; }
       draft = { ...res.offer, pdfUrl: res.pdfUrl, totals: computeTotals(res.offer) };
       upsertLocal(draft);
