@@ -1310,7 +1310,7 @@ async function renderPublicCustomerView() {
 function drawCustomerOffer(o) {
   const label = o.type === 'ata' ? 'Tilläggsarbete (ÄTA)' : 'Offert';
   const t = o.totals;
-  const answered = o.status === 'godkänd' || o.status === 'avböjd';
+  const hasLayout = !!(o.layout && Array.isArray(o.layout.sections) && o.layout.sections.some(sec => Array.isArray(sec.anchor)));
   const rows = o.rows.map(r => `<tr><td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;">${customerEsc(r.text)}<div style="font-size:12px;color:#64748b;">${r.qty} ${customerEsc(r.unit)} × ${customerMoney(r.price)}</div></td>
     <td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${customerMoney(r.qty * r.price)}</td></tr>`).join('');
   let action = '';
@@ -1340,6 +1340,8 @@ function drawCustomerOffer(o) {
       </div>
       ${o.site ? `<p style="font-size:14px;color:#334155;margin:14px 0 0;">📍 ${customerEsc(o.site)}</p>` : ''}
       ${o.description ? `<p style="font-size:14px;color:#334155;white-space:pre-wrap;">${customerEsc(o.description)}</p>` : ''}
+      ${hasLayout ? `<div style="margin-top:14px;"><div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">🅿️ Så här blir p-platserna</div>
+        <div id="cust-map" style="height:300px;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;background:#e2e8f0;"></div></div>` : ''}
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:10px;">${rows}</table>
       <div style="font-size:14px;margin-top:12px;display:flex;flex-direction:column;gap:4px;">
         <div style="display:flex;justify-content:space-between;"><span>Summa inkl. moms</span><span>${customerMoney(t.gross)}</span></div>
@@ -1350,6 +1352,34 @@ function drawCustomerOffer(o) {
       <div style="font-size:13px;color:#64748b;margin:12px 0 16px;">Giltig till ${customerEsc(o.validUntil)}${o.pdfUrl ? ` · <a href="${customerEsc(o.pdfUrl)}" target="_blank" rel="noopener" style="color:#0369a1;font-weight:700;">📄 Ladda ner som PDF</a>` : ''}</div>
       ${action}
     </div>`);
+  if (hasLayout) showCustomerMap(o.layout);
+}
+
+// Ritningen av p-platserna: Leaflet och linjer.js laddas bara när offerten har en ritning
+function loadAssetOnce(tag, url) {
+  const attr = tag === 'link' ? 'href' : 'src';
+  if (document.querySelector(`${tag}[${attr}="${url}"]`)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const el = document.createElement(tag);
+    if (tag === 'link') { el.rel = 'stylesheet'; el.href = url; } else { el.src = url; }
+    el.onload = resolve; el.onerror = reject;
+    document.head.appendChild(el);
+  });
+}
+
+async function showCustomerMap(layout) {
+  const box = document.getElementById('cust-map');
+  try {
+    await loadAssetOnce('link', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+    if (typeof L === 'undefined') await loadAssetOnce('script', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
+    if (typeof drawLineLayout === 'undefined') await loadAssetOnce('script', 'linjer.js');
+    const map = L.map(box, { scrollWheelZoom: false, maxZoom: 21 });
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 21, maxNativeZoom: 19, attribution: 'Esri' }).addTo(map);
+    const group = drawLineLayout(map, layout, { weight: 3 });
+    map.fitBounds(group.getBounds(), { padding: [24, 24], maxZoom: 20 });
+  } catch (err) {
+    if (box) box.innerHTML = '<div style="padding:30px;text-align:center;color:#64748b;font-size:13px;">Kartan kunde inte laddas just nu.</div>';
+  }
 }
 
 async function respondCustomerOffer(decision) {

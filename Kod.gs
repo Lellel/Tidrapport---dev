@@ -46,7 +46,7 @@ function doGet(e) {
 // generateTractorAvatar låses inte heller: AI:n tar 10-30 s och skriver bara en cell på slutet.
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
-  "getOfferForCustomer", "respondOffer"]; // de två sista låser själva bara när de skriver
+  "getOfferForCustomer", "respondOffer", "geocode"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -85,7 +85,7 @@ function doPost(e) {
     if (!auth) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
     }
-    const adminOnly = ["getUsers", "getUserKey", "signDocument", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
+    const adminOnly = ["getUsers", "getUserKey", "signDocument", "geocode", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto"];
@@ -114,6 +114,10 @@ function doPost(e) {
     if (action === "getSnowZones") return handleGetSnowZones(auth);
     if (action === "setSlingaDrivers") return handleSetSlingaDrivers(data, auth.user);
     if (action === "getOffers") return handleGetOffers();
+    if (action === "geocode") {
+      const geo = geocodeAddress(String(data.address || "").slice(0, 200), "");
+      return createJsonResponse(geo ? { status: "success", lat: geo.lat, lng: geo.lng } : { status: "error", message: "Hittade inte adressen." });
+    }
     if (action === "saveOffer") return handleSaveOffer(data.offer, auth.user);
     if (action === "sendOffer") return handleSendOffer(data.id, data.appUrl);
     if (action === "cancelOffer") return handleCancelOffer(data.id);
@@ -840,7 +844,8 @@ function handleRemovePropertyPhoto(id, photoId) {
 // ==========================================
 const OFFER_HEADERS = ["Offert-ID", "Typ", "Version", "Status", "Kundnamn", "Kundtyp", "Telefon", "E-post", "Arbetsplats",
   "Titel", "Beskrivning", "Rader (JSON)", "Avdrag (rot/rut/inget)", "Antal personer avdrag", "Giltig till",
-  "Att betala (kr)", "Skapad", "Skapad av", "Skickad", "Öppnad", "Besvarad", "Godkänd av", "Kundens kommentar", "PDF (Drive-ID)", "Jobb-ID"];
+  "Att betala (kr)", "Skapad", "Skapad av", "Skickad", "Öppnad", "Besvarad", "Godkänd av", "Kundens kommentar", "PDF (Drive-ID)", "Jobb-ID",
+  "Karta (JSON)"];
 const OFFER_STATUSES = ["utkast", "skickad", "öppnad", "godkänd", "avböjd", "makulerad"];
 
 const DEFAULT_OFFER_SETTINGS = {
@@ -928,14 +933,38 @@ function offerFromRow(row) {
     deduction: String(row[12] || "inget"), deductionPersons: Number(row[13]) || 1,
     validUntil: fmt(row[14]).slice(0, 10), toPay: Number(row[15]) || 0,
     created: fmt(row[16]), createdBy: String(row[17] || ""), sent: fmt(row[18]), opened: fmt(row[19]), answered: fmt(row[20]),
-    approvedBy: String(row[21] || ""), customerComment: String(row[22] || ""), pdfId: String(row[23] || ""), jobId: String(row[24] || "")
+    approvedBy: String(row[21] || ""), customerComment: String(row[22] || ""), pdfId: String(row[23] || ""), jobId: String(row[24] || ""),
+    layout: parseLayout(row[25])
   };
+}
+
+// Ritning av p-rutor (linjemålning). Bara siffror sparas, allt valideras.
+function cleanLayout(input) {
+  if (!input || !Array.isArray(input.sections)) return null;
+  const num = (v, min, max, def) => { const n = Number(v); return isFinite(n) ? Math.min(max, Math.max(min, n)) : def; };
+  const sections = input.sections.slice(0, 30).map(sec => {
+    const hasAnchor = Array.isArray(sec.anchor) && sec.anchor.length === 2 && isFinite(sec.anchor[0]) && isFinite(sec.anchor[1]) &&
+      Math.abs(sec.anchor[0]) <= 90 && Math.abs(sec.anchor[1]) <= 180;
+    return {
+      anchor: hasAnchor ? [Number(Number(sec.anchor[0]).toFixed(7)), Number(Number(sec.anchor[1]).toFixed(7))] : null,
+      rotation: Math.round(num(sec.rotation, 0, 359, 0)),
+      count: Math.round(num(sec.count, 0, 200, 0)),
+      width: num(sec.width, 1, 10, 2.5), depth: num(sec.depth, 1, 15, 5),
+      back: sec.back === true, double: sec.double === true
+    };
+  });
+  return sections.length ? { sections: sections, symbols: Math.round(num(input.symbols, 0, 500, 0)) } : null;
+}
+
+function parseLayout(cell) {
+  if (!cell) return null;
+  try { return cleanLayout(JSON.parse(cell)); } catch (e) { return null; }
 }
 
 function offerToRow(o) {
   return [o.id, o.type, o.version, o.status, o.customerName, o.customerType, o.phone, o.email, o.site, o.title, o.description,
     JSON.stringify(o.rows), o.deduction, o.deductionPersons, o.validUntil, o.toPay, o.created, o.createdBy, o.sent, o.opened,
-    o.answered, o.approvedBy, o.customerComment, o.pdfId, o.jobId];
+    o.answered, o.approvedBy, o.customerComment, o.pdfId, o.jobId, o.layout ? JSON.stringify(o.layout) : ""];
 }
 
 function nextOfferId(type) {
@@ -971,7 +1000,7 @@ function handleGetOffers() {
 
 // Innehållet som kunden ser – ändras det på en skickad offert blir det en ny version
 function offerContentKey(o) {
-  return JSON.stringify([o.customerName, o.customerType, o.site, o.title, o.description, o.rows, o.deduction, o.deductionPersons, o.validUntil]);
+  return JSON.stringify([o.customerName, o.customerType, o.site, o.title, o.description, o.rows, o.deduction, o.deductionPersons, o.validUntil, o.layout || null]);
 }
 
 function handleSaveOffer(input, savedBy) {
@@ -996,7 +1025,8 @@ function handleSaveOffer(input, savedBy) {
     validUntil: /^\d{4}-\d{2}-\d{2}$/.test(String(input.validUntil || "")) ? input.validUntil : addDays(settings.validDays),
     created: old ? old.created : nowStamp(), createdBy: old ? old.createdBy : sanitize(savedBy),
     sent: old ? old.sent : "", opened: old ? old.opened : "", answered: old ? old.answered : "",
-    approvedBy: old ? old.approvedBy : "", customerComment: old ? old.customerComment : "", pdfId: old ? old.pdfId : "", jobId: old ? old.jobId : ""
+    approvedBy: old ? old.approvedBy : "", customerComment: old ? old.customerComment : "", pdfId: old ? old.pdfId : "", jobId: old ? old.jobId : "",
+    layout: cleanLayout(input.layout)
   };
   if (!offer.customerName) return createJsonResponse({ status: "error", message: "Ange kundens namn." });
   if (!offer.rows.length) return createJsonResponse({ status: "error", message: "Lägg till minst en rad." });
@@ -1068,6 +1098,7 @@ function buildOfferPdf(o, settings) {
     (t.deduction ? '<tr><td>' + t.deductionLabel + ' *</td><td style="text-align:right">−' + moneySv(t.deduction) + '</td></tr>' : '') +
     '<tr><td class="big">Att betala</td><td class="big" style="text-align:right">' + moneySv(t.toPay) + '</td></tr></table>' +
     (t.deduction ? '<p class="muted">* Avdraget gäller arbetskostnaden inkl. moms (' + moneySv(t.deductibleNet * (1 + settings.vatPercent / 100)) + ') och förutsätter att Skatteverket godkänner det.</p>' : '') +
+    (o.layout && o.layout.sections.some(sec => sec.anchor) ? '<p><b>Ritning:</b> p-platserna finns utritade på karta i länken i mejlet/SMS:et.</p>' : '') +
     '<p class="muted">' + escapeHtml(settings.terms) + '</p></body></html>';
   const pdf = Utilities.newBlob(html, "text/html", o.id + ".html").getAs("application/pdf").setName(o.id + (o.version > 1 ? "-v" + o.version : "") + ".pdf");
   const root = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
@@ -1141,6 +1172,7 @@ function customerView(o, settings) {
     description: o.description, rows: o.rows.map(r => ({ text: r.text, qty: r.qty, unit: r.unit, price: r.price, deductible: r.deductible })),
     validUntil: o.validUntil, expired: o.validUntil < today && o.status !== "godkänd", approvedBy: o.approvedBy, answered: o.answered,
     totals: computeOfferTotals(o, settings), pdfUrl: o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "",
+    layout: o.layout,
     company: { name: settings.companyName, phone: settings.companyPhone, email: settings.companyEmail }
   };
 }
