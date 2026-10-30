@@ -46,7 +46,7 @@ function doGet(e) {
 // generateTractorAvatar låses inte heller: AI:n tar 10-30 s och skriver bara en cell på slutet.
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
-  "getOfferForCustomer", "respondOffer", "geocode"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -85,7 +85,7 @@ function doPost(e) {
     if (!auth) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
     }
-    const adminOnly = ["getUsers", "getUserKey", "signDocument", "geocode", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
+    const adminOnly = ["getUsers", "getUserKey", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto"];
@@ -114,6 +114,7 @@ function doPost(e) {
     if (action === "getSnowZones") return handleGetSnowZones(auth);
     if (action === "setSlingaDrivers") return handleSetSlingaDrivers(data, auth.user);
     if (action === "getOffers") return handleGetOffers();
+    if (action === "recolorHouse") return handleRecolorHouse(data);
     if (action === "geocode") {
       const geo = geocodeAddress(String(data.address || "").slice(0, 200), "");
       return createJsonResponse(geo ? { status: "success", lat: geo.lat, lng: geo.lng } : { status: "error", message: "Hittade inte adressen." });
@@ -845,7 +846,7 @@ function handleRemovePropertyPhoto(id, photoId) {
 const OFFER_HEADERS = ["Offert-ID", "Typ", "Version", "Status", "Kundnamn", "Kundtyp", "Telefon", "E-post", "Arbetsplats",
   "Titel", "Beskrivning", "Rader (JSON)", "Avdrag (rot/rut/inget)", "Antal personer avdrag", "Giltig till",
   "Att betala (kr)", "Skapad", "Skapad av", "Skickad", "Öppnad", "Besvarad", "Godkänd av", "Kundens kommentar", "PDF (Drive-ID)", "Jobb-ID",
-  "Karta (JSON)"];
+  "Karta (JSON)", "Kulörförslag (JSON)", "Vald kulör"];
 const OFFER_STATUSES = ["utkast", "skickad", "öppnad", "godkänd", "avböjd", "makulerad"];
 
 const DEFAULT_OFFER_SETTINGS = {
@@ -855,6 +856,8 @@ const DEFAULT_OFFER_SETTINGS = {
   validDays: 30,
   lineMeterPrice: 48, lineSymbolPrice: 550, lineEstablishment: 3500,
   facadeM2PerHour: 4, facadeM2PerLiter: 6, facadeCoats: 2, facadePaintPerLiter: 220,
+  // En kulör per rad: Namn | NCS-kod | #skärmfärg (ungefärlig). Byt gärna mot era Alcro-kulörer.
+  facadeColors: "Klassisk röd (falurött) | S 5040-Y80R | #8b2e23\nVit | S 0502-Y | #f2f0e8\nBrutet vit | S 1005-Y20R | #e8dfcd\nLjusgrå | S 2002-Y | #cfcdc5\nMellangrå | S 4502-Y | #9a9890\nMörkgrå | S 7502-B | #4f5154\nSvart | S 8502-Y | #2c2b28\nGammal gul | S 1030-Y10R | #e9cf8f\nOckra | S 3040-Y20R | #b8873e\nLjusgrön | S 2010-G30Y | #b9c4a3\nMörkgrön | S 6020-G10Y | #4e5e43\nBlågrå | S 3010-R90B | #8e9ba6",
   terms: "Priser i SEK. Arbete utförs i samråd med kund. Avdrag (ROT/RUT) förutsätter att Skatteverket godkänner det; nekas avdraget betalar kunden mellanskillnaden."
 };
 
@@ -934,8 +937,24 @@ function offerFromRow(row) {
     validUntil: fmt(row[14]).slice(0, 10), toPay: Number(row[15]) || 0,
     created: fmt(row[16]), createdBy: String(row[17] || ""), sent: fmt(row[18]), opened: fmt(row[19]), answered: fmt(row[20]),
     approvedBy: String(row[21] || ""), customerComment: String(row[22] || ""), pdfId: String(row[23] || ""), jobId: String(row[24] || ""),
-    layout: parseLayout(row[25])
+    layout: parseLayout(row[25]),
+    colorOptions: parseColorOptions(row[26]),
+    chosenColor: String(row[27] || "")
   };
+}
+
+// Kulörförslag: bild (Drive-ID) + före-bild + huvud-/detaljfärg. Bara säkra värden sparas.
+function cleanColorOptions(list) {
+  const id = v => /^[A-Za-z0-9_-]{10,100}$/.test(String(v || "")) ? String(v) : "";
+  const color = c => c ? { name: sanitize(c.name).slice(0, 60), ncs: sanitize(c.ncs).slice(0, 30), hex: /^#[0-9a-fA-F]{6}$/.test(String(c.hex || "")) ? c.hex : "" } : null;
+  return (Array.isArray(list) ? list : []).slice(0, 6).map(o => ({
+    imageId: id(o.imageId), beforeId: id(o.beforeId), main: color(o.main), detail: color(o.detail), windows: color(o.windows), label: sanitize(o.label).slice(0, 120)
+  })).filter(o => o.imageId);
+}
+
+function parseColorOptions(cell) {
+  if (!cell) return [];
+  try { return cleanColorOptions(JSON.parse(cell)); } catch (e) { return []; }
 }
 
 // Ritning av p-rutor (linjemålning). Bara siffror sparas, allt valideras.
@@ -964,7 +983,8 @@ function parseLayout(cell) {
 function offerToRow(o) {
   return [o.id, o.type, o.version, o.status, o.customerName, o.customerType, o.phone, o.email, o.site, o.title, o.description,
     JSON.stringify(o.rows), o.deduction, o.deductionPersons, o.validUntil, o.toPay, o.created, o.createdBy, o.sent, o.opened,
-    o.answered, o.approvedBy, o.customerComment, o.pdfId, o.jobId, o.layout ? JSON.stringify(o.layout) : ""];
+    o.answered, o.approvedBy, o.customerComment, o.pdfId, o.jobId, o.layout ? JSON.stringify(o.layout) : "",
+    o.colorOptions && o.colorOptions.length ? JSON.stringify(o.colorOptions) : "", o.chosenColor || ""];
 }
 
 function nextOfferId(type) {
@@ -1000,7 +1020,7 @@ function handleGetOffers() {
 
 // Innehållet som kunden ser – ändras det på en skickad offert blir det en ny version
 function offerContentKey(o) {
-  return JSON.stringify([o.customerName, o.customerType, o.site, o.title, o.description, o.rows, o.deduction, o.deductionPersons, o.validUntil, o.layout || null]);
+  return JSON.stringify([o.customerName, o.customerType, o.site, o.title, o.description, o.rows, o.deduction, o.deductionPersons, o.validUntil, o.layout || null, o.colorOptions || []]);
 }
 
 function handleSaveOffer(input, savedBy) {
@@ -1026,7 +1046,9 @@ function handleSaveOffer(input, savedBy) {
     created: old ? old.created : nowStamp(), createdBy: old ? old.createdBy : sanitize(savedBy),
     sent: old ? old.sent : "", opened: old ? old.opened : "", answered: old ? old.answered : "",
     approvedBy: old ? old.approvedBy : "", customerComment: old ? old.customerComment : "", pdfId: old ? old.pdfId : "", jobId: old ? old.jobId : "",
-    layout: cleanLayout(input.layout)
+    layout: cleanLayout(input.layout),
+    colorOptions: cleanColorOptions(input.colorOptions),
+    chosenColor: old ? old.chosenColor : ""
   };
   if (!offer.customerName) return createJsonResponse({ status: "error", message: "Ange kundens namn." });
   if (!offer.rows.length) return createJsonResponse({ status: "error", message: "Lägg till minst en rad." });
@@ -1036,7 +1058,7 @@ function handleSaveOffer(input, savedBy) {
   if (old && old.status !== "utkast" && offerContentKey(old) !== offerContentKey(offer)) {
     offer.version = old.version + 1;
     offer.status = "utkast";
-    offer.opened = ""; offer.answered = ""; offer.customerComment = "";
+    offer.opened = ""; offer.answered = ""; offer.customerComment = ""; offer.chosenColor = "";
     changedAfterSend = true;
   }
   offer.toPay = computeOfferTotals(offer, settings).toPay;
@@ -1100,6 +1122,7 @@ function buildOfferPdf(o, settings, drawing) {
     (t.deduction ? '<p class="muted">* Avdraget gäller arbetskostnaden inkl. moms (' + moneySv(t.deductibleNet * (1 + settings.vatPercent / 100)) + ') och förutsätter att Skatteverket godkänner det.</p>' : '') +
     (drawing ? '<div style="page-break-inside:avoid;margin-top:18px;"><h2 style="font-size:13pt">Ritning</h2><img src="' + drawing + '" style="width:100%;border:1px solid #e2e8f0;"><p class="muted">Ritningen finns även på karta i länken i mejlet/SMS:et.</p></div>'
       : (o.layout && o.layout.sections.some(sec => sec.anchor) ? '<p><b>Ritning:</b> p-platserna finns utritade på karta i länken i mejlet/SMS:et.</p>' : '')) +
+    colorOptionsPdfHtml(o) +
     '<p class="muted">' + escapeHtml(settings.terms) + '</p></body></html>';
   const pdf = Utilities.newBlob(html, "text/html", o.id + ".html").getAs("application/pdf").setName(o.id + (o.version > 1 ? "-v" + o.version : "") + ".pdf");
   const root = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
@@ -1152,6 +1175,70 @@ function handleSendOffer(id, appUrl, drawingPng) {
     emailNote: emailNote, pdfNote: pdfNote, offer: o });
 }
 
+
+// ---------- KULÖRFÖRSLAG: AI målar om ett foto av huset ----------
+// Före-bilden laddas upp en gång (beforeId återanvänds för fler förslag).
+function handleRecolorHouse(data) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
+  const colorText = c => c && c.name ? c.name + (c.ncs ? " (NCS " + c.ncs + ")" : "") + (/^#[0-9a-fA-F]{6}$/.test(String(c.hex || "")) ? ", approximately " + c.hex : "") : "";
+  const main = colorText(data.main), detail = colorText(data.detail), windows = colorText(data.windows);
+  if (!main) return createJsonResponse({ status: "error", message: "Välj en huvudfärg." });
+
+  let beforeId = /^[A-Za-z0-9_-]{10,100}$/.test(String(data.beforeId || "")) ? String(data.beforeId) : "";
+  let rawPhoto = "";
+  if (beforeId) {
+    try { rawPhoto = Utilities.base64Encode(DriveApp.getFileById(beforeId).getBlob().getBytes()); } catch (e) { beforeId = ""; }
+  }
+  if (!beforeId) {
+    if (!/^data:image\/(jpeg|png);base64,/.test(String(data.imageBase64 || "")) || String(data.imageBase64).length > 8000000) {
+      return createJsonResponse({ status: "error", message: "Bilden saknas eller är för stor." });
+    }
+    beforeId = saveImageToDrive(data.imageBase64, "Kulörförslag", "fore_" + Date.now() + ".jpg");
+    rawPhoto = String(data.imageBase64).replace(/^data:image\/\w+;base64,/, "");
+  }
+
+  const prompt = "Repaint the exterior wooden facade walls of the house in this photo in the color " + main + ". " +
+    (detail ? "Paint the corner boards, window and door casings (trim around them), and fascia/barge boards in " + detail + ". " : "Keep the existing trim colors. ") +
+    (windows ? "Paint the window frames and sashes and the exterior doors in " + windows + ". " : "Keep the existing window frame and door colors. ") +
+    "Keep everything else exactly the same: window glass, roof, foundation, plants, ground, sky, camera angle, perspective and lighting. " +
+    "The result must look like a realistic photo of the same house freshly painted, with natural shadows and wood texture. No text, no logos.";
+  try {
+    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + apiKey, {
+      method: "post", contentType: "application/json", muteHttpExceptions: true,
+      payload: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: rawPhoto } }, { text: prompt }] }] })
+    });
+    let json = {};
+    try { json = JSON.parse(response.getContentText()); } catch (e) { json = {}; }
+    const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
+    const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
+    if (response.getResponseCode() !== 200 || !imagePart) {
+      return createJsonResponse({ status: "error", message: "AI svarade inte med en bild (HTTP " + response.getResponseCode() + "). Försök igen.", beforeId: beforeId });
+    }
+    const imageId = saveImageToDrive(imagePart.inlineData.data, "Kulörförslag", "forslag_" + Date.now() + ".jpg");
+    return createJsonResponse({ status: "success", imageId: imageId, beforeId: beforeId, url: driveImageUrl(imageId), beforeUrl: driveImageUrl(beforeId) });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: "AI-fel: " + err.message, beforeId: beforeId });
+  }
+}
+
+// Kulörförslagen i PDF:en (max 4 bilder, hämtas från Drive och bäddas in)
+function colorOptionsPdfHtml(o) {
+  if (!o.colorOptions || !o.colorOptions.length) return "";
+  let html = '<div style="page-break-inside:avoid;margin-top:18px;"><h2 style="font-size:13pt">Kulörförslag</h2><table style="margin:0"><tr>';
+  o.colorOptions.slice(0, 4).forEach((c, i) => {
+    let img = "";
+    try {
+      const blob = DriveApp.getFileById(c.imageId).getBlob();
+      img = '<img src="data:image/jpeg;base64,' + Utilities.base64Encode(blob.getBytes()) + '" style="width:100%;border-radius:6px;">';
+    } catch (e) { img = ""; }
+    html += '<td style="border:none;vertical-align:top;width:50%;padding:4px;">' + img + '<div style="font-size:9pt;margin-top:4px;"><b>Alternativ ' + (i + 1) + '</b> ' + escapeHtml(c.label) + '</div></td>';
+    if (i % 2 === 1) html += '</tr><tr>';
+  });
+  html += '</tr></table><p class="muted">Bilderna är AI-illustrationer. Färger på skärm och papper skiljer sig från verklig kulör – vi rekommenderar färgprov på plats.</p></div>';
+  return html;
+}
+
 // ---------- KUNDENS SIDA (ingen inloggning, bara signerad kod) ----------
 function findOfferForCode(data) {
   const id = String(data.offerId || "");
@@ -1176,6 +1263,8 @@ function customerView(o, settings) {
     validUntil: o.validUntil, expired: o.validUntil < today && o.status !== "godkänd", approvedBy: o.approvedBy, answered: o.answered,
     totals: computeOfferTotals(o, settings), pdfUrl: o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "",
     layout: o.layout,
+    colorOptions: (o.colorOptions || []).map(c => ({ url: driveImageUrl(c.imageId), beforeUrl: c.beforeId ? driveImageUrl(c.beforeId) : "", main: c.main, detail: c.detail, windows: c.windows, label: c.label })),
+    chosenColor: o.chosenColor,
     company: { name: settings.companyName, phone: settings.companyPhone, email: settings.companyEmail }
   };
 }
@@ -1222,6 +1311,10 @@ function handleRespondOffer(data) {
     o.answered = nowStamp();
     o.approvedBy = name;
     o.customerComment = sanitize(data.comment).slice(0, 1000);
+    const pick = Number(data.chosenColor);
+    if (decision === "godkänd" && o.colorOptions && o.colorOptions[pick]) {
+      o.chosenColor = "Alternativ " + (pick + 1) + ": " + (o.colorOptions[pick].label || "");
+    }
     if (decision === "godkänd") {
       // Ett jobb i planeringen med riktig kund, titel och arbetstimmar
       const hours = o.rows.filter(r => r.kind === "arbete" || r.kind === "maskin").filter(r => /tim|h/i.test(r.unit)).reduce((s, r) => s + r.qty, 0);
@@ -1239,6 +1332,7 @@ function handleRespondOffer(data) {
       const to = CONFIG.ADMIN_EMAIL || Session.getEffectiveUser().getEmail();
       if (to) MailApp.sendEmail(to, (decision === "godkänd" ? "✅ Godkänd: " : "❌ Avböjd: ") + o.id + " " + o.customerName,
         o.customerName + " har " + decision + " " + o.id + (o.title ? " (" + o.title + ")" : "") + (name ? ". Namn: " + name : "") +
+        (o.chosenColor ? "\n\nVald kulör: " + o.chosenColor : "") +
         (o.customerComment ? "\n\nKommentar: " + o.customerComment : "") + "\n\nAtt betala: " + moneySv(o.toPay));
     } catch (err) { /* e-post är bonus */ }
     return createJsonResponse({ status: "success", offer: customerView(o, settings) });
