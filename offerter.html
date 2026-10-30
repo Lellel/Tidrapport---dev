@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Offerter & ÄTA</title>
+  <style>
+    :root { --bg: #0b1220; --panel: #111a2e; --card: #16213a; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8;
+            --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 12px) 14px 90px; display: flex; flex-direction: column; gap: 12px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; }
+    .topbar a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
+    h1 { font-size: 20px; margin: 0; }
+    h2 { font-size: 15px; margin: 0 0 8px; }
+    .tabs, .grid2, .grid3 { display: grid; gap: 8px; }
+    .tabs { grid-template-columns: 1fr 1fr; }
+    .grid2 { grid-template-columns: 1fr 1fr; }
+    .grid3 { grid-template-columns: repeat(3, 1fr); }
+    label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
+    input, textarea, select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 15px; }
+    textarea { min-height: 70px; resize: vertical; }
+    input[type=checkbox] { width: 22px; height: 22px; padding: 0; accent-color: var(--ok); }
+    button { min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; }
+    button.active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
+    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #0b1220; }
+    button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+    button:disabled { opacity: .5; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .msg { font-size: 13px; min-height: 18px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chips button { min-height: 32px; border-radius: 999px; font-size: 12px; }
+    .ocard { display: flex; justify-content: space-between; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; }
+    .ocard b { font-size: 14px; }
+    .status { display: inline-block; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; }
+    .s-utkast { background: #334155; } .s-skickad { background: #1d4ed8; } .s-öppnad { background: #7c3aed; }
+    .s-godkänd { background: var(--ok); } .s-avböjd { background: var(--danger); } .s-makulerad { background: #475569; text-decoration: line-through; }
+    .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .seg.two { grid-template-columns: 1fr 1fr; }
+    .rows { display: flex; flex-direction: column; gap: 8px; }
+    .orow { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .orow .full { grid-column: 1 / -1; }
+    .orow .rowfoot { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .orow input, .orow select { padding: 8px; font-size: 14px; }
+    .addbtns { display: flex; flex-wrap: wrap; gap: 6px; }
+    .totals { background: var(--card); border-radius: 12px; padding: 12px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+    .totals div { display: flex; justify-content: space-between; }
+    .totals .pay { font-size: 18px; font-weight: 800; color: var(--accent); border-top: 1px solid var(--line); padding-top: 6px; margin-top: 4px; }
+    .banner { border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+    .banner.info { background: rgba(56,189,248,.12); border: 1px solid var(--accent); }
+    .banner.warn { background: rgba(245,158,11,.12); border: 1px solid var(--warn); }
+    .banner.good { background: rgba(16,185,129,.12); border: 1px solid var(--ok); }
+    .timeline { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+    .sticky { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(11,18,32,.95); border-top: 1px solid var(--line); padding: 10px 14px calc(env(safe-area-inset-bottom) + 10px); display: flex; gap: 8px; justify-content: center; }
+    .sticky > * { flex: 1; max-width: 240px; }
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: flex-end; justify-content: center; z-index: 100; }
+    .modal-bg.open { display: flex; }
+    .modal { background: var(--panel); width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .wall { background: var(--card); border-radius: 10px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .wall .full { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
+    .result { background: var(--card); border-radius: 10px; padding: 10px; font-size: 14px; }
+    @media (max-width: 520px) { .orow { grid-template-columns: 1fr 1fr; } .wall { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"></div>
+  <div class="sticky" id="sticky" style="display:none"></div>
+
+  <div class="modal-bg" id="modal-bg" onclick="if (event.target === this) closeModal()">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="sno.js"></script>
+  <script>
+    // Offerter & ÄTA (admin). Belopp räknas likadant här som i Kod.gs (computeOfferTotals) – backend är facit.
+    let offers = [], settings = null;
+    let view = 'list';         // list | edit | settings
+    let statusFilter = 'aktiva';
+    let draft = null;          // offerten som redigeras
+    let message = '';
+
+    const KIND_LABELS = { arbete: 'Arbete', maskin: 'Maskin', material: 'Material', resa: 'Resa', ovrigt: 'Övrigt' };
+    const money = (v) => Math.round(v).toLocaleString('sv-SE') + ' kr';
+    const esc = snoEscape;
+
+    function setMessage(text) { message = text; const el = document.getElementById('msg'); if (el) el.innerHTML = text; }
+
+    function computeTotals(o) {
+      const vat = settings.vatPercent / 100;
+      let net = 0, deductibleNet = 0;
+      o.rows.forEach(r => { const sum = (Number(r.qty) || 0) * (Number(r.price) || 0); net += sum; if (r.deductible) deductibleNet += sum; });
+      const vatAmount = net * vat, gross = net + vatAmount;
+      let deduction = 0, label = '';
+      if (o.customerType === 'privat' && (o.deduction === 'rot' || o.deduction === 'rut')) {
+        const rate = (o.deduction === 'rot' ? settings.rotPercent : settings.rutPercent) / 100;
+        const cap = (o.deduction === 'rot' ? settings.rotCapPerPerson : settings.rutCapPerPerson) * Math.max(1, Number(o.deductionPersons) || 1);
+        deduction = Math.min(deductibleNet * (1 + vat) * rate, cap);
+        label = `${o.deduction.toUpperCase()}-avdrag ${o.deduction === 'rot' ? settings.rotPercent : settings.rutPercent} %`;
+      }
+      return { net, vat: vatAmount, gross, deduction, label, toPay: gross - deduction, capped: deduction > 0 && deduction === (o.deduction === 'rot' ? settings.rotCapPerPerson : settings.rutCapPerPerson) * Math.max(1, Number(o.deductionPersons) || 1) };
+    }
+
+    // ================= LISTA =================
+    function renderList() {
+      const active = ['utkast', 'skickad', 'öppnad'];
+      const list = offers.filter(o => statusFilter === 'alla' || (statusFilter === 'aktiva' ? active.includes(o.status) : o.status === statusFilter));
+      const chip = (key, text) => `<button class="${statusFilter === key ? 'active' : ''}" onclick="statusFilter='${key}'; render()">${text}</button>`;
+      const count = (st) => offers.filter(o => o.status === st).length;
+      return `
+        <div class="grid2">
+          <button class="primary" onclick="newOffer('offert')">➕ Ny offert</button>
+          <button onclick="newOffer('ata')">➕ Ny ÄTA</button>
+        </div>
+        <div class="msg" id="msg">${message}</div>
+        <div class="chips">${chip('aktiva', 'Pågående')}${chip('godkänd', `✅ Godkända (${count('godkänd')})`)}${chip('avböjd', `❌ Avböjda (${count('avböjd')})`)}${chip('alla', 'Alla')}</div>
+        ${list.map(o => `
+          <div class="ocard" onclick="openOffer('${esc(o.id)}')">
+            <div>
+              <b>${esc(o.customerName)}</b> <span class="muted">${esc(o.id)}${o.version > 1 ? ' v' + o.version : ''}</span><br>
+              <span class="muted">${esc(o.title || (o.type === 'ata' ? 'ÄTA' : 'Offert'))}</span>
+            </div>
+            <div style="text-align:right">
+              <span class="status s-${esc(o.status)}">${esc(o.status)}</span><br>
+              <b style="font-size:13px">${money(o.totals.toPay)}</b>
+            </div>
+          </div>`).join('') || '<div class="muted">Inga offerter här.</div>'}`;
+    }
+
+    function newOffer(type) {
+      draft = { id: '', type, version: 1, status: 'utkast', customerName: '', customerType: 'privat', phone: '', email: '', site: '',
+        title: '', description: '', rows: [], deduction: type === 'ata' ? 'inget' : 'rot', deductionPersons: 1, validUntil: '' };
+      const d = new Date(); d.setDate(d.getDate() + settings.validDays);
+      draft.validUntil = d.toISOString().slice(0, 10);
+      // Från fältet: offerter.html?ny=offert&kund=...&plats=...
+      const q = new URLSearchParams(location.search);
+      if (q.get('plats')) draft.site = q.get('plats');
+      view = 'edit'; message = ''; render();
+    }
+
+    function openOffer(id) {
+      draft = JSON.parse(JSON.stringify(offers.find(o => o.id === id)));
+      view = 'edit'; message = ''; render();
+    }
+
+    // ================= REDIGERA =================
+    function locked() { return draft.status === 'godkänd' || draft.status === 'makulerad'; }
+
+    function renderEdit() {
+      const t = computeTotals(draft);
+      const sent = ['skickad', 'öppnad', 'avböjd'].includes(draft.status) || (draft.status === 'utkast' && draft.version > 1);
+      const dis = locked() ? 'disabled' : '';
+      const seg = (field, val, text) => `<button class="${draft[field] === val ? 'active' : ''}" ${dis} onclick="setField('${field}', '${val}')">${text}</button>`;
+      return `
+        <div class="topbar"><button onclick="backToList()">← Alla offerter</button><span class="status s-${esc(draft.status)}">${esc(draft.status)}</span></div>
+        <h1>${draft.type === 'ata' ? '🔧 ÄTA' : '📄 Offert'} ${esc(draft.id || '(ny)')}${draft.version > 1 ? ` <span class="muted">version ${draft.version}</span>` : ''}</h1>
+        ${draft.status === 'godkänd' ? `<div class="banner good">✅ Godkänd av <b>${esc(draft.approvedBy)}</b> ${esc(draft.answered)}. Jobbet <b>${esc(draft.jobId)}</b> ligger i planeringen.${draft.customerComment ? `<br>Kommentar: <i>${esc(draft.customerComment)}</i>` : ''}</div>` : ''}
+        ${draft.status === 'avböjd' ? `<div class="banner warn">❌ Avböjd ${esc(draft.answered)}${draft.customerComment ? `: <i>${esc(draft.customerComment)}</i>` : ''}. Ändra och skicka en ny version om du vill.</div>` : ''}
+        ${['skickad', 'öppnad'].includes(draft.status) ? '<div class="banner info">✏️ Ändrar du något skapas en ny version. Kunden får då ny PDF och ny länk, och den gamla länken slutar gälla.</div>' : ''}
+        ${draft.status === 'utkast' && draft.version > 1 ? '<div class="banner warn">📨 Ändrad efter att den skickats – tryck <b>Skicka</b> så får kunden den nya versionen.</div>' : ''}
+        ${draft.pdfUrl ? `<a href="${esc(draft.pdfUrl)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;font-size:13px;">📄 Öppna senast skickade PDF</a>` : ''}
+
+        <div class="card">
+          <h2>Kund</h2>
+          <input placeholder="Kundens namn *" value="${esc(draft.customerName)}" ${dis} oninput="draft.customerName=this.value">
+          <div class="seg two">${seg('customerType', 'privat', '🏠 Privatperson')}${seg('customerType', 'foretag', '🏢 Företag/BRF')}</div>
+          <div class="grid2">
+            <input type="tel" placeholder="Mobil" value="${esc(draft.phone)}" ${dis} oninput="draft.phone=this.value">
+            <input type="email" placeholder="E-post (PDF skickas hit)" value="${esc(draft.email)}" ${dis} oninput="draft.email=this.value">
+          </div>
+          <input placeholder="Arbetsplats / adress" value="${esc(draft.site)}" ${dis} oninput="draft.site=this.value">
+        </div>
+
+        <div class="card">
+          <h2>Arbetet</h2>
+          <input placeholder="Rubrik, t.ex. Målning av fasad, 2 strykningar" value="${esc(draft.title)}" ${dis} oninput="draft.title=this.value">
+          <textarea placeholder="Beskrivning som kunden ser" ${dis} oninput="draft.description=this.value">${esc(draft.description)}</textarea>
+          <div class="rows">${draft.rows.map((r, i) => renderRow(r, i, dis)).join('') || '<div class="muted">Inga rader ännu – lägg till nedan.</div>'}</div>
+          ${locked() ? '' : `<div class="addbtns">
+            <button onclick="addRow('arbete')">➕ Arbete</button>
+            <button onclick="addRow('maskin')">➕ Maskin</button>
+            <button onclick="addRow('resa')">➕ Restid</button>
+            <button onclick="addRow('material')">➕ Material</button>
+            <button onclick="addRow('ovrigt')">➕ Övrigt</button>
+            <button onclick="openFacade()">🏠 Fasadmålning</button>
+            <button onclick="openLines()">🅿️ Linjemålning</button>
+          </div>`}
+        </div>
+
+        <div class="card">
+          <h2>Avdrag & giltighet</h2>
+          ${draft.customerType === 'privat' ? `<div class="seg">${seg('deduction', 'rot', 'ROT')}${seg('deduction', 'rut', 'RUT')}${seg('deduction', 'inget', 'Inget')}</div>
+          ${draft.deduction !== 'inget' ? `<div class="grid2"><div><label>Antal personer som delar avdraget</label><input type="number" min="1" max="4" value="${draft.deductionPersons}" ${dis} oninput="draft.deductionPersons=this.value; refreshTotals()"></div><div class="muted" style="align-self:end">Taket är ${money(draft.deduction === 'rot' ? settings.rotCapPerPerson : settings.rutCapPerPerson)} per person och år.</div></div>` : ''}`
+          : '<div class="muted">Företag och BRF kan inte få ROT/RUT.</div>'}
+          <div><label>Giltig till</label><input type="date" value="${esc(draft.validUntil)}" ${dis} onchange="draft.validUntil=this.value"></div>
+        </div>
+
+        <div class="totals" id="totals">${renderTotals(t)}</div>
+        <div class="msg" id="msg">${message}</div>
+        <div class="timeline">
+          ${draft.created ? `<span>Skapad ${esc(draft.created)} av ${esc(draft.createdBy)}</span>` : ''}
+          ${draft.sent ? `<span>Skickad ${esc(draft.sent)}</span>` : ''}
+          ${draft.opened ? `<span>👀 Öppnad av kunden ${esc(draft.opened)}</span>` : ''}
+          ${draft.answered ? `<span>Besvarad ${esc(draft.answered)}</span>` : ''}
+        </div>
+        ${draft.id && !locked() ? '<button class="danger" onclick="cancelOffer()">🗑️ Makulera</button>' : ''}`;
+    }
+
+    function renderRow(r, i, dis) {
+      return `<div class="orow">
+        <input class="full" placeholder="Text på raden" value="${esc(r.text)}" ${dis} oninput="draft.rows[${i}].text=this.value">
+        <select ${dis} onchange="draft.rows[${i}].kind=this.value">${Object.entries(KIND_LABELS).map(([k, v]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+        <input type="number" step="0.5" placeholder="Antal" value="${r.qty}" ${dis} oninput="draft.rows[${i}].qty=this.value; refreshTotals()">
+        <input placeholder="Enhet" value="${esc(r.unit)}" ${dis} oninput="draft.rows[${i}].unit=this.value">
+        <input type="number" placeholder="À-pris" value="${r.price}" ${dis} oninput="draft.rows[${i}].price=this.value; refreshTotals()">
+        <label style="display:flex;align-items:center;gap:6px;margin:0;text-transform:none;font-size:12px;" title="Arbetskostnad som ger ROT/RUT"><input type="checkbox" ${r.deductible ? 'checked' : ''} ${dis} onchange="draft.rows[${i}].deductible=this.checked; refreshTotals()"> ROT/RUT-grund</label>
+        <div class="rowfoot"><b id="rowsum-${i}">${money((Number(r.qty) || 0) * (Number(r.price) || 0))}</b>${dis ? '' : `<button class="danger" style="min-height:32px" onclick="removeRow(${i})">Ta bort</button>`}</div>
+      </div>`;
+    }
+
+    function renderTotals(t) {
+      return `<div><span>Summa exkl. moms</span><span>${money(t.net)}</span></div>
+        <div><span>Moms ${settings.vatPercent} %</span><span>${money(t.vat)}</span></div>
+        <div><span>Summa inkl. moms</span><span>${money(t.gross)}</span></div>
+        ${t.deduction ? `<div><span>${t.label}${t.capped ? ' (tak)' : ''}</span><span>−${money(t.deduction)}</span></div>` : ''}
+        <div class="pay"><span>Kunden betalar</span><span>${money(t.toPay)}</span></div>`;
+    }
+
+    function refreshTotals() {
+      document.getElementById('totals').innerHTML = renderTotals(computeTotals(draft));
+      draft.rows.forEach((r, i) => { const el = document.getElementById('rowsum-' + i); if (el) el.innerText = money((Number(r.qty) || 0) * (Number(r.price) || 0)); });
+    }
+
+    function setField(field, value) {
+      draft[field] = value;
+      if (field === 'customerType' && value === 'foretag') draft.deduction = 'inget';
+      render();
+    }
+
+    function addRow(kind, extra = {}) {
+      const defaults = {
+        arbete: { text: 'Arbete', unit: 'tim', price: settings.hourlyWork, deductible: true },
+        maskin: { text: 'Maskintimme', unit: 'tim', price: settings.hourlyMachine, deductible: false },
+        resa: { text: 'Restid', unit: 'tim', price: settings.travelPerHour, deductible: false },
+        material: { text: 'Material', unit: 'st', price: 0, deductible: false },
+        ovrigt: { text: '', unit: 'st', price: 0, deductible: false }
+      }[kind];
+      draft.rows.push({ kind, qty: 1, ...defaults, ...extra });
+      render();
+    }
+
+    function removeRow(i) { draft.rows.splice(i, 1); render(); }
+
+    function backToList() { view = 'list'; draft = null; message = ''; render(); }
+
+    async function saveDraft() {
+      setMessage('Sparar…');
+      const res = await snoApi({ action: 'saveOffer', offer: draft });
+      if (res.status !== 'success') { setMessage('❌ ' + esc(res.message || 'Kunde inte spara.')); return null; }
+      const keepPdf = draft.pdfUrl;
+      draft = { ...res.offer, pdfUrl: keepPdf };
+      upsertLocal(draft);
+      message = '✅ Sparad';
+      render();
+      return res;
+    }
+
+    function upsertLocal(o) {
+      const idx = offers.findIndex(x => x.id === o.id);
+      if (idx === -1) offers.unshift(o); else offers[idx] = o;
+    }
+
+    async function saveAndMaybeSend() {
+      const res = await saveDraft();
+      if (res && res.changedAfterSend && confirm(`Offerten är ändrad och blev version ${res.offer.version}.\n\nSkicka den nya versionen (PDF + länk) till kunden nu?`)) {
+        await sendOffer();
+      }
+    }
+
+    async function sendOffer() {
+      const res0 = await saveDraft();
+      if (!res0) return;
+      setMessage('📨 Skapar PDF och skickar…');
+      const appUrl = location.origin + location.pathname.replace(/offerter\.html$/, 'index.html');
+      const res = await snoApi({ action: 'sendOffer', id: draft.id, appUrl });
+      if (res.status !== 'success') { setMessage('❌ ' + esc(res.message || 'Kunde inte skicka.')); return; }
+      draft = { ...res.offer, pdfUrl: res.pdfUrl, totals: computeTotals(res.offer) };
+      upsertLocal(draft);
+      const link = `${appUrl}?${draft.type}=${encodeURIComponent(draft.id)}&code=${encodeURIComponent(res.code)}`;
+      message = '';
+      render();
+      openSentModal(link, res);
+    }
+
+    function openSentModal(link, res) {
+      const t = computeTotals(draft);
+      const label = draft.type === 'ata' ? 'tilläggsarbete (ÄTA)' : 'offert';
+      sentLink = link;
+      const sms = `Hej ${draft.customerName}! Här kommer ${draft.version > 1 ? 'en uppdaterad ' : 'vår '}${label} ${draft.id}${draft.title ? ' – ' + draft.title : ''}, ${money(t.toPay)}. Läs och godkänn här: ${link}`;
+      sentSms = sms;
+      openModal(`
+        <h2>📨 ${draft.id} ${draft.version > 1 ? `(version ${draft.version}) ` : ''}är skickad</h2>
+        ${res.emailNote ? `<div class="banner ${/kunde inte/i.test(res.emailNote) ? 'warn' : 'good'}">✉️ ${esc(res.emailNote)}</div>` : '<div class="muted">Ingen e-post angiven – skicka med SMS nedan.</div>'}
+        ${res.pdfNote ? `<div class="banner warn">${esc(res.pdfNote)}</div>` : ''}
+        ${res.pdfUrl ? `<a href="${esc(res.pdfUrl)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;">📄 Öppna PDF:en</a>` : ''}
+        <button class="ok" onclick="sendSms()">💬 Skicka SMS till kunden</button>
+        <button id="copy-btn" onclick="copyLink()">🔗 Kopiera kundlänken</button>
+        <button onclick="closeModal()">Klar</button>`);
+    }
+
+    let sentLink = '', sentSms = '';
+    function sendSms() { location.href = `sms:${draft.phone || ''}?&body=${encodeURIComponent(sentSms)}`; }
+    function copyLink() {
+      navigator.clipboard.writeText(sentLink).then(() => { document.getElementById('copy-btn').innerText = '✅ Kopierad'; })
+        .catch(() => prompt('Kopiera länken:', sentLink));
+    }
+
+    async function cancelOffer() {
+      if (!confirm(`Makulera ${draft.id}? Kundens länk slutar fungera.`)) return;
+      const res = await snoApi({ action: 'cancelOffer', id: draft.id });
+      if (res.status !== 'success') { setMessage('❌ ' + esc(res.message)); return; }
+      draft.status = 'makulerad'; upsertLocal(draft); backToList();
+    }
+
+    // ================= MALL: FASADMÅLNING =================
+    let walls = [];
+    function openFacade() {
+      if (!walls.length) walls = [{ name: 'Vägg 1', width: 8, height: 3, peak: 0, sub: 3 }];
+      renderFacade();
+    }
+    function facadeCalc() {
+      const m2 = walls.reduce((s, w) => s + Math.max(0, (Number(w.width) || 0) * (Number(w.height) || 0) + (Number(w.width) || 0) * (Number(w.peak) || 0) / 2 - (Number(w.sub) || 0)), 0);
+      const hours = Math.ceil(m2 / (settings.facadeM2PerHour || 1));
+      const liters = Math.ceil(m2 * settings.facadeCoats / (settings.facadeM2PerLiter || 1));
+      return { m2, hours, liters };
+    }
+    function renderFacade() {
+      const c = facadeCalc();
+      openModal(`
+        <h2>🏠 Fasadmålning</h2>
+        <div class="muted">Mät vägg för vägg. Gavelspets = höjden på triangeln ovanför väggen. Avdrag = fönster och dörrar i m².</div>
+        ${walls.map((w, i) => `<div class="wall">
+          <div class="full"><input value="${esc(w.name)}" oninput="walls[${i}].name=this.value" style="max-width:60%"><button class="danger" style="min-height:32px" onclick="walls.splice(${i},1); renderFacade()">Ta bort</button></div>
+          <div><label>Bredd m</label><input type="number" step="0.1" value="${w.width}" oninput="walls[${i}].width=this.value; facadeRefresh()"></div>
+          <div><label>Höjd m</label><input type="number" step="0.1" value="${w.height}" oninput="walls[${i}].height=this.value; facadeRefresh()"></div>
+          <div><label>Gavelspets m</label><input type="number" step="0.1" value="${w.peak}" oninput="walls[${i}].peak=this.value; facadeRefresh()"></div>
+          <div><label>Avdrag m²</label><input type="number" step="0.5" value="${w.sub}" oninput="walls[${i}].sub=this.value; facadeRefresh()"></div>
+        </div>`).join('')}
+        <button onclick="walls.push({ name: 'Vägg ' + (walls.length + 1), width: 8, height: 3, peak: 0, sub: 0 }); renderFacade()">➕ Vägg</button>
+        <div class="result" id="facade-result">${facadeResult(c)}</div>
+        <div class="grid2"><button onclick="closeModal()">Avbryt</button><button class="ok" onclick="applyFacade()">Lägg till i offerten</button></div>`);
+    }
+    function facadeResult(c) {
+      return `<b>${Math.round(c.m2)} m²</b> · ${settings.facadeCoats} strykningar<br>
+        Arbete: <b>${c.hours} tim</b> (${settings.facadeM2PerHour} m²/tim) · Färg: <b>${c.liters} liter</b> (${settings.facadeM2PerLiter} m²/liter)`;
+    }
+    function facadeRefresh() { document.getElementById('facade-result').innerHTML = facadeResult(facadeCalc()); }
+    function applyFacade() {
+      const c = facadeCalc();
+      draft.rows.push({ kind: 'arbete', text: `Fasadmålning ${Math.round(c.m2)} m², ${settings.facadeCoats} strykningar inkl. förarbete`, qty: c.hours, unit: 'tim', price: settings.hourlyWork, deductible: true });
+      draft.rows.push({ kind: 'material', text: 'Fasadfärg', qty: c.liters, unit: 'liter', price: settings.facadePaintPerLiter, deductible: false });
+      if (!draft.title) draft.title = 'Fasadmålning';
+      closeModal(); render();
+    }
+
+    // ================= MALL: LINJEMÅLNING =================
+    // Rutor som står bredvid varandra delar sidolinje: n rutor = n+1 sidolinjer (+ ev. bakkant)
+    let lineSections = [];
+    let lineSymbols = 0;
+    function openLines() {
+      if (!lineSections.length) lineSections = [{ count: 10, width: 2.5, depth: 5, back: false, double: false }];
+      renderLines();
+    }
+    function linesCalc() {
+      const meters = lineSections.reduce((s, sec) => {
+        const n = Math.max(0, Number(sec.count) || 0);
+        if (!n) return s;
+        const one = (n + 1) * (Number(sec.depth) || 0) + (sec.back ? n * (Number(sec.width) || 0) : 0);
+        return s + one * (sec.double ? 2 : 1);
+      }, 0);
+      return { meters: Math.ceil(meters), stalls: lineSections.reduce((s, sec) => s + (Number(sec.count) || 0) * (sec.double ? 2 : 1), 0) };
+    }
+    function renderLines() {
+      openModal(`
+        <h2>🅿️ Linjemålning</h2>
+        <div class="muted">En sektion = en rad rutor bredvid varandra. "Dubbel" = två rader rygg mot rygg.</div>
+        ${lineSections.map((sec, i) => `<div class="wall">
+          <div class="full"><b>Sektion ${String.fromCharCode(65 + i)}</b><button class="danger" style="min-height:32px" onclick="lineSections.splice(${i},1); renderLines()">Ta bort</button></div>
+          <div><label>Antal rutor</label><input type="number" value="${sec.count}" oninput="lineSections[${i}].count=this.value; linesRefresh()"></div>
+          <div><label>Bredd m</label><input type="number" step="0.1" value="${sec.width}" oninput="lineSections[${i}].width=this.value; linesRefresh()"></div>
+          <div><label>Djup m</label><input type="number" step="0.1" value="${sec.depth}" oninput="lineSections[${i}].depth=this.value; linesRefresh()"></div>
+          <div style="display:flex;flex-direction:column;gap:4px;justify-content:end;font-size:12px;">
+            <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none"><input type="checkbox" ${sec.back ? 'checked' : ''} onchange="lineSections[${i}].back=this.checked; linesRefresh()"> Bakkant</label>
+            <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none"><input type="checkbox" ${sec.double ? 'checked' : ''} onchange="lineSections[${i}].double=this.checked; linesRefresh()"> Dubbel</label>
+          </div>
+        </div>`).join('')}
+        <button onclick="lineSections.push({ count: 10, width: 2.5, depth: 5, back: false, double: false }); renderLines()">➕ Sektion</button>
+        <div><label>Symboler (HKP, elbil, pilar…)</label><input type="number" value="${lineSymbols}" oninput="lineSymbols=this.value; linesRefresh()"></div>
+        <div class="result" id="lines-result">${linesResult(linesCalc())}</div>
+        <div class="grid2"><button onclick="closeModal()">Avbryt</button><button class="ok" onclick="applyLines()">Lägg till i offerten</button></div>`);
+    }
+    function linesResult(c) {
+      return `<b>${c.stalls} rutor · ${c.meters} linjemeter</b> · ${Number(lineSymbols) || 0} symboler<br>
+        ${money(c.meters * settings.lineMeterPrice)} + ${money((Number(lineSymbols) || 0) * settings.lineSymbolPrice)} + etablering ${money(settings.lineEstablishment)}`;
+    }
+    function linesRefresh() { document.getElementById('lines-result').innerHTML = linesResult(linesCalc()); }
+    function applyLines() {
+      const c = linesCalc();
+      draft.rows.push({ kind: 'ovrigt', text: `Linjemålning parkering, ${c.stalls} rutor`, qty: c.meters, unit: 'm', price: settings.lineMeterPrice, deductible: false });
+      if (Number(lineSymbols) > 0) draft.rows.push({ kind: 'ovrigt', text: 'Symboler (schablon)', qty: Number(lineSymbols), unit: 'st', price: settings.lineSymbolPrice, deductible: false });
+      draft.rows.push({ kind: 'ovrigt', text: 'Etablering', qty: 1, unit: 'st', price: settings.lineEstablishment, deductible: false });
+      if (!draft.title) draft.title = 'Linjemålning parkering';
+      closeModal(); render();
+    }
+
+    // ================= INSTÄLLNINGAR =================
+    const SETTING_GROUPS = [
+      ['Företaget (visas på PDF)', [['companyName', 'Namn', 'text'], ['companyOrgNr', 'Org.nr', 'text'], ['companyPhone', 'Telefon', 'text'], ['companyEmail', 'E-post', 'text'], ['companyAddress', 'Adress', 'text']]],
+      ['Priser exkl. moms', [['hourlyWork', 'Timpris arbete (kr)', 'number'], ['hourlyMachine', 'Timpris maskin (kr)', 'number'], ['travelPerHour', 'Restid (kr/tim)', 'number']]],
+      ['Avdrag & moms', [['rotPercent', 'ROT %', 'number'], ['rutPercent', 'RUT %', 'number'], ['rotCapPerPerson', 'ROT-tak per person (kr)', 'number'], ['rutCapPerPerson', 'RUT-tak per person (kr)', 'number'], ['vatPercent', 'Moms %', 'number']]],
+      ['Offerten', [['validDays', 'Giltig antal dagar', 'number'], ['terms', 'Villkor (sist på PDF)', 'textarea']]],
+      ['Fasadmålning', [['facadeM2PerHour', 'm² per arbetstimme', 'number'], ['facadeM2PerLiter', 'm² per liter färg', 'number'], ['facadeCoats', 'Antal strykningar', 'number'], ['facadePaintPerLiter', 'Färgpris (kr/liter)', 'number']]],
+      ['Linjemålning', [['lineMeterPrice', 'Pris per linjemeter (kr)', 'number'], ['lineSymbolPrice', 'Pris per symbol (kr)', 'number'], ['lineEstablishment', 'Etablering (kr)', 'number']]]
+    ];
+    function renderSettings() {
+      return `${SETTING_GROUPS.map(([title, fields]) => `<div class="card"><h2>${title}</h2><div class="grid2">
+        ${fields.map(([key, label, type]) => `<div style="${type === 'textarea' ? 'grid-column:1/-1' : ''}"><label>${label}</label>${type === 'textarea'
+          ? `<textarea id="set-${key}">${esc(settings[key])}</textarea>`
+          : `<input id="set-${key}" type="${type}" step="any" value="${esc(settings[key])}">`}</div>`).join('')}
+      </div></div>`).join('')}
+      <div class="muted">Kontrollera ROT/RUT-procent och tak mot Skatteverket inför varje år.</div>
+      <div class="msg" id="msg">${message}</div>`;
+    }
+    async function saveSettings() {
+      const input = {};
+      SETTING_GROUPS.forEach(([, fields]) => fields.forEach(([key, , type]) => {
+        const v = document.getElementById('set-' + key).value;
+        input[key] = type === 'number' ? Number(v) : v;
+      }));
+      setMessage('Sparar…');
+      const res = await snoApi({ action: 'saveOfferSettings', settings: input });
+      if (res.status !== 'success') { setMessage('❌ ' + esc(res.message)); return; }
+      settings = res.settings; setMessage('✅ Inställningar sparade – gäller nya rader och offerter');
+    }
+
+    // ================= RAM =================
+    function openModal(html) { document.getElementById('modal').innerHTML = html; document.getElementById('modal-bg').classList.add('open'); }
+    function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+
+    function render() {
+      const app = document.getElementById('app');
+      const sticky = document.getElementById('sticky');
+      if (!settings) { app.innerHTML = `<div class="topbar"><a href="index.html">← Tidrapport</a></div><h1>📄 Offerter & ÄTA</h1><div class="msg" id="msg">${message || 'Hämtar…'}</div>`; return; }
+      const head = view === 'edit' ? '' : `<div class="topbar"><a href="index.html">← Tidrapport</a></div><h1>📄 Offerter & ÄTA</h1>
+        <div class="tabs"><button class="${view === 'list' ? 'active' : ''}" onclick="view='list'; message=''; render()">Offerter</button><button class="${view === 'settings' ? 'active' : ''}" onclick="view='settings'; message=''; render()">⚙️ Priser & inställningar</button></div>`;
+      app.innerHTML = head + (view === 'list' ? renderList() : view === 'edit' ? renderEdit() : renderSettings());
+      if (view === 'edit' && !locked()) {
+        sticky.style.display = 'flex';
+        sticky.innerHTML = `<button onclick="saveAndMaybeSend()">💾 Spara</button><button class="ok" onclick="sendOffer()">📨 ${draft.status === 'utkast' && !draft.sent ? 'Spara & skicka' : 'Skicka igen'}</button>`;
+      } else if (view === 'settings') {
+        sticky.style.display = 'flex';
+        sticky.innerHTML = '<button class="ok" onclick="saveSettings()">💾 Spara inställningar</button>';
+      } else {
+        sticky.style.display = 'none';
+      }
+    }
+
+    async function load() {
+      render();
+      if (!snoIsAdmin()) { message = '⚠️ Offerter är bara för admin. Logga in med din admin-länk.'; }
+      try {
+        const res = await snoApi({ action: 'getOffers' });
+        if (res.status !== 'success') { message = '❌ ' + esc(res.message || 'Kunde inte hämta.'); settings = null; render(); return; }
+        offers = res.offers; settings = res.settings;
+        const q = new URLSearchParams(location.search);
+        if (q.get('id') && offers.find(o => o.id === q.get('id'))) openOffer(q.get('id'));
+        else if (q.get('ny')) newOffer(q.get('ny') === 'ata' ? 'ata' : 'offert');
+        else render();
+      } catch (err) {
+        message = '❌ Ingen kontakt med servern.'; render();
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

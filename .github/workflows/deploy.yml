@@ -22,7 +22,7 @@ jobs:
           cp sw.js prod_repo/
           cp sms.html prod_repo/
           cp avatar_onboarding.js prod_repo/
-          cp sno.js snojour.html snozoner.html planering.html prod_repo/
+          cp sno.js snojour.html snozoner.html planering.html offerter.html prod_repo/
 
       - name: Höj appversionen så att telefonerna hämtar den nya versionen
         run: |
@@ -34,7 +34,7 @@ jobs:
           cd prod_repo
           git config user.name "JAS 39 Deploy Bot"
           git config user.email "deploy@tidrapport.local"
-          git add app.js style.css index.html sw.js sms.html avatar_onboarding.js sno.js snojour.html snozoner.html planering.html
+          git add app.js style.css index.html sw.js sms.html avatar_onboarding.js sno.js snojour.html snozoner.html planering.html offerter.html
           
           if git diff --staged --quiet; then
             echo "Inga ändringar hittades, avbryter."

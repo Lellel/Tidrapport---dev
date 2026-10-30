@@ -835,3 +835,12 @@ div[style*="display: flex"][style*="justify-content: space-between"] {
   font-weight: 700;
   cursor: pointer;
 }
+
+/* Mörka glaskort har alltid ljus text – även när telefonen/iPaden står i ljust läge
+   (annars blev packlistan och "God dag!" mörk text på mörk bakgrund) */
+.packing-card-glass, .ios-card, .draft-card {
+  --text-main: #f8fafc !important;
+  --text-muted: #cbd5e1 !important;
+  color: var(--text-main);
+}
+.packing-card-glass .checklist-item label { color: #f8fafc; }

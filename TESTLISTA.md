@@ -8,7 +8,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 ## 0. Förberedelser (en gång)
 
 - [ ] Klistra in nya `Kod.gs` i dev-versionens Apps Script → **Distribuera → Hantera distributioner → Redigera → Ny version**
-- [ ] Godkänn de nya behörigheterna när Apps Script frågar (Kartor/Maps och Drive behövs för fastigheter och foton)
+- [ ] Godkänn de nya behörigheterna när Apps Script frågar (Kartor/Maps, Drive och **Gmail/MailApp** för offert-mejl)
 - [ ] `GEMINI_API_KEY` finns i **Projektinställningar → Skriptegenskaper** (för AI-kulorna)
 - [ ] Kolla att `config.js` i dev pekar på dev-versionens Apps Script-URL (inte prod)
 - [ ] Öppna dev-appen i telefonen. Står det **DEV v4.7.1** uppe till höger?
@@ -53,12 +53,45 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Stäng och öppna appen → passet finns kvar
 - [ ] Stäng av flygplansläge → passet skickas av sig självt inom någon minut
 
-## 5. Kundgodkännande (ÄTA / Offert)
+## 5. Offerter & ÄTA
 
-- [ ] *(Saknar knapp i appen just nu – testas när vi kopplat in det)*
-- [ ] Kundlänken öppnar en vit sida med "Godkänn & Signera"
-- [ ] Godkänn → "Tack!" och raden syns i fliken ÄTA_Godkännanden med rätt ID
-- [ ] Ändra en bokstav i `code=` i länken → "Ogiltig eller utgången godkännandelänk"
+Öppnas via sidomenyn → **📄 Offerter & ÄTA** (eller admin-panelen).
+
+**Inställningar** (fliken ⚙️ Priser & inställningar)
+- [ ] Fyll i företagsnamn, telefon, e-post, adress, org.nr → syns på PDF:en
+- [ ] Ändra timpris arbete/maskin och restid → nya rader får nya priser
+- [ ] Ändra "Giltig antal dagar" → nya offerter får rätt datum
+- [ ] Kontrollera ROT/RUT-procent och tak mot Skatteverket
+
+**Skapa & skicka**
+- [ ] **➕ Ny offert** → kund (privat), e-post, mobil, arbetsplats, rubrik
+- [ ] **🏠 Fasadmålning** → lägg till väggar, gavelspets, fönsteravdrag → timmar och liter ser rimliga ut
+- [ ] **🅿️ Linjemålning** → 10 rutor 2,5 × 5 m utan bakkant ≈ 55 m (rutor delar sidolinje)
+- [ ] **➕ Restid / Arbete / Material** → summan uppdateras direkt
+- [ ] ROT dras bara på rader med "ROT/RUT-grund" (arbete), inte på material/restid
+- [ ] Byt till **Företag/BRF** → avdraget försvinner
+- [ ] **📨 Spara & skicka** → PDF skapas i Drive-mappen **Offerter**, kunden får mejl med PDF
+- [ ] Öppna PDF:en: logga, företagsuppgifter, rader, moms, ROT, att betala, villkor
+- [ ] **💬 Skicka SMS** öppnar SMS med länken. **🔗 Kopiera** fungerar
+
+**Kunden** (öppna länken på en annan telefon)
+- [ ] Ren vit sida med rätt rader och belopp – inga påhittade siffror
+- [ ] Admin ser status **öppnad**
+- [ ] Godkänn utan namn → ber om namn. Med namn + meddelande → "✅ Godkänd"
+- [ ] Tryck godkänn igen / ladda om → fortfarande godkänd, bara **ett** jobb i Gantt_Jobb
+- [ ] Jobbet i **Gantt_Jobb** har kundnamn, rubrik, timmar och adress
+- [ ] Du får ett mejl om att offerten godkänts (med kundens meddelande)
+- [ ] "Nej tack" → avböjd, syns i admin
+
+**Ändringar**
+- [ ] Ändra en skickad offert → "version 2" + frågan "Skicka nya versionen?" → kunden får nytt mejl "Uppdaterad offert"
+- [ ] Gamla länken säger att den gäller en äldre version
+- [ ] En godkänd offert går inte att ändra
+- [ ] Sätt "Giltig till" bakåt i tiden och skicka → kunden ser att den gått ut
+- [ ] **🗑️ Makulera** → kundlänken slutar fungera
+
+**Offertbesök i fält**
+- [ ] Välj aktivitet **Offertbesök** som admin → knappen "📄 Skapa offert från besöket" tar med platsen
 
 ## 6. Avatar
 
@@ -166,6 +199,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 ## Innan deploy till PROD
 
 - [ ] Avsnitt 1, 3 och 4 är helt gröna
+- [ ] Fyll i företagsuppgifter under Offerter → ⚙️ i **PROD** också
 - [ ] Klistra in samma `Kod.gs` i **PROD**-versionens Apps Script (prod har en egen backend) → Ny version
 - [ ] Kör deploy (GitHub Actions → "Deploy to Production")
 - [ ] Öppna prod-appen och spara ett riktigt testpass
