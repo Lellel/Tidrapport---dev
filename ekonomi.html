@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ekonomi</title>
+  <style>
+    :root { --bg: #0b1220; --panel: #111a2e; --card: #16213a; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8;
+            --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 14px 16px 60px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; }
+    .topbar a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
+    h1 { font-size: 20px; margin: 10px 0 4px; }
+    h2 { font-size: 15px; margin: 22px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; text-align: center; }
+    .stat { background: var(--card); border-radius: 12px; padding: 10px 4px; font-size: 11px; color: var(--muted); }
+    .stat b { display: block; font-size: 20px; color: var(--text); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .card-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .card-title { font-weight: 800; font-size: 16px; }
+    .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .amount { font-weight: 800; font-size: 18px; white-space: nowrap; }
+    .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; margin-left: 4px; background: rgba(56,189,248,.15); color: var(--accent); vertical-align: 2px; }
+    .badge.ata { background: rgba(245,158,11,.2); color: #fbbf24; }
+    label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin: 10px 0 4px; }
+    input, select { width: 100%; padding: 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 15px; }
+    input[type=checkbox] { width: 20px; height: 20px; padding: 0; accent-color: var(--accent); }
+    button { min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; }
+    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #0b1220; }
+    button:disabled { opacity: .5; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .row > * { flex: 1; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    th { text-align: left; color: var(--muted); font-size: 11px; font-weight: 700; padding: 4px; border-bottom: 1px solid var(--line); }
+    td { padding: 5px 4px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    td.r, th.r { text-align: right; white-space: nowrap; }
+    td input { padding: 6px; font-size: 14px; }
+    .price { width: 90px; text-align: right; }
+    .pass-off td { opacity: .4; }
+    details summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 700; margin-top: 10px; }
+    .sum { text-align: right; font-size: 14px; margin-top: 8px; line-height: 1.6; }
+    .sum b { font-size: 17px; }
+    .msg { font-size: 13px; min-height: 18px; color: var(--muted); margin-top: 8px; }
+    .msg a { color: var(--accent); font-weight: 700; }
+    .empty { color: var(--muted); font-size: 14px; padding: 14px; text-align: center; background: var(--card); border-radius: 12px; }
+    a.img { color: var(--accent); text-decoration: none; }
+    @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } .hide-sm { display: none; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar"><a href="index.html">← Tidrapport</a><span class="meta" id="who"></span></div>
+  <h1>💰 Ekonomi – fakturaunderlag</h1>
+  <div class="meta">Allt som är utfört men inte fakturerat. Skapa underlaget här, fakturera i Fortnox och markera sedan som fakturerat.</div>
+  <div id="app"><div class="empty">Hämtar…</div></div>
+</div>
+
+<script src="config.js"></script>
+<script src="sno.js"></script>
+<script>
+  let data = null;         // svaret från getInvoiceBasis
+  let groups = [];         // löpande räkning: ett kort per plats
+  let message = '';
+
+  const esc = snoEscape;
+  const kr = v => Math.round(v).toLocaleString('sv-SE') + ' kr';
+  const h = v => (Math.round(v * 100) / 100).toLocaleString('sv-SE') + ' h';
+  const MACHINE = /snöröjning|bandgrävare|maskin|traktor/i;
+
+  // Gissa kunden från platsen: gatuadressen eller namnet ska finnas i platsen
+  function guessCustomer(place) {
+    const p = place.toLowerCase();
+    const hit = data.customers.find(c => {
+      const street = c.address.split(',')[0].trim().toLowerCase();
+      return (street && p.includes(street)) || (c.name && p.includes(c.name.toLowerCase().replace(/^testkund /, '')));
+    });
+    return hit ? hit.id : '';
+  }
+
+  function buildGroups() {
+    const byKey = {};
+    data.reports.forEach(r => {
+      const key = r.place.trim().toLowerCase() + '|' + r.company;
+      if (!byKey[key]) byKey[key] = { key, place: r.place.trim() || 'Okänd plats', company: r.company, reports: [] };
+      byKey[key].reports.push(r);
+    });
+    groups = Object.values(byKey).map(g => {
+      g.reports.sort((a, b) => a.date.localeCompare(b.date));
+      g.included = Object.fromEntries(g.reports.map(r => [r.row, true]));
+      g.customerId = guessCustomer(g.place);
+      g.prices = {};
+      g.extra = [];
+      applyCustomerDefaults(g);
+      return g;
+    }).sort((a, b) => a.place.localeCompare(b.place, 'sv'));
+  }
+
+  function customerOf(g) { return data.customers.find(c => c.id === g.customerId) || null; }
+
+  function applyCustomerDefaults(g) {
+    const c = customerOf(g);
+    g.private = c ? c.type === 'private' || c.type === 'privat' : false;
+    g.deduction = c && g.private && ['rot', 'rut'].includes(c.rotRut) ? c.rotRut : 'inget';
+  }
+
+  // Fakturarader: en rad per aktivitet (ÄTA för sig), timmar summeras från de ikryssade passen
+  function invoiceRows(g) {
+    const s = data.settings;
+    const byAct = {};
+    g.reports.filter(r => g.included[r.row]).forEach(r => {
+      const a = r.activity || 'Arbete';
+      byAct[a] = (byAct[a] || 0) + r.hours;
+    });
+    const rows = Object.keys(byAct).map(a => {
+      if (g.prices[a] === undefined) g.prices[a] = MACHINE.test(a) ? s.hourlyMachine : s.hourlyWork;
+      return { text: a, qty: Math.round(byAct[a] * 100) / 100, unit: 'tim', price: Number(g.prices[a]) || 0,
+               deductible: g.deduction !== 'inget', kind: MACHINE.test(a) ? 'maskin' : 'arbete' };
+    });
+    return rows.concat(g.extra.filter(x => x.text && x.qty && x.price).map(x => ({ ...x, qty: Number(x.qty), price: Number(x.price), deductible: false, kind: 'material' })));
+  }
+
+  // Samma uträkning som backend (computeOfferTotals), bara för att visa summan direkt
+  function totals(rows, isPrivate, deduction) {
+    const s = data.settings, vat = s.vatPercent / 100;
+    let net = 0, ded = 0;
+    rows.forEach(r => { net += r.qty * r.price; if (r.deductible) ded += r.qty * r.price; });
+    const gross = net * (1 + vat);
+    let deductionAmount = 0;
+    if (isPrivate && deduction !== 'inget') {
+      const rate = (deduction === 'rot' ? s.rotPercent : s.rutPercent) / 100;
+      deductionAmount = Math.min(ded * (1 + vat) * rate, deduction === 'rot' ? s.rotCapPerPerson : s.rutCapPerPerson);
+    }
+    return { net, gross, deduction: deductionAmount, toPay: gross - deductionAmount };
+  }
+
+  function period(reports) {
+    if (!reports.length) return '';
+    const first = reports[0].date, last = reports[reports.length - 1].date;
+    return first === last ? first : first + ' – ' + last;
+  }
+
+  // ================= RENDER =================
+  function render() {
+    const app = document.getElementById('app');
+    if (!data) return;
+    const hoursTotal = data.reports.reduce((sum, r) => sum + r.hours, 0);
+    const offerTotal = data.offers.reduce((sum, o) => sum + o.totals.toPay, 0);
+    app.innerHTML = `
+      <div class="stats">
+        <div class="stat"><b>${data.reports.length}</b>pass ej fakturerade</div>
+        <div class="stat"><b>${h(hoursTotal)}</b>timmar</div>
+        <div class="stat"><b>${data.offers.length}</b>godkända offerter (${kr(offerTotal)})</div>
+      </div>
+      <div class="row"><button onclick="exportCsv()">⬇️ Exportera till Excel</button><button onclick="load()">↻ Uppdatera</button></div>
+      <div class="msg" id="msg">${message}</div>
+
+      <h2>Godkända offerter – fast pris</h2>
+      ${data.offers.length ? data.offers.map(offerCard).join('') : '<div class="empty">Inga godkända offerter väntar på fakturering.</div>'}
+
+      <h2>Löpande räkning – tidrapporter</h2>
+      ${groups.length ? groups.map(groupCard).join('') : '<div class="empty">Alla pass är fakturerade. 🎉</div>'}`;
+  }
+
+  function offerCard(o, i) {
+    return `<div class="card">
+      <div class="card-head">
+        <div><div class="card-title">${esc(o.customerName)}<span class="badge">${o.type === 'ata' ? 'ÄTA' : 'OFFERT'}</span></div>
+          <div class="meta">${esc(o.title)} · ${esc(o.id)}${o.version > 1 ? ' v' + o.version : ''} · godkänd ${esc(o.answered.slice(0, 10))} av ${esc(o.approvedBy)}</div>
+          <div class="meta">📍 ${esc(o.site)}</div></div>
+        <div class="amount">${kr(o.totals.toPay)}</div>
+      </div>
+      ${o.totals.deduction ? `<div class="meta">${esc(o.totals.deductionLabel)} −${kr(o.totals.deduction)} (summa inkl. moms ${kr(o.totals.gross)})</div>` : ''}
+      ${o.chosenColor ? `<div class="meta">🎨 ${esc(o.chosenColor)}</div>` : ''}
+      <div class="row" style="margin-top:10px;">
+        <button class="primary" onclick="offerPdf(${i}, this)">📄 Fakturaunderlag (PDF)</button>
+        ${o.pdfUrl ? `<button onclick="window.open('${esc(o.pdfUrl)}')">Offerten</button>` : ''}
+        <button class="ok" onclick="markOffer(${i}, this)">✅ Markera fakturerad</button>
+      </div>
+    </div>`;
+  }
+
+  function groupCard(g, gi) {
+    const inc = g.reports.filter(r => g.included[r.row]);
+    const rows = invoiceRows(g);
+    const t = totals(rows, g.private, g.deduction);
+    const ataCount = g.reports.filter(r => /^\[/.test(r.activity)).length;
+    return `<div class="card">
+      <div class="card-head">
+        <div><div class="card-title">${esc(g.place)}<span class="badge">${esc(g.company)}</span>${ataCount ? `<span class="badge ata">${ataCount} ÄTA</span>` : ''}</div>
+          <div class="meta">${g.reports.length} pass · ${h(g.reports.reduce((s, r) => s + r.hours, 0))} · ${esc(period(g.reports))}</div></div>
+        <div class="amount">${kr(t.toPay)}</div>
+      </div>
+      <div class="grid2">
+        <div><label>Kund</label><select onchange="setCustomer(${gi}, this.value)">
+          <option value="">– Välj kund –</option>
+          ${data.customers.map(c => `<option value="${esc(c.id)}" ${c.id === g.customerId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        </select>${!g.customerId ? '<div class="meta" style="color:var(--warn)">⚠️ Hittade ingen kund på adressen – välj i listan.</div>' : ''}</div>
+        <div><label>Avdrag</label><select onchange="groups[${gi}].deduction=this.value; render()" ${g.private ? '' : 'disabled'}>
+          ${['inget', 'rot', 'rut'].map(v => `<option value="${v}" ${g.deduction === v ? 'selected' : ''}>${v === 'inget' ? 'Inget' : v.toUpperCase()}</option>`).join('')}
+        </select>${g.private ? '' : '<div class="meta">Företag/BRF – inget avdrag</div>'}</div>
+      </div>
+      <table>
+        <tr><th>Rad</th><th class="r">Antal</th><th class="r">À-pris</th><th class="r">Belopp</th></tr>
+        ${rows.filter(r => r.unit === 'tim').map(r => `<tr><td>${esc(r.text)}</td><td class="r">${h(r.qty)}</td>
+          <td class="r"><input class="price" type="number" step="any" value="${r.price}" onchange="groups[${gi}].prices[${esc(JSON.stringify(r.text))}]=this.value; render()"></td>
+          <td class="r">${kr(r.qty * r.price)}</td></tr>`).join('')}
+        ${g.extra.map((x, xi) => `<tr><td><input placeholder="Material, t.ex. Sand 10 säckar" value="${esc(x.text)}" onchange="groups[${gi}].extra[${xi}].text=this.value; render()"></td>
+          <td class="r"><input class="price" type="number" step="any" placeholder="Antal" value="${esc(x.qty)}" onchange="groups[${gi}].extra[${xi}].qty=this.value; render()"></td>
+          <td class="r"><input class="price" type="number" step="any" placeholder="À-pris" value="${esc(x.price)}" onchange="groups[${gi}].extra[${xi}].price=this.value; render()"></td>
+          <td class="r">${kr((Number(x.qty) || 0) * (Number(x.price) || 0))}</td></tr>`).join('')}
+      </table>
+      <button style="margin-top:8px; min-height:34px;" onclick="groups[${gi}].extra.push({text:'',qty:'',unit:'st',price:''}); render()">＋ Material / egen rad</button>
+      <div class="sum">Exkl. moms ${kr(t.net)} · inkl. moms ${kr(t.gross)}${t.deduction ? ` · ${g.deduction.toUpperCase()} −${kr(t.deduction)}` : ''}<br><b>Att betala ${kr(t.toPay)}</b></div>
+      <details ${inc.length !== g.reports.length ? 'open' : ''}><summary>Passen (${inc.length} av ${g.reports.length} med)</summary>
+        <table>
+          <tr><th></th><th>Datum</th><th>Utfört av</th><th>Aktivitet</th><th class="r hide-sm">Tid</th><th class="r">Timmar</th><th></th></tr>
+          ${g.reports.map(r => `<tr class="${g.included[r.row] ? '' : 'pass-off'}">
+            <td><input type="checkbox" ${g.included[r.row] ? 'checked' : ''} onchange="groups[${gi}].included[${r.row}]=this.checked; render()"></td>
+            <td>${esc(r.date)}</td><td>${esc(r.user)}</td><td>${esc(r.activity)}${r.note ? `<div class="meta">${esc(r.note)}</div>` : ''}</td>
+            <td class="r hide-sm">${esc(r.start)}–${esc(r.end)}</td><td class="r">${h(r.hours)}</td>
+            <td>${r.imageLink ? `<a class="img" href="${esc(r.imageLink)}" target="_blank" rel="noopener">📷</a>` : ''}</td></tr>`).join('')}
+        </table>
+      </details>
+      <div class="row" style="margin-top:10px;">
+        <button class="primary" onclick="groupPdf(${gi}, this)" ${inc.length ? '' : 'disabled'}>📄 Fakturaunderlag (PDF)</button>
+        <button class="ok" onclick="markGroup(${gi}, this)" ${inc.length ? '' : 'disabled'}>✅ Markera ${inc.length} pass fakturerade</button>
+      </div>
+    </div>`;
+  }
+
+  function setCustomer(gi, id) {
+    groups[gi].customerId = id;
+    applyCustomerDefaults(groups[gi]);
+    render();
+  }
+
+  function setMsg(html) { message = html; const el = document.getElementById('msg'); if (el) el.innerHTML = html; }
+
+  // ================= PDF =================
+  async function makePdf(draft, btn) {
+    btn.disabled = true; const label = btn.textContent; btn.textContent = 'Skapar PDF… ⏳';
+    try {
+      const res = await snoApi({ action: 'invoicePdf', draft });
+      if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+      setMsg(`✅ ${esc(res.number)} sparat i Drive-mappen Fakturaunderlag – <a href="${esc(res.url)}" target="_blank" rel="noopener">öppna PDF:en</a>`);
+      window.open(res.url, '_blank');
+    } catch (err) {
+      setMsg('❌ ' + esc(err.message || 'Ingen kontakt.'));
+    }
+    btn.disabled = false; btn.textContent = label;
+  }
+
+  function groupPdf(gi, btn) {
+    const g = groups[gi], c = customerOf(g);
+    if (!c) { setMsg('⚠️ Välj kund först.'); return; }
+    const inc = g.reports.filter(r => g.included[r.row]);
+    makePdf({
+      customer: { name: c.name, address: c.address, idNr: c.idNr, email: c.email },
+      customerType: g.private ? 'privat' : 'företag', site: g.place, period: period(inc),
+      title: 'Utfört arbete ' + period(inc), rows: invoiceRows(g), deduction: g.deduction,
+      spec: inc.map(r => ({ date: r.date, user: r.user, activity: r.activity, hours: r.hours }))
+    }, btn);
+  }
+
+  function offerPdf(i, btn) {
+    const o = data.offers[i];
+    const c = data.customers.find(x => x.name === o.customerName) || {};
+    makePdf({
+      customer: { name: o.customerName, address: c.address || o.site, idNr: c.idNr || '', email: o.email },
+      customerType: o.customerType === 'privat' ? 'privat' : 'företag', site: o.site, reference: o.id + (o.version > 1 ? ' v' + o.version : ''),
+      title: o.title + ' – enligt godkänd ' + (o.type === 'ata' ? 'ÄTA' : 'offert') + ' ' + o.id,
+      rows: o.rows, deduction: o.deduction, deductionPersons: o.deductionPersons, spec: []
+    }, btn);
+  }
+
+  // ================= MARKERA FAKTURERAT =================
+  async function mark(payload, what, btn) {
+    if (!confirm('Markera ' + what + ' som fakturerat? Gör det när fakturan är skapad i Fortnox.')) return;
+    btn.disabled = true;
+    try {
+      const res = await snoApi({ action: 'markInvoiced', ...payload });
+      if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+      message = `✅ ${res.marked} markerade som fakturerade${res.skipped ? ` – ⚠️ ${res.skipped} hoppades över (ändrade i arket, ladda om)` : ''}.`;
+      await load();
+    } catch (err) {
+      setMsg('❌ ' + esc(err.message || 'Ingen kontakt.'));
+      btn.disabled = false;
+    }
+  }
+  function markGroup(gi, btn) {
+    const inc = groups[gi].reports.filter(r => groups[gi].included[r.row]);
+    mark({ reports: inc.map(r => ({ row: r.row, stamp: r.stamp, user: r.user })) }, inc.length + ' pass', btn);
+  }
+  function markOffer(i, btn) {
+    mark({ offerIds: [data.offers[i].id] }, data.offers[i].id, btn);
+  }
+
+  // ================= EXPORT =================
+  function exportCsv() {
+    const cell = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const lines = [['Typ', 'Datum', 'Plats', 'Kund', 'Aktivitet / Rubrik', 'Start', 'Slut', 'Timmar', 'Utfört av', 'Bolag', 'Belopp att betala (kr)', 'Anteckning']];
+    groups.forEach(g => g.reports.forEach(r => lines.push(['Pass', r.date, r.place, (customerOf(g) || {}).name || '', r.activity, r.start, r.end,
+      String(r.hours).replace('.', ','), r.user, r.company, '', r.note])));
+    data.offers.forEach(o => lines.push([o.type === 'ata' ? 'ÄTA' : 'Offert', o.answered.slice(0, 10), o.site, o.customerName, o.title + ' (' + o.id + ')',
+      '', '', '', o.approvedBy, '', Math.round(o.totals.toPay), '']));
+    const csv = '﻿' + lines.map(l => l.map(cell).join(';')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'fakturaunderlag-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+  }
+
+  // ================= START =================
+  async function load() {
+    try {
+      const res = await snoApi({ action: 'getInvoiceBasis' });
+      if (res.status !== 'success') {
+        document.getElementById('app').innerHTML = `<div class="empty">❌ ${esc(res.message || 'Kunde inte hämta.')}</div>`;
+        return;
+      }
+      data = res;
+      buildGroups();
+      render();
+    } catch (err) {
+      document.getElementById('app').innerHTML = '<div class="empty">❌ Ingen kontakt med servern.</div>';
+    }
+  }
+  document.getElementById('who').textContent = snoCurrentUser();
+  load();
+</script>
+</body>
+</html>
