@@ -1,5 +1,7 @@
 # Testlista – Tidrapport DEV
 
+🔗 **Dev-appen:** https://lellel.github.io/Tidrapport---dev/
+
 Bocka av med `[x]` när något är testat. Allt testas i **dev**, aldrig i prod.
 Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
