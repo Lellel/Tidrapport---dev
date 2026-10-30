@@ -203,6 +203,25 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] När inget saknas: "✅ Alla kort har storlek – redo att generera slingor"
 - [ ] Fliken **Fastigheter** i arket stämmer
 
+## 10b. Ekonomi – fakturaunderlag
+
+Öppnas via sidomenyn → **💰 Ekonomi** (eller admin-panelen).
+- [ ] Skriv **Ekonom** i kolumn E (Behörighet) för en testperson → hen kommer in på Ekonomi men inte på Offerter/Snöplanering
+- [ ] En förare utan Admin/Ekonom → "Åtkomst nekad" på Ekonomi
+- [ ] Statistiken överst stämmer med antal ej fakturerade pass i fliken Tidrapporter
+- [ ] Passen är grupperade per plats, kunden föreslås när platsen innehåller kundens gatuadress
+- [ ] Välj kund för hand där det står "Hittade ingen kund"
+- [ ] Privatkund med ROT → avdraget dras bara på timraderna, inte på material
+- [ ] Ändra à-pris på en rad → summan uppdateras
+- [ ] **＋ Material / egen rad** → raden kommer med i summan och på PDF:en
+- [ ] Kryssa ur ett pass → timmarna och summan minskar
+- [ ] **📄 Fakturaunderlag (PDF)** → PDF i Drive-mappen **Fakturaunderlag** med "UTKAST", rader, moms, ROT och timspecifikation
+- [ ] Godkänd offert → eget kort, PDF:en har offertens rader och referensen till offerten
+- [ ] **✅ Markera fakturerad** → passen får "Ja" i kolumn B och försvinner ur listan
+- [ ] Offert markerad som fakturerad → kolumnen "Fakturerad" i Offerter får datum och namn
+- [ ] **⬇️ Exportera till Excel** → filen öppnas i Excel med svenska tecken rätt
+- [ ] Under Offerter → ⚙️: fyll i **Bankgiro** och kontrollera **F-skatt**-texten → syns i PDF:ens sidfot
+
 ## 11. Snabbhet & uppdateringar
 
 - [ ] Öppna appen två gånger → andra gången syns den direkt (ingen vit skärm)

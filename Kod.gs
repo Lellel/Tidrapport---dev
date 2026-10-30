@@ -65,7 +65,7 @@ function doGet(e) {
 // generateTractorAvatar låses inte heller: AI:n tar 10-30 s och skriver bara en cell på slutet.
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
-  "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -111,6 +111,10 @@ function doPost(e) {
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
+    const economyOnly = ["getInvoiceBasis", "markInvoiced", "invoicePdf"];
+    if (economyOnly.indexOf(action) !== -1 && !auth.isAdmin && !auth.isEconomist) {
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver ekonom eller administratör." });
+    }
     // Vanliga användare kan bara rapportera i eget namn
     if (!auth.isAdmin && !auth.legacy) {
       (data.pass || []).forEach(p => { p.user = auth.user; });
@@ -154,6 +158,9 @@ function doPost(e) {
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
+    if (action === "getInvoiceBasis") return handleGetInvoiceBasis();
+    if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user);
+    if (action === "invoicePdf") return handleInvoicePdf(data.draft);
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
 
@@ -196,6 +203,11 @@ function isAdminRow(row) {
   return String(row[4] || "").trim().toLowerCase() === "true";
 }
 
+// "Ekonom" i kolumn E: ser fakturaunderlaget men inga admin-verktyg
+function isEconomistRow(row) {
+  return String(row[4] || "").trim().toLowerCase() === "ekonom";
+}
+
 // Inloggningsuppgifter sparas 5 min i Apps Scripts cache så att inte hela Personal-fliken
 // (med profilbilder) läses vid varje anrop. "Spärra & skapa ny länk" tömmer cachen direkt;
 // ändras Admin/Karantän för hand i arket slår det igenom inom 5 minuter.
@@ -213,6 +225,7 @@ function readStaffAuth(name) {
     user: String(hit.row[0]),
     key: String(hit.row[KEY_COLUMN - 1] || ""),
     isAdmin: isAdminRow(hit.row),
+    isEconomist: isEconomistRow(hit.row),
     quarantined: String(hit.row[7] || "").toLowerCase() === "karantän"
   };
   cache.put(cacheKey, JSON.stringify(info), AUTH_CACHE_SECONDS);
@@ -227,7 +240,7 @@ function authenticate(data) {
   if (data.user && data.key) {
     const info = readStaffAuth(data.user);
     if (info && info.key && info.key === String(data.key) && !info.quarantined) {
-      return { user: info.user, isAdmin: info.isAdmin, legacy: false };
+      return { user: info.user, isAdmin: info.isAdmin, isEconomist: !!info.isEconomist, legacy: false };
     }
     return null;
   }
@@ -235,7 +248,7 @@ function authenticate(data) {
   const legacyToken = (typeof CONFIG !== "undefined" && CONFIG.API_TOKEN) || "";
   if (legacyToken && data.token === legacyToken) {
     const info = data.user ? readStaffAuth(data.user) : null;
-    return { user: String(data.user || "Okänd"), isAdmin: !!(info && info.isAdmin), legacy: true };
+    return { user: String(data.user || "Okänd"), isAdmin: !!(info && info.isAdmin), isEconomist: !!(info && info.isEconomist), legacy: true };
   }
   return null;
 }
@@ -873,6 +886,7 @@ const DEFAULT_OFFER_SETTINGS = {
   hourlyWork: 650, hourlyMachine: 850, travelPerHour: 450,
   vatPercent: 25, rotPercent: 30, rutPercent: 50, rotCapPerPerson: 50000, rutCapPerPerson: 75000,
   validDays: 30,
+  invoiceDueDays: 30, companyBankgiro: "", companyFTax: "Godkänd för F-skatt",
   lineMeterPrice: 48, lineSymbolPrice: 550, lineEstablishment: 3500,
   facadeM2PerHour: 4, facadeM2PerLiter: 6, facadeCoats: 2, facadePaintPerLiter: 220,
   // En kulör per rad: Namn | NCS-kod | #skärmfärg (ungefärlig). Byt gärna mot era Alcro-kulörer.
@@ -1514,6 +1528,197 @@ function saveAvatarToSheet(resursId, base64Image) {
       break;
     }
   }
+}
+
+// ==========================================
+// 5b. EKONOMI: FAKTURAUNDERLAG
+// Appen tar fram underlaget, fakturan skapas och bokförs i Fortnox.
+// Ej fakturerat = tidrapporter utan "Ja" i kolumn B + godkända offerter utan datum i "Fakturerad".
+// PDF:en är ett underlag/utkast, inte en faktura (inget fakturanummer eller OCR).
+// ==========================================
+const OFFER_INVOICED_COLUMN = OFFER_HEADERS.length + 1; // Kolumnen efter offertens egna
+
+function isInvoicedValue(v) {
+  return v === true || ["ja", "true"].indexOf(String(v).trim().toLowerCase()) !== -1;
+}
+
+function sheetTimeText(v, tz) {
+  return v instanceof Date ? Utilities.formatDate(v, tz, "HH:mm") : String(v || "");
+}
+
+// "7 tim 30 min" -> 7.5. Saknas texten räknas tiden fram ur start och slut.
+function reportHours(totalText, start, end) {
+  const m = String(totalText || "").match(/(\d+)\s*tim\s*(\d+)\s*min/);
+  if (m) return Number(m[1]) + Number(m[2]) / 60;
+  if (!start || !end) return 0;
+  const [sH, sM] = start.split(":").map(Number);
+  const [eH, eM] = end.split(":").map(Number);
+  let diff = (eH * 60 + eM) - (sH * 60 + sM);
+  if (diff < 0) diff += 24 * 60;
+  return isFinite(diff) ? diff / 60 : 0;
+}
+
+function handleGetInvoiceBasis() {
+  const ss = getSS();
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const settings = getOfferSettings();
+
+  const reports = [];
+  const tid = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  const tidRows = tid ? tid.getDataRange().getValues() : [];
+  for (let i = 1; i < tidRows.length; i++) {
+    const r = tidRows[i];
+    if (!r[0] || isInvoicedValue(r[1])) continue;
+    const start = sheetTimeText(r[4], tz), end = sheetTimeText(r[5], tz);
+    const imageLink = (String(r[9] || "").match(/https:\/\/drive\.google\.com\/\S+/) || [""])[0];
+    reports.push({
+      row: i + 1,
+      stamp: r[7] instanceof Date ? Utilities.formatDate(r[7], tz, "yyyy-MM-dd HH:mm:ss") : String(r[7] || ""),
+      date: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10),
+      place: String(r[2] || ""), activity: String(r[3] || ""), start: start, end: end,
+      hours: Math.round(reportHours(r[6], start, end) * 100) / 100,
+      user: String(r[8] || ""), note: String(r[9] || "").replace(/\s*Drive-mapp: \S+/, "").trim(), imageLink: imageLink,
+      company: String(r[10] || "LPV")
+    });
+  }
+
+  const offers = [];
+  const offerSheet = getOfferSheet();
+  if (offerSheet.getRange(1, OFFER_INVOICED_COLUMN).getValue() === "") {
+    offerSheet.getRange(1, OFFER_INVOICED_COLUMN).setValue("Fakturerad").setFontWeight("bold").setBackground("#f3f3f3");
+  }
+  const offerRows = offerSheet.getDataRange().getValues();
+  for (let i = 1; i < offerRows.length; i++) {
+    if (!offerRows[i][0] || String(offerRows[i][3]) !== "godkänd" || offerRows[i][OFFER_INVOICED_COLUMN - 1]) continue;
+    const o = offerFromRow(offerRows[i]);
+    o.totals = computeOfferTotals(o, settings);
+    o.pdfUrl = o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "";
+    offers.push(o);
+  }
+
+  const customers = [];
+  const kunder = ss.getSheetByName("Kunder");
+  const kundRows = kunder ? kunder.getDataRange().getValues() : [];
+  for (let i = 1; i < kundRows.length; i++) {
+    const k = kundRows[i];
+    if (!k[1]) continue;
+    customers.push({ id: String(k[0]), name: String(k[1]), idNr: String(k[2] || ""), email: String(k[3] || ""),
+      phone: String(k[7] || ""), address: String(k[8] || ""), type: String(k[9] || "company"), rotRut: String(k[10] || "none") });
+  }
+
+  return createJsonResponse({ status: "success", reports: reports, offers: offers, customers: customers, settings: settings });
+}
+
+// Markerar pass och offerter som fakturerade. Passen identifieras med rad + tidsstämpel,
+// så att inget fel pass markeras om någon har sorterat eller tagit bort rader i arket.
+function handleMarkInvoiced(data, user) {
+  const ss = getSS();
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  let marked = 0, skipped = 0;
+  const tid = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  (Array.isArray(data.reports) ? data.reports : []).slice(0, 500).forEach(ref => {
+    const rowNumber = Number(ref.row);
+    if (!tid || !(rowNumber >= 2 && rowNumber <= tid.getLastRow())) { skipped++; return; }
+    const row = tid.getRange(rowNumber, 1, 1, 9).getValues()[0];
+    const stamp = row[7] instanceof Date ? Utilities.formatDate(row[7], tz, "yyyy-MM-dd HH:mm:ss") : String(row[7] || "");
+    if (stamp !== String(ref.stamp) || String(row[8]) !== String(ref.user)) { skipped++; return; }
+    tid.getRange(rowNumber, 2).setValue(typeof row[1] === "boolean" ? true : "Ja");
+    marked++;
+  });
+  const offerSheet = getOfferSheet();
+  (Array.isArray(data.offerIds) ? data.offerIds : []).slice(0, 100).forEach(id => {
+    const hit = findRowById(offerSheet, id);
+    if (!hit || String(hit.row[3]) !== "godkänd") { skipped++; return; }
+    offerSheet.getRange(hit.rowNumber, OFFER_INVOICED_COLUMN).setValue(nowStamp() + " av " + sanitize(user));
+    marked++;
+  });
+  return createJsonResponse({ status: "success", marked: marked, skipped: skipped });
+}
+
+function cleanInvoiceDraft(d) {
+  d = d || {};
+  const c = d.customer || {};
+  return {
+    customer: { name: sanitize(c.name).slice(0, 120), address: sanitize(c.address).slice(0, 200), idNr: sanitize(c.idNr).slice(0, 20),
+      email: sanitize(c.email).slice(0, 120) },
+    customerType: d.customerType === "privat" ? "privat" : "företag",
+    site: sanitize(d.site).slice(0, 200), title: sanitize(d.title).slice(0, 200), period: sanitize(d.period).slice(0, 40),
+    reference: sanitize(d.reference).slice(0, 60),
+    rows: cleanOfferRows(d.rows),
+    deduction: ["rot", "rut"].indexOf(d.deduction) !== -1 ? d.deduction : "inget",
+    deductionPersons: Math.min(4, Math.max(1, Number(d.deductionPersons) || 1)),
+    spec: (Array.isArray(d.spec) ? d.spec : []).slice(0, 300).map(s => ({
+      date: sanitize(s.date).slice(0, 10), user: sanitize(s.user).slice(0, 60), activity: sanitize(s.activity).slice(0, 80),
+      hours: Math.round((Number(s.hours) || 0) * 100) / 100
+    }))
+  };
+}
+
+// Ren funktion (ingen Drive/Sheets) så att layouten kan förhandsgranskas utanför Apps Script
+function buildInvoiceHtml(d, settings, t, number, today, due, logoHtml) {
+  const hoursSv = h => String(Math.round(h * 100) / 100).replace(".", ",");
+  const rowsHtml = d.rows.map(r => "<tr><td>" + escapeHtml(r.text) + (r.deductible && t.deduction ? " *" : "") +
+    "</td><td class='r'>" + String(r.qty).replace(".", ",") + " " + escapeHtml(r.unit) + "</td><td class='r'>" + moneySv(r.price) +
+    "</td><td class='r'>" + moneySv(r.qty * r.price) + "</td></tr>").join("");
+  const specHtml = d.spec.length ? '<div class="spec"><h2>Specifikation av arbetade timmar</h2><table><tr><th>Datum</th><th>Utfört av</th><th>Aktivitet</th><th class="r">Timmar</th></tr>' +
+    d.spec.map(s => "<tr><td>" + escapeHtml(s.date) + "</td><td>" + escapeHtml(s.user) + "</td><td>" + escapeHtml(s.activity) + "</td><td class='r'>" + hoursSv(s.hours) + "</td></tr>").join("") +
+    "<tr><td colspan='3'><b>Totalt</b></td><td class='r'><b>" + hoursSv(d.spec.reduce((sum, s) => sum + s.hours, 0)) + "</b></td></tr></table></div>" : "";
+  const info = (label, value) => value ? "<tr><td class='k'>" + label + "</td><td>" + escapeHtml(value) + "</td></tr>" : "";
+  return '<html><head><meta charset="utf-8"><style>' +
+    'body{font-family:Arial,sans-serif;font-size:10.5pt;color:#0f172a;margin:30px;} h1{font-size:22pt;margin:0;color:#0369a1;letter-spacing:1px;}' +
+    'h2{font-size:12pt;margin:18px 0 6px;} table{width:100%;border-collapse:collapse;} th{background:#f1f5f9;text-align:left;padding:6px;font-size:9.5pt;}' +
+    'td{padding:6px;border-bottom:1px solid #e2e8f0;font-size:9.5pt;vertical-align:top;} .r{text-align:right;white-space:nowrap;}' +
+    '.draft{display:inline-block;margin-top:6px;padding:3px 8px;border:1.5px solid #b45309;color:#b45309;border-radius:4px;font-size:8.5pt;font-weight:bold;letter-spacing:.5px;}' +
+    '.box{border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;} .box td{border:none;padding:1px 0;} .k{color:#64748b;width:42%;}' +
+    '.tot td{border:none;padding:3px 6px;} .big td{font-size:13pt;font-weight:bold;color:#0369a1;border-top:2px solid #0369a1;padding-top:6px;}' +
+    '.muted{color:#64748b;font-size:8.5pt;} .foot{margin-top:26px;border-top:1px solid #cbd5e1;padding-top:8px;} .foot td{border:none;font-size:8.5pt;color:#475569;padding:1px 8px 1px 0;}' +
+    '.spec{page-break-inside:auto;}</style></head><body>' +
+    '<table><tr><td style="border:none;padding:0">' + logoHtml + '<h1>FAKTURAUNDERLAG</h1><div class="draft">UTKAST – FAKTURAN SKAPAS I FORTNOX</div></td>' +
+    '<td style="border:none;padding:0;text-align:right;font-size:9.5pt"><b style="font-size:12pt">' + escapeHtml(settings.companyName) + '</b><br>' +
+    escapeHtml(settings.companyAddress) + '<br>' + escapeHtml(settings.companyPhone) + '<br>' + escapeHtml(settings.companyEmail) + '</td></tr></table>' +
+    '<table style="margin-top:20px"><tr><td style="border:none;padding:0 10px 0 0;width:50%"><div class="box"><div class="muted">FAKTURAMOTTAGARE</div><b>' + escapeHtml(d.customer.name) + '</b><br>' +
+    escapeHtml(d.customer.address).replace(/, /g, "<br>") + (d.customer.idNr ? '<br>' + (d.customerType === "privat" ? "Personnr " : "Org.nr ") + escapeHtml(d.customer.idNr) : "") + '</div></td>' +
+    '<td style="border:none;padding:0;width:50%"><div class="box"><table>' + info("Underlag nr", number) + info("Datum", today) + info("Förfallodatum", due) +
+    info("Betalningsvillkor", settings.invoiceDueDays + " dagar netto") + info("Er referens", d.reference) + info("Arbetsplats", d.site) + info("Period", d.period) + '</table></div></td></tr></table>' +
+    (d.title ? '<h2>' + escapeHtml(d.title) + '</h2>' : '<div style="height:14px"></div>') +
+    '<table><tr><th>Beskrivning</th><th class="r">Antal</th><th class="r">À-pris</th><th class="r">Belopp</th></tr>' + rowsHtml + '</table>' +
+    '<table class="tot" style="width:50%;margin-left:50%;margin-top:8px"><tr><td>Summa exkl. moms</td><td class="r">' + moneySv(t.net) + '</td></tr>' +
+    '<tr><td>Moms ' + settings.vatPercent + ' %</td><td class="r">' + moneySv(t.vat) + '</td></tr>' +
+    '<tr><td>Summa inkl. moms</td><td class="r">' + moneySv(t.gross) + '</td></tr>' +
+    (t.deduction ? '<tr><td>' + t.deductionLabel + ' *</td><td class="r">−' + moneySv(t.deduction) + '</td></tr>' : '') +
+    '</table><table class="tot big" style="width:50%;margin-left:50%"><tr><td>Att betala</td><td class="r">' + moneySv(t.toPay) + '</td></tr></table>' +
+    (t.deduction ? '<p class="muted">* Avdraget gäller arbetskostnaden inkl. moms (' + moneySv(t.deductibleNet * (1 + settings.vatPercent / 100)) +
+      ') och begärs från Skatteverket. Nekas avdraget betalar kunden mellanskillnaden.</p>' : '') +
+    specHtml +
+    '<table class="foot"><tr><td><b>' + escapeHtml(settings.companyName) + '</b><br>' + escapeHtml(settings.companyAddress) + '</td>' +
+    '<td>' + (settings.companyOrgNr ? 'Org.nr ' + escapeHtml(settings.companyOrgNr) + '<br>' : '') + escapeHtml(settings.companyFTax) + '</td>' +
+    '<td>' + (settings.companyBankgiro ? 'Bankgiro ' + escapeHtml(settings.companyBankgiro) + '<br>' : '') + escapeHtml(settings.companyEmail) + '</td></tr></table>' +
+    '</body></html>';
+}
+
+function handleInvoicePdf(input) {
+  const d = cleanInvoiceDraft(input);
+  if (!d.customer.name) return createJsonResponse({ status: "error", message: "Välj vilken kund underlaget gäller." });
+  if (!d.rows.length) return createJsonResponse({ status: "error", message: "Underlaget har inga rader." });
+  const settings = getOfferSettings();
+  const t = computeOfferTotals({ rows: d.rows, customerType: d.customerType, deduction: d.deduction, deductionPersons: d.deductionPersons }, settings);
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const number = "FU-" + Utilities.formatDate(new Date(), tz, "yyyyMMdd-HHmmss");
+  let logo = "";
+  try {
+    if (CONFIG.FILE_ID_LOGO) {
+      const blob = DriveApp.getFileById(CONFIG.FILE_ID_LOGO).getBlob();
+      logo = '<img src="data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) + '" style="height:60px;">';
+    }
+  } catch (e) { logo = ""; }
+  const html = buildInvoiceHtml(d, settings, t, number, Utilities.formatDate(new Date(), tz, "yyyy-MM-dd"), addDays(settings.invoiceDueDays || 30), logo);
+  const pdf = Utilities.newBlob(html, "text/html", number + ".html").getAs("application/pdf")
+    .setName(number + " " + d.customer.name.replace(/[\\/:*?"<>|]/g, "") + ".pdf");
+  const root = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
+  const existing = root.getFoldersByName("Fakturaunderlag");
+  const folder = existing.hasNext() ? existing.next() : root.createFolder("Fakturaunderlag");
+  const file = folder.createFile(pdf);
+  return createJsonResponse({ status: "success", number: number, url: file.getUrl(), totals: t });
 }
 
 // ==========================================
