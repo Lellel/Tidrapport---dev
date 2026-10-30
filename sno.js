@@ -3,6 +3,14 @@
 // Kräver Leaflet och config.js. Inloggning: samma personliga nyckel som appen.
 // ==========================================
 
+// Om kartbiblioteket inte kunde laddas (ingen täckning första gången) ersätts det med
+// en tom attrapp, så att listan med objekt och "Kör dit" ändå fungerar.
+const SNO_MAP_MISSING = typeof L === 'undefined';
+if (SNO_MAP_MISSING) {
+  const noop = new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : noop), apply: () => noop });
+  window.L = noop;
+}
+
 const SNO_TYPES = {
   maskin:   { label: 'Maskinzon',     color: '#38bdf8', kind: 'polygon' },
   hand:     { label: 'Handskottning', color: '#f59e0b', kind: 'polygon' },
@@ -44,6 +52,11 @@ function snoEscape(text) {
 
 // Karta med satellit/vägkarta. Returnerar { map, setTiles(name) }
 function snoCreateMap(elementId) {
+  if (SNO_MAP_MISSING) {
+    const el = document.getElementById(elementId);
+    el.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#94a3b8;font-size:14px;">🗺️ Kartan kan inte visas utan täckning.<br>Listan nedan fungerar ändå.</div>';
+    return { map: L, setTiles() {} };
+  }
   const map = L.map(elementId, { zoomControl: false }).setView(SNO_FLEN_CENTER, 15);
   let tiles = L.tileLayer(SNO_TILES.sat, { maxZoom: 19 }).addTo(map);
   return {

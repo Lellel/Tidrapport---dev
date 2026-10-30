@@ -144,7 +144,18 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] När inget saknas: "✅ Alla kort har storlek – redo att generera slingor"
 - [ ] Fliken **Fastigheter** i arket stämmer
 
-## 11. Utseende
+## 11. Snabbhet & uppdateringar
+
+- [ ] Öppna appen två gånger → andra gången syns den direkt (ingen vit skärm)
+- [ ] **Flygplansläge** → stäng appen helt → öppna → appen startar ändå och du kan spara pass
+- [ ] Flygplansläge → Snöjour → kartan (om du öppnat den med täckning förut) eller listan med "Kör dit" visas
+- [ ] Efter att något nytt publicerats: öppna appen → rutan **"✨ Ny version – tryck för att uppdatera"** dyker upp
+- [ ] Tryck på rutan → appen laddar om, pass som låg i utkorgen finns kvar
+- [ ] Tio pass skickas samtidigt från olika telefoner → inga "Servern var upptagen"
+- [ ] Snöjour och Snöplanering visar listan direkt vid start (uppdateras strax efter)
+- [ ] Spärra en person → hen nekas direkt. Sätter du Karantän för hand i arket slår det igenom inom 5 min
+
+## 12. Utseende
 
 - [ ] Ingen sida går att scrolla i sidled på telefonen
 - [ ] Mörkt/ljust läge ser rätt ut
