@@ -144,6 +144,7 @@
     let placingPosition = false;
     let message = '';
     const generating = new Set();
+    let dataLoaded = false; // spara inte cachen innan något laddats (då skulle den skrivas över med tomt)
 
     const BRAND_COLORS = { kramer: '#2dd4bf', volvo: '#facc15', avant: '#84cc16', bobcat: '#f97316', jcb: '#facc15', ljungby: '#eab308',
       'john deere': '#16a34a', deere: '#16a34a', kubota: '#f97316', valtra: '#dc2626', 'new holland': '#2563eb', massey: '#dc2626', fendt: '#22c55e', cat: '#facc15' };
@@ -165,6 +166,7 @@
 
     function render() {
       document.getElementById('panel-body').innerHTML = tab === 'props' ? renderProps() : renderFleet();
+      if (dataLoaded) { try { localStorage.setItem('lpv_plan_cache', JSON.stringify({ properties, fleet })); } catch (e) { /* full lagring */ } }
     }
 
     // ================= FASTIGHETER =================
@@ -499,21 +501,35 @@
     }
 
     // ================= START =================
+    function fitToProperties() {
+      const located = properties.filter(p => p.lat !== null);
+      if (located.length) map.fitBounds(L.latLngBounds(located.map(p => [p.lat, p.lng])), { padding: [30, 30], maxZoom: 16 });
+    }
+
+    // Visa senast hämtade data direkt, uppdatera sedan från servern
     async function loadAll() {
-      setMessage('Hämtar…');
+      let cache = null;
+      try { cache = JSON.parse(localStorage.getItem('lpv_plan_cache') || 'null'); } catch (e) { cache = null; }
+      if (cache) {
+        properties = cache.properties || []; fleet = cache.fleet || [];
+        dataLoaded = true;
+        render(); renderPins(); fitToProperties();
+      } else {
+        setMessage('Hämtar…');
+      }
       try {
         const [pRes, fRes] = await Promise.all([snoApi({ action: 'getProperties' }), snoApi({ action: 'getFleet' })]);
         if (pRes.status !== 'success') { message = '❌ ' + snoEscape(pRes.message || 'Kunde inte hämta.'); render(); return; }
         properties = pRes.properties || [];
-        fleet = fRes.status === 'success' ? fRes.fleet : [];
-        message = '';
+        fleet = fRes.status === 'success' ? fRes.fleet : fleet;
+        dataLoaded = true;
+        if (message === 'Hämtar…') message = '';
       } catch (err) {
-        message = '❌ Ingen kontakt med servern.';
+        message = cache ? '⚠️ Ingen kontakt – visar senast hämtade.' : '❌ Ingen kontakt med servern.';
       }
       render();
       renderPins();
-      const located = properties.filter(p => p.lat !== null);
-      if (located.length) map.fitBounds(L.latLngBounds(located.map(p => [p.lat, p.lng])), { padding: [30, 30], maxZoom: 16 });
+      if (!cache) fitToProperties();
     }
 
     mapCtl = snoCreateMap('map');

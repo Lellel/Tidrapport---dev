@@ -7,9 +7,43 @@ var applyUEConstraints = window.applyUEConstraints;
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then((reg) => console.log('SW aktiv:', reg.scope))
+      .then((reg) => {
+        // Ny version redan nedladdad och väntande, eller laddas ner nu
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdateToast(reg.waiting);
+        reg.addEventListener('updatefound', () => {
+          const worker = reg.installing;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) showUpdateToast(worker);
+          });
+        });
+        // Kolla efter ny version när appen tas fram igen
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+      })
       .catch((err) => console.error('Kunde inte starta SW:', err));
   });
+
+  let reloadingForUpdate = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloadingForUpdate) return;
+    reloadingForUpdate = true;
+    window.location.reload();
+  });
+}
+
+function showUpdateToast(worker) {
+  if (document.getElementById('update-toast')) return;
+  const toast = document.createElement('button');
+  toast.id = 'update-toast';
+  toast.type = 'button';
+  toast.textContent = '✨ Ny version – tryck för att uppdatera';
+  toast.style.cssText = 'position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 16px);transform:translateX(-50%);z-index:10000;' +
+    'padding:14px 20px;border:none;border-radius:999px;background:#0284c7;color:#fff;font-weight:800;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);';
+  toast.addEventListener('click', () => {
+    toast.textContent = 'Uppdaterar…';
+    // Utkast ligger i localStorage/IndexedDB och påverkas inte av uppdateringen
+    worker.postMessage('skipWaiting');
+  });
+  document.body.appendChild(toast);
 }
 
 // ==========================================

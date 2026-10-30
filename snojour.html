@@ -223,26 +223,37 @@
       if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 18 });
     }
 
-    async function loadZones() {
-      try {
-        const res = await snoApi({ action: 'getSnowZones' });
-        if (res.status !== 'success') {
-          document.getElementById('obj-list').innerHTML = `<div class="empty">❌ ${snoEscape(res.message || 'Kunde inte hämta zoner.')}</div>`;
-          return;
-        }
-        zones = res.zones || [];
-        mySlingor = res.mySlingor || [];
-        localStorage.setItem('lpv_sno_cache', JSON.stringify({ zones, mySlingor }));
-      } catch (err) {
-        // Utan nät: visa senast hämtade zoner
-        const cache = JSON.parse(localStorage.getItem('lpv_sno_cache') || '{}');
-        zones = cache.zones || []; mySlingor = cache.mySlingor || [];
-        document.getElementById('gps-status').innerText = 'Ingen kontakt – visar senast sparade zoner.';
-      }
+    function applyZones(fromCache) {
       renderSlingaSelect();
       renderZones();
       renderTimeBox();
-      fitToSlinga();
+      if (!fromCache || !zoneLayers.length) fitToSlinga();
+    }
+
+    // Visa senast hämtade zoner direkt, uppdatera sedan från servern i bakgrunden
+    async function loadZones() {
+      let cache = {};
+      try { cache = JSON.parse(localStorage.getItem('lpv_sno_cache') || '{}'); } catch (e) { cache = {}; }
+      if (Array.isArray(cache.zones)) {
+        zones = cache.zones; mySlingor = cache.mySlingor || [];
+        applyZones(true);
+        fitToSlinga();
+      }
+      try {
+        const res = await snoApi({ action: 'getSnowZones' });
+        if (res.status !== 'success') {
+          if (!zones.length) document.getElementById('obj-list').innerHTML = `<div class="empty">❌ ${snoEscape(res.message || 'Kunde inte hämta zoner.')}</div>`;
+          return;
+        }
+        const changed = JSON.stringify(res.zones) !== JSON.stringify(cache.zones) || JSON.stringify(res.mySlingor) !== JSON.stringify(cache.mySlingor);
+        zones = res.zones || [];
+        mySlingor = res.mySlingor || [];
+        localStorage.setItem('lpv_sno_cache', JSON.stringify({ zones, mySlingor }));
+        if (changed) applyZones(Array.isArray(cache.zones));
+      } catch (err) {
+        if (Array.isArray(cache.zones)) document.getElementById('gps-status').innerText = 'Ingen kontakt – visar senast sparade zoner.';
+        else applyZones(false);
+      }
     }
 
     // ---------- GPS ----------

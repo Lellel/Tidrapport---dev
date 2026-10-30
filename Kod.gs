@@ -6,6 +6,13 @@
 // ==========================================
 // 1. SANERING & SÄKERHET
 // ==========================================
+
+// Kalkylarket öppnas en gång per anrop (openById tar tid och anropades förut många gånger per anrop)
+let _ss = null;
+function getSS() {
+  if (!_ss) _ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  return _ss;
+}
 function sanitize(input) {
   if (!input) return "";
   let str = String(input).trim();
@@ -34,14 +41,14 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+// Anrop som bara läser behöver inte köa bakom varandra. Bara det som skriver låses,
+// så att tio förare som skickar pass samtidigt kl 05 inte väntar på admin som läser kartan.
+// generateTractorAvatar låses inte heller: AI:n tar 10-30 s och skriver bara en cell på slutet.
+const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
+  "getJobs", "signDocument", "generateTractorAvatar"];
+
 function doPost(e) {
-  const lock = LockService.getScriptLock();
-  const hasLock = lock.tryLock(15000);
-
-  if (!hasLock) {
-    return createJsonResponse({ status: "error", message: "Servern var upptagen, försök igen." });
-  }
-
+  let lock = null;
   try {
     if (!e || !e.postData || !e.postData.contents) {
       return createJsonResponse({ status: "error", message: "Ingen data skickades." });
@@ -52,6 +59,14 @@ function doPost(e) {
       data = JSON.parse(e.postData.contents);
     } catch (parseErr) {
       data = e.parameter || {};
+    }
+
+    if (NO_LOCK_ACTIONS.indexOf(data.action) === -1) {
+      lock = LockService.getScriptLock();
+      if (!lock.tryLock(15000)) {
+        lock = null;
+        return createJsonResponse({ status: "error", message: "Servern var upptagen, försök igen." });
+      }
     }
 
     const action = data.action;
@@ -105,10 +120,7 @@ function doPost(e) {
     if (action === "getFleet") return handleGetFleet();
     if (action === "saveTractor") return handleSaveTractor(data.tractor);
     if (action === "deleteTractor") return handleDeleteById(getFleetSheet(), data.id);
-    if (action === "generateTractorAvatar") {
-      lock.releaseLock(); // AI-bilden tar 10-20 s – låt andra rapportera under tiden
-      return handleGenerateTractorAvatar(data.id);
-    }
+    if (action === "generateTractorAvatar") return handleGenerateTractorAvatar(data.id);
     if (action === "getProperties") return handleGetProperties();
     if (action === "saveProperty") return handleSaveProperty(data.property);
     if (action === "deleteProperty") return handleDeleteById(getPropertySheet(), data.id);
@@ -122,7 +134,7 @@ function doPost(e) {
   } catch (err) {
     return createJsonResponse({ status: "error", message: err.toString() });
   } finally {
-    lock.releaseLock();
+    if (lock) lock.releaseLock();
   }
 }
 
@@ -136,7 +148,7 @@ function doPost(e) {
 const KEY_COLUMN = 12; // Kolumn L
 
 function getStaffSheet() {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSS();
   const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
   if (sheet && sheet.getRange(1, KEY_COLUMN).getValue() === "") {
     sheet.getRange(1, KEY_COLUMN).setValue("App-nyckel").setFontWeight("bold").setBackground("#f3f3f3");
@@ -158,22 +170,46 @@ function isAdminRow(row) {
   return String(row[4] || "").trim().toLowerCase() === "true";
 }
 
-function authenticate(data) {
+// Inloggningsuppgifter sparas 5 min i Apps Scripts cache så att inte hela Personal-fliken
+// (med profilbilder) läses vid varje anrop. "Spärra & skapa ny länk" tömmer cachen direkt;
+// ändras Admin/Karantän för hand i arket slår det igenom inom 5 minuter.
+const AUTH_CACHE_SECONDS = 300;
+
+function readStaffAuth(name) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = "auth:" + String(name).trim();
+  const cached = cache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
   const sheet = getStaffSheet();
-  if (data.user && data.key && sheet) {
-    const hit = findStaffRow(sheet, data.user);
-    const savedKey = hit ? String(hit.row[KEY_COLUMN - 1] || "") : "";
-    const quarantined = hit && String(hit.row[7] || "").toLowerCase() === "karantän";
-    if (savedKey && savedKey === String(data.key) && !quarantined) {
-      return { user: String(hit.row[0]), isAdmin: isAdminRow(hit.row), legacy: false };
+  const hit = sheet ? findStaffRow(sheet, name) : null;
+  if (!hit) return null;
+  const info = {
+    user: String(hit.row[0]),
+    key: String(hit.row[KEY_COLUMN - 1] || ""),
+    isAdmin: isAdminRow(hit.row),
+    quarantined: String(hit.row[7] || "").toLowerCase() === "karantän"
+  };
+  cache.put(cacheKey, JSON.stringify(info), AUTH_CACHE_SECONDS);
+  return info;
+}
+
+function clearStaffAuthCache(name) {
+  CacheService.getScriptCache().remove("auth:" + String(name).trim());
+}
+
+function authenticate(data) {
+  if (data.user && data.key) {
+    const info = readStaffAuth(data.user);
+    if (info && info.key && info.key === String(data.key) && !info.quarantined) {
+      return { user: info.user, isAdmin: info.isAdmin, legacy: false };
     }
     return null;
   }
   // Övergång: gamla gemensamma nyckeln. Ta bort API_TOKEN ur Config.gs för att stänga av.
   const legacyToken = (typeof CONFIG !== "undefined" && CONFIG.API_TOKEN) || "";
   if (legacyToken && data.token === legacyToken) {
-    const hit = sheet && data.user ? findStaffRow(sheet, data.user) : null;
-    return { user: String(data.user || "Okänd"), isAdmin: !!(hit && isAdminRow(hit.row)), legacy: true };
+    const info = data.user ? readStaffAuth(data.user) : null;
+    return { user: String(data.user || "Okänd"), isAdmin: !!(info && info.isAdmin), legacy: true };
   }
   return null;
 }
@@ -187,6 +223,7 @@ function handleGetUserKey(data) {
   if (!key || data.reset) {
     key = Utilities.getUuid().replace(/-/g, "");
     sheet.getRange(hit.rowNumber, KEY_COLUMN).setValue(key);
+    clearStaffAuthCache(hit.row[0]);
   }
   return createJsonResponse({ status: "success", user: String(hit.row[0]), key: key });
 }
@@ -285,7 +322,7 @@ function parseMachineModel(text) {
 // 4. KABANOSS / GANTT API HANDLERS
 // ==========================================
 function handleGetKabanossData() {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSS();
 
   // 1. Kunder
   const klientSheet = ss.getSheetByName("Kunder");
@@ -397,7 +434,7 @@ function handleGetKabanossData() {
 }
 
 function handleSaveKabanossJob(data) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSS();
   const sheet = ss.getSheetByName("Gantt_Jobb");
   if (!sheet) return createJsonResponse({ status: "error", message: "Gantt_Jobb-blad saknas." });
 
@@ -436,7 +473,7 @@ function handleSaveKabanossJob(data) {
 }
 
 function handleSickReport(data) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSS();
   const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
   const rows = sheet.getDataRange().getValues();
 
@@ -457,14 +494,14 @@ const SNOW_HEADERS = ["Zon-ID", "Slinga", "Ordning", "Fastighet/Adress", "Typ", 
 const SNOW_TYPES = ["maskin", "hand", "stracka", "kantsten", "lucka", "trappa"];
 
 function getSnowSheet() {
-  return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Snözoner", SNOW_HEADERS);
+  return getSheetOrCreate(getSS(), "Snözoner", SNOW_HEADERS);
 }
 
 // Fliken "Slingor": vilka förare som är tilldelade varje slinga (admin bestämmer)
 const SLINGA_HEADERS = ["Slinga", "Förare (kommaseparerade)", "Uppdaterad av", "Uppdaterad"];
 
 function getSlingaSheet() {
-  return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Slingor", SLINGA_HEADERS);
+  return getSheetOrCreate(getSS(), "Slingor", SLINGA_HEADERS);
 }
 
 function readSlingaAssignments() {
@@ -577,8 +614,8 @@ const FLEET_HEADERS = ["Traktor-ID", "Tillverkare & modell", "Storlek", "Ort / U
 const PROPERTY_HEADERS = ["Fastighets-ID", "Adress", "Ort", "Lat", "Lng", "Storlek", "Tvinga stor", "Prioritet", "Foton (Drive-ID)", "Anteckning", "Uppdaterad"];
 const SIZES = ["stor", "liten"];
 
-function getFleetSheet() { return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Traktorer", FLEET_HEADERS); }
-function getPropertySheet() { return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Fastigheter", PROPERTY_HEADERS); }
+function getFleetSheet() { return getSheetOrCreate(getSS(), "Traktorer", FLEET_HEADERS); }
+function getPropertySheet() { return getSheetOrCreate(getSS(), "Fastigheter", PROPERTY_HEADERS); }
 
 function nowStamp() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm");
@@ -900,7 +937,7 @@ function getBrandColorPrompt(machineName) {
 }
 
 function saveAvatarToSheet(resursId, base64Image) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSS();
   const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
   if (!sheet) return;
   if (base64Image.length > 50000) return; // Cellgräns i Sheets – AI-bilden får inte plats
@@ -918,7 +955,7 @@ function saveAvatarToSheet(resursId, base64Image) {
 // 6. BEFINTLIGA RAPPORTER OCH GODKÄNNANDEN
 // ==========================================
 function handleBatchReports(data) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSS();
   const sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
   const passList = data.pass || [];
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
@@ -971,7 +1008,7 @@ function handleBatchReports(data) {
 }
 
 function handleGetUsers() {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSS();
   const personalSheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
   const sheetData = personalSheet.getDataRange().getValues();
   const users = [];
@@ -985,7 +1022,7 @@ function handleGetUsers() {
         phone: String(sheetData[i][2]),
         type: String(sheetData[i][3]),
         isAdmin: String(sheetData[i][4]).toLowerCase() === "true",
-        avatarBase64: String(sheetData[i][5]),
+        hasAvatar: String(sheetData[i][5] || "") !== "",
         ownerCompany: String(sheetData[i][6]),
         status: String(sheetData[i][7])
       });
@@ -995,14 +1032,14 @@ function handleGetUsers() {
 }
 
 function approveAta(ataId) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var ss = getSS();
   var sheet = getSheetOrCreate(ss, "ÄTA_Godkännanden", ["ÄTA_ID", "Status", "Datum"]);
   sheet.appendRow([ataId, "GODKÄND_AV_KUND", new Date()]);
   return createJsonResponse({ success: true, ataId: ataId });
 }
 
 function approveOffert(offertId) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var ss = getSS();
   var sheet = getSheetOrCreate(ss, "Offert_Godkännanden", ["Offert_ID", "Status", "Datum"]);
   sheet.appendRow([offertId, "GODKÄND_AV_KUND", new Date()]);
 
@@ -1013,14 +1050,14 @@ function approveOffert(offertId) {
 }
 
 function handleSaveTimeReport(eData) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var ss = getSS();
   var sheet = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
   sheet.appendRow([new Date(), "Nej", "Fält", eData.aktivitet || "Arbete", eData.starttid || "", eData.sluttid || "", eData.totaltid || "0 tim 0 min", new Date(), eData.anvandare || "Okänd", eData.note || "", "LPV", ""]);
   return createJsonResponse({ status: "success", message: "Tidrapport sparad." });
 }
 
 function handleSaveAta(eData) {
-  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var ss = getSS();
   var sheet = getSheetOrCreate(ss, "ÄTA", ["Datum", "Användare", "Titel", "Kostnad"]);
   sheet.appendRow([new Date(), eData.user || "Okänd", eData.title || "", eData.cost || 0]);
   return createJsonResponse({ status: "success", message: "ÄTA sparad." });
@@ -1055,7 +1092,7 @@ function createJsonResponse(obj) {
 }
 
 function migrateDatabase() {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSS();
 
   const sheetKunder = ss.getSheetByName("Kunder");
   if (sheetKunder) {

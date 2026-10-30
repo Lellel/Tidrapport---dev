@@ -24,6 +24,11 @@ jobs:
           cp avatar_onboarding.js prod_repo/
           cp sno.js snojour.html snozoner.html planering.html prod_repo/
 
+      - name: Höj appversionen så att telefonerna hämtar den nya versionen
+        run: |
+          sed -i "s/const CACHE_NAME = '.*';/const CACHE_NAME = 'lpv-prod-${{ github.run_number }}-$(date +%Y%m%d%H%M)';/" prod_repo/sw.js
+          grep -n "CACHE_NAME =" prod_repo/sw.js
+
       - name: Skicka ändringarna till produktion
         run: |
           cd prod_repo
