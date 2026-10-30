@@ -75,7 +75,7 @@ function doPost(e) {
     if (!auth) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
     }
-    const adminOnly = ["getUsers", "getUserKey", "signDocument"];
+    const adminOnly = ["getUsers", "getUserKey", "signDocument", "saveSnowZone", "deleteSnowZone"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -98,6 +98,9 @@ function doPost(e) {
     if (action === "transform_to_clay") return handleClayTransformation(data);
     if (action === "save_time_report") return handleSaveTimeReport(data);
     if (action === "save_ata") return handleSaveAta(data);
+    if (action === "getSnowZones") return handleGetSnowZones();
+    if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
+    if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
 
@@ -428,6 +431,84 @@ function handleSickReport(data) {
     }
   }
   return createJsonResponse({ status: "error", message: "Person hittades ej." });
+}
+
+// ==========================================
+// 4b. SNÖZONER (ritas på iPad, visas för förarna i Snöjour)
+// Fliken "Snözoner" skapas automatiskt. Geometri sparas som JSON [[lat,lng],...].
+// ==========================================
+const SNOW_HEADERS = ["Zon-ID", "Slinga", "Ordning", "Fastighet/Adress", "Typ", "Geometri (JSON)", "Yta (m2)", "Anteckning", "Uppdaterad av", "Uppdaterad"];
+const SNOW_TYPES = ["maskin", "hand", "stracka", "kantsten", "lucka", "trappa"];
+
+function getSnowSheet() {
+  return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Snözoner", SNOW_HEADERS);
+}
+
+function handleGetSnowZones() {
+  const rows = getSnowSheet().getDataRange().getValues();
+  const zones = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    let coords = [];
+    try { coords = JSON.parse(rows[i][5] || "[]"); } catch (err) { coords = []; }
+    zones.push({
+      id: String(rows[i][0]),
+      slinga: String(rows[i][1] || ""),
+      order: Number(rows[i][2] || 0),
+      property: String(rows[i][3] || ""),
+      type: String(rows[i][4] || "maskin"),
+      coords: coords,
+      areaM2: Number(rows[i][6] || 0),
+      note: String(rows[i][7] || "")
+    });
+  }
+  return createJsonResponse({ status: "success", zones: zones });
+}
+
+function handleSaveSnowZone(zone, savedBy) {
+  if (!zone) return createJsonResponse({ status: "error", message: "Ingen zon skickades." });
+  if (SNOW_TYPES.indexOf(zone.type) === -1) return createJsonResponse({ status: "error", message: "Okänd zontyp." });
+  const coords = Array.isArray(zone.coords) ? zone.coords : [];
+  const validCoords = coords.length > 0 && coords.length <= 500 && coords.every(c =>
+    Array.isArray(c) && c.length === 2 && isFinite(c[0]) && isFinite(c[1]) && Math.abs(c[0]) <= 90 && Math.abs(c[1]) <= 180);
+  if (!validCoords) return createJsonResponse({ status: "error", message: "Ogiltig geometri." });
+
+  const sheet = getSnowSheet();
+  const id = zone.id ? String(zone.id) : ("Z-" + Utilities.getUuid().slice(0, 8));
+  const rowData = [
+    id,
+    sanitize(zone.slinga),
+    Number(zone.order) || 0,
+    sanitize(zone.property),
+    zone.type,
+    JSON.stringify(coords.map(c => [Number(Number(c[0]).toFixed(7)), Number(Number(c[1]).toFixed(7))])),
+    Math.round(Number(zone.areaM2) || 0),
+    sanitize(zone.note),
+    sanitize(savedBy),
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm")
+  ];
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === id) {
+      sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
+      return createJsonResponse({ status: "success", id: id });
+    }
+  }
+  sheet.appendRow(rowData);
+  return createJsonResponse({ status: "success", id: id });
+}
+
+function handleDeleteSnowZone(zoneId) {
+  const sheet = getSnowSheet();
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(zoneId)) {
+      sheet.deleteRow(i + 1);
+      return createJsonResponse({ status: "success" });
+    }
+  }
+  return createJsonResponse({ status: "error", message: "Zonen hittades inte." });
 }
 
 // ==========================================

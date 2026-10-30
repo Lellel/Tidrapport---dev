@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Snöjour</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root { --bg: #0b1220; --panel: #111a2e; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { display: flex; flex-direction: column; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: calc(env(safe-area-inset-top) + 10px) 14px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    header a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
+    h1 { font-size: 16px; margin: 0; }
+    .map-wrap { position: relative; height: 50vh; flex-shrink: 0; }
+    #map { height: 100%; width: 100%; }
+    .map-buttons { position: absolute; right: 10px; bottom: 10px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
+    .map-buttons button { min-height: 40px; padding: 0 12px; background: rgba(17,26,46,.92); }
+    .map-buttons button.active { background: var(--accent); color: #0b1220; }
+    .sheet { flex: 1; overflow-y: auto; padding: 12px 14px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 12px; }
+    select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
+    button { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
+    .btn-start { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 16px; }
+    .btn-stop { background: var(--danger); border-color: var(--danger); color: #fff; font-size: 16px; }
+    .timer { text-align: center; font-size: 13px; color: var(--muted); }
+    .timer b { color: var(--text); font-size: 22px; font-variant-numeric: tabular-nums; display: block; }
+    .gps-status { font-size: 12px; color: var(--muted); }
+    .obj { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+    .obj-num { width: 28px; height: 28px; border-radius: 50%; background: #17223b; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
+    .obj-body { flex: 1; min-width: 0; }
+    .obj-title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .obj-meta { font-size: 12px; color: var(--muted); }
+    .obj-note { font-size: 12px; color: var(--warn); margin-top: 2px; }
+    .obj a { color: var(--accent); font-size: 12px; font-weight: 700; text-decoration: none; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; white-space: nowrap; }
+    .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px 0; }
+    .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
+    .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="index.html">← Tidrapport</a>
+    <h1>❄️ Snöjour</h1>
+    <a href="snozoner.html" id="link-draw" style="visibility:hidden;">Rita ✏️</a>
+  </header>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="map-buttons">
+      <button id="btn-follow" onclick="toggleFollow()">📍 Följ mig</button>
+      <button onclick="toggleTiles()">🗺️ Karta</button>
+    </div>
+  </div>
+
+  <div class="sheet">
+    <select id="slinga-select" onchange="selectSlinga(this.value)"></select>
+    <div id="time-box"></div>
+    <div class="gps-status" id="gps-status">GPS startar…</div>
+    <div id="obj-list"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="config.js"></script>
+  <script src="sno.js"></script>
+  <script>
+    let mapCtl, map;
+    let zones = [];
+    let zoneLayers = [];
+    let currentSlinga = localStorage.getItem('lpv_sno_slinga') || '';
+    let myPos = null, meMarker = null, accuracyCircle = null;
+    let following = false;
+    let tilesSat = true;
+    let timerInterval = null;
+
+    // ---------- PASS / TID (sparas som vanligt pass i tidrapportens utkorg) ----------
+    function loadDrafts() {
+      try { return JSON.parse(localStorage.getItem('tidrapport_drafts') || localStorage.getItem('lpv_tidrapport_drafts') || '[]'); }
+      catch (e) { return []; }
+    }
+    function saveDrafts(drafts) {
+      const json = JSON.stringify(drafts);
+      localStorage.setItem('tidrapport_drafts', json);
+      localStorage.setItem('lpv_tidrapport_drafts', json);
+    }
+    function nowHHMM() {
+      const d = new Date();
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+    function localDate() {
+      const d = new Date();
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    }
+    function hoursBetween(start, end) {
+      const [sh, sm] = start.split(':').map(Number), [eh, em] = end.split(':').map(Number);
+      let diff = (eh + em / 60) - (sh + sm / 60);
+      if (diff < 0) diff += 24;
+      return diff;
+    }
+    function activeSnowDraft() {
+      return loadDrafts().find(d => d.snoSlinga && !d.end);
+    }
+
+    function startSlinga() {
+      if (!currentSlinga) return;
+      const drafts = loadDrafts();
+      const ongoing = drafts.find(d => !d.end);
+      if (ongoing) {
+        if (!confirm(`Du har redan "${ongoing.activity}" (${ongoing.place}) pågående.\n\nStämpla ut det och starta ${currentSlinga}?`)) return;
+        ongoing.end = nowHHMM();
+        ongoing.totalHours = hoursBetween(ongoing.start, ongoing.end).toFixed(1);
+      }
+      const count = zonesInSlinga().filter(z => SNO_TYPES[z.type].kind !== 'marker').length;
+      drafts.push({
+        id: Date.now(), type: 'nya', ataNumber: '', date: localDate(), user: snoCurrentUser(),
+        place: currentSlinga, activity: 'Snöröjning', notes: `Snöjour: slinga ${currentSlinga} (${count} objekt)`,
+        start: nowHHMM(), end: '', totalHours: '0.0', images: [], snoSlinga: currentSlinga
+      });
+      saveDrafts(drafts);
+      renderTimeBox();
+    }
+
+    function stopSlinga() {
+      const drafts = loadDrafts();
+      const draft = drafts.find(d => d.snoSlinga && !d.end);
+      if (!draft) return;
+      draft.end = nowHHMM();
+      draft.totalHours = hoursBetween(draft.start, draft.end).toFixed(1);
+      saveDrafts(drafts);
+      alert(`Klart! ${draft.place}: ${draft.start}–${draft.end} (${draft.totalHours} h).\n\nPasset skickas från Tidrapporten.`);
+      window.location.href = 'index.html';
+    }
+
+    function renderTimeBox() {
+      const box = document.getElementById('time-box');
+      clearInterval(timerInterval);
+      const draft = activeSnowDraft();
+      if (draft) {
+        const update = () => {
+          const [h, m] = draft.start.split(':').map(Number);
+          const start = new Date(); start.setHours(h, m, 0, 0);
+          let mins = Math.floor((Date.now() - start) / 60000);
+          if (mins < 0) mins += 1440; // startade före midnatt
+          box.innerHTML = `<div class="timer">Plogar ${snoEscape(draft.place)} sedan ${draft.start}<b>${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} min</b></div>
+            <button class="btn-stop" style="width:100%; margin-top:8px;" onclick="stopSlinga()">⏹ Klar med slingan</button>`;
+        };
+        update();
+        timerInterval = setInterval(update, 30000);
+      } else {
+        box.innerHTML = currentSlinga
+          ? `<button class="btn-start" style="width:100%;" onclick="startSlinga()">▶️ Starta ${snoEscape(currentSlinga)}</button>`
+          : '';
+      }
+    }
+
+    // ---------- SLINGOR & OBJEKT ----------
+    function zonesInSlinga() {
+      return zones.filter(z => !currentSlinga || z.slinga === currentSlinga).sort((a, b) => a.order - b.order);
+    }
+
+    function selectSlinga(name) {
+      currentSlinga = name;
+      localStorage.setItem('lpv_sno_slinga', name);
+      renderZones();
+      renderTimeBox();
+      fitToSlinga();
+    }
+
+    function renderSlingaSelect() {
+      const slingor = snoSlingor(zones);
+      const active = activeSnowDraft();
+      if (active) currentSlinga = active.snoSlinga;
+      if (currentSlinga && !slingor.includes(currentSlinga)) currentSlinga = '';
+      document.getElementById('slinga-select').innerHTML =
+        `<option value="">Alla slingor (${zones.length} objekt)</option>` +
+        slingor.map(s => `<option value="${snoEscape(s)}" ${s === currentSlinga ? 'selected' : ''}>${snoEscape(s)}</option>`).join('');
+    }
+
+    function renderZones() {
+      zoneLayers.forEach(l => map.removeLayer(l));
+      zoneLayers = zonesInSlinga().map(z => snoRenderZone(map, z));
+      renderList();
+    }
+
+    function renderList() {
+      const list = zonesInSlinga();
+      if (!list.length) {
+        document.getElementById('obj-list').innerHTML = '<div class="empty">Inga zoner ritade ännu.</div>';
+        return;
+      }
+      document.getElementById('obj-list').innerHTML = list.map((z, i) => {
+        const center = snoCenter(z.coords);
+        const def = SNO_TYPES[z.type];
+        const dist = myPos ? ` · ${snoFormatDistance(snoDistance(myPos, center))} bort` : '';
+        return `<div class="obj">
+          <div class="obj-num" onclick="focusZone('${snoEscape(z.id)}')">${def.icon || (i + 1)}</div>
+          <div class="obj-body" onclick="focusZone('${snoEscape(z.id)}')">
+            <div class="obj-title">${snoEscape(z.property)}</div>
+            <div class="obj-meta">${def.label}${z.areaM2 ? ' · ' + Math.round(z.areaM2).toLocaleString('sv-SE') + ' m²' : ''}${currentSlinga ? '' : ' · ' + snoEscape(z.slinga)}${dist}</div>
+            ${z.note ? `<div class="obj-note">${snoEscape(z.note)}</div>` : ''}
+          </div>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${center[0]},${center[1]}" target="_blank" rel="noopener">Kör dit</a>
+        </div>`;
+      }).join('');
+    }
+
+    function focusZone(id) {
+      const zone = zones.find(z => z.id === id);
+      if (!zone) return;
+      following = false; updateFollowButton();
+      map.setView(snoCenter(zone.coords), 18);
+    }
+
+    function fitToSlinga() {
+      const pts = zonesInSlinga().flatMap(z => z.coords);
+      if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 18 });
+    }
+
+    async function loadZones() {
+      try {
+        const res = await snoApi({ action: 'getSnowZones' });
+        if (res.status !== 'success') {
+          document.getElementById('obj-list').innerHTML = `<div class="empty">❌ ${snoEscape(res.message || 'Kunde inte hämta zoner.')}</div>`;
+          return;
+        }
+        zones = res.zones || [];
+        localStorage.setItem('lpv_sno_cache', JSON.stringify(zones));
+      } catch (err) {
+        // Utan nät: visa senast hämtade zoner
+        zones = JSON.parse(localStorage.getItem('lpv_sno_cache') || '[]');
+        document.getElementById('gps-status').innerText = 'Ingen kontakt – visar senast sparade zoner.';
+      }
+      renderSlingaSelect();
+      renderZones();
+      renderTimeBox();
+      fitToSlinga();
+    }
+
+    // ---------- GPS ----------
+    function toggleFollow() {
+      following = !following;
+      updateFollowButton();
+      if (following && myPos) map.setView(myPos, Math.max(map.getZoom(), 17));
+      if (following && !myPos) document.getElementById('gps-status').innerText = 'Väntar på GPS…';
+    }
+    function updateFollowButton() {
+      document.getElementById('btn-follow').classList.toggle('active', following);
+    }
+    function toggleTiles() {
+      tilesSat = !tilesSat;
+      mapCtl.setTiles(tilesSat ? 'sat' : 'street');
+    }
+
+    function startGps() {
+      if (!('geolocation' in navigator)) {
+        document.getElementById('gps-status').innerText = 'GPS stöds inte i den här webbläsaren.';
+        return;
+      }
+      navigator.geolocation.watchPosition((pos) => {
+        myPos = [pos.coords.latitude, pos.coords.longitude];
+        const acc = Math.round(pos.coords.accuracy);
+        if (!meMarker) {
+          meMarker = L.marker(myPos, { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18] }), zIndexOffset: 1000 }).addTo(map);
+          accuracyCircle = L.circle(myPos, { radius: acc, color: '#3b82f6', weight: 1, fillOpacity: 0.1 }).addTo(map);
+        } else {
+          meMarker.setLatLng(myPos);
+          accuracyCircle.setLatLng(myPos).setRadius(acc);
+        }
+        if (following) map.setView(myPos, map.getZoom());
+        document.getElementById('gps-status').innerText = `📍 GPS aktiv (±${acc} m)`;
+        renderList();
+      }, (err) => {
+        document.getElementById('gps-status').innerText = err.code === 1
+          ? 'GPS nekad. Tillåt plats för den här sidan i telefonens inställningar.'
+          : 'Hittar ingen GPS-position just nu.';
+      }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+    }
+
+    mapCtl = snoCreateMap('map');
+    map = mapCtl.map;
+    map.on('dragstart', () => { following = false; updateFollowButton(); });
+    if (snoIsAdmin()) document.getElementById('link-draw').style.visibility = 'visible';
+    loadZones();
+    startGps();
+  </script>
+</body>
+</html>

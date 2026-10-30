@@ -80,7 +80,37 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Tryck på mittkortet → detaljrutan öppnas
 - [ ] "Utförd & Avbockad" fungerar
 
-## 8. Utseende
+## 8. Snözoner – rita (iPad, admin)
+
+Öppnas via sidomenyn → **❄️ Rita snözoner** (eller `snozoner.html`).
+- [ ] Kartan visar Flen med satellitbild, **Vägkarta**-knappen byter karta
+- [ ] Fyll i Slinga, Fastighet/Adress och Ordning → välj **Maskinzon** → tryck ut hörnen runt en yta
+- [ ] Ytan i m² visas medan du ritar och verkar rimlig
+- [ ] **↶ Ångra punkt** tar bort senaste hörnet, **✕ Avbryt** rensar
+- [ ] **💾 Spara zon** → "✅ Sparad", Ordning räknas upp ett steg, zonen syns i listan
+- [ ] Fliken **Snözoner** i kalkylarket har fått en rad
+- [ ] Rita en **Sträcka** och sätt ut en **Kantsten** / **Brunnslock** / **Trappa**
+- [ ] Tryck på en sparad zon → uppgifterna fylls i → ändra anteckningen → **Spara ändringar**
+- [ ] Tryck på en sparad zon → **🗑️ Ta bort vald zon** → borta från kartan och arket
+- [ ] Logga in som förare och öppna `snozoner.html` → röd ruta "Bara admin kan spara"
+
+## 9. Snöjour – förarens vy (telefon)
+
+Öppnas via knappen **❄️ Snöjour – karta & GPS** under formuläret.
+- [ ] Telefonen frågar om platsåtkomst → Tillåt → "📍 GPS aktiv" och en blå prick på kartan
+- [ ] **📍 Följ mig** håller kartan centrerad när du rör dig, drar du i kartan slutar den följa
+- [ ] Välj en slinga (även någon annans) → bara den slingans zoner visas, i rätt ordning
+- [ ] Avstånd till varje objekt visas och ändras när du rör dig
+- [ ] Anteckningar (t.ex. "låg grind") syns i gult
+- [ ] **Kör dit** öppnar Google Maps med vägbeskrivning
+- [ ] **▶️ Starta slinga** → timer visar hur länge du plogat
+- [ ] Stäng appen och öppna igen → slingan pågår fortfarande med rätt starttid
+- [ ] **⏹ Klar med slingan** → tillbaka till Tidrapporten, passet skickas
+- [ ] Fliken Tidrapporter: plats = slingans namn, aktivitet = Snöröjning, rätt tider och ditt namn
+- [ ] Starta en slinga när ett annat pass pågår → frågar om det andra ska stämplas ut
+- [ ] Flygplansläge → öppna Snöjour → senast hämtade zoner visas ändå
+
+## 10. Utseende
 
 - [ ] Ingen sida går att scrolla i sidled på telefonen
 - [ ] Mörkt/ljust läge ser rätt ut
