@@ -8,6 +8,8 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 ## 0. Förberedelser (en gång)
 
 - [ ] Klistra in nya `Kod.gs` i dev-versionens Apps Script → **Distribuera → Hantera distributioner → Redigera → Ny version**
+- [ ] Godkänn de nya behörigheterna när Apps Script frågar (Kartor/Maps och Drive behövs för fastigheter och foton)
+- [ ] `GEMINI_API_KEY` finns i **Projektinställningar → Skriptegenskaper** (för AI-kulorna)
 - [ ] Kolla att `config.js` i dev pekar på dev-versionens Apps Script-URL (inte prod)
 - [ ] Öppna dev-appen i telefonen. Står det **DEV v4.7.1** uppe till höger?
 
@@ -93,13 +95,18 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Tryck på en sparad zon → uppgifterna fylls i → ändra anteckningen → **Spara ändringar**
 - [ ] Tryck på en sparad zon → **🗑️ Ta bort vald zon** → borta från kartan och arket
 - [ ] Logga in som förare och öppna `snozoner.html` → röd ruta "Bara admin kan spara"
+- [ ] Rutan **Förare per slinga**: tryck på ett namn → blir grönt och fliken **Slingor** i arket uppdateras
+- [ ] Slinga utan förare visar "⚠️ Ingen förare tilldelad"
 
 ## 9. Snöjour – förarens vy (telefon)
 
 Öppnas via knappen **❄️ Snöjour – karta & GPS** under formuläret.
 - [ ] Telefonen frågar om platsåtkomst → Tillåt → "📍 GPS aktiv" och en blå prick på kartan
 - [ ] **📍 Följ mig** håller kartan centrerad när du rör dig, drar du i kartan slutar den följa
-- [ ] Välj en slinga (även någon annans) → bara den slingans zoner visas, i rätt ordning
+- [ ] Förare **utan** tilldelad slinga → "Du har ingen slinga tilldelad ännu"
+- [ ] Admin tilldelar slingan → föraren laddar om → slingan visas direkt, i rätt ordning
+- [ ] Förare med flera slingor → kan växla mellan bara sina egna
+- [ ] Hoppa in åt någon: admin lägger till dig på den slingan → du ser den
 - [ ] Avstånd till varje objekt visas och ändras när du rör dig
 - [ ] Anteckningar (t.ex. "låg grind") syns i gult
 - [ ] **Kör dit** öppnar Google Maps med vägbeskrivning
@@ -110,7 +117,34 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Starta en slinga när ett annat pass pågår → frågar om det andra ska stämplas ut
 - [ ] Flygplansläge → öppna Snöjour → senast hämtade zoner visas ändå
 
-## 10. Utseende
+## 10. Snöplanering – fastigheter & traktorer (admin)
+
+Öppnas via admin-panelen → **❄️ Snöplanering** (eller sidomenyn).
+
+**Traktorer**
+- [ ] Lägg till "Kramer 8095" → föreslås **Stor**. "Avant 760i" → föreslås **Liten**
+- [ ] Byt storlek med 🟠/🔵 – kulan blir stor/liten
+- [ ] **✨ Skapa AI-kula** → snurrar 10–30 s → en Bob the Builder-traktor i glaskula 🎉
+- [ ] Bilden hamnar i Drive-mappen **Traktor-kulor** och syns även efter omladdning
+- [ ] Rapportera ett pass från en annan telefon medan kulan skapas → går igenom direkt
+- [ ] **⏸ Ur tjänst** → kulan blir grå, räknas inte i "i tjänst"
+- [ ] Fliken **Traktorer** i arket stämmer
+
+**Fastigheter**
+- [ ] Lägg till en adress → hittas på kartan, orten fylls i automatiskt
+- [ ] Felstavad adress → varning + **📍 Flytta på kartan** → tryck på kartan → positionen sparas
+- [ ] Kortet visar ett hål: **Stor** = stort orange hål, **Liten** = litet blått hål, saknas = rött ?
+- [ ] Liten fastighet: texten säger att bara liten kula passar
+- [ ] **💪 Tvinga stor** (bara på små) → frågar först → kortet märks TVINGAD
+- [ ] **⭐ Prioritera** → märks PRIO i listan och får gul ring på kartan
+- [ ] Skriv i "Att tänka på" → sparas när du lämnar fältet
+- [ ] **📷 Lägg till foto** → hamnar i Drive-mappen **Fastighetsfoton** och visas på kortet
+- [ ] Ta bort ett foto med ✕
+- [ ] Filtret **⚠️ Saknar storlek** visar bara de som behöver fyllas i
+- [ ] När inget saknas: "✅ Alla kort har storlek – redo att generera slingor"
+- [ ] Fliken **Fastigheter** i arket stämmer
+
+## 11. Utseende
 
 - [ ] Ingen sida går att scrolla i sidled på telefonen
 - [ ] Mörkt/ljust läge ser rätt ut
