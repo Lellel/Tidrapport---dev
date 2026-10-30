@@ -190,9 +190,10 @@
             <button type="button" class="admin-btn" onclick="adminSendEmail()">✉️ Mail</button>
             <button type="button" class="admin-btn" onclick="toggleAdminQR()">🏁 QR</button>
           </div>
+          <button type="button" class="admin-btn" style="width:100%; margin-top:8px;" onclick="adminResetKey()">🔑 Spärra & skapa ny länk</button>
           <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 12px;">
             <div id="admin-qr-caption" style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Skanna för att logga in:</div>
-            <img id="admin-qr-image" src="" alt="Inloggnings-QR" style="width: 140px; height: 140px; border-radius: 10px; background: #FFF; margin: 0 auto; display: block;">
+            <div id="admin-qr-code" style="width: 176px; margin: 0 auto; padding: 8px; border-radius: 10px; background: #FFF;"></div>
           </div>
           <button type="button" class="main-btn" style="width:100%; margin-top:10px; background:var(--orange); color:#FFF; min-height:48px;" onclick="openKabanossModal()">
             🌭 Öppna Flygledartornet
@@ -284,6 +285,7 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>

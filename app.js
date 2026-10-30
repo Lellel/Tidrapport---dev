@@ -39,9 +39,38 @@ if (appUrlParams.has('admin')) {
   localStorage.setItem('lpv_is_admin', isAdm ? 'true' : 'false');
 }
 
+// Personlig nyckel från inloggningslänken (?user=Namn&key=...). Sparas i telefonen
+// och tas bort ur adressfältet så att den inte syns på skärmdumpar.
+if (appUrlParams.has('key')) {
+  localStorage.setItem('lpv_key', appUrlParams.get('key'));
+  const cleanParams = new URLSearchParams(window.location.search);
+  cleanParams.delete('key');
+  const cleanQuery = cleanParams.toString();
+  history.replaceState(null, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : ''));
+}
+
 window.currentUser = appUrlParams.get('user') || localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || 'Daniel';
 var currentUser = window.currentUser;
 let isAdmin = localStorage.getItem('lpv_is_admin') === 'true';
+
+// Alla anrop till backend går härigenom: skickar med användare + personlig nyckel.
+// Gamla gemensamma nyckeln (CONFIG.API_TOKEN) skickas bara om den finns kvar i config.js.
+function getAuthFields() {
+  const auth = { user: currentUser, key: localStorage.getItem('lpv_key') || '' };
+  if (typeof CONFIG !== 'undefined' && CONFIG.API_TOKEN) auth.token = CONFIG.API_TOKEN;
+  return auth;
+}
+
+async function apiPost(payload) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    redirect: 'follow',
+    body: JSON.stringify({ ...getAuthFields(), ...payload })
+  });
+  return res.json();
+}
+window.getAuthFields = getAuthFields;
 
 // ==========================================
 // INDEXED DB & LOCALSTORAGE VALV
@@ -289,18 +318,7 @@ async function fetchPlannedJobs() {
   if (!navigator.onLine) return;
   const chosenDate = document.getElementById('input-date')?.value || new Date().toISOString().split('T')[0];
   try {
-    const res = await fetch(CONFIG.API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      redirect: 'follow',
-      body: JSON.stringify({
-        token: CONFIG.API_TOKEN,
-        action: 'getJobs',
-        date: chosenDate,
-        user: currentUser
-      })
-    });
-    const data = await res.json();
+    const data = await apiPost({ action: 'getJobs', date: chosenDate });
     if (data.status === 'success') {
       plannedJobs = data.events || [];
       renderOutbox();
@@ -568,15 +586,7 @@ async function submitAll(silent = false) {
   }
 
   try {
-    const res = await fetch(CONFIG.API_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        token: CONFIG.API_TOKEN,
-        action: 'batchReports',
-        pass: readyToSend
-      })
-    });
-    const result = await res.json();
+    const result = await apiPost({ action: 'batchReports', pass: readyToSend });
     if (result && result.status === 'success') {
       if (!silent) alert(`Klart! ${result.count || readyToSend.length} pass har sparats.`);
       const idsToRemove = readyToSend.map(d => d.id);
@@ -638,11 +648,7 @@ async function fetchAdminUsers() {
   if (!select) return;
   select.innerHTML = '<option value="">Hämtar...</option>';
   try {
-    const res = await fetch(CONFIG.API_URL, {
-      method: 'POST',
-      body: JSON.stringify({ token: CONFIG.API_TOKEN, action: 'getUsers' })
-    });
-    const data = await res.json();
+    const data = await apiPost({ action: 'getUsers' });
     if (data.status === 'success') {
       adminUserList = data.users;
       hasFetchedUsers = true;
@@ -677,62 +683,93 @@ function onAdminUserSelect() {
   updateAdminTargetLink();
 }
 
-function getAdminTargetUrl() {
+// Bygger personens inloggningslänk med personlig nyckel (hämtas/skapas i backend).
+// reset=true ger personen en ny nyckel och spärrar den gamla länken.
+async function getAdminTargetUrl(reset = false) {
   const targetUser = document.getElementById('admin-target-user')?.value.trim();
   const targetIsAdmin = document.getElementById('admin-target-is-admin')?.checked;
+  if (!targetUser) {
+    alert('Välj en person först.');
+    return null;
+  }
+  const data = await apiPost({ action: 'getUserKey', targetUser: targetUser, reset: reset });
+  if (data.status !== 'success') {
+    alert('Kunde inte hämta inloggningsnyckel: ' + (data.message || 'Okänt fel'));
+    return null;
+  }
   const baseUrl = window.location.origin + window.location.pathname;
   const params = new URLSearchParams();
-  if (targetUser) params.set('user', targetUser);
+  params.set('user', data.user);
+  params.set('key', data.key);
   if (targetIsAdmin) params.set('admin', 'true');
-  const queryString = params.toString();
-  return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+  return `${baseUrl}?${params.toString()}`;
 }
 
-function updateAdminTargetLink() {
-  const qrBox = document.getElementById('admin-qr-container');
-  const qrImg = document.getElementById('admin-qr-image');
+// QR-koden ritas lokalt i telefonen så att länken (med nyckel) aldrig skickas till en extern tjänst
+function renderAdminQR(targetUrl) {
+  const box = document.getElementById('admin-qr-code');
   const caption = document.getElementById('admin-qr-caption');
-  if (qrBox && qrBox.style.display === 'block' && qrImg) {
-    const targetUrl = getAdminTargetUrl();
-    const targetUser = document.getElementById('admin-target-user')?.value.trim();
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(targetUrl)}`;
-    if (caption) {
-      caption.innerText = targetUser ? `Skanna för att logga in som ${targetUser}:` : "Skanna för att logga in:";
-    }
+  const targetUser = document.getElementById('admin-target-user')?.value.trim();
+  if (!box) return;
+  box.innerHTML = '';
+  if (typeof QRCode === 'undefined') {
+    box.innerText = 'QR-biblioteket kunde inte laddas.';
+    return;
+  }
+  new QRCode(box, { text: targetUrl, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
+  if (caption) caption.innerText = targetUser ? `Skanna för att logga in som ${targetUser}:` : "Skanna för att logga in:";
+}
+
+async function updateAdminTargetLink() {
+  const qrBox = document.getElementById('admin-qr-container');
+  if (qrBox && qrBox.style.display === 'block') {
+    const targetUrl = await getAdminTargetUrl();
+    if (targetUrl) renderAdminQR(targetUrl);
   }
 }
 
-function adminSendSMS() {
-  const targetUrl = getAdminTargetUrl();
+async function adminSendSMS() {
+  const targetUrl = await getAdminTargetUrl();
+  if (!targetUrl) return;
   const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
   const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
-  const message = `Hej ${targetUser}! Här är din inloggningslänk till LPV Tidrapport: ${targetUrl}`;
+  const message = `Hej ${targetUser}! Här är din personliga inloggningslänk till LPV Tidrapport (dela den inte): ${targetUrl}`;
   if (phone) window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(message)}`;
   else window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
 }
 
-function adminSendEmail() {
-  const targetUrl = getAdminTargetUrl();
+async function adminSendEmail() {
+  const targetUrl = await getAdminTargetUrl();
+  if (!targetUrl) return;
   const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
   const subject = "Inloggning LPV Tidrapport";
-  const body = `Hej ${targetUser}!\n\nHär är din inloggningslänk till LPV Tidrapport:\n${targetUrl}\n\nKlicka på länken från din telefon för att logga in.`;
+  const body = `Hej ${targetUser}!\n\nHär är din personliga inloggningslänk till LPV Tidrapport:\n${targetUrl}\n\nKlicka på länken från din telefon för att logga in. Dela inte länken med någon annan.`;
   window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-function toggleAdminQR() {
+async function toggleAdminQR() {
   const qrBox = document.getElementById('admin-qr-container');
-  const qrImg = document.getElementById('admin-qr-image');
-  const caption = document.getElementById('admin-qr-caption');
-  if (!qrBox || !qrImg) return;
+  if (!qrBox) return;
   if (qrBox.style.display === 'none' || qrBox.style.display === '') {
-    const targetUrl = getAdminTargetUrl();
-    const targetUser = document.getElementById('admin-target-user')?.value.trim();
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(targetUrl)}`;
-    if (caption) caption.innerText = targetUser ? `Skanna för att logga in som ${targetUser}:` : "Skanna för att logga in:";
+    const targetUrl = await getAdminTargetUrl();
+    if (!targetUrl) return;
+    renderAdminQR(targetUrl);
     qrBox.style.display = 'block';
   } else {
     qrBox.style.display = 'none';
   }
+}
+
+// Spärra personens gamla länk och skapa en ny nyckel
+async function adminResetKey() {
+  const targetUser = document.getElementById('admin-target-user')?.value.trim();
+  if (!targetUser) { alert('Välj en person först.'); return; }
+  if (!confirm(`Spärra ${targetUser}s nuvarande inloggningslänk och skapa en ny?\n\n${targetUser} behöver då få den nya länken.`)) return;
+  const targetUrl = await getAdminTargetUrl(true);
+  if (!targetUrl) return;
+  alert(`Klart! ${targetUser}s gamla länk fungerar inte längre. Skicka den nya via SMS, Mail eller QR.`);
+  const qrBox = document.getElementById('admin-qr-container');
+  if (qrBox && qrBox.style.display === 'block') renderAdminQR(targetUrl);
 }
 
 // FORDONSPARK & UTRUSTNING (v3.5 Postis Per 3D-Glas)
@@ -1161,10 +1198,16 @@ window.calculateOffert = calcOffert;
 // iMESSAGE & KUNDPORTAL LOGIK (v4.5)
 // ==========================================
 
+// Kundlänkar: ?ata=ID&code=KOD eller ?offert=ID&code=KOD. Koden signeras i backend
+// så att ingen kan godkänna åt kunden genom att gissa ett nummer.
+let customerDocCode = '';
+
 function checkCustomerUrlParams() {
   const urlParams = new URLSearchParams(window.location.search);
-  const ataId = urlParams.get('ata');
-  const offertId = urlParams.get('offert');
+  const safeId = (v) => (v && /^[A-Za-z0-9_-]{1,40}$/.test(v)) ? v : null;
+  const ataId = safeId(urlParams.get('ata'));
+  const offertId = safeId(urlParams.get('offert'));
+  customerDocCode = (urlParams.get('code') || '').replace(/[^A-Za-z0-9_-]/g, '');
 
   if (ataId) {
     renderPublicCustomerView('ata', ataId);
@@ -1173,20 +1216,30 @@ function checkCustomerUrlParams() {
   }
 }
 
-function sendAtaViaIMessage(ataId, phone, title) {
+async function buildCustomerLink(docType, docId) {
+  const data = await apiPost({ action: 'signDocument', docType: docType, docId: docId });
+  if (data.status !== 'success') {
+    alert('Kunde inte skapa kundlänk: ' + (data.message || 'Okänt fel'));
+    return null;
+  }
+  const baseUrl = window.location.origin + window.location.pathname;
+  return `${baseUrl}?${docType}=${encodeURIComponent(docId)}&code=${encodeURIComponent(data.code)}`;
+}
+
+async function sendAtaViaIMessage(ataId, phone, title) {
   const customerPhone = phone || prompt("Ange kundens mobilnummer:", "0701234567");
   if (!customerPhone) return;
-  const baseUrl = window.location.origin + window.location.pathname;
-  const link = `${baseUrl}?ata=${ataId}`;
+  const link = await buildCustomerLink('ata', ataId);
+  if (!link) return;
   const text = `Hej! Ett tilläggsarbete (${ataId}) har registrerats för ${title || 'ert projekt'}. Klicka på länken för att se foton och godkänna: ${link}`;
   window.open(`sms:${customerPhone}?&body=${encodeURIComponent(text)}`, '_self');
 }
 
-function sendOffertViaIMessage(offertId, phone, title, total) {
+async function sendOffertViaIMessage(offertId, phone, title, total) {
   const customerPhone = phone || prompt("Ange kundens mobilnummer:", "0701234567");
   if (!customerPhone) return;
-  const baseUrl = window.location.origin + window.location.pathname;
-  const link = `${baseUrl}?offert=${offertId}`;
+  const link = await buildCustomerLink('offert', offertId);
+  if (!link) return;
   const text = `Hej! Här kommer er offert (${offertId}) på ${total || 'överenskommet arbete'} för ${title || 'ert projekt'}. Klicka för att granska och godkänna: ${link}`;
   window.open(`sms:${customerPhone}?&body=${encodeURIComponent(text)}`, '_self');
 }
@@ -1224,8 +1277,8 @@ async function approveCustomerDocument(type, id) {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       body: JSON.stringify({
-        token: CONFIG.API_TOKEN,
         action: type === 'ata' ? 'approveAta' : 'approveOffert',
+        code: customerDocCode,
         documentId: id,
         ataId: type === 'ata' ? id : undefined,
         offertId: type === 'offert' ? id : undefined
@@ -1235,7 +1288,8 @@ async function approveCustomerDocument(type, id) {
     if (!result.success && result.status !== 'success') throw new Error(result.message || 'Okänt svar');
     if (statusDiv) statusDiv.innerHTML = "<span style='color:#10b981;'>🎉 Tack! Dokumentet är nu godkänt och signerat.</span>";
   } catch (err) {
-    if (statusDiv) statusDiv.innerHTML = "<span style='color:#ef4444;'>❌ Kunde inte spara. Försök igen.</span>";
+    if (statusDiv) statusDiv.textContent = "❌ " + (err.message && err.message.includes('länk') ? err.message : 'Kunde inte spara. Försök igen.');
+    if (statusDiv) statusDiv.style.color = '#ef4444';
   }
 }
 
