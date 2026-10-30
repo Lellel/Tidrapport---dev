@@ -75,7 +75,9 @@ function doPost(e) {
     if (!auth) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
     }
-    const adminOnly = ["getUsers", "getUserKey", "signDocument", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers"];
+    const adminOnly = ["getUsers", "getUserKey", "signDocument", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
+      "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -100,6 +102,18 @@ function doPost(e) {
     if (action === "save_ata") return handleSaveAta(data);
     if (action === "getSnowZones") return handleGetSnowZones(auth);
     if (action === "setSlingaDrivers") return handleSetSlingaDrivers(data, auth.user);
+    if (action === "getFleet") return handleGetFleet();
+    if (action === "saveTractor") return handleSaveTractor(data.tractor);
+    if (action === "deleteTractor") return handleDeleteById(getFleetSheet(), data.id);
+    if (action === "generateTractorAvatar") {
+      lock.releaseLock(); // AI-bilden tar 10-20 s – låt andra rapportera under tiden
+      return handleGenerateTractorAvatar(data.id);
+    }
+    if (action === "getProperties") return handleGetProperties();
+    if (action === "saveProperty") return handleSaveProperty(data.property);
+    if (action === "deleteProperty") return handleDeleteById(getPropertySheet(), data.id);
+    if (action === "addPropertyPhoto") return handleAddPropertyPhoto(data.id, data.imageBase64);
+    if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
 
@@ -206,7 +220,8 @@ function parseMachineModel(text) {
   const brands = [
     "kramer", "volvo", "cat", "caterpillar", "jcb", "ljungby",
     "avant", "bobcat", "manitou", "merlo", "kubota", "takeuchi",
-    "hitachi", "komatsu", "wacker", "neuson", "terex", "atlas", "kobelco"
+    "hitachi", "komatsu", "wacker", "neuson", "terex", "atlas", "kobelco",
+    "john deere", "deere", "valtra", "new holland", "massey", "fendt", "claas", "weidemann", "giant", "multione", "schäffer"
   ];
 
   const isMachine = brands.some(b => lower.includes(b)) ||
@@ -554,6 +569,234 @@ function handleDeleteSnowZone(zoneId) {
 }
 
 // ==========================================
+// 4c. SNÖPLANERING: TRAKTORER & FASTIGHETSKORT
+// Två storlekar: "stor" och "liten". En liten kula passar i båda hålen,
+// en stor kula bara i det stora – om inte fastigheten är tvingad.
+// ==========================================
+const FLEET_HEADERS = ["Traktor-ID", "Tillverkare & modell", "Storlek", "Ort / Uppställning", "Aktiv", "AI-kula (Drive-ID)", "Anteckning", "Uppdaterad"];
+const PROPERTY_HEADERS = ["Fastighets-ID", "Adress", "Ort", "Lat", "Lng", "Storlek", "Tvinga stor", "Prioritet", "Foton (Drive-ID)", "Anteckning", "Uppdaterad"];
+const SIZES = ["stor", "liten"];
+
+function getFleetSheet() { return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Traktorer", FLEET_HEADERS); }
+function getPropertySheet() { return getSheetOrCreate(SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID), "Fastigheter", PROPERTY_HEADERS); }
+
+function nowStamp() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm");
+}
+
+function findRowById(sheet, id) {
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) return { rowNumber: i + 1, row: rows[i] };
+  }
+  return null;
+}
+
+function upsertById(sheet, rowData) {
+  const hit = findRowById(sheet, rowData[0]);
+  if (hit) sheet.getRange(hit.rowNumber, 1, 1, rowData.length).setValues([rowData]);
+  else sheet.appendRow(rowData);
+}
+
+function handleDeleteById(sheet, id) {
+  const hit = findRowById(sheet, id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Hittades inte." });
+  sheet.deleteRow(hit.rowNumber);
+  return createJsonResponse({ status: "success" });
+}
+
+function isTrue(value) {
+  return value === true || String(value).trim().toLowerCase() === "true";
+}
+
+// Bilder i Drive: undermapp i bildmappen, delas med länk så att appen kan visa dem
+function saveImageToDrive(base64, folderName, fileName) {
+  const root = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
+  const existing = root.getFoldersByName(folderName);
+  const folder = existing.hasNext() ? existing.next() : root.createFolder(folderName);
+  const raw = String(base64 || "").replace(/^data:image\/\w+;base64,/, "");
+  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(raw), "image/jpeg", fileName));
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) { /* delning kan vara avstängd i Workspace */ }
+  return file.getId();
+}
+
+function driveImageUrl(fileId) {
+  return fileId ? "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w600" : "";
+}
+
+// ---------- TRAKTORER ----------
+// Föreslår storlek från tillverkare/modell. Tre gamla klasser blir två: liten = liten, allt annat = stor.
+function suggestTractorSize(model) {
+  const parsed = parseMachineModel(model);
+  if (!parsed) return "";
+  return parsed.sizeClass === "liten" ? "liten" : "stor";
+}
+
+function tractorFromRow(row) {
+  return {
+    id: String(row[0]),
+    model: String(row[1] || ""),
+    size: String(row[2] || ""),
+    base: String(row[3] || ""),
+    active: row[4] === "" ? true : isTrue(row[4]),
+    avatarUrl: driveImageUrl(String(row[5] || "")),
+    note: String(row[6] || "")
+  };
+}
+
+function handleGetFleet() {
+  const rows = getFleetSheet().getDataRange().getValues();
+  const fleet = [];
+  for (let i = 1; i < rows.length; i++) if (rows[i][0]) fleet.push(tractorFromRow(rows[i]));
+  return createJsonResponse({ status: "success", fleet: fleet });
+}
+
+function handleSaveTractor(t) {
+  if (!t || !String(t.model || "").trim()) return createJsonResponse({ status: "error", message: "Ange tillverkare och modell." });
+  const sheet = getFleetSheet();
+  const id = t.id ? String(t.id) : ("T-" + Utilities.getUuid().slice(0, 8));
+  const existing = findRowById(sheet, id);
+  const size = SIZES.indexOf(t.size) !== -1 ? t.size : (suggestTractorSize(t.model) || "stor");
+  const rowData = [id, sanitize(t.model), size, sanitize(t.base), t.active === false ? "FALSE" : "TRUE",
+    existing ? existing.row[5] : "", sanitize(t.note), nowStamp()];
+  upsertById(sheet, rowData);
+  return createJsonResponse({ status: "success", tractor: tractorFromRow(rowData), suggestedSize: suggestTractorSize(t.model) });
+}
+
+function handleGenerateTractorAvatar(id) {
+  const sheet = getFleetSheet();
+  const hit = findRowById(sheet, id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Traktorn hittades inte." });
+  const model = String(hit.row[1]);
+  const size = String(hit.row[2]) === "liten" ? "small compact" : "big heavy-duty";
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
+
+  const prompt = "A cheerful, friendly 3D animated character of a " + size + " " + model + " snow plough tractor, " +
+    "in the playful toy-like style of Bob the Builder: big expressive eyes in the windshield, a happy smiling front grille, " +
+    "glossy smooth plastic textures, a small snow plough blade at the front with a little snow on it. " +
+    "Brand colors: " + getBrandColorPrompt(model) + ". " +
+    "The character sits centered inside a shiny transparent glass sphere (a marble), soft studio lighting, " +
+    "snowflakes around, solid deep navy blue background, square image, no text, no logos.";
+
+  try {
+    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + apiKey, {
+      method: "post", contentType: "application/json", muteHttpExceptions: true,
+      payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    let json = {};
+    try { json = JSON.parse(response.getContentText()); } catch (e) { json = {}; }
+    const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
+    const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
+    if (response.getResponseCode() !== 200 || !imagePart) {
+      return createJsonResponse({ status: "error", message: "AI svarade inte med en bild (HTTP " + response.getResponseCode() + ")." });
+    }
+    const fileId = saveImageToDrive(imagePart.inlineData.data, "Traktor-kulor", id + "_" + Date.now() + ".jpg");
+    // Läs om raden – den kan ha ändrats under tiden AI:n arbetade
+    const fresh = findRowById(sheet, id);
+    if (!fresh) return createJsonResponse({ status: "error", message: "Traktorn togs bort under tiden." });
+    sheet.getRange(fresh.rowNumber, 6).setValue(fileId);
+    return createJsonResponse({ status: "success", avatarUrl: driveImageUrl(fileId) });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: "AI-fel: " + err.message });
+  }
+}
+
+// ---------- FASTIGHETSKORT ----------
+function propertyFromRow(row) {
+  let photos = [];
+  try { photos = JSON.parse(row[8] || "[]"); } catch (e) { photos = []; }
+  return {
+    id: String(row[0]),
+    address: String(row[1] || ""),
+    ort: String(row[2] || ""),
+    lat: row[3] === "" ? null : Number(row[3]),
+    lng: row[4] === "" ? null : Number(row[4]),
+    size: String(row[5] || ""),
+    forced: isTrue(row[6]),
+    priority: isTrue(row[7]),
+    photos: photos.map(pid => ({ id: pid, url: driveImageUrl(pid) })),
+    note: String(row[9] || "")
+  };
+}
+
+function handleGetProperties() {
+  const rows = getPropertySheet().getDataRange().getValues();
+  const properties = [];
+  for (let i = 1; i < rows.length; i++) if (rows[i][0]) properties.push(propertyFromRow(rows[i]));
+  return createJsonResponse({ status: "success", properties: properties });
+}
+
+// Adress -> position och ort via Googles inbyggda geokodare i Apps Script
+function geocodeAddress(address, ort) {
+  const query = [address, ort, "Sverige"].filter(Boolean).join(", ");
+  const res = Maps.newGeocoder().setRegion("se").setLanguage("sv").geocode(query);
+  if (!res || res.status !== "OK" || !res.results || !res.results.length) return null;
+  const best = res.results[0];
+  const comp = (best.address_components || []).find(c => c.types.indexOf("postal_town") !== -1 || c.types.indexOf("locality") !== -1);
+  return { lat: best.geometry.location.lat, lng: best.geometry.location.lng, ort: comp ? comp.long_name : "" };
+}
+
+function handleSaveProperty(p) {
+  if (!p || !String(p.address || "").trim()) return createJsonResponse({ status: "error", message: "Ange adress." });
+  const sheet = getPropertySheet();
+  const id = p.id ? String(p.id) : ("F-" + Utilities.getUuid().slice(0, 8));
+  const existing = findRowById(sheet, id);
+  const old = existing ? propertyFromRow(existing.row) : null;
+
+  let lat = isFinite(p.lat) && p.lat !== null ? Number(p.lat) : (old ? old.lat : null);
+  let lng = isFinite(p.lng) && p.lng !== null ? Number(p.lng) : (old ? old.lng : null);
+  let ort = sanitize(p.ort) || (old ? old.ort : "");
+  let geocodeNote = "";
+  const addressChanged = !old || old.address !== String(p.address).trim();
+  if (!p.manualPosition && (lat === null || lng === null || addressChanged)) {
+    try {
+      const geo = geocodeAddress(String(p.address).trim(), ort);
+      if (geo) { lat = geo.lat; lng = geo.lng; if (!ort) ort = geo.ort; }
+      else geocodeNote = "Hittade inte adressen på kartan – tryck på kartan för att sätta positionen.";
+    } catch (err) {
+      geocodeNote = "Kartsökningen misslyckades: " + err.message;
+    }
+  }
+
+  const rowData = [
+    id, sanitize(p.address), ort,
+    lat === null ? "" : Number(Number(lat).toFixed(7)),
+    lng === null ? "" : Number(Number(lng).toFixed(7)),
+    SIZES.indexOf(p.size) !== -1 ? p.size : "",
+    p.size === "liten" && p.forced ? "TRUE" : "FALSE",
+    p.priority ? "TRUE" : "FALSE",
+    existing ? existing.row[8] : "[]",
+    sanitize(p.note),
+    nowStamp()
+  ];
+  upsertById(sheet, rowData);
+  return createJsonResponse({ status: "success", property: propertyFromRow(rowData), geocodeNote: geocodeNote });
+}
+
+function handleAddPropertyPhoto(id, imageBase64) {
+  const sheet = getPropertySheet();
+  const hit = findRowById(sheet, id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  if (!imageBase64 || String(imageBase64).length > 8000000) return createJsonResponse({ status: "error", message: "Bilden saknas eller är för stor." });
+  const fileId = saveImageToDrive(imageBase64, "Fastighetsfoton", id + "_" + Date.now() + ".jpg");
+  const fresh = findRowById(sheet, id);
+  const photos = propertyFromRow(fresh.row).photos.map(ph => ph.id).concat([fileId]);
+  sheet.getRange(fresh.rowNumber, 9).setValue(JSON.stringify(photos));
+  return createJsonResponse({ status: "success", photo: { id: fileId, url: driveImageUrl(fileId) } });
+}
+
+function handleRemovePropertyPhoto(id, photoId) {
+  const sheet = getPropertySheet();
+  const hit = findRowById(sheet, id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const photos = propertyFromRow(hit.row).photos.map(ph => ph.id).filter(pid => pid !== photoId);
+  sheet.getRange(hit.rowNumber, 9).setValue(JSON.stringify(photos));
+  try { DriveApp.getFileById(photoId).setTrashed(true); } catch (err) { /* redan borta */ }
+  return createJsonResponse({ status: "success" });
+}
+
+// ==========================================
 // 5. AI-TRANSFORMERING & AVATAR GENERERING
 // ==========================================
 function handleClayTransformation(eData) {
@@ -646,6 +889,12 @@ function getBrandColorPrompt(machineName) {
   if (name.includes("bobcat")) return "classic Bobcat bright white body with iconic orange branding stripes and black accents";
   if (name.includes("ljungby")) return "distinctive Ljungby yellow chassis with subtle red and white trim details";
   if (name.includes("hitachi") || name.includes("kubota")) return "signature industrial orange body with black details";
+  if (name.includes("john deere") || name.includes("deere")) return "iconic John Deere green body with bright yellow wheel rims and leaping deer details";
+  if (name.includes("valtra")) return "glossy Valtra deep red body with black and silver details";
+  if (name.includes("new holland")) return "New Holland bright blue body with white and grey accents";
+  if (name.includes("massey")) return "Massey Ferguson classic red body with silver-grey trim";
+  if (name.includes("fendt")) return "Fendt nature green body with red wheel rims";
+  if (name.includes("weidemann") || name.includes("giant") || name.includes("schäffer")) return "compact loader in signature bright industrial colors with black counterweight";
 
   return "authentic industrial machinery colors matching the manufacturer";
 }

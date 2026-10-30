@@ -66,6 +66,7 @@
   <script>
     let mapCtl, map;
     let zones = [];
+    let mySlingor = [];
     let zoneLayers = [];
     let currentSlinga = localStorage.getItem('lpv_sno_slinga') || '';
     let myPos = null, meMarker = null, accuracyCircle = null;
@@ -166,13 +167,17 @@
       fitToSlinga();
     }
 
+    // Admin ser alla slingor. Förare ser bara de slingor admin har tilldelat dem.
     function renderSlingaSelect() {
-      const slingor = snoSlingor(zones);
+      const admin = snoIsAdmin();
+      const slingor = admin ? snoSlingor(zones) : mySlingor.filter(s => zones.some(z => z.slinga === s));
       const active = activeSnowDraft();
       if (active) currentSlinga = active.snoSlinga;
       if (currentSlinga && !slingor.includes(currentSlinga)) currentSlinga = '';
-      document.getElementById('slinga-select').innerHTML =
-        `<option value="">Alla slingor (${zones.length} objekt)</option>` +
+      if (!admin && !currentSlinga && slingor.length) currentSlinga = slingor[0];
+      const select = document.getElementById('slinga-select');
+      select.style.display = (!admin && slingor.length <= 1) ? 'none' : 'block';
+      select.innerHTML = (admin ? `<option value="">Alla slingor (${zones.length} objekt)</option>` : '') +
         slingor.map(s => `<option value="${snoEscape(s)}" ${s === currentSlinga ? 'selected' : ''}>${snoEscape(s)}</option>`).join('');
     }
 
@@ -185,7 +190,9 @@
     function renderList() {
       const list = zonesInSlinga();
       if (!list.length) {
-        document.getElementById('obj-list').innerHTML = '<div class="empty">Inga zoner ritade ännu.</div>';
+        document.getElementById('obj-list').innerHTML = snoIsAdmin()
+          ? '<div class="empty">Inga zoner ritade ännu.</div>'
+          : '<div class="empty">Du har ingen slinga tilldelad ännu.<br>Arbetsledaren lägger upp den åt dig.</div>';
         return;
       }
       document.getElementById('obj-list').innerHTML = list.map((z, i) => {
@@ -224,10 +231,12 @@
           return;
         }
         zones = res.zones || [];
-        localStorage.setItem('lpv_sno_cache', JSON.stringify(zones));
+        mySlingor = res.mySlingor || [];
+        localStorage.setItem('lpv_sno_cache', JSON.stringify({ zones, mySlingor }));
       } catch (err) {
         // Utan nät: visa senast hämtade zoner
-        zones = JSON.parse(localStorage.getItem('lpv_sno_cache') || '[]');
+        const cache = JSON.parse(localStorage.getItem('lpv_sno_cache') || '{}');
+        zones = cache.zones || []; mySlingor = cache.mySlingor || [];
         document.getElementById('gps-status').innerText = 'Ingen kontakt – visar senast sparade zoner.';
       }
       renderSlingaSelect();

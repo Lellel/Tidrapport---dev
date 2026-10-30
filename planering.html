@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Snöplanering</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root { --bg: #0b1220; --panel: #111a2e; --card: #16213a; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8;
+            --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; --stor: #f97316; --liten: #38bdf8; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .layout { display: grid; grid-template-columns: 1fr 400px; height: 100%; }
+    .map-wrap { position: relative; }
+    #map { height: 100%; width: 100%; }
+    .panel { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+    .panel-head { padding: 12px 14px 0; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; }
+    .topbar a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
+    h1 { font-size: 18px; margin: 8px 0 10px; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .tabs button.active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
+    .panel-body { flex: 1; overflow-y: auto; padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 10px; }
+    label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
+    input, textarea, select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 15px; }
+    textarea { min-height: 60px; resize: vertical; }
+    button { min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; }
+    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+    button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+    button.on { background: var(--warn); border-color: var(--warn); color: #111; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > * { flex: 1; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .msg { font-size: 13px; min-height: 18px; color: var(--muted); }
+    .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+    .filters button { min-height: 32px; border-radius: 999px; font-size: 12px; }
+    .filters button.active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; }
+    .stat { background: var(--card); border-radius: 10px; padding: 8px 4px; font-size: 11px; color: var(--muted); }
+    .stat b { display: block; font-size: 18px; color: var(--text); }
+
+    /* Fastighetskort i listan */
+    .pcard { display: flex; gap: 10px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; cursor: pointer; }
+    .pcard.selected { border-color: var(--accent); }
+    .pcard-body { flex: 1; min-width: 0; }
+    .pcard-title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pcard-meta { font-size: 12px; color: var(--muted); }
+    .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
+    .badge.prio { background: rgba(245,158,11,.2); color: #fbbf24; }
+    .badge.forced { background: rgba(239,68,68,.2); color: #fca5a5; }
+    .badge.missing { background: rgba(239,68,68,.25); color: #fecaca; }
+
+    /* HÅLEN: platshållare för kulan på fastighetskortet */
+    .hal { border-radius: 50%; border: 3px dashed var(--line); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; color: var(--muted); }
+    .hal.stor { width: 56px; height: 56px; border-color: var(--stor); }
+    .hal.liten { width: 38px; height: 38px; border-color: var(--liten); }
+    .hal.none { width: 46px; height: 46px; border-color: var(--danger); }
+    .hal.forced { box-shadow: 0 0 0 3px rgba(239,68,68,.35); }
+    .hal-big { margin: 0 auto; }
+    .hal-big.stor { width: 110px; height: 110px; border-width: 4px; }
+    .hal-big.liten { width: 76px; height: 76px; border-width: 4px; }
+    .hal-big.none { width: 90px; height: 90px; border-width: 4px; font-size: 26px; }
+
+    /* KULORNA: traktorer */
+    .kula { position: relative; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+            background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.85), var(--kula-color, #64748b) 38%, #0b1220 100%);
+            box-shadow: inset 0 -6px 14px rgba(0,0,0,.45), 0 6px 14px rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
+    .kula::after { content: ''; position: absolute; top: 8%; left: 18%; width: 40%; height: 26%; border-radius: 50%; background: rgba(255,255,255,.45); filter: blur(2px); pointer-events: none; }
+    .kula img { width: 100%; height: 100%; object-fit: cover; }
+    .kula.stor { width: 76px; height: 76px; font-size: 32px; }
+    .kula.liten { width: 50px; height: 50px; font-size: 22px; }
+    .kula.inactive { filter: grayscale(1) opacity(.5); }
+    .kula.spin::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; border-top-color: #fff; animation: spin 1s linear infinite; z-index: 2; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .tcard { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+    .tcard-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .tcard-title { font-weight: 800; font-size: 15px; }
+    .tcard .row button { min-height: 34px; font-size: 12px; }
+    .size-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .size-toggle button.active.stor { background: var(--stor); border-color: var(--stor); color: #111; }
+    .size-toggle button.active.liten { background: var(--liten); border-color: var(--liten); color: #111; }
+
+    /* Detaljvy för ett kort */
+    .detail { background: var(--card); border: 1px solid var(--accent); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .detail-head h2 { font-size: 16px; margin: 0; }
+    .fit { text-align: center; font-size: 12px; color: var(--muted); }
+    .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .photo { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--bg); }
+    .photo img { width: 100%; height: 100%; object-fit: cover; }
+    .photo button { position: absolute; top: 4px; right: 4px; min-height: 26px; width: 26px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.6); border: none; font-size: 12px; }
+    .map-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 600; background: var(--warn); color: #111; font-weight: 800; font-size: 13px; padding: 8px 14px; border-radius: 999px; display: none; }
+    .map-toggle { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; gap: 6px; }
+    .map-toggle button { min-height: 36px; background: rgba(17,26,46,.9); }
+    .pin { border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
+    .pin.stor { width: 18px; height: 18px; background: var(--stor); }
+    .pin.liten { width: 12px; height: 12px; background: var(--liten); }
+    .pin.none { width: 14px; height: 14px; background: var(--danger); }
+    .pin.prio { outline: 3px solid #fbbf24; }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; grid-template-rows: 45vh auto; }
+      .panel { border-left: none; border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-toggle">
+        <button onclick="mapCtl.setTiles('sat')">🛰️ Satellit</button>
+        <button onclick="mapCtl.setTiles('street')">🗺️ Vägkarta</button>
+      </div>
+      <div class="map-hint" id="map-hint">📍 Tryck på kartan där fastigheten ligger</div>
+    </div>
+
+    <aside class="panel">
+      <div class="panel-head">
+        <div class="topbar">
+          <a href="index.html">← Tidrapport</a>
+          <a href="snozoner.html">Rita zoner →</a>
+        </div>
+        <h1>❄️ Snöplanering</h1>
+        <div class="tabs">
+          <button id="tab-props" class="active" onclick="showTab('props')">🏠 Fastigheter</button>
+          <button id="tab-fleet" onclick="showTab('fleet')">🚜 Traktorer</button>
+        </div>
+      </div>
+      <div class="panel-body" id="panel-body"></div>
+    </aside>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="config.js"></script>
+  <script src="sno.js"></script>
+  <script>
+    let mapCtl, map;
+    let properties = [], fleet = [];
+    let pins = [];
+    let tab = 'props';
+    let filter = 'alla';
+    let search = '';
+    let selectedId = null;
+    let placingPosition = false;
+    let message = '';
+    const generating = new Set();
+
+    const BRAND_COLORS = { kramer: '#2dd4bf', volvo: '#facc15', avant: '#84cc16', bobcat: '#f97316', jcb: '#facc15', ljungby: '#eab308',
+      'john deere': '#16a34a', deere: '#16a34a', kubota: '#f97316', valtra: '#dc2626', 'new holland': '#2563eb', massey: '#dc2626', fendt: '#22c55e', cat: '#facc15' };
+    function brandColor(model) {
+      const m = String(model).toLowerCase();
+      const hit = Object.keys(BRAND_COLORS).find(k => m.includes(k));
+      return hit ? BRAND_COLORS[hit] : '#64748b';
+    }
+
+    function setMessage(text) { message = text; const el = document.getElementById('msg'); if (el) el.innerHTML = text; }
+
+    function showTab(name) {
+      tab = name;
+      document.getElementById('tab-props').classList.toggle('active', name === 'props');
+      document.getElementById('tab-fleet').classList.toggle('active', name === 'fleet');
+      message = '';
+      render();
+    }
+
+    function render() {
+      document.getElementById('panel-body').innerHTML = tab === 'props' ? renderProps() : renderFleet();
+    }
+
+    // ================= FASTIGHETER =================
+    function sizeLabel(p) {
+      if (!p.size) return 'Storlek saknas';
+      return p.size === 'stor' ? 'Stor' : (p.forced ? 'Liten (tvingad stor)' : 'Liten');
+    }
+    function fitText(p) {
+      if (!p.size) return 'Välj storlek nedan för att kortet ska kunna ingå i en slinga.';
+      if (p.size === 'stor') return 'Passar: 🟠 stor kula och 🔵 liten kula';
+      return p.forced ? 'Passar: 🔵 liten kula + 🟠 stor kula (tvingad – gränsfall)' : 'Passar: 🔵 bara liten kula – en stor får inte plats';
+    }
+    function holeClass(p) { return (p.size || 'none') + (p.forced ? ' forced' : ''); }
+
+    function filteredProps() {
+      const q = search.toLowerCase();
+      return properties
+        .filter(p => filter === 'alla' || (filter === 'saknar' ? !p.size : filter === 'prio' ? p.priority : filter === 'nopos' ? p.lat === null : p.size === filter))
+        .filter(p => !q || p.address.toLowerCase().includes(q) || p.ort.toLowerCase().includes(q))
+        .sort((a, b) => a.ort.localeCompare(b.ort, 'sv') || a.address.localeCompare(b.address, 'sv'));
+    }
+
+    function renderProps() {
+      const missing = properties.filter(p => !p.size).length;
+      const noPos = properties.filter(p => p.lat === null).length;
+      const sel = properties.find(p => p.id === selectedId);
+      const fbtn = (key, text) => `<button class="${filter === key ? 'active' : ''}" onclick="filter='${key}'; render()">${text}</button>`;
+      return `
+        <div class="stats">
+          <div class="stat"><b>${properties.length}</b>fastigheter</div>
+          <div class="stat"><b style="color:${missing ? 'var(--danger)' : 'var(--ok)'}">${missing}</b>saknar storlek</div>
+          <div class="stat"><b>${new Set(properties.map(p => p.ort).filter(Boolean)).size}</b>orter</div>
+        </div>
+        ${missing === 0 && properties.length ? '<div class="muted" style="text-align:center;">✅ Alla kort har storlek – redo att generera slingor</div>' : ''}
+        ${sel ? renderDetail(sel) : renderNewForm()}
+        <div class="msg" id="msg">${message}</div>
+        <input placeholder="🔍 Sök adress eller ort" value="${snoEscape(search)}" oninput="search=this.value; document.getElementById('plist').innerHTML = renderPropList()">
+        <div class="filters">${fbtn('alla', 'Alla')}${fbtn('saknar', `⚠️ Saknar storlek (${missing})`)}${fbtn('stor', '🟠 Stor')}${fbtn('liten', '🔵 Liten')}${fbtn('prio', '⭐ Prio')}${noPos ? fbtn('nopos', `📍 Utan position (${noPos})`) : ''}</div>
+        <div id="plist" style="display:flex; flex-direction:column; gap:6px;">${renderPropList()}</div>`;
+    }
+
+    function renderPropList() {
+      const list = filteredProps();
+      if (!list.length) return '<div class="muted">Inga fastigheter här ännu.</div>';
+      return list.map(p => `
+        <div class="pcard ${p.id === selectedId ? 'selected' : ''}" onclick="selectProperty('${snoEscape(p.id)}')">
+          <div class="hal ${holeClass(p)}">${p.size ? '' : '?'}</div>
+          <div class="pcard-body">
+            <div class="pcard-title">${snoEscape(p.address)}${p.priority ? '<span class="badge prio">⭐ PRIO</span>' : ''}${p.forced ? '<span class="badge forced">TVINGAD</span>' : ''}</div>
+            <div class="pcard-meta">${snoEscape(p.ort || 'Ort saknas')} · ${sizeLabel(p)}${p.photos.length ? ' · 📷 ' + p.photos.length : ''}${p.lat === null ? ' · 📍 saknar position' : ''}</div>
+          </div>
+        </div>`).join('');
+    }
+
+    function renderNewForm() {
+      return `<div class="detail" style="border-color: var(--line);">
+        <div class="detail-head"><h2>➕ Ny fastighet</h2></div>
+        <div class="muted">Importen från kalkylarket kommer – tills dess kan du lägga till för hand.</div>
+        <input id="new-address" placeholder="Adress, t.ex. Drottninggatan 4">
+        <input id="new-ort" placeholder="Ort (valfritt), t.ex. Flen">
+        <button class="ok" onclick="createProperty()">Lägg till & hitta på kartan</button>
+      </div>`;
+    }
+
+    function renderDetail(p) {
+      const sizeBtn = (s, text) => `<button class="${s} ${p.size === s ? 'active' : ''}" onclick="updateProperty({ size: '${s}' })">${text}</button>`;
+      return `<div class="detail">
+        <div class="detail-head">
+          <div><h2>${snoEscape(p.address)}</h2><div class="muted">${snoEscape(p.ort || 'Ort saknas')}${p.lat === null ? ' · 📍 saknar position' : ''}</div></div>
+          <button onclick="selectProperty(null)">✕</button>
+        </div>
+        <div class="hal hal-big ${holeClass(p)}">${p.size ? '' : '?'}</div>
+        <div class="fit">${fitText(p)}</div>
+        <div class="size-toggle">${sizeBtn('stor', '🟠 Stor')}${sizeBtn('liten', '🔵 Liten')}</div>
+        <div class="row">
+          <button class="${p.priority ? 'on' : ''}" onclick="updateProperty({ priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
+          ${p.size === 'liten' ? `<button class="${p.forced ? 'on' : ''}" onclick="toggleForced()">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}
+        </div>
+        <div>
+          <label>Att tänka på (visas för föraren)</label>
+          <textarea id="d-note" placeholder="T.ex. lågt hängande grenar vid infarten" onchange="updateProperty({ note: this.value })">${snoEscape(p.note)}</textarea>
+        </div>
+        <div>
+          <label>Foton (${p.photos.length})</label>
+          <div class="photos">
+            ${p.photos.map(ph => `<div class="photo"><a href="${snoEscape(ph.url)}" target="_blank" rel="noopener"><img src="${snoEscape(ph.url)}" alt="Foto" loading="lazy"></a><button onclick="removePhoto('${snoEscape(ph.id)}')" title="Ta bort">✕</button></div>`).join('')}
+          </div>
+          <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="addPhoto(event)">
+          <button style="width:100%; margin-top:6px;" onclick="document.getElementById('photo-input').click()">📷 Lägg till foto</button>
+        </div>
+        <div class="row">
+          <button onclick="startPlacing()">📍 Flytta på kartan</button>
+          <button onclick="editAddress()">✏️ Ändra adress</button>
+        </div>
+        <button class="danger" onclick="deleteProperty()">🗑️ Ta bort fastigheten</button>
+      </div>`;
+    }
+
+    function selectProperty(id, keepMessage = false) {
+      selectedId = id;
+      placingPosition = false;
+      document.getElementById('map-hint').style.display = 'none';
+      if (!keepMessage) message = '';
+      render();
+      const p = properties.find(x => x.id === id);
+      if (p && p.lat !== null) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 17));
+      renderPins();
+    }
+
+    async function saveProperty(p, extra = {}) {
+      const res = await snoApi({ action: 'saveProperty', property: { ...p, ...extra } });
+      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return null; }
+      const idx = properties.findIndex(x => x.id === res.property.id);
+      if (idx === -1) properties.push(res.property); else properties[idx] = res.property;
+      message = res.geocodeNote ? '⚠️ ' + snoEscape(res.geocodeNote) : '✅ Sparat';
+      return res.property;
+    }
+
+    async function createProperty() {
+      const address = document.getElementById('new-address').value.trim();
+      const ort = document.getElementById('new-ort').value.trim();
+      if (!address) { setMessage('Fyll i adressen.'); return; }
+      setMessage('Söker adressen på kartan…');
+      const saved = await saveProperty({ address, ort });
+      if (saved) selectProperty(saved.id, true); else render();
+    }
+
+    async function updateProperty(changes) {
+      const p = properties.find(x => x.id === selectedId);
+      if (!p) return;
+      if (changes.size === 'stor') changes.forced = false;
+      Object.assign(p, changes); // visa direkt, spara i bakgrunden
+      render(); renderPins();
+      await saveProperty(p, { manualPosition: true });
+      render(); renderPins();
+    }
+
+    function toggleForced() {
+      const p = properties.find(x => x.id === selectedId);
+      if (!p.forced && !confirm('Tvinga in en stor traktor på en liten plats?\n\nGör det bara för gränsfall där en stor traktor faktiskt kommer fram.')) return;
+      updateProperty({ forced: !p.forced });
+    }
+
+    async function editAddress() {
+      const p = properties.find(x => x.id === selectedId);
+      const address = prompt('Ny adress:', p.address);
+      if (!address || address.trim() === p.address) return;
+      setMessage('Söker adressen på kartan…');
+      await saveProperty({ ...p, address: address.trim(), lat: null, lng: null });
+      selectProperty(p.id, true);
+    }
+
+    async function deleteProperty() {
+      const p = properties.find(x => x.id === selectedId);
+      if (!confirm(`Ta bort ${p.address}?`)) return;
+      const res = await snoApi({ action: 'deleteProperty', id: p.id });
+      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message)); return; }
+      properties = properties.filter(x => x.id !== p.id);
+      selectedId = null; message = '🗑️ Borttagen'; render(); renderPins();
+    }
+
+    function startPlacing() {
+      placingPosition = true;
+      document.getElementById('map-hint').style.display = 'block';
+    }
+
+    async function onMapClick(e) {
+      if (!placingPosition || !selectedId) return;
+      placingPosition = false;
+      document.getElementById('map-hint').style.display = 'none';
+      const p = properties.find(x => x.id === selectedId);
+      p.lat = e.latlng.lat; p.lng = e.latlng.lng;
+      renderPins();
+      await saveProperty(p, { manualPosition: true });
+      message = '📍 Position sparad'; render(); renderPins();
+    }
+
+    // Foto komprimeras i telefonen innan det skickas (max 1600 px)
+    function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = reject;
+          img.onload = () => {
+            const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.75));
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function addPhoto(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const p = properties.find(x => x.id === selectedId);
+      setMessage('Laddar upp foto…');
+      try {
+        const base64 = await compressImage(file);
+        const res = await snoApi({ action: 'addPropertyPhoto', id: p.id, imageBase64: base64 });
+        if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message)); return; }
+        p.photos.push(res.photo);
+        message = '📷 Foto sparat'; render();
+      } catch (err) {
+        setMessage('❌ Kunde inte ladda upp fotot.');
+      }
+    }
+
+    async function removePhoto(photoId) {
+      if (!confirm('Ta bort fotot?')) return;
+      const p = properties.find(x => x.id === selectedId);
+      const res = await snoApi({ action: 'removePropertyPhoto', id: p.id, photoId });
+      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message)); return; }
+      p.photos = p.photos.filter(ph => ph.id !== photoId);
+      render();
+    }
+
+    function renderPins() {
+      pins.forEach(l => map.removeLayer(l));
+      pins = properties.filter(p => p.lat !== null).map(p => {
+        const cls = `pin ${p.size || 'none'}${p.priority ? ' prio' : ''}`;
+        const size = p.size === 'stor' ? 18 : p.size === 'liten' ? 12 : 14;
+        const marker = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: `<div class="${cls}"></div>`, iconSize: [size, size] }),
+          zIndexOffset: p.id === selectedId ? 1000 : 0 }).addTo(map);
+        marker.bindTooltip(`${snoEscape(p.address)} · ${sizeLabel(p)}`);
+        marker.on('click', () => { showTab('props'); selectProperty(p.id); });
+        return marker;
+      });
+    }
+
+    // ================= TRAKTORER =================
+    function kulaHtml(t) {
+      const spinning = generating.has(t.id) ? ' spin' : '';
+      const inner = t.avatarUrl ? `<img src="${snoEscape(t.avatarUrl)}" alt="${snoEscape(t.model)}">` : '🚜';
+      return `<div class="kula ${t.size}${t.active ? '' : ' inactive'}${spinning}" style="--kula-color:${brandColor(t.model)}">${inner}</div>`;
+    }
+
+    function renderFleet() {
+      const active = fleet.filter(t => t.active);
+      const big = active.filter(t => t.size === 'stor').length, small = active.filter(t => t.size === 'liten').length;
+      return `
+        <div class="stats">
+          <div class="stat"><b style="color:var(--stor)">${big}</b>stora i tjänst</div>
+          <div class="stat"><b style="color:var(--liten)">${small}</b>små i tjänst</div>
+          <div class="stat"><b>${fleet.length - active.length}</b>ur tjänst</div>
+        </div>
+        <div class="detail" style="border-color: var(--line);">
+          <div class="detail-head"><h2>➕ Ny traktor</h2></div>
+          <input id="new-model" placeholder="Tillverkare och modell, t.ex. Kramer 8095">
+          <input id="new-base" placeholder="Ort / uppställning (valfritt), t.ex. Bettna">
+          <button class="ok" onclick="createTractor()">Lägg till</button>
+          <div class="muted">Storleken föreslås utifrån modellen och kan ändras.</div>
+        </div>
+        <div class="msg" id="msg">${message}</div>
+        ${fleet.map(t => `
+          <div class="tcard">
+            ${kulaHtml(t)}
+            <div class="tcard-body">
+              <div class="tcard-title">${snoEscape(t.model)}</div>
+              <div class="muted">${snoEscape(t.base || 'Ingen uppställning angiven')}</div>
+              <div class="size-toggle">
+                <button class="stor ${t.size === 'stor' ? 'active' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'stor' })">🟠 Stor</button>
+                <button class="liten ${t.size === 'liten' ? 'active' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'liten' })">🔵 Liten</button>
+              </div>
+              <div class="row">
+                <button onclick="generateKula('${snoEscape(t.id)}')" ${generating.has(t.id) ? 'disabled' : ''}>${generating.has(t.id) ? '✨ Skapar…' : (t.avatarUrl ? '✨ Ny AI-kula' : '✨ Skapa AI-kula')}</button>
+                <button onclick="updateTractor('${snoEscape(t.id)}', { active: ${!t.active} })">${t.active ? '⏸ Ur tjänst' : '▶️ I tjänst'}</button>
+                <button class="danger" onclick="deleteTractor('${snoEscape(t.id)}')" style="flex:0 0 42px;">🗑️</button>
+              </div>
+            </div>
+          </div>`).join('') || '<div class="muted">Inga traktorer ännu.</div>'}`;
+    }
+
+    async function saveTractor(t) {
+      const res = await snoApi({ action: 'saveTractor', tractor: t });
+      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return null; }
+      const idx = fleet.findIndex(x => x.id === res.tractor.id);
+      if (idx === -1) fleet.push(res.tractor); else fleet[idx] = res.tractor;
+      return res;
+    }
+
+    async function createTractor() {
+      const model = document.getElementById('new-model').value.trim();
+      const base = document.getElementById('new-base').value.trim();
+      if (!model) { setMessage('Fyll i tillverkare och modell.'); return; }
+      const res = await saveTractor({ model, base });
+      if (!res) return;
+      message = res.suggestedSize ? `✅ Tillagd – föreslagen storlek: ${res.suggestedSize}. Tryck ✨ för en AI-kula!` : '✅ Tillagd – känner inte igen modellen, välj storlek själv. Tryck ✨ för en AI-kula!';
+      render();
+    }
+
+    async function updateTractor(id, changes) {
+      const t = fleet.find(x => x.id === id);
+      Object.assign(t, changes);
+      render();
+      await saveTractor(t);
+      render();
+    }
+
+    async function deleteTractor(id) {
+      const t = fleet.find(x => x.id === id);
+      if (!confirm(`Ta bort ${t.model}?`)) return;
+      const res = await snoApi({ action: 'deleteTractor', id });
+      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message)); return; }
+      fleet = fleet.filter(x => x.id !== id);
+      render();
+    }
+
+    async function generateKula(id) {
+      generating.add(id);
+      message = '✨ AI:n bygger en kula… det tar 10–30 sekunder.';
+      render();
+      try {
+        const res = await snoApi({ action: 'generateTractorAvatar', id });
+        if (res.status === 'success') {
+          fleet.find(x => x.id === id).avatarUrl = res.avatarUrl;
+          message = '🎉 Ny kula klar!';
+        } else {
+          message = '❌ ' + snoEscape(res.message || 'AI:n svarade inte.');
+        }
+      } catch (err) {
+        message = '❌ Ingen kontakt med servern.';
+      }
+      generating.delete(id);
+      if (tab === 'fleet') render();
+    }
+
+    // ================= START =================
+    async function loadAll() {
+      setMessage('Hämtar…');
+      try {
+        const [pRes, fRes] = await Promise.all([snoApi({ action: 'getProperties' }), snoApi({ action: 'getFleet' })]);
+        if (pRes.status !== 'success') { message = '❌ ' + snoEscape(pRes.message || 'Kunde inte hämta.'); render(); return; }
+        properties = pRes.properties || [];
+        fleet = fRes.status === 'success' ? fRes.fleet : [];
+        message = '';
+      } catch (err) {
+        message = '❌ Ingen kontakt med servern.';
+      }
+      render();
+      renderPins();
+      const located = properties.filter(p => p.lat !== null);
+      if (located.length) map.fitBounds(L.latLngBounds(located.map(p => [p.lat, p.lng])), { padding: [30, 30], maxZoom: 16 });
+    }
+
+    mapCtl = snoCreateMap('map');
+    map = mapCtl.map;
+    map.setZoom(11);
+    map.on('click', onMapClick);
+    render();
+    if (!snoIsAdmin()) { message = '⚠️ Snöplaneringen är bara för admin. Logga in med din admin-länk.'; render(); }
+    loadAll();
+  </script>
+</body>
+</html>
