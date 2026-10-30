@@ -34,6 +34,13 @@
     .zone-list { display: flex; flex-direction: column; gap: 6px; }
     .zone-item { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; cursor: pointer; }
     .zone-item small { color: var(--muted); }
+    .slinga-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .slinga-card-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 700; }
+    .slinga-card-head small { color: var(--muted); font-weight: 400; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: transparent; }
+    .chip.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .warn { color: #fbbf24; font-size: 12px; }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
     @media (max-width: 800px) {
       .layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
@@ -92,6 +99,12 @@
         <button class="danger" id="btn-delete" onclick="deleteSelected()" style="grid-column: 1 / -1; display:none;">🗑️ Ta bort vald zon</button>
       </div>
 
+      <div id="tilldela">
+        <label>Förare per slinga</label>
+        <div class="status" style="margin-bottom:6px;">Tryck på ett namn för att tilldela eller ta bort. Föraren ser bara sina slingor i Snöjour.</div>
+        <div class="zone-list" id="assign-list"></div>
+      </div>
+
       <div>
         <label>Sparade zoner <span id="zone-count"></span></label>
         <div class="zone-list" id="zone-list"></div>
@@ -110,6 +123,8 @@
     let drawingPoints = [];
     let previewLayer = null;
     let selectedZone = null;
+    let assignments = {};
+    let staff = [];
 
     function setStatus(html) { document.getElementById('status').innerHTML = html; }
 
@@ -249,6 +264,7 @@
         const res = await snoApi({ action: 'getSnowZones' });
         if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte hämta zoner.')); return; }
         zones = res.zones || [];
+        assignments = res.assignments || {};
         zoneLayers.forEach(l => map.removeLayer(l));
         // Mitt i en ritning blir tryck på en befintlig zon en ny punkt, annars väljs zonen
         zoneLayers = zones.map(z => snoRenderZone(map, z, (zone, layer, e) => {
@@ -256,8 +272,51 @@
           else selectZone(zone);
         }));
         renderZoneList();
+        renderAssignments();
       } catch (err) {
         setStatus('❌ Ingen kontakt med servern.');
+      }
+    }
+
+    // ---------- TILLDELA FÖRARE ----------
+    async function loadStaff() {
+      try {
+        const res = await snoApi({ action: 'getUsers' });
+        if (res.status === 'success') staff = res.users.filter(u => !/karantän/i.test(u.status || ''));
+      } catch (err) { staff = []; }
+      renderAssignments();
+    }
+
+    function renderAssignments() {
+      const el = document.getElementById('assign-list');
+      const slingor = [...new Set([...snoSlingor(zones), ...Object.keys(assignments)])].sort((a, b) => a.localeCompare(b, 'sv'));
+      if (!slingor.length) { el.innerHTML = '<div class="status">Rita en zon med ett slingnamn först.</div>'; return; }
+      el.innerHTML = slingor.map(slinga => {
+        const assigned = assignments[slinga] || [];
+        const count = zones.filter(z => z.slinga === slinga).length;
+        const names = [...new Set([...staff.map(u => u.name), ...assigned])];
+        return `<div class="slinga-card">
+          <div class="slinga-card-head"><span>${snoEscape(slinga)}</span><small>${count} objekt</small></div>
+          ${assigned.length ? '' : '<div class="warn">⚠️ Ingen förare tilldelad</div>'}
+          <div class="chips">${names.map(n => `<button class="chip ${assigned.includes(n) ? 'on' : ''}" data-slinga="${snoEscape(slinga)}" data-name="${snoEscape(n)}" onclick="toggleDriver(this)">${assigned.includes(n) ? '✓ ' : ''}${snoEscape(n)}</button>`).join('') || '<span class="status">Hämtar personal…</span>'}</div>
+        </div>`;
+      }).join('');
+    }
+
+    async function toggleDriver(btn) {
+      const slinga = btn.dataset.slinga, name = btn.dataset.name;
+      const before = assignments[slinga] || [];
+      const after = before.includes(name) ? before.filter(n => n !== name) : [...before, name];
+      assignments[slinga] = after;
+      renderAssignments();
+      try {
+        const res = await snoApi({ action: 'setSlingaDrivers', slinga, drivers: after });
+        if (res.status !== 'success') throw new Error(res.message);
+        setStatus(`✅ ${snoEscape(slinga)}: ${after.length ? snoEscape(after.join(', ')) : 'ingen förare'}`);
+      } catch (err) {
+        assignments[slinga] = before;
+        renderAssignments();
+        setStatus('❌ Kunde inte spara tilldelningen. ' + snoEscape(err.message || ''));
       }
     }
 
@@ -267,6 +326,7 @@
     if (!snoIsAdmin()) document.getElementById('admin-banner').style.display = 'block';
     renderTools();
     loadZones();
+    if (snoIsAdmin()) loadStaff();
   </script>
 </body>
 </html>
