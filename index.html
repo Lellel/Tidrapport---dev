@@ -115,6 +115,10 @@
 
         <div class="ios-card" style="grid-column: 1 / -1;">
           <div class="ios-row">
+            <span>Tid</span>
+            <span id="current-duration-badge" class="duration-pill" style="display: none;">-</span>
+          </div>
+          <div class="ios-row">
             <span>Datum</span>
             <input type="date" id="input-date">
           </div>
@@ -130,6 +134,11 @@
 
         <div class="ios-card" style="grid-column: 1 / -1;">
           <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
+          <input type="file" id="camera-input" accept="image/*" style="display: none;" onchange="handlePhotoSelect(event)">
+          <div class="add-photo-btn" onclick="document.getElementById('camera-input').click()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span id="photo-label">Bifoga bild-underlag</span>
+          </div>
         </div>
 
         <button class="main-btn main-btn-blue" style="grid-column: 1 / -1;" onclick="saveToOutbox()">Spara pass lokalt</button>
@@ -167,6 +176,23 @@
             <select id="admin-target-user" class="admin-select" onchange="onAdminUserSelect()">
               <option value="">Laddar kontakter...</option>
             </select>
+          </div>
+          <div class="admin-input-row">
+            <span class="admin-label">Mobil (valfritt)</span>
+            <input type="tel" id="admin-target-phone" placeholder="070..." class="admin-val-input" oninput="updateAdminTargetLink()">
+          </div>
+          <div class="admin-input-row">
+            <span class="admin-label">Ge Admin-roll</span>
+            <input type="checkbox" id="admin-target-is-admin" onchange="updateAdminTargetLink()">
+          </div>
+          <div class="admin-actions-grid">
+            <button type="button" class="admin-btn" onclick="adminSendSMS()">💬 SMS</button>
+            <button type="button" class="admin-btn" onclick="adminSendEmail()">✉️ Mail</button>
+            <button type="button" class="admin-btn" onclick="toggleAdminQR()">🏁 QR</button>
+          </div>
+          <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 12px;">
+            <div id="admin-qr-caption" style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Skanna för att logga in:</div>
+            <img id="admin-qr-image" src="" alt="Inloggnings-QR" style="width: 140px; height: 140px; border-radius: 10px; background: #FFF; margin: 0 auto; display: block;">
           </div>
           <button type="button" class="main-btn" style="width:100%; margin-top:10px; background:var(--orange); color:#FFF; min-height:48px;" onclick="openKabanossModal()">
             🌭 Öppna Flygledartornet
