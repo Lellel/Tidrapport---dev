@@ -227,6 +227,25 @@ function selectActivity(name) {
   currentActivity = name;
   document.getElementById('selected-activity').innerHTML = `${name} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
   closeSheet();
+  // Offertbesök: admin får en genväg till en ny offert för platsen
+  let shortcut = document.getElementById('offer-shortcut');
+  if (name === 'Offertbesök' && isAdmin) {
+    if (!shortcut) {
+      shortcut = document.createElement('button');
+      shortcut.id = 'offer-shortcut';
+      shortcut.type = 'button';
+      shortcut.className = 'main-btn';
+      shortcut.style.cssText = 'width:100%; margin-top:10px; background: var(--input-bg); color: var(--accent-blue);';
+      shortcut.textContent = '📄 Skapa offert från besöket';
+      shortcut.onclick = () => {
+        const place = document.getElementById('input-place')?.value.trim() || '';
+        location.href = 'offerter.html?ny=offert' + (place ? '&plats=' + encodeURIComponent(place) : '');
+      };
+      document.getElementById('selected-activity')?.closest('.ios-card, .ios-row')?.after(shortcut);
+    }
+  } else if (shortcut) {
+    shortcut.remove();
+  }
 }
 
 function setJobType(type) {
@@ -1047,7 +1066,7 @@ function switchAdminTab(tab) {
   if (tab === 'kabanoss') renderKabanossBoard();
   if (tab === 'radar') renderRadarGantt();
   if (tab === 'crm') renderCRMView();
-  if (tab === 'offert') renderOffertView();
+  if (tab === 'offert') { location.href = 'offerter.html'; return; }
 }
 
 // 1. KABANOSS MED FALLBACK-RESURSER
@@ -1232,105 +1251,127 @@ window.calculateOffert = calcOffert;
 // iMESSAGE & KUNDPORTAL LOGIK (v4.5)
 // ==========================================
 
-// Kundlänkar: ?ata=ID&code=KOD eller ?offert=ID&code=KOD. Koden signeras i backend
-// så att ingen kan godkänna åt kunden genom att gissa ett nummer.
-let customerDocCode = '';
+// ==========================================
+// KUNDENS SIDA FÖR OFFERT / ÄTA
+// Länk: index.html?offert=O-2026-014&code=KOD (eller ?ata=Ä-...). Koden signeras i
+// backend per version, så en gammal länk slutar gälla när offerten ändras.
+// Offerter skapas och skickas i offerter.html.
+// ==========================================
+let customerDoc = { type: '', id: '', code: '' };
 
 function checkCustomerUrlParams() {
   const urlParams = new URLSearchParams(window.location.search);
-  const safeId = (v) => (v && /^[A-Za-z0-9_-]{1,40}$/.test(v)) ? v : null;
+  const safeId = (v) => (v && /^[A-Za-zÄÖÅäöå0-9_-]{1,40}$/.test(v)) ? v : null;
   const ataId = safeId(urlParams.get('ata'));
   const offertId = safeId(urlParams.get('offert'));
-  customerDocCode = (urlParams.get('code') || '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (!ataId && !offertId) return;
+  customerDoc = { type: ataId ? 'ata' : 'offert', id: ataId || offertId, code: (urlParams.get('code') || '').replace(/[^A-Za-z0-9_-]/g, '') };
+  renderPublicCustomerView();
+}
 
-  if (ataId) {
-    renderPublicCustomerView('ata', ataId);
-  } else if (offertId) {
-    renderPublicCustomerView('offert', offertId);
+function customerEsc(text) {
+  return String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+const customerMoney = (v) => Math.round(v).toLocaleString('sv-SE') + ' kr';
+
+async function customerApi(payload) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    body: JSON.stringify({ ...payload, offerId: customerDoc.id, code: customerDoc.code })
+  });
+  return res.json();
+}
+
+function customerShell(inner) {
+  // Kundsidan ska se ut som ett rent dokument – stäng av appens mörka tema
+  document.querySelectorAll('link[rel="stylesheet"], style').forEach(el => el.remove());
+  document.documentElement.className = '';
+  document.documentElement.style.cssText = 'background:#f1f5f9;';
+  document.body.className = '';
+  document.body.style.cssText = 'margin:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0f172a;';
+  document.body.innerHTML = `<div style="max-width:560px;margin:0 auto;padding:20px 16px 40px;">${inner}</div>`;
+}
+
+async function renderPublicCustomerView() {
+  customerShell('<div style="text-align:center;padding:60px 0;color:#64748b;">Hämtar…</div>');
+  let res;
+  try { res = await customerApi({ action: 'getOfferForCustomer' }); }
+  catch (err) { res = { status: 'error', message: 'Ingen kontakt just nu. Försök igen om en stund.' }; }
+  if (res.status !== 'success') {
+    customerShell(`<div style="background:#fff;border-radius:18px;padding:24px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08);">
+      <div style="font-size:40px;">📄</div><h1 style="font-size:20px;">Det gick inte att visa dokumentet</h1>
+      <p style="color:#475569;">${customerEsc(res.message)}</p></div>`);
+    return;
   }
+  drawCustomerOffer(res.offer);
 }
 
-async function buildCustomerLink(docType, docId) {
-  const data = await apiPost({ action: 'signDocument', docType: docType, docId: docId });
-  if (data.status !== 'success') {
-    alert('Kunde inte skapa kundlänk: ' + (data.message || 'Okänt fel'));
-    return null;
+function drawCustomerOffer(o) {
+  const label = o.type === 'ata' ? 'Tilläggsarbete (ÄTA)' : 'Offert';
+  const t = o.totals;
+  const answered = o.status === 'godkänd' || o.status === 'avböjd';
+  const rows = o.rows.map(r => `<tr><td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;">${customerEsc(r.text)}<div style="font-size:12px;color:#64748b;">${r.qty} ${customerEsc(r.unit)} × ${customerMoney(r.price)}</div></td>
+    <td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${customerMoney(r.qty * r.price)}</td></tr>`).join('');
+  let action = '';
+  if (o.status === 'godkänd') {
+    action = `<div style="background:#dcfce7;border-radius:14px;padding:16px;text-align:center;font-weight:700;color:#166534;">✅ Godkänd av ${customerEsc(o.approvedBy)} ${customerEsc(o.answered)}.<br><span style="font-weight:400;">Tack! Vi hör av oss om när vi kommer.</span></div>`;
+  } else if (o.status === 'avböjd') {
+    action = `<div style="background:#fee2e2;border-radius:14px;padding:16px;text-align:center;font-weight:700;color:#991b1b;">Du har tackat nej ${customerEsc(o.answered)}.<br><span style="font-weight:400;">Hör gärna av dig om du ändrar dig.</span></div>`;
+  } else if (o.expired) {
+    action = `<div style="background:#fef3c7;border-radius:14px;padding:16px;text-align:center;color:#92400e;">Offerten gick ut ${customerEsc(o.validUntil)}. Kontakta oss så tar vi fram en ny.</div>`;
+  } else {
+    action = `
+      <label style="font-size:13px;font-weight:700;color:#334155;">Ditt namn</label>
+      <input id="cust-name" autocomplete="name" placeholder="För- och efternamn" style="width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1px solid #cbd5e1;font-size:16px;margin:6px 0 10px;">
+      <label style="font-size:13px;font-weight:700;color:#334155;">Meddelande till oss (valfritt)</label>
+      <textarea id="cust-comment" rows="2" style="width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #cbd5e1;font-size:15px;margin:6px 0 14px;"></textarea>
+      <button id="btn-approve" onclick="respondCustomerOffer('godkänd')" style="width:100%;padding:16px;background:#10b981;color:#fff;font-size:17px;font-weight:800;border:none;border-radius:14px;">✅ Godkänn ${o.type === 'ata' ? 'tilläggsarbetet' : 'offerten'}</button>
+      <button onclick="respondCustomerOffer('avböjd')" style="width:100%;padding:12px;margin-top:8px;background:transparent;color:#64748b;font-size:14px;font-weight:700;border:1px solid #cbd5e1;border-radius:14px;">Nej tack</button>
+      <div id="approval-status" style="margin-top:12px;text-align:center;font-weight:700;"></div>`;
   }
-  const baseUrl = window.location.origin + window.location.pathname;
-  return `${baseUrl}?${docType}=${encodeURIComponent(docId)}&code=${encodeURIComponent(data.code)}`;
-}
-
-async function sendAtaViaIMessage(ataId, phone, title) {
-  const customerPhone = phone || prompt("Ange kundens mobilnummer:", "0701234567");
-  if (!customerPhone) return;
-  const link = await buildCustomerLink('ata', ataId);
-  if (!link) return;
-  const text = `Hej! Ett tilläggsarbete (${ataId}) har registrerats för ${title || 'ert projekt'}. Klicka på länken för att se foton och godkänna: ${link}`;
-  window.open(`sms:${customerPhone}?&body=${encodeURIComponent(text)}`, '_self');
-}
-
-async function sendOffertViaIMessage(offertId, phone, title, total) {
-  const customerPhone = phone || prompt("Ange kundens mobilnummer:", "0701234567");
-  if (!customerPhone) return;
-  const link = await buildCustomerLink('offert', offertId);
-  if (!link) return;
-  const text = `Hej! Här kommer er offert (${offertId}) på ${total || 'överenskommet arbete'} för ${title || 'ert projekt'}. Klicka för att granska och godkänna: ${link}`;
-  window.open(`sms:${customerPhone}?&body=${encodeURIComponent(text)}`, '_self');
-}
-
-function renderPublicCustomerView(type, id) {
-  document.body.innerHTML = `
-    <div style="max-width:500px; margin:30px auto; padding:24px; font-family:sans-serif; background:#ffffff; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.15); color:#0f172a;">
-      <div style="text-align:center; margin-bottom:20px;">
-        <h1 style="font-size:22px; margin:0; color:#0284c7;">LPV & Klaryta</h1>
-        <p style="font-size:13px; color:#64748b; margin-top:4px;">Digitalt godkännande av ${type === 'ata' ? 'Tilläggsarbete (ÄTA)' : 'Offert'}</p>
+  customerShell(`
+    <div style="background:#fff;border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(0,0,0,.08);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div><div style="font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;">${label}</div>
+          <h1 style="font-size:22px;margin:4px 0 0;color:#0369a1;">${customerEsc(o.title || label)}</h1>
+          <div style="font-size:13px;color:#64748b;margin-top:2px;">${customerEsc(o.id)}${o.version > 1 ? ' · version ' + o.version : ''} · till ${customerEsc(o.customerName)}</div></div>
+        <div style="text-align:right;font-size:12px;color:#475569;white-space:nowrap;"><b>${customerEsc(o.company.name)}</b><br>${o.company.phone ? `<a href="tel:${customerEsc(o.company.phone.replace(/[^0-9+]/g, ''))}" style="color:#0369a1;">${customerEsc(o.company.phone)}</a>` : ''}</div>
       </div>
-      <div style="background:#f1f5f9; padding:16px; border-radius:12px; margin-bottom:20px;">
-        <div style="font-weight:800; font-size:16px;">${type.toUpperCase()}-${id}</div>
-        <p style="font-size:14px; color:#334155; margin-top:8px;">
-          ${type === 'ata' ? 'Snöröjning & Handskottning av tillkommande yta bakom kylanläggning.' : 'Bortforsling av kylaggregat samt 8 timmar maskinarbete m. Kramer.'}
-        </p>
-        <div style="font-size:18px; font-weight:800; color:#0284c7; margin-top:12px;">
-          ${type === 'ata' ? 'Totalt: 2 450 kr (exkl. moms)' : 'Totalt: 6 438 kr (inkl. moms & ROT/RUT)'}
-        </div>
+      ${o.site ? `<p style="font-size:14px;color:#334155;margin:14px 0 0;">📍 ${customerEsc(o.site)}</p>` : ''}
+      ${o.description ? `<p style="font-size:14px;color:#334155;white-space:pre-wrap;">${customerEsc(o.description)}</p>` : ''}
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:10px;">${rows}</table>
+      <div style="font-size:14px;margin-top:12px;display:flex;flex-direction:column;gap:4px;">
+        <div style="display:flex;justify-content:space-between;"><span>Summa inkl. moms</span><span>${customerMoney(t.gross)}</span></div>
+        ${t.deduction ? `<div style="display:flex;justify-content:space-between;color:#15803d;"><span>${customerEsc(t.deductionLabel)}</span><span>−${customerMoney(t.deduction)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:800;color:#0369a1;border-top:1px solid #e2e8f0;padding-top:8px;margin-top:4px;"><span>Att betala</span><span>${customerMoney(t.toPay)}</span></div>
+        ${t.deduction ? '<div style="font-size:12px;color:#64748b;">Avdraget förutsätter att Skatteverket godkänner det.</div>' : ''}
       </div>
-      <button onclick="approveCustomerDocument('${type}', '${id}')" style="width:100%; padding:16px; background:#10b981; color:#ffffff; font-size:16px; font-weight:800; border:none; border-radius:12px; cursor:pointer;">
-        ✅ Godkänn & Signera ${type.toUpperCase()}
-      </button>
-      <div id="approval-status" style="margin-top:14px; text-align:center; font-weight:700;"></div>
-    </div>
-  `;
+      <div style="font-size:13px;color:#64748b;margin:12px 0 16px;">Giltig till ${customerEsc(o.validUntil)}${o.pdfUrl ? ` · <a href="${customerEsc(o.pdfUrl)}" target="_blank" rel="noopener" style="color:#0369a1;font-weight:700;">📄 Ladda ner som PDF</a>` : ''}</div>
+      ${action}
+    </div>`);
 }
 
-async function approveCustomerDocument(type, id) {
+async function respondCustomerOffer(decision) {
   const statusDiv = document.getElementById('approval-status');
-  if (statusDiv) statusDiv.innerHTML = "Sparar godkännande... ⏳";
-
+  const name = (document.getElementById('cust-name')?.value || '').trim();
+  const comment = (document.getElementById('cust-comment')?.value || '').trim();
+  if (decision === 'godkänd' && name.length < 2) { statusDiv.style.color = '#b91c1c'; statusDiv.textContent = 'Skriv ditt namn för att godkänna.'; return; }
+  if (decision === 'avböjd' && !confirm('Vill du tacka nej?')) return;
+  document.querySelectorAll('button').forEach(b => { b.disabled = true; });
+  statusDiv.style.color = '#334155'; statusDiv.textContent = 'Skickar… ⏳';
   try {
-    const response = await fetch(CONFIG.API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      body: JSON.stringify({
-        action: type === 'ata' ? 'approveAta' : 'approveOffert',
-        code: customerDocCode,
-        documentId: id,
-        ataId: type === 'ata' ? id : undefined,
-        offertId: type === 'offert' ? id : undefined
-      })
-    });
-    const result = await response.json();
-    if (!result.success && result.status !== 'success') throw new Error(result.message || 'Okänt svar');
-    if (statusDiv) statusDiv.innerHTML = "<span style='color:#10b981;'>🎉 Tack! Dokumentet är nu godkänt och signerat.</span>";
+    const res = await customerApi({ action: 'respondOffer', decision, name, comment });
+    if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+    drawCustomerOffer(res.offer);
   } catch (err) {
-    if (statusDiv) statusDiv.textContent = "❌ " + (err.message && err.message.includes('länk') ? err.message : 'Kunde inte spara. Försök igen.');
-    if (statusDiv) statusDiv.style.color = '#ef4444';
+    document.querySelectorAll('button').forEach(b => { b.disabled = false; });
+    statusDiv.style.color = '#b91c1c';
+    statusDiv.textContent = '❌ ' + (err.message || 'Kunde inte spara. Försök igen.');
   }
 }
 
 document.addEventListener('DOMContentLoaded', checkCustomerUrlParams);
-window.sendAtaViaIMessage = sendAtaViaIMessage;
-window.sendOffertViaIMessage = sendOffertViaIMessage;
-window.approveCustomerDocument = approveCustomerDocument;
 
 // Lås maskinparken för UE (Inga tunga LPV-maskiner, och inga Admin-bubblor)
 window.originalApplyUE = window.applyUEConstraints;

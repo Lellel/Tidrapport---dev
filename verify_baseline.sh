@@ -19,15 +19,16 @@ check_feature() {
   fi
 }
 
-check_feature "app.js" "sendAtaViaIMessage" "iMessage ÄTA"
-check_feature "app.js" "sendOffertViaIMessage" "iMessage Offert"
+check_feature "offerter.html" "sendSms" "Offert/ÄTA via SMS"
+check_feature "app.js" "respondCustomerOffer" "Kundens godkännande (kundsida)"
 check_feature "app.js" "handleUserPillClick" "Användarpill / Profilväljare"
 check_feature "app.js" "renderOffertTemplate" "Offertbesök LiDAR-mallar"
 check_feature "app.js" "applyUEConstraints" "UE-Spärrar & Maskinfilter"
 check_feature "app.js" "renderCRMView" "360° CRM & Auto-logga"
 check_feature "app.js" "renderKabanossBoard" "Kabanoss Programgolv"
 check_feature "style.css" "glass-bubble" "3D-Glasbubblor (CSS)"
-check_feature "Kod.gs" "approveAta" "Backend Signering (Kod.gs)"
+check_feature "Kod.gs" "handleRespondOffer" "Backend Signering (Kod.gs)"
+check_feature "Kod.gs" "buildOfferPdf" "Offert-PDF (Kod.gs)"
 
 echo "------------------------------------------------------------"
 

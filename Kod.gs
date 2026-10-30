@@ -45,7 +45,8 @@ function doGet(e) {
 // så att tio förare som skickar pass samtidigt kl 05 inte väntar på admin som läser kartan.
 // generateTractorAvatar låses inte heller: AI:n tar 10-30 s och skriver bara en cell på slutet.
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
-  "getJobs", "signDocument", "generateTractorAvatar"];
+  "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
+  "getOfferForCustomer", "respondOffer"]; // de två sista låser själva bara när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -75,22 +76,17 @@ function doPost(e) {
     if (action === "ping") {
       return createJsonResponse({ status: "success", version: "v4.7.5", message: "Ansluten till Kod.gs" });
     }
-    // Kundens godkännande: skyddas av en signerad kod i länken i stället för nyckel
-    if (action === "approveAta" || action === "approveOffert") {
-      const docType = action === "approveAta" ? "ata" : "offert";
-      const docId = data.ataId || data.offertId || data.documentId;
-      if (!docId || !isValidDocumentCode(docType, docId, data.code)) {
-        return createJsonResponse({ status: "error", message: "Ogiltig eller utgången godkännandelänk." });
-      }
-      return docType === "ata" ? approveAta(docId) : approveOffert(docId);
-    }
+    // Kundens offert/ÄTA: skyddas av en signerad kod i länken i stället för nyckel
+    if (action === "getOfferForCustomer") return handleGetOfferForCustomer(data);
+    if (action === "respondOffer") return handleRespondOffer(data);
 
     // --- INLOGGNING: personlig nyckel (eller gamla gemensamma nyckeln under övergången) ---
     const auth = authenticate(data);
     if (!auth) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
     }
-    const adminOnly = ["getUsers", "getUserKey", "signDocument", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
+    const adminOnly = ["getUsers", "getUserKey", "signDocument", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
+      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
@@ -117,6 +113,12 @@ function doPost(e) {
     if (action === "save_ata") return handleSaveAta(data);
     if (action === "getSnowZones") return handleGetSnowZones(auth);
     if (action === "setSlingaDrivers") return handleSetSlingaDrivers(data, auth.user);
+    if (action === "getOffers") return handleGetOffers();
+    if (action === "saveOffer") return handleSaveOffer(data.offer, auth.user);
+    if (action === "sendOffer") return handleSendOffer(data.id, data.appUrl);
+    if (action === "cancelOffer") return handleCancelOffer(data.id);
+    if (action === "getOfferSettings") return createJsonResponse({ status: "success", settings: getOfferSettings() });
+    if (action === "saveOfferSettings") return handleSaveOfferSettings(data.settings);
     if (action === "getFleet") return handleGetFleet();
     if (action === "saveTractor") return handleSaveTractor(data.tractor);
     if (action === "deleteTractor") return handleDeleteById(getFleetSheet(), data.id);
@@ -243,9 +245,6 @@ function signDocument(docType, docId) {
   return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, "").slice(0, 16);
 }
 
-function isValidDocumentCode(docType, docId, code) {
-  return !!code && signDocument(docType, docId) === String(code);
-}
 
 // =========================================================
 // 3. SMART INTELLIGENS FÖR MODELLER & TILLVERKARE
@@ -834,6 +833,386 @@ function handleRemovePropertyPhoto(id, photoId) {
 }
 
 // ==========================================
+// 4d. OFFERTER & ÄTA (en gemensam flik, typ "offert" eller "ata")
+// Flöde: utkast -> skickad (PDF + länk) -> öppnad -> godkänd/avböjd.
+// Ändras en skickad offert höjs versionen; gamla länken slutar gälla och
+// en ny PDF + länk skickas. Totalsummor räknas alltid här i backend.
+// ==========================================
+const OFFER_HEADERS = ["Offert-ID", "Typ", "Version", "Status", "Kundnamn", "Kundtyp", "Telefon", "E-post", "Arbetsplats",
+  "Titel", "Beskrivning", "Rader (JSON)", "Avdrag (rot/rut/inget)", "Antal personer avdrag", "Giltig till",
+  "Att betala (kr)", "Skapad", "Skapad av", "Skickad", "Öppnad", "Besvarad", "Godkänd av", "Kundens kommentar", "PDF (Drive-ID)", "Jobb-ID"];
+const OFFER_STATUSES = ["utkast", "skickad", "öppnad", "godkänd", "avböjd", "makulerad"];
+
+const DEFAULT_OFFER_SETTINGS = {
+  companyName: "LPV", companyOrgNr: "", companyPhone: "", companyEmail: "", companyAddress: "",
+  hourlyWork: 650, hourlyMachine: 850, travelPerHour: 450,
+  vatPercent: 25, rotPercent: 30, rutPercent: 50, rotCapPerPerson: 50000, rutCapPerPerson: 75000,
+  validDays: 30,
+  lineMeterPrice: 48, lineSymbolPrice: 550, lineEstablishment: 3500,
+  facadeM2PerHour: 4, facadeM2PerLiter: 6, facadeCoats: 2, facadePaintPerLiter: 220,
+  terms: "Priser i SEK. Arbete utförs i samråd med kund. Avdrag (ROT/RUT) förutsätter att Skatteverket godkänner det; nekas avdraget betalar kunden mellanskillnaden."
+};
+
+function getSettingsSheet() { return getSheetOrCreate(getSS(), "Inställningar", ["Nyckel", "Värde", "Beskrivning"]); }
+
+function getOfferSettings() {
+  const settings = JSON.parse(JSON.stringify(DEFAULT_OFFER_SETTINGS));
+  const rows = getSettingsSheet().getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    const key = String(rows[i][0] || "");
+    if (!(key in settings)) continue;
+    settings[key] = typeof DEFAULT_OFFER_SETTINGS[key] === "number" ? Number(rows[i][1]) || 0 : String(rows[i][1] || "");
+  }
+  return settings;
+}
+
+function handleSaveOfferSettings(input) {
+  if (!input) return createJsonResponse({ status: "error", message: "Inga inställningar skickades." });
+  const sheet = getSettingsSheet();
+  const rows = sheet.getDataRange().getValues();
+  Object.keys(DEFAULT_OFFER_SETTINGS).forEach(key => {
+    if (!(key in input)) return;
+    const value = typeof DEFAULT_OFFER_SETTINGS[key] === "number" ? (Number(input[key]) || 0) : sanitize(input[key]);
+    let rowNumber = -1;
+    for (let i = 1; i < rows.length; i++) if (String(rows[i][0]) === key) { rowNumber = i + 1; break; }
+    if (rowNumber > 0) sheet.getRange(rowNumber, 2).setValue(value);
+    else { sheet.appendRow([key, value, ""]); rows.push([key, value, ""]); }
+  });
+  return createJsonResponse({ status: "success", settings: getOfferSettings() });
+}
+
+function getOfferSheet() { return getSheetOrCreate(getSS(), "Offerter", OFFER_HEADERS); }
+
+function cleanOfferRows(rows) {
+  return (Array.isArray(rows) ? rows : []).slice(0, 100).map(r => ({
+    text: sanitize(r.text).slice(0, 200),
+    kind: ["arbete", "maskin", "material", "resa", "ovrigt"].indexOf(r.kind) !== -1 ? r.kind : "ovrigt",
+    qty: Math.round((Number(r.qty) || 0) * 100) / 100,
+    unit: sanitize(r.unit).slice(0, 10) || "st",
+    price: Math.round((Number(r.price) || 0) * 100) / 100,
+    deductible: r.deductible === true
+  })).filter(r => r.text || r.qty || r.price);
+}
+
+// Alla belopp räknas här: exkl. moms, moms, avdrag (bara på avdragsgrundande rader, inkl. moms) och att betala
+function computeOfferTotals(offer, settings) {
+  const vat = settings.vatPercent / 100;
+  let net = 0, deductibleNet = 0;
+  offer.rows.forEach(r => {
+    const sum = r.qty * r.price;
+    net += sum;
+    if (r.deductible) deductibleNet += sum;
+  });
+  const vatAmount = net * vat;
+  const gross = net + vatAmount;
+  let deduction = 0, deductionLabel = "";
+  if (offer.customerType === "privat" && (offer.deduction === "rot" || offer.deduction === "rut")) {
+    const rate = (offer.deduction === "rot" ? settings.rotPercent : settings.rutPercent) / 100;
+    const cap = (offer.deduction === "rot" ? settings.rotCapPerPerson : settings.rutCapPerPerson) * Math.max(1, offer.deductionPersons || 1);
+    deduction = Math.min(deductibleNet * (1 + vat) * rate, cap);
+    deductionLabel = (offer.deduction === "rot" ? "ROT" : "RUT") + "-avdrag " + (offer.deduction === "rot" ? settings.rotPercent : settings.rutPercent) + " %";
+  }
+  const round = v => Math.round(v);
+  return { net: round(net), vat: round(vatAmount), gross: round(gross), deductibleNet: round(deductibleNet),
+           deduction: round(deduction), deductionLabel: deductionLabel, toPay: round(gross - deduction) };
+}
+
+function offerFromRow(row) {
+  let rows = [];
+  try { rows = JSON.parse(row[11] || "[]"); } catch (e) { rows = []; }
+  const fmt = v => v instanceof Date ? Utilities.formatDate(v, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm") : String(v || "");
+  return {
+    id: String(row[0]), type: String(row[1] || "offert"), version: Number(row[2]) || 1, status: String(row[3] || "utkast"),
+    customerName: String(row[4] || ""), customerType: String(row[5] || "privat"), phone: String(row[6] || ""), email: String(row[7] || ""),
+    site: String(row[8] || ""), title: String(row[9] || ""), description: String(row[10] || ""), rows: rows,
+    deduction: String(row[12] || "inget"), deductionPersons: Number(row[13]) || 1,
+    validUntil: fmt(row[14]).slice(0, 10), toPay: Number(row[15]) || 0,
+    created: fmt(row[16]), createdBy: String(row[17] || ""), sent: fmt(row[18]), opened: fmt(row[19]), answered: fmt(row[20]),
+    approvedBy: String(row[21] || ""), customerComment: String(row[22] || ""), pdfId: String(row[23] || ""), jobId: String(row[24] || "")
+  };
+}
+
+function offerToRow(o) {
+  return [o.id, o.type, o.version, o.status, o.customerName, o.customerType, o.phone, o.email, o.site, o.title, o.description,
+    JSON.stringify(o.rows), o.deduction, o.deductionPersons, o.validUntil, o.toPay, o.created, o.createdBy, o.sent, o.opened,
+    o.answered, o.approvedBy, o.customerComment, o.pdfId, o.jobId];
+}
+
+function nextOfferId(type) {
+  const year = new Date().getFullYear();
+  const prefix = (type === "ata" ? "Ä" : "O") + "-" + year + "-";
+  const rows = getOfferSheet().getDataRange().getValues();
+  let max = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const id = String(rows[i][0]);
+    if (id.indexOf(prefix) === 0) max = Math.max(max, Number(id.slice(prefix.length)) || 0);
+  }
+  return prefix + String(max + 1).padStart(3, "0");
+}
+
+function addDays(days) {
+  const d = new Date(); d.setDate(d.getDate() + days);
+  return Utilities.formatDate(d, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd");
+}
+
+function handleGetOffers() {
+  const settings = getOfferSettings();
+  const rows = getOfferSheet().getDataRange().getValues();
+  const offers = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    const o = offerFromRow(rows[i]);
+    o.totals = computeOfferTotals(o, settings);
+    o.pdfUrl = o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "";
+    offers.push(o);
+  }
+  return createJsonResponse({ status: "success", offers: offers.reverse(), settings: settings });
+}
+
+// Innehållet som kunden ser – ändras det på en skickad offert blir det en ny version
+function offerContentKey(o) {
+  return JSON.stringify([o.customerName, o.customerType, o.site, o.title, o.description, o.rows, o.deduction, o.deductionPersons, o.validUntil]);
+}
+
+function handleSaveOffer(input, savedBy) {
+  if (!input) return createJsonResponse({ status: "error", message: "Ingen offert skickades." });
+  const settings = getOfferSettings();
+  const sheet = getOfferSheet();
+  const existing = input.id ? findRowById(sheet, input.id) : null;
+  const old = existing ? offerFromRow(existing.row) : null;
+  if (old && (old.status === "godkänd" || old.status === "makulerad")) {
+    return createJsonResponse({ status: "error", message: "Offerten är " + old.status + " och kan inte ändras. Gör en ny." });
+  }
+  const type = old ? old.type : (input.type === "ata" ? "ata" : "offert");
+  const offer = {
+    id: old ? old.id : nextOfferId(type), type: type,
+    version: old ? old.version : 1, status: old ? old.status : "utkast",
+    customerName: sanitize(input.customerName), customerType: input.customerType === "foretag" ? "foretag" : "privat",
+    phone: sanitize(input.phone), email: sanitize(input.email).replace(/^'/, ""), site: sanitize(input.site),
+    title: sanitize(input.title), description: sanitize(input.description).slice(0, 2000),
+    rows: cleanOfferRows(input.rows),
+    deduction: ["rot", "rut"].indexOf(input.deduction) !== -1 ? input.deduction : "inget",
+    deductionPersons: Math.min(4, Math.max(1, Number(input.deductionPersons) || 1)),
+    validUntil: /^\d{4}-\d{2}-\d{2}$/.test(String(input.validUntil || "")) ? input.validUntil : addDays(settings.validDays),
+    created: old ? old.created : nowStamp(), createdBy: old ? old.createdBy : sanitize(savedBy),
+    sent: old ? old.sent : "", opened: old ? old.opened : "", answered: old ? old.answered : "",
+    approvedBy: old ? old.approvedBy : "", customerComment: old ? old.customerComment : "", pdfId: old ? old.pdfId : "", jobId: old ? old.jobId : ""
+  };
+  if (!offer.customerName) return createJsonResponse({ status: "error", message: "Ange kundens namn." });
+  if (!offer.rows.length) return createJsonResponse({ status: "error", message: "Lägg till minst en rad." });
+
+  // Ändrad efter att den skickats: ny version, gamla länken slutar gälla, ska skickas om
+  let changedAfterSend = false;
+  if (old && old.status !== "utkast" && offerContentKey(old) !== offerContentKey(offer)) {
+    offer.version = old.version + 1;
+    offer.status = "utkast";
+    offer.opened = ""; offer.answered = ""; offer.customerComment = "";
+    changedAfterSend = true;
+  }
+  offer.toPay = computeOfferTotals(offer, settings).toPay;
+  upsertById(sheet, offerToRow(offer));
+  offer.totals = computeOfferTotals(offer, settings);
+  return createJsonResponse({ status: "success", offer: offer, changedAfterSend: changedAfterSend });
+}
+
+function handleCancelOffer(id) {
+  const sheet = getOfferSheet();
+  const hit = findRowById(sheet, id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Offerten hittades inte." });
+  const o = offerFromRow(hit.row);
+  if (o.status === "godkänd") return createJsonResponse({ status: "error", message: "En godkänd offert kan inte makuleras här." });
+  o.status = "makulerad";
+  upsertById(sheet, offerToRow(o));
+  return createJsonResponse({ status: "success" });
+}
+
+function offerLinkCode(o) { return signDocument(o.type, o.id + ":v" + o.version); }
+
+// Egen formatering: Apps Script stödjer inte svensk sifferformatering pålitligt. Hårt mellanslag så att beloppet inte bryts.
+function moneySv(v) { return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0") + "\u00a0kr"; }
+
+function escapeHtml(text) {
+  return String(text == null ? "" : text).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// PDF byggs från HTML i Apps Script och sparas i Drive-mappen "Offerter"
+function buildOfferPdf(o, settings) {
+  const t = computeOfferTotals(o, settings);
+  const label = o.type === "ata" ? "ÄTA – tilläggsarbete" : "Offert";
+  let logo = "";
+  try {
+    if (CONFIG.FILE_ID_LOGO) {
+      const blob = DriveApp.getFileById(CONFIG.FILE_ID_LOGO).getBlob();
+      logo = '<img src="data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) + '" style="height:60px;">';
+    }
+  } catch (e) { logo = ""; }
+  const rowsHtml = o.rows.map(r => "<tr><td>" + escapeHtml(r.text) + (r.deductible && o.deduction !== "inget" && o.customerType === "privat" ? " *" : "") +
+    "</td><td style='text-align:right'>" + r.qty + " " + escapeHtml(r.unit) + "</td><td style='text-align:right'>" + moneySv(r.price) +
+    "</td><td style='text-align:right'>" + moneySv(r.qty * r.price) + "</td></tr>").join("");
+  const html = '<html><head><meta charset="utf-8"><style>' +
+    'body{font-family:Arial,sans-serif;font-size:11pt;color:#0f172a;margin:30px;} h1{font-size:20pt;margin:0;color:#0369a1;}' +
+    'table{width:100%;border-collapse:collapse;margin-top:14px;} th{background:#f1f5f9;text-align:left;padding:6px;font-size:10pt;} td{padding:6px;border-bottom:1px solid #e2e8f0;font-size:10pt;}' +
+    '.tot td{border:none;padding:3px 6px;} .big{font-size:14pt;font-weight:bold;color:#0369a1;} .muted{color:#64748b;font-size:9pt;}</style></head><body>' +
+    '<table style="margin:0"><tr><td style="border:none;padding:0">' + logo + '<h1>' + label + '</h1><div class="muted">' + escapeHtml(o.id) + (o.version > 1 ? " · version " + o.version : "") + '</div></td>' +
+    '<td style="border:none;padding:0;text-align:right" class="muted"><b>' + escapeHtml(settings.companyName) + '</b><br>' + escapeHtml(settings.companyAddress) +
+    '<br>' + escapeHtml(settings.companyPhone) + '<br>' + escapeHtml(settings.companyEmail) + (settings.companyOrgNr ? '<br>Org.nr ' + escapeHtml(settings.companyOrgNr) : '') + '</td></tr></table>' +
+    '<p><b>Till:</b> ' + escapeHtml(o.customerName) + (o.site ? '<br><b>Arbetsplats:</b> ' + escapeHtml(o.site) : '') +
+    '<br><b>Datum:</b> ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd") +
+    '<br><b>Giltig till:</b> ' + escapeHtml(o.validUntil) + '</p>' +
+    (o.title ? '<h2 style="font-size:13pt">' + escapeHtml(o.title) + '</h2>' : '') +
+    (o.description ? '<p>' + escapeHtml(o.description).replace(/\n/g, "<br>") + '</p>' : '') +
+    '<table><tr><th>Beskrivning</th><th style="text-align:right">Antal</th><th style="text-align:right">À-pris</th><th style="text-align:right">Summa</th></tr>' + rowsHtml + '</table>' +
+    '<table class="tot" style="width:50%;margin-left:50%"><tr><td>Summa exkl. moms</td><td style="text-align:right">' + moneySv(t.net) + '</td></tr>' +
+    '<tr><td>Moms ' + settings.vatPercent + ' %</td><td style="text-align:right">' + moneySv(t.vat) + '</td></tr>' +
+    '<tr><td>Summa inkl. moms</td><td style="text-align:right">' + moneySv(t.gross) + '</td></tr>' +
+    (t.deduction ? '<tr><td>' + t.deductionLabel + ' *</td><td style="text-align:right">−' + moneySv(t.deduction) + '</td></tr>' : '') +
+    '<tr><td class="big">Att betala</td><td class="big" style="text-align:right">' + moneySv(t.toPay) + '</td></tr></table>' +
+    (t.deduction ? '<p class="muted">* Avdraget gäller arbetskostnaden inkl. moms (' + moneySv(t.deductibleNet * (1 + settings.vatPercent / 100)) + ') och förutsätter att Skatteverket godkänner det.</p>' : '') +
+    '<p class="muted">' + escapeHtml(settings.terms) + '</p></body></html>';
+  const pdf = Utilities.newBlob(html, "text/html", o.id + ".html").getAs("application/pdf").setName(o.id + (o.version > 1 ? "-v" + o.version : "") + ".pdf");
+  const root = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
+  const existing = root.getFoldersByName("Offerter");
+  const folder = existing.hasNext() ? existing.next() : root.createFolder("Offerter");
+  const file = folder.createFile(pdf);
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { /* delning avstängd */ }
+  return file;
+}
+
+// Skickar (eller skickar om) offerten: ny PDF, ny länk, e-post till kunden om adress finns.
+// SMS skickas från admins telefon med länken som returneras.
+function handleSendOffer(id, appUrl) {
+  const sheet = getOfferSheet();
+  const hit = findRowById(sheet, id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Offerten hittades inte." });
+  const o = offerFromRow(hit.row);
+  if (o.status === "godkänd" || o.status === "makulerad") return createJsonResponse({ status: "error", message: "Offerten är " + o.status + "." });
+  const settings = getOfferSettings();
+  let pdfFile = null, pdfNote = "";
+  try { pdfFile = buildOfferPdf(o, settings); o.pdfId = pdfFile.getId(); }
+  catch (err) { pdfNote = "PDF kunde inte skapas: " + err.message; }
+  o.status = "skickad";
+  o.sent = nowStamp();
+  upsertById(sheet, offerToRow(o));
+
+  const code = offerLinkCode(o);
+  const label = o.type === "ata" ? "tilläggsarbete (ÄTA)" : "offert";
+  let emailNote = "";
+  if (o.email && /@/.test(o.email)) {
+    try {
+      const link = /^https:\/\/[^\s"<>]+$/.test(String(appUrl || "")) ? appUrl + "?" + o.type + "=" + encodeURIComponent(o.id) + "&code=" + encodeURIComponent(code) : "";
+      MailApp.sendEmail({
+        to: o.email,
+        subject: (o.version > 1 ? "Uppdaterad " : "") + label.charAt(0).toUpperCase() + label.slice(1) + " " + o.id + " från " + settings.companyName,
+        htmlBody: "<p>Hej " + escapeHtml(o.customerName) + "!</p><p>Här kommer " + (o.version > 1 ? "en uppdaterad " : "vår ") + label + " " + escapeHtml(o.id) +
+          (o.title ? " – " + escapeHtml(o.title) : "") + ". Den finns som PDF i bifogad fil." +
+          (link ? '</p><p><a href="' + link + '">Klicka här för att godkänna eller avböja</a>' : "") +
+          "</p><p>Att betala: <b>" + moneySv(computeOfferTotals(o, settings).toPay) + "</b> (giltig till " + escapeHtml(o.validUntil) + ")</p><p>Vänliga hälsningar<br>" +
+          escapeHtml(settings.companyName) + "<br>" + escapeHtml(settings.companyPhone) + "</p>",
+        attachments: pdfFile ? [pdfFile.getBlob()] : [],
+        name: settings.companyName
+      });
+      emailNote = "Mejlat till " + o.email;
+    } catch (err) { emailNote = "Mejlet kunde inte skickas: " + err.message; }
+  }
+  return createJsonResponse({ status: "success", code: code, version: o.version, pdfUrl: o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "",
+    emailNote: emailNote, pdfNote: pdfNote, offer: o });
+}
+
+// ---------- KUNDENS SIDA (ingen inloggning, bara signerad kod) ----------
+function findOfferForCode(data) {
+  const id = String(data.offerId || "");
+  const hit = id ? findRowById(getOfferSheet(), id) : null;
+  if (!hit) return { error: "Hittar inte offerten." };
+  const o = offerFromRow(hit.row);
+  if (!data.code || offerLinkCode(o) !== String(data.code)) {
+    // Gammal version?
+    for (let v = 1; v < o.version; v++) {
+      if (signDocument(o.type, o.id + ":v" + v) === String(data.code)) return { error: "Den här länken gäller en äldre version. Kolla efter en nyare länk från oss." };
+    }
+    return { error: "Ogiltig länk." };
+  }
+  return { offer: o, rowNumber: hit.rowNumber };
+}
+
+function customerView(o, settings) {
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd");
+  return {
+    id: o.id, type: o.type, version: o.version, status: o.status, customerName: o.customerName, site: o.site, title: o.title,
+    description: o.description, rows: o.rows.map(r => ({ text: r.text, qty: r.qty, unit: r.unit, price: r.price, deductible: r.deductible })),
+    validUntil: o.validUntil, expired: o.validUntil < today && o.status !== "godkänd", approvedBy: o.approvedBy, answered: o.answered,
+    totals: computeOfferTotals(o, settings), pdfUrl: o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "",
+    company: { name: settings.companyName, phone: settings.companyPhone, email: settings.companyEmail }
+  };
+}
+
+function handleGetOfferForCustomer(data) {
+  const found = findOfferForCode(data);
+  if (found.error) return createJsonResponse({ status: "error", message: found.error });
+  const o = found.offer;
+  if (o.status === "makulerad") return createJsonResponse({ status: "error", message: "Offerten är inte längre aktuell. Kontakta oss gärna." });
+  if (o.status === "skickad") {
+    // Markera som öppnad (en gång)
+    const lock = LockService.getScriptLock();
+    if (lock.tryLock(5000)) {
+      try {
+        const fresh = findRowById(getOfferSheet(), o.id);
+        const f = offerFromRow(fresh.row);
+        if (f.status === "skickad" && f.version === o.version) { f.status = "öppnad"; f.opened = nowStamp(); upsertById(getOfferSheet(), offerToRow(f)); o.status = "öppnad"; }
+      } finally { lock.releaseLock(); }
+    }
+  }
+  return createJsonResponse({ status: "success", offer: customerView(o, getOfferSettings()) });
+}
+
+function handleRespondOffer(data) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return createJsonResponse({ status: "error", message: "Servern var upptagen, försök igen." });
+  try {
+    const found = findOfferForCode(data);
+    if (found.error) return createJsonResponse({ status: "error", message: found.error });
+    const o = found.offer;
+    const settings = getOfferSettings();
+    // Redan besvarad: svara likadant igen (dubbeltryck skapar inte två jobb)
+    if (o.status === "godkänd" || o.status === "avböjd") {
+      return createJsonResponse({ status: "success", alreadyAnswered: true, offer: customerView(o, settings) });
+    }
+    if (o.status === "makulerad") return createJsonResponse({ status: "error", message: "Offerten är inte längre aktuell." });
+    if (customerView(o, settings).expired) return createJsonResponse({ status: "error", message: "Offerten har gått ut (" + o.validUntil + "). Kontakta oss så tar vi fram en ny." });
+    const decision = data.decision === "godkänd" ? "godkänd" : data.decision === "avböjd" ? "avböjd" : "";
+    if (!decision) return createJsonResponse({ status: "error", message: "Välj godkänn eller avböj." });
+    const name = sanitize(data.name).slice(0, 80);
+    if (decision === "godkänd" && name.length < 2) return createJsonResponse({ status: "error", message: "Skriv ditt namn för att godkänna." });
+
+    o.status = decision;
+    o.answered = nowStamp();
+    o.approvedBy = name;
+    o.customerComment = sanitize(data.comment).slice(0, 1000);
+    if (decision === "godkänd") {
+      // Ett jobb i planeringen med riktig kund, titel och arbetstimmar
+      const hours = o.rows.filter(r => r.kind === "arbete" || r.kind === "maskin").filter(r => /tim|h/i.test(r.unit)).reduce((s, r) => s + r.qty, 0);
+      const jobId = "J-" + o.id;
+      const planSheet = getSheetOrCreate(getSS(), "Gantt_Jobb", ["Projekt-ID", "Kundnamn", "Fakturerande Bolag", "Titel", "Status", "Startdag-Index", "Timmar", "Skift", "Sitelokalization", "Site-Kontakt", "Site-Telefon", "Bemannade Resurs-IDn"]);
+      if (!findRowById(planSheet, jobId)) {
+        planSheet.appendRow([jobId, o.customerName, settings.companyName, (o.type === "ata" ? "ÄTA: " : "") + (o.title || o.id), "unscheduled", "",
+          Math.max(1, Math.round(hours) || 8), "Dagpass", o.site, o.customerName, o.phone, "[]"]);
+      }
+      o.jobId = jobId;
+    }
+    upsertById(getOfferSheet(), offerToRow(o));
+    // Meddela admin
+    try {
+      const to = CONFIG.ADMIN_EMAIL || Session.getEffectiveUser().getEmail();
+      if (to) MailApp.sendEmail(to, (decision === "godkänd" ? "✅ Godkänd: " : "❌ Avböjd: ") + o.id + " " + o.customerName,
+        o.customerName + " har " + decision + " " + o.id + (o.title ? " (" + o.title + ")" : "") + (name ? ". Namn: " + name : "") +
+        (o.customerComment ? "\n\nKommentar: " + o.customerComment : "") + "\n\nAtt betala: " + moneySv(o.toPay));
+    } catch (err) { /* e-post är bonus */ }
+    return createJsonResponse({ status: "success", offer: customerView(o, settings) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ==========================================
 // 5. AI-TRANSFORMERING & AVATAR GENERERING
 // ==========================================
 function handleClayTransformation(eData) {
@@ -1029,24 +1408,6 @@ function handleGetUsers() {
     }
   }
   return createJsonResponse({ status: "success", users: users });
-}
-
-function approveAta(ataId) {
-  var ss = getSS();
-  var sheet = getSheetOrCreate(ss, "ÄTA_Godkännanden", ["ÄTA_ID", "Status", "Datum"]);
-  sheet.appendRow([ataId, "GODKÄND_AV_KUND", new Date()]);
-  return createJsonResponse({ success: true, ataId: ataId });
-}
-
-function approveOffert(offertId) {
-  var ss = getSS();
-  var sheet = getSheetOrCreate(ss, "Offert_Godkännanden", ["Offert_ID", "Status", "Datum"]);
-  sheet.appendRow([offertId, "GODKÄND_AV_KUND", new Date()]);
-
-  var planSheet = getSheetOrCreate(ss, "Gantt_Jobb", ["Projekt-ID", "Kundnamn", "Fakturerande Bolag", "Titel", "Status", "Startdag-Index", "Timmar", "Skift", "Sitelokalization", "Site-Kontakt", "Site-Telefon", "Bemannade Resurs-IDn"]);
-  planSheet.appendRow(["J-" + Math.floor(Math.random()*1000), "Kund-" + offertId, "LPV", "Ny Offert", "unscheduled", "", 8, "Dagpass", "", "", "", "[]"]);
-
-  return createJsonResponse({ success: true, offertId: offertId });
 }
 
 function handleSaveTimeReport(eData) {
