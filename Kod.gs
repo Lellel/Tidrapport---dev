@@ -54,11 +54,38 @@ function doPost(e) {
       data = e.parameter || {};
     }
 
-    if (data.token !== CONFIG.API_TOKEN) {
-      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig säkerhetstoken." });
+    const action = data.action;
+
+    // --- ÖPPNA ÅTGÄRDER (kräver ingen inloggning) ---
+    if (action === "ping") {
+      return createJsonResponse({ status: "success", version: "v4.7.5", message: "Ansluten till Kod.gs" });
+    }
+    // Kundens godkännande: skyddas av en signerad kod i länken i stället för nyckel
+    if (action === "approveAta" || action === "approveOffert") {
+      const docType = action === "approveAta" ? "ata" : "offert";
+      const docId = data.ataId || data.offertId || data.documentId;
+      if (!docId || !isValidDocumentCode(docType, docId, data.code)) {
+        return createJsonResponse({ status: "error", message: "Ogiltig eller utgången godkännandelänk." });
+      }
+      return docType === "ata" ? approveAta(docId) : approveOffert(docId);
     }
 
-    const action = data.action;
+    // --- INLOGGNING: personlig nyckel (eller gamla gemensamma nyckeln under övergången) ---
+    const auth = authenticate(data);
+    if (!auth) {
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
+    }
+    const adminOnly = ["getUsers", "getUserKey", "signDocument"];
+    if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
+    }
+    // Vanliga användare kan bara rapportera i eget namn
+    if (!auth.isAdmin && !auth.legacy) {
+      (data.pass || []).forEach(p => { p.user = auth.user; });
+      data.anvandare = auth.user;
+      data.user = auth.user;
+      data.resursId = auth.user;
+    }
 
     // --- ROUTER ---
     if (action === "getKabanossData") return handleGetKabanossData();
@@ -66,14 +93,11 @@ function doPost(e) {
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
     if (action === "getUsers") return handleGetUsers();
+    if (action === "getUserKey") return handleGetUserKey(data);
+    if (action === "signDocument") return createJsonResponse({ status: "success", code: signDocument(data.docType, data.docId) });
     if (action === "transform_to_clay") return handleClayTransformation(data);
-    if (action === "approveAta") return approveAta(data.ataId || data.documentId);
-    if (action === "approveOffert") return approveOffert(data.offertId || data.documentId);
     if (action === "save_time_report") return handleSaveTimeReport(data);
     if (action === "save_ata") return handleSaveAta(data);
-    if (action === "ping") {
-      return createJsonResponse({ status: "success", version: "v4.7.5", message: "Ansluten till Kod.gs" });
-    }
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
 
@@ -82,6 +106,90 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// =========================================================
+// 2b. PERSONLIGA NYCKLAR & SIGNERADE KUNDLÄNKAR
+// Nycklarna ligger i kolumn L ("App-nyckel") i fliken Personal.
+// Hemligheten för kundlänkar ligger i Script Properties (DOC_SECRET) och
+// skapas automatiskt första gången. Den gamla gemensamma nyckeln
+// (CONFIG.API_TOKEN) fungerar tills raden tas bort ur Config.gs.
+// =========================================================
+const KEY_COLUMN = 12; // Kolumn L
+
+function getStaffSheet() {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
+  if (sheet && sheet.getRange(1, KEY_COLUMN).getValue() === "") {
+    sheet.getRange(1, KEY_COLUMN).setValue("App-nyckel").setFontWeight("bold").setBackground("#f3f3f3");
+  }
+  return sheet;
+}
+
+function findStaffRow(sheet, name) {
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim() === String(name || "").trim() && rows[i][0] !== "") {
+      return { rowNumber: i + 1, row: rows[i] };
+    }
+  }
+  return null;
+}
+
+function isAdminRow(row) {
+  return String(row[4] || "").trim().toLowerCase() === "true";
+}
+
+function authenticate(data) {
+  const sheet = getStaffSheet();
+  if (data.user && data.key && sheet) {
+    const hit = findStaffRow(sheet, data.user);
+    const savedKey = hit ? String(hit.row[KEY_COLUMN - 1] || "") : "";
+    const quarantined = hit && String(hit.row[7] || "").toLowerCase() === "karantän";
+    if (savedKey && savedKey === String(data.key) && !quarantined) {
+      return { user: String(hit.row[0]), isAdmin: isAdminRow(hit.row), legacy: false };
+    }
+    return null;
+  }
+  // Övergång: gamla gemensamma nyckeln. Ta bort API_TOKEN ur Config.gs för att stänga av.
+  const legacyToken = (typeof CONFIG !== "undefined" && CONFIG.API_TOKEN) || "";
+  if (legacyToken && data.token === legacyToken) {
+    const hit = sheet && data.user ? findStaffRow(sheet, data.user) : null;
+    return { user: String(data.user || "Okänd"), isAdmin: !!(hit && isAdminRow(hit.row)), legacy: true };
+  }
+  return null;
+}
+
+// Admin hämtar (eller skapar) en persons nyckel för inloggningslänken. reset=true ger ny nyckel och spärrar den gamla.
+function handleGetUserKey(data) {
+  const sheet = getStaffSheet();
+  const hit = findStaffRow(sheet, data.targetUser);
+  if (!hit) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
+  let key = String(hit.row[KEY_COLUMN - 1] || "");
+  if (!key || data.reset) {
+    key = Utilities.getUuid().replace(/-/g, "");
+    sheet.getRange(hit.rowNumber, KEY_COLUMN).setValue(key);
+  }
+  return createJsonResponse({ status: "success", user: String(hit.row[0]), key: key });
+}
+
+function getDocSecret() {
+  const props = PropertiesService.getScriptProperties();
+  let secret = props.getProperty("DOC_SECRET");
+  if (!secret) {
+    secret = Utilities.getUuid() + Utilities.getUuid();
+    props.setProperty("DOC_SECRET", secret);
+  }
+  return secret;
+}
+
+function signDocument(docType, docId) {
+  const bytes = Utilities.computeHmacSha256Signature(String(docType) + ":" + String(docId), getDocSecret());
+  return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, "").slice(0, 16);
+}
+
+function isValidDocumentCode(docType, docId, code) {
+  return !!code && signDocument(docType, docId) === String(code);
 }
 
 // =========================================================

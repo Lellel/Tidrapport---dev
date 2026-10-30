@@ -211,7 +211,7 @@
             } else if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.length > 10) {
                 fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'getKabanossData', token: 'Gravmaskin2026Secure!' })
+                    body: JSON.stringify({ action: 'getKabanossData', user: localStorage.getItem('lpv_user') || '', key: localStorage.getItem('lpv_key') || '' })
                 })
                 .then(function(r) { return r.json(); })
                 .then(onDataLoaded)
