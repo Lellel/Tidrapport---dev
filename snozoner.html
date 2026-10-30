@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Snözoner – Rita</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root { --bg: #0b1220; --panel: #111a2e; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --ok: #10b981; --danger: #ef4444; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .layout { display: grid; grid-template-columns: 1fr 340px; height: 100%; }
+    #map { height: 100%; width: 100%; }
+    .panel { background: var(--panel); border-left: 1px solid var(--line); padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .topbar a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
+    h1 { font-size: 17px; margin: 0; }
+    label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
+    input, textarea { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: #0b1220; color: var(--text); font-size: 15px; }
+    textarea { resize: vertical; min-height: 54px; }
+    .row2 { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
+    .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    button { min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; }
+    button.active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
+    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+    button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .status { font-size: 13px; color: var(--muted); min-height: 18px; }
+    .status b { color: var(--text); }
+    .banner { background: rgba(239,68,68,.12); border: 1px solid var(--danger); color: #fecaca; padding: 10px; border-radius: 10px; font-size: 13px; display: none; }
+    .map-toggle { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; gap: 6px; }
+    .map-toggle button { min-height: 36px; padding: 0 12px; background: rgba(17,26,46,.9); }
+    .map-wrap { position: relative; height: 100%; }
+    .zone-list { display: flex; flex-direction: column; gap: 6px; }
+    .zone-item { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; cursor: pointer; }
+    .zone-item small { color: var(--muted); }
+    .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
+      .panel { border-left: none; border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-toggle">
+        <button onclick="mapCtl.setTiles('sat')">🛰️ Satellit</button>
+        <button onclick="mapCtl.setTiles('street')">🗺️ Vägkarta</button>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <div class="topbar">
+        <a href="index.html">← Tidrapport</a>
+        <a href="snojour.html">Snöjour →</a>
+      </div>
+      <h1>❄️ Rita snözoner</h1>
+      <div class="banner" id="admin-banner">Bara admin kan spara zoner. Logga in med din admin-länk.</div>
+
+      <div>
+        <label for="f-slinga">Slinga</label>
+        <input id="f-slinga" list="slinga-list" placeholder="T.ex. Centrum 1">
+        <datalist id="slinga-list"></datalist>
+      </div>
+      <div class="row2">
+        <div>
+          <label for="f-property">Fastighet / Adress</label>
+          <input id="f-property" placeholder="T.ex. Drottninggatan 4">
+        </div>
+        <div>
+          <label for="f-order">Ordning</label>
+          <input id="f-order" type="number" min="0" inputmode="numeric" placeholder="1">
+        </div>
+      </div>
+      <div>
+        <label for="f-note">Anteckning</label>
+        <textarea id="f-note" placeholder="T.ex. Snöupplag vid gaveln, se upp för låg grind"></textarea>
+      </div>
+
+      <div>
+        <label>Verktyg</label>
+        <div class="tools" id="tools"></div>
+      </div>
+
+      <div class="status" id="status">Välj ett verktyg och tryck på kartan.</div>
+      <div class="actions">
+        <button onclick="undoPoint()">↶ Ångra punkt</button>
+        <button onclick="cancelDrawing()">✕ Avbryt</button>
+        <button class="ok" id="btn-save" onclick="saveCurrent()" style="grid-column: 1 / -1;">💾 Spara zon</button>
+        <button class="danger" id="btn-delete" onclick="deleteSelected()" style="grid-column: 1 / -1; display:none;">🗑️ Ta bort vald zon</button>
+      </div>
+
+      <div>
+        <label>Sparade zoner <span id="zone-count"></span></label>
+        <div class="zone-list" id="zone-list"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="config.js"></script>
+  <script src="sno.js"></script>
+  <script>
+    let mapCtl, map;
+    let zones = [];
+    let zoneLayers = [];
+    let currentTool = 'maskin';
+    let drawingPoints = [];
+    let previewLayer = null;
+    let selectedZone = null;
+
+    function setStatus(html) { document.getElementById('status').innerHTML = html; }
+
+    function renderTools() {
+      document.getElementById('tools').innerHTML = Object.entries(SNO_TYPES).map(([key, def]) =>
+        `<button class="${key === currentTool ? 'active' : ''}" onclick="setTool('${key}')">${def.icon || '■'} ${def.label}</button>`
+      ).join('');
+    }
+
+    function setTool(tool) {
+      currentTool = tool;
+      cancelDrawing();
+      renderTools();
+      const kind = SNO_TYPES[tool].kind;
+      setStatus(kind === 'marker' ? 'Tryck på kartan där markören ska sitta.' :
+        kind === 'line' ? 'Tryck ut sträckan punkt för punkt, spara när du är klar.' :
+        'Tryck ut hörnen runt ytan, spara när du är klar.');
+    }
+
+    function drawPreview() {
+      if (previewLayer) map.removeLayer(previewLayer);
+      previewLayer = null;
+      const def = SNO_TYPES[currentTool];
+      if (drawingPoints.length === 0) return;
+      if (def.kind === 'polygon' && drawingPoints.length >= 3) {
+        previewLayer = L.polygon(drawingPoints, { color: def.color, fillOpacity: 0.25, dashArray: '6 6' }).addTo(map);
+        setStatus(`${drawingPoints.length} punkter · Yta: <b>${Math.round(snoGeodesicArea(drawingPoints)).toLocaleString('sv-SE')} m²</b>`);
+      } else if (def.kind !== 'marker') {
+        previewLayer = L.polyline(drawingPoints, { color: def.color || '#fff', dashArray: '6 6', weight: 4 }).addTo(map);
+        setStatus(`${drawingPoints.length} punkter`);
+      } else {
+        previewLayer = L.marker(drawingPoints[0], { icon: L.divIcon({ className: 'sno-hazard', html: def.icon, iconSize: [30, 30] }) }).addTo(map);
+        setStatus(`${def.label} placerad – tryck Spara.`);
+      }
+    }
+
+    function onMapClick(e) {
+      selectZone(null);
+      const point = [e.latlng.lat, e.latlng.lng];
+      if (SNO_TYPES[currentTool].kind === 'marker') drawingPoints = [point];
+      else drawingPoints.push(point);
+      drawPreview();
+    }
+
+    function undoPoint() { drawingPoints.pop(); drawPreview(); }
+
+    function cancelDrawing() {
+      drawingPoints = [];
+      if (previewLayer) map.removeLayer(previewLayer);
+      previewLayer = null;
+    }
+
+    function readForm() {
+      return {
+        slinga: document.getElementById('f-slinga').value.trim(),
+        property: document.getElementById('f-property').value.trim(),
+        order: Number(document.getElementById('f-order').value) || 0,
+        note: document.getElementById('f-note').value.trim()
+      };
+    }
+
+    async function saveCurrent() {
+      const form = readForm();
+      let zone;
+      if (selectedZone) {
+        zone = { ...selectedZone, ...form };
+      } else {
+        const kind = SNO_TYPES[currentTool].kind;
+        const minPoints = kind === 'polygon' ? 3 : kind === 'line' ? 2 : 1;
+        if (drawingPoints.length < minPoints) { setStatus(`Rita minst ${minPoints} punkter först.`); return; }
+        zone = { ...form, type: currentTool, coords: drawingPoints, areaM2: kind === 'polygon' ? snoGeodesicArea(drawingPoints) : 0 };
+      }
+      if (!zone.property) { setStatus('Fyll i Fastighet / Adress.'); document.getElementById('f-property').focus(); return; }
+
+      setStatus('Sparar…');
+      try {
+        const res = await snoApi({ action: 'saveSnowZone', zone });
+        if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return; }
+        cancelDrawing();
+        selectZone(null);
+        document.getElementById('f-property').value = '';
+        document.getElementById('f-note').value = '';
+        const orderInput = document.getElementById('f-order');
+        if (orderInput.value) orderInput.value = Number(orderInput.value) + 1;
+        await loadZones();
+        setStatus('✅ Sparad. Rita nästa zon.');
+      } catch (err) {
+        setStatus('❌ Ingen kontakt med servern. Försök igen.');
+      }
+    }
+
+    async function deleteSelected() {
+      if (!selectedZone) return;
+      if (!confirm(`Ta bort ${SNO_TYPES[selectedZone.type].label.toLowerCase()} vid ${selectedZone.property}?`)) return;
+      const res = await snoApi({ action: 'deleteSnowZone', zoneId: selectedZone.id });
+      if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte ta bort.')); return; }
+      selectZone(null);
+      await loadZones();
+      setStatus('🗑️ Borttagen.');
+    }
+
+    // Tryck på en sparad zon = välj den för att ändra uppgifter eller ta bort
+    function selectZone(zone) {
+      selectedZone = zone;
+      document.getElementById('btn-delete').style.display = zone ? 'block' : 'none';
+      document.getElementById('btn-save').innerText = zone ? '💾 Spara ändringar' : '💾 Spara zon';
+      if (zone) {
+        cancelDrawing();
+        document.getElementById('f-slinga').value = zone.slinga;
+        document.getElementById('f-property').value = zone.property;
+        document.getElementById('f-order').value = zone.order || '';
+        document.getElementById('f-note').value = zone.note;
+        setStatus(`Vald: <b>${snoEscape(zone.property)}</b> (${SNO_TYPES[zone.type].label}). Ändra uppgifterna eller ta bort.`);
+      }
+    }
+
+    function renderZoneList() {
+      const sorted = [...zones].sort((a, b) => a.slinga.localeCompare(b.slinga, 'sv') || a.order - b.order);
+      document.getElementById('zone-count').innerText = `(${zones.length})`;
+      document.getElementById('zone-list').innerHTML = sorted.map(z => `
+        <div class="zone-item" onclick="focusZone('${snoEscape(z.id)}')">
+          <span>${SNO_TYPES[z.type]?.icon || '■'} ${snoEscape(z.property)}<br><small>${snoEscape(z.slinga || 'Ingen slinga')} · #${z.order}</small></span>
+          <small>${z.areaM2 ? Math.round(z.areaM2).toLocaleString('sv-SE') + ' m²' : SNO_TYPES[z.type]?.label || ''}</small>
+        </div>`).join('') || '<div class="status">Inga zoner ännu.</div>';
+      document.getElementById('slinga-list').innerHTML = snoSlingor(zones).map(s => `<option value="${snoEscape(s)}">`).join('');
+    }
+
+    function focusZone(id) {
+      const zone = zones.find(z => z.id === id);
+      if (!zone) return;
+      map.setView(snoCenter(zone.coords), Math.max(map.getZoom(), 18));
+      selectZone(zone);
+    }
+
+    async function loadZones() {
+      try {
+        const res = await snoApi({ action: 'getSnowZones' });
+        if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte hämta zoner.')); return; }
+        zones = res.zones || [];
+        zoneLayers.forEach(l => map.removeLayer(l));
+        // Mitt i en ritning blir tryck på en befintlig zon en ny punkt, annars väljs zonen
+        zoneLayers = zones.map(z => snoRenderZone(map, z, (zone, layer, e) => {
+          if (drawingPoints.length > 0) { layer.closePopup(); onMapClick(e); }
+          else selectZone(zone);
+        }));
+        renderZoneList();
+      } catch (err) {
+        setStatus('❌ Ingen kontakt med servern.');
+      }
+    }
+
+    mapCtl = snoCreateMap('map');
+    map = mapCtl.map;
+    map.on('click', onMapClick);
+    if (!snoIsAdmin()) document.getElementById('admin-banner').style.display = 'block';
+    renderTools();
+    loadZones();
+  </script>
+</body>
+</html>
