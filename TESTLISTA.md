@@ -7,7 +7,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
 ## 0. Förberedelser (en gång)
 
-- [ ] Klistra in nya `Kod.gs` i dev-versionens Apps Script → **Distribuera → Hantera distributioner → Redigera → Ny version**
+- [ ] Ladda upp nya `Kod.gs` med `./ladda-upp-kod.sh` (kräver clasp och klonat projekt i `~/Dev-repot/AppsScript-dev`) → **Distribuera → Hantera distributioner → Redigera → Ny version**
 - [ ] Godkänn de nya behörigheterna när Apps Script frågar (Kartor/Maps, Drive och **Gmail/MailApp** för offert-mejl)
 - [ ] `GEMINI_API_KEY` finns i **Projektinställningar → Skriptegenskaper** (för AI-kulorna)
 - [ ] Kolla att `config.js` i dev pekar på dev-versionens Apps Script-URL (inte prod)
@@ -224,7 +224,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
 - [ ] Avsnitt 1, 3 och 4 är helt gröna
 - [ ] Fyll i företagsuppgifter under Offerter → ⚙️ i **PROD** också
-- [ ] Klistra in samma `Kod.gs` i **PROD**-versionens Apps Script (prod har en egen backend) → Ny version
+- [ ] Ladda upp samma `Kod.gs` till **PROD**-versionens Apps Script med `./ladda-upp-kod.sh prod` (prod har en egen backend, klonad i `~/Dev-repot/AppsScript-prod`) → Ny version
 - [ ] Kör deploy (GitHub Actions → "Deploy to Production")
 - [ ] Öppna prod-appen och spara ett riktigt testpass
 - [ ] Skicka nya inloggningslänkar till alla förare
