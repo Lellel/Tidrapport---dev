@@ -6,9 +6,6 @@
     <title>Gårds-Kabanossen: Master V11 (23 Boxar & Detaljkort)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- TOUCH POLYFILL FÖR IPAD / MOBIL DRAG-AND-DROP -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0/default.css">
-    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0/index.min.js"></script>
 
     <style>
         body {
@@ -359,13 +356,74 @@
     </div>
 
 <script>
-if (window.MobileDragDrop) {
-    MobileDragDrop.polyfill({
-        holdToDrag: 150, 
-        dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
-    });
-    window.addEventListener('touchmove', function() {}, {passive: false});
+// ----------------------------------------------------
+// TOUCH-DRAG FÖR IPAD / MOBIL (ersätter mobile-drag-drop)
+// iPad-Safari utger sig för att vara Mac, så polyfillen startade aldrig.
+// Här styrs drag med Pointer Events och de befintliga ondragstart/ondrop-
+// handlarna anropas med ett låtsas-event. Mus använder fortfarande vanlig HTML5-drag.
+// ----------------------------------------------------
+const touchDrag = { el: null, ghost: null, startX: 0, startY: 0, active: false, justDragged: false };
+
+function makeFakeDragEvent(x, y) {
+    let stopped = false;
+    return {
+        clientX: x, clientY: y, dataTransfer: null,
+        preventDefault() {}, stopPropagation() { stopped = true; },
+        get stopped() { return stopped; }
+    };
 }
+
+document.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;
+    const el = e.target.closest('[draggable="true"]');
+    if (!el) return;
+    touchDrag.el = el; touchDrag.startX = e.clientX; touchDrag.startY = e.clientY; touchDrag.active = false;
+});
+
+document.addEventListener('pointermove', (e) => {
+    if (!touchDrag.el || e.pointerType === 'mouse') return;
+    if (!touchDrag.active) {
+        if (Math.hypot(e.clientX - touchDrag.startX, e.clientY - touchDrag.startY) < 8) return;
+        touchDrag.active = true;
+        if (typeof touchDrag.el.ondragstart === 'function') touchDrag.el.ondragstart(makeFakeDragEvent(e.clientX, e.clientY));
+        const r = touchDrag.el.getBoundingClientRect();
+        const ghost = touchDrag.el.cloneNode(true);
+        ghost.removeAttribute('id');
+        ghost.style.cssText += `;position:fixed;left:0;top:0;width:${r.width}px;height:${r.height}px;margin:0;opacity:0.85;pointer-events:none;z-index:9999;transform:scale(1.05);`;
+        document.body.appendChild(ghost);
+        touchDrag.ghost = ghost;
+        touchDrag.offX = touchDrag.startX - r.left; touchDrag.offY = touchDrag.startY - r.top;
+    }
+    touchDrag.ghost.style.left = (e.clientX - touchDrag.offX) + 'px';
+    touchDrag.ghost.style.top = (e.clientY - touchDrag.offY) + 'px';
+}, { passive: true });
+
+function endTouchDrag(e, cancelled) {
+    if (!touchDrag.el) return;
+    if (touchDrag.active) {
+        if (touchDrag.ghost) touchDrag.ghost.remove();
+        if (!cancelled) {
+            // Bubbla ondrop uppåt från elementet under fingret tills någon handler stoppar
+            let target = document.elementFromPoint(e.clientX, e.clientY);
+            const ev = makeFakeDragEvent(e.clientX, e.clientY);
+            while (target && !ev.stopped) {
+                if (typeof target.ondrop === 'function') target.ondrop(ev);
+                target = target.parentElement;
+            }
+        }
+        draggedOrbId = null; draggedJobId = null;
+        touchDrag.justDragged = true;
+        setTimeout(() => { touchDrag.justDragged = false; }, 50);
+    }
+    touchDrag.el = null; touchDrag.ghost = null; touchDrag.active = false;
+}
+document.addEventListener('pointerup', (e) => endTouchDrag(e, false));
+document.addEventListener('pointercancel', (e) => endTouchDrag(e, true));
+
+// Förhindra att kortet öppnas (onclick) direkt efter ett drag
+document.addEventListener('click', (e) => {
+    if (touchDrag.justDragged) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 
 document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
 document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
@@ -892,7 +950,8 @@ function renderMobile() {
                 </div>
             </div>`).join('');
     }
-    renderGantt('mobile', false);
+    // Mobilvyn har ingen egen tidslinje i HTML:en – rita bara om den finns
+    if (document.getElementById('mobile-timeline-inner')) renderGantt('mobile', false);
 }
 
 function openStallConfigModal() { document.getElementById('modal-stall-config').classList.remove('hidden'); document.getElementById('modal-stall-config').classList.add('flex'); }
