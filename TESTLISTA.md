@@ -99,6 +99,17 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Sätt "Giltig till" bakåt i tiden och skicka → kunden ser att den gått ut
 - [ ] **🗑️ Makulera** → kundlänken slutar fungera
 
+**🎨 Kulörförslag (fasad)**
+- [ ] I offerten: **📷 Foto av huset** → ta en bild rakt framifrån i dagsljus
+- [ ] Välj **Fasad**, **Detaljer** (knutar, foder, vindskivor) och **Fönster & dörrar** – "Behåll" lämnar dem orörda
+- [ ] **✨ Skapa förslag** → efter 10–30 s kommer en ommålad bild. Ser huset ut som samma hus?
+- [ ] Gör 2–3 alternativ, tryck på en bild → växlar före/efter. ✕ tar bort ett förslag
+- [ ] Bilderna hamnar i Drive-mappen **Kulörförslag**
+- [ ] Byt ut startpaletten mot era Alcro-kulörer under ⚙️ → **Kulörer** (Namn | NCS | #färg)
+- [ ] PDF:en har rubriken **Kulörförslag** med bilderna
+- [ ] Kunden ser förslagen, kan växla före/efter och **måste välja ett** innan godkännande (när det finns flera)
+- [ ] Valet syns i adminvyn ("Kunden valde …") och i mejlet om godkännandet
+
 **Offertbesök i fält**
 - [ ] Välj aktivitet **Offertbesök** som admin → knappen "📄 Skapa offert från besöket" tar med platsen
 

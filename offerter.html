@@ -71,6 +71,15 @@
     .sec-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
     .sec-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; }
     input[type=range] { padding: 0; }
+    .swatches { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+    .swatch { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 0; padding: 6px; width: 76px; border-radius: 10px; font-size: 10px; font-weight: 600; line-height: 1.15; }
+    .swatch .chip { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); }
+    .swatch.active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
+    .copt { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .copt img { width: 100%; display: block; cursor: pointer; }
+    .copt .cbody { padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+    .colors-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+    .photo-prev { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; }
     @media (max-width: 520px) { .orow { grid-template-columns: 1fr 1fr; } .wall { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
@@ -143,17 +152,20 @@
 
     function newOffer(type) {
       draft = { id: '', type, version: 1, status: 'utkast', customerName: '', customerType: 'privat', phone: '', email: '', site: '',
-        title: '', description: '', rows: [], deduction: type === 'ata' ? 'inget' : 'rot', deductionPersons: 1, validUntil: '' };
+        title: '', description: '', rows: [], deduction: type === 'ata' ? 'inget' : 'rot', deductionPersons: 1, validUntil: '', colorOptions: [] };
       const d = new Date(); d.setDate(d.getDate() + settings.validDays);
       draft.validUntil = d.toISOString().slice(0, 10);
       // Från fältet: offerter.html?ny=offert&kund=...&plats=...
       const q = new URLSearchParams(location.search);
       if (q.get('plats')) draft.site = q.get('plats');
+      colorPhoto = ''; colorBeforeId = '';
       view = 'edit'; message = ''; render();
     }
 
     function openOffer(id) {
       draft = JSON.parse(JSON.stringify(offers.find(o => o.id === id)));
+      const withPhoto = (draft.colorOptions || []).find(c => c.beforeId);
+      colorPhoto = ''; colorBeforeId = withPhoto ? withPhoto.beforeId : '';
       view = 'edit'; message = ''; render();
     }
 
@@ -202,6 +214,8 @@
             <button onclick="openLines()">🅿️ ${draft.layout ? 'Ändra linjeritning' : 'Linjemålning'}</button>
           </div>`}
         </div>
+
+        ${renderColorCard(dis)}
 
         <div class="card">
           <h2>Avdrag & giltighet</h2>
@@ -338,6 +352,101 @@
       const res = await snoApi({ action: 'cancelOffer', id: draft.id });
       if (res.status !== 'success') { setMessage('❌ ' + esc(res.message)); return; }
       draft.status = 'makulerad'; upsertLocal(draft); backToList();
+    }
+
+    // ================= KULÖRFÖRSLAG (AI målar om ett foto av huset) =================
+    let colorPhoto = '';          // foto som ska målas om (dataURL, finns bara i telefonen tills första förslaget)
+    let colorBeforeId = '';       // samma foto i Drive efter första förslaget – återanvänds
+    let colorPick = { main: 0, detail: -1, windows: -1 };  // index i paletten, -1 = behåll befintlig
+    let colorBusy = false;
+
+    function palette() {
+      return String(settings.facadeColors || '').split('\n').map(line => {
+        const [name, ncs, hex] = line.split('|').map(x => (x || '').trim());
+        return name ? { name, ncs: ncs || '', hex: /^#[0-9a-fA-F]{6}$/.test(hex || '') ? hex : '#999999' } : null;
+      }).filter(Boolean);
+    }
+    const driveImg = (id) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w800`;
+
+    function swatchRow(key, allowKeep) {
+      const pal = palette();
+      return `<div class="swatches">${allowKeep ? `<button class="swatch ${colorPick[key] === -1 ? 'active' : ''}" onclick="colorPick.${key}=-1; render()"><span class="chip" style="background:repeating-linear-gradient(45deg,#334155,#334155 4px,#1e293b 4px,#1e293b 8px)"></span>Behåll</button>` : ''}
+        ${pal.map((c, i) => `<button class="swatch ${colorPick[key] === i ? 'active' : ''}" onclick="colorPick.${key}=${i}; render()"><span class="chip" style="background:${c.hex}"></span>${esc(c.name)}<span style="opacity:.7">${esc(c.ncs)}</span></button>`).join('')}</div>`;
+    }
+
+    function colorLabel(o) {
+      const t = (c) => c ? `${c.name}${c.ncs ? ' (' + c.ncs + ')' : ''}` : 'befintlig';
+      return `Fasad: ${t(o.main)} · Detaljer: ${t(o.detail)} · Fönster/dörrar: ${t(o.windows)}`;
+    }
+
+    function renderColorCard(dis) {
+      const opts = draft.colorOptions || [];
+      return `<div class="card">
+        <h2>🎨 Kulörförslag ${opts.length ? `<span class="muted">(${opts.length})</span>` : ''}</h2>
+        ${opts.length ? `<div class="colors-grid">${opts.map((o, i) => `<div class="copt">
+            <img src="${driveImg(o.imageId)}" data-after="${driveImg(o.imageId)}" data-before="${o.beforeId ? driveImg(o.beforeId) : ''}" onclick="if (this.dataset.before) this.src = this.src === this.dataset.after ? this.dataset.before : this.dataset.after" alt="Alternativ ${i + 1}">
+            <div class="cbody"><span><b>Alternativ ${i + 1}</b><br>${esc(o.label)}</span>${dis ? '' : `<button class="danger" style="min-height:30px" onclick="draft.colorOptions.splice(${i},1); render()">✕</button>`}</div>
+          </div>`).join('')}</div><div class="muted">Tryck på en bild för att växla före/efter. Kunden väljer alternativ när hen godkänner.</div>` : ''}
+        ${dis ? (draft.chosenColor ? `<div class="banner good">Kunden valde: <b>${esc(draft.chosenColor)}</b></div>` : '') : `
+          ${colorPhoto || colorBeforeId ? `<img class="photo-prev" src="${colorPhoto || driveImg(colorBeforeId)}" alt="Foto av huset">` : '<div class="muted">Ta ett foto rakt framifrån i dagsljus – AI:n målar om fasaden och låter resten vara.</div>'}
+          <input type="file" id="color-photo" accept="image/*" style="display:none" onchange="pickColorPhoto(event)">
+          <button onclick="document.getElementById('color-photo').click()">📷 ${colorPhoto || colorBeforeId ? 'Byt foto' : 'Foto av huset'}</button>
+          <div><label>Fasad</label>${swatchRow('main', false)}</div>
+          <div><label>Detaljer – knutar, foder, vindskivor</label>${swatchRow('detail', true)}</div>
+          <div><label>Fönster & dörrar</label>${swatchRow('windows', true)}</div>
+          <button class="primary" ${colorBusy || !(colorPhoto || colorBeforeId) || opts.length >= 6 ? 'disabled' : ''} onclick="createColorOption()">${colorBusy ? '✨ AI målar… (10–30 s)' : '✨ Skapa förslag'}</button>
+          ${opts.length >= 6 ? '<div class="muted">Max 6 förslag per offert.</div>' : ''}`}
+        <div class="muted">Färger på skärm skiljer sig från verklig kulör – rekommendera färgprov.</div>
+      </div>`;
+    }
+
+    async function pickColorPhoto(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      colorPhoto = await compressPhoto(file, 1600);
+      colorBeforeId = '';
+      render();
+    }
+
+    function compressPhoto(file, maxSide) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = reject;
+          img.onload = () => {
+            const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function createColorOption() {
+      const pal = palette();
+      const pick = (i) => i >= 0 && pal[i] ? pal[i] : null;
+      const choice = { main: pick(colorPick.main), detail: pick(colorPick.detail), windows: pick(colorPick.windows) };
+      if (!choice.main) { setMessage('Välj en fasadfärg.'); return; }
+      colorBusy = true; message = ''; render();
+      try {
+        const res = await snoApi({ action: 'recolorHouse', ...choice, beforeId: colorBeforeId, imageBase64: colorBeforeId ? '' : colorPhoto });
+        if (res.beforeId) { colorBeforeId = res.beforeId; colorPhoto = ''; }
+        if (res.status !== 'success') { message = '❌ ' + esc(res.message || 'AI:n svarade inte.'); }
+        else {
+          draft.colorOptions = draft.colorOptions || [];
+          draft.colorOptions.push({ imageId: res.imageId, beforeId: res.beforeId, ...choice, label: colorLabel(choice) });
+          message = '🎨 Nytt kulörförslag – kom ihåg att spara/skicka offerten.';
+        }
+      } catch (err) {
+        message = '❌ Ingen kontakt med servern.';
+      }
+      colorBusy = false; render();
     }
 
     // ================= MALL: FASADMÅLNING =================
@@ -543,6 +652,7 @@
       ['Avdrag & moms', [['rotPercent', 'ROT %', 'number'], ['rutPercent', 'RUT %', 'number'], ['rotCapPerPerson', 'ROT-tak per person (kr)', 'number'], ['rutCapPerPerson', 'RUT-tak per person (kr)', 'number'], ['vatPercent', 'Moms %', 'number']]],
       ['Offerten', [['validDays', 'Giltig antal dagar', 'number'], ['terms', 'Villkor (sist på PDF)', 'textarea']]],
       ['Fasadmålning', [['facadeM2PerHour', 'm² per arbetstimme', 'number'], ['facadeM2PerLiter', 'm² per liter färg', 'number'], ['facadeCoats', 'Antal strykningar', 'number'], ['facadePaintPerLiter', 'Färgpris (kr/liter)', 'number']]],
+      ['Kulörer för kulörförslag (Alcro, NCS)', [['facadeColors', 'En kulör per rad: Namn | NCS-kod | #skärmfärg', 'textarea']]],
       ['Linjemålning', [['lineMeterPrice', 'Pris per linjemeter (kr)', 'number'], ['lineSymbolPrice', 'Pris per symbol (kr)', 'number'], ['lineEstablishment', 'Etablering (kr)', 'number']]]
     ];
     function renderSettings() {

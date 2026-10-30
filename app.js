@@ -1258,6 +1258,7 @@ window.calculateOffert = calcOffert;
 // Offerter skapas och skickas i offerter.html.
 // ==========================================
 let customerDoc = { type: '', id: '', code: '' };
+let customerPickedColor = -1;
 
 function checkCustomerUrlParams() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -1311,6 +1312,21 @@ function drawCustomerOffer(o) {
   const label = o.type === 'ata' ? 'Tilläggsarbete (ÄTA)' : 'Offert';
   const t = o.totals;
   const hasLayout = !!(o.layout && Array.isArray(o.layout.sections) && o.layout.sections.some(sec => Array.isArray(sec.anchor)));
+  // Kulörförslag: tryck på bilden = före/efter, välj alternativ innan godkännande
+  const colors = o.colorOptions || [];
+  const canPick = colors.length > 1 && !['godkänd', 'avböjd'].includes(o.status) && !o.expired;
+  const dot = (c) => c && c.hex ? `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${customerEsc(c.hex)};border:1px solid #cbd5e1;vertical-align:-1px;margin-right:4px;"></span>` : '';
+  const colorsHtml = colors.length ? `<div style="margin-top:14px;"><div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">🎨 Kulörförslag${colors.length > 1 ? ' – välj det du gillar' : ''}</div>
+    ${colors.map((c, i) => `<label style="display:block;border:2px solid ${customerPickedColor === i ? '#0369a1' : '#e2e8f0'};border-radius:14px;overflow:hidden;margin-bottom:10px;cursor:pointer;">
+      <img src="${customerEsc(c.url)}" data-after="${customerEsc(c.url)}" data-before="${customerEsc(c.beforeUrl || '')}" alt="Alternativ ${i + 1}" style="width:100%;display:block;"
+        onclick="event.preventDefault(); if (this.dataset.before) { const after = this.src.endsWith(this.dataset.after) || this.src === this.dataset.after; this.src = after ? this.dataset.before : this.dataset.after; this.nextElementSibling.firstElementChild.textContent = after ? 'FÖRE' : 'EFTER'; }">
+      <div style="padding:8px 10px;font-size:13px;color:#334155;display:flex;gap:8px;align-items:flex-start;">
+        <span style="font-size:10px;font-weight:800;background:#0f172a;color:#fff;border-radius:6px;padding:2px 6px;">EFTER</span>
+        <span style="flex:1;"><b>Alternativ ${i + 1}</b><br>${dot(c.main)}Fasad: ${customerEsc(c.main ? c.main.name : '')}${c.detail ? `<br>${dot(c.detail)}Detaljer: ${customerEsc(c.detail.name)}` : ''}${c.windows ? `<br>${dot(c.windows)}Fönster/dörrar: ${customerEsc(c.windows.name)}` : ''}</span>
+        ${canPick ? `<input type="radio" name="cust-color" value="${i}" ${customerPickedColor === i ? 'checked' : ''} onchange="customerPickedColor=${i}" style="width:22px;height:22px;">` : ''}
+      </div></label>`).join('')}
+    <div style="font-size:12px;color:#64748b;">Tryck på bilden för att se före/efter. Bilderna är AI-illustrationer – färger på skärm skiljer sig från verklig kulör.</div>
+    ${o.chosenColor ? `<div style="font-size:13px;color:#166534;margin-top:6px;">Valt: <b>${customerEsc(o.chosenColor)}</b></div>` : ''}</div>` : '';
   const rows = o.rows.map(r => `<tr><td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;">${customerEsc(r.text)}<div style="font-size:12px;color:#64748b;">${r.qty} ${customerEsc(r.unit)} × ${customerMoney(r.price)}</div></td>
     <td style="padding:8px 4px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${customerMoney(r.qty * r.price)}</td></tr>`).join('');
   let action = '';
@@ -1342,6 +1358,7 @@ function drawCustomerOffer(o) {
       ${o.description ? `<p style="font-size:14px;color:#334155;white-space:pre-wrap;">${customerEsc(o.description)}</p>` : ''}
       ${hasLayout ? `<div style="margin-top:14px;"><div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">🅿️ Så här blir p-platserna</div>
         <div id="cust-map" style="height:300px;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;background:#e2e8f0;"></div></div>` : ''}
+      ${colorsHtml}
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:10px;">${rows}</table>
       <div style="font-size:14px;margin-top:12px;display:flex;flex-direction:column;gap:4px;">
         <div style="display:flex;justify-content:space-between;"><span>Summa inkl. moms</span><span>${customerMoney(t.gross)}</span></div>
@@ -1387,11 +1404,14 @@ async function respondCustomerOffer(decision) {
   const name = (document.getElementById('cust-name')?.value || '').trim();
   const comment = (document.getElementById('cust-comment')?.value || '').trim();
   if (decision === 'godkänd' && name.length < 2) { statusDiv.style.color = '#b91c1c'; statusDiv.textContent = 'Skriv ditt namn för att godkänna.'; return; }
+  if (decision === 'godkänd' && document.querySelectorAll('input[name=cust-color]').length && customerPickedColor < 0) {
+    statusDiv.style.color = '#b91c1c'; statusDiv.textContent = 'Välj ett av kulörförslagen ovan.'; return;
+  }
   if (decision === 'avböjd' && !confirm('Vill du tacka nej?')) return;
   document.querySelectorAll('button').forEach(b => { b.disabled = true; });
   statusDiv.style.color = '#334155'; statusDiv.textContent = 'Skickar… ⏳';
   try {
-    const res = await customerApi({ action: 'respondOffer', decision, name, comment });
+    const res = await customerApi({ action: 'respondOffer', decision, name, comment, chosenColor: customerPickedColor >= 0 ? customerPickedColor : (document.querySelectorAll('input[name=cust-color]').length ? -1 : 0) });
     if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
     drawCustomerOffer(res.offer);
   } catch (err) {
