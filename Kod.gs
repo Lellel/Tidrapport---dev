@@ -36,7 +36,20 @@ function godkannBehorigheter() {
   try { UrlFetchApp.fetch("https://generativelanguage.googleapis.com/", { muteHttpExceptions: true }); rad(true, "Externa anrop (AI) tillåtna"); } catch (e) { rad(false, "Externa anrop: " + e.message); }
   const key = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
   rad(!!key, key ? "GEMINI_API_KEY finns (AI-kulor och kulörförslag)" : "GEMINI_API_KEY saknas – lägg in den under Projektinställningar → Skriptegenskaper");
-  Logger.log("Klart. Glöm inte: Distribuera → Hantera distributioner → ✏️ → Ny version → Distribuera.");
+  const props = PropertiesService.getScriptProperties();
+  const elksUser = props.getProperty("ELKS_USER"), elksPassword = props.getProperty("ELKS_PASSWORD");
+  if (!elksUser || !elksPassword) {
+    Logger.log("ℹ️ SMS via 46elks är inte inställt (ELKS_USER/ELKS_PASSWORD saknas) – appen öppnar Meddelanden i stället");
+  } else {
+    try {
+      const me = UrlFetchApp.fetch("https://api.46elks.com/a1/me", { muteHttpExceptions: true,
+        headers: { Authorization: "Basic " + Utilities.base64Encode(elksUser + ":" + elksPassword) } });
+      const info = me.getResponseCode() === 200 ? JSON.parse(me.getContentText()) : null;
+      rad(!!info, info ? "46elks: inloggad" + (info.balance !== undefined ? ", saldo ca " + Math.round(info.balance / 10000) + " kr" : "")
+        : "46elks: fel användarnamn eller lösenord (HTTP " + me.getResponseCode() + ")");
+    } catch (e) { rad(false, "46elks: " + e.message); }
+  }
+  Logger.log("Klart. Ladda upp ny kod med ./ladda-upp-kod.sh – den skapar även ny version av webbappen.");
 }
 
 // ==========================================
@@ -107,7 +120,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto"];
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -161,6 +174,7 @@ function doPost(e) {
     if (action === "getInvoiceBasis") return handleGetInvoiceBasis();
     if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user);
     if (action === "invoicePdf") return handleInvoicePdf(data.draft);
+    if (action === "sendSms") return handleSendSms(data, auth.user);
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
 
@@ -1719,6 +1733,73 @@ function handleInvoicePdf(input) {
   const folder = existing.hasNext() ? existing.next() : root.createFolder("Fakturaunderlag");
   const file = folder.createFile(pdf);
   return createJsonResponse({ status: "success", number: number, url: file.getUrl(), totals: t });
+}
+
+// ==========================================
+// 5c. SMS VIA 46ELKS
+// Ett konto, avsändaren väljs per SMS efter bolag (LPV / Klaryta).
+// Nycklarna ligger i Skriptegenskaper: ELKS_USER och ELKS_PASSWORD.
+// Saknas de svarar servern not_configured och appen öppnar Meddelanden som förut.
+// Alla utskick loggas i fliken "SMS-logg" så att kostnaden kan fördelas per bolag.
+// ==========================================
+const SMS_LOG_HEADERS = ["Tid", "Till", "Avsändare", "Bolag", "Typ", "Meddelande", "Status", "SMS-delar", "Kostnad (kr)", "Skickat av", "46elks-ID"];
+
+function smsSenderFor(company) {
+  return String(company || "").toLowerCase().indexOf("kla") !== -1 ? "Klaryta" : "LPV";
+}
+
+// 070-123 45 67 / 0046... / +46... -> +4670... (E.164). Tom sträng om numret inte går att tolka.
+function toE164(phone) {
+  let p = String(phone || "").replace(/[\s\-().]/g, "");
+  if (p.indexOf("00") === 0) p = "+" + p.slice(2);
+  else if (p.indexOf("0") === 0) p = "+46" + p.slice(1);
+  return /^\+\d{8,15}$/.test(p) ? p : "";
+}
+
+function sendSmsViaElks(to, message, company, type, sentBy) {
+  const props = PropertiesService.getScriptProperties();
+  const user = props.getProperty("ELKS_USER"), password = props.getProperty("ELKS_PASSWORD");
+  if (!user || !password) return { ok: false, code: "not_configured", message: "SMS-tjänsten är inte inställd (ELKS_USER/ELKS_PASSWORD saknas)." };
+  const number = toE164(to);
+  if (!number) return { ok: false, code: "bad_number", message: "Ogiltigt mobilnummer: " + to };
+  const text = String(message || "").slice(0, 1000);
+  if (!text) return { ok: false, code: "empty", message: "Meddelandet är tomt." };
+  const sender = smsSenderFor(company);
+
+  let result;
+  try {
+    const response = UrlFetchApp.fetch("https://api.46elks.com/a1/sms", {
+      method: "post", muteHttpExceptions: true,
+      headers: { Authorization: "Basic " + Utilities.base64Encode(user + ":" + password) },
+      payload: { from: sender, to: number, message: text }
+    });
+    let json = {};
+    try { json = JSON.parse(response.getContentText()); } catch (e) { json = {}; }
+    result = response.getResponseCode() === 200 && json.id
+      ? { ok: true, id: json.id, parts: json.parts || "", cost: json.cost ? json.cost / 10000 : "", status: json.status || "skickat" }
+      : { ok: false, code: "elks_error", message: "46elks svarade: " + response.getContentText().slice(0, 200) };
+  } catch (err) {
+    result = { ok: false, code: "network", message: "Ingen kontakt med 46elks: " + err.message };
+  }
+
+  getSheetOrCreate(getSS(), "SMS-logg", SMS_LOG_HEADERS).appendRow([nowStamp(), number, sender, sanitize(company) || sender, sanitize(type),
+    sanitize(text), result.ok ? result.status : "FEL: " + result.message, result.parts || "", result.cost, sanitize(sentBy), result.id || ""]);
+  return result;
+}
+
+// Admin skickar SMS. Bolaget avgör avsändaren: inloggningslänk = personens bolag (kolumn G i Personal),
+// offert = företaget i offertinställningarna, annars det bolag appen skickar med.
+function handleSendSms(data, sentBy) {
+  let company = sanitize(data.company);
+  if (data.type === "login" && data.targetUser) {
+    const hit = findStaffRow(getStaffSheet(), data.targetUser);
+    if (hit) company = String(hit.row[6] || "") || company;
+  }
+  if (data.type === "offer") company = getOfferSettings().companyName;
+  const result = sendSmsViaElks(data.to, data.message, company, data.type || "manuellt", sentBy);
+  return createJsonResponse(result.ok
+    ? { status: "success", sender: smsSenderFor(company), parts: result.parts, cost: result.cost }
+    : { status: "error", code: result.code, message: result.message });
 }
 
 // ==========================================
