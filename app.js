@@ -984,7 +984,7 @@ function processAvatarUpload(event) {
       const avatarImg = document.getElementById('user-avatar-img');
       if (avatarImg) avatarImg.src = base64Avatar;
 
-      localStorage.setItem('lpv_user_avatar', base64Avatar);
+      if (typeof window.saveAvatar === 'function') window.saveAvatar(base64Avatar);
     };
     img.src = e.target.result;
   };

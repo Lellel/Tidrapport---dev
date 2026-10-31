@@ -2,6 +2,33 @@ window.GAS_API_URL = window.GAS_API_URL || (window.CONFIG && window.CONFIG.API_U
 window.currentUser = window.currentUser || localStorage.getItem('lpv_user_name') || 'Daniel';
 var currentUser = window.currentUser;
 
+// Avataren sparas per användare, så att den inte följer med till nästa person på samma telefon.
+// Saknas egen avatar visas initialer i en färgad cirkel (förut en bildbanksbild – samma för alla).
+function avatarKey() { return 'lpv_user_avatar:' + (window.currentUser || ''); }
+function getSavedAvatar() {
+  const own = localStorage.getItem(avatarKey());
+  if (own) return own;
+  // Gammal nyckel (före per-användare): flytta över en gång
+  const legacy = localStorage.getItem('lpv_user_avatar');
+  if (legacy) { localStorage.setItem(avatarKey(), legacy); localStorage.removeItem('lpv_user_avatar'); }
+  return legacy || '';
+}
+function saveAvatar(data) { localStorage.setItem(avatarKey(), data); }
+function initialsAvatar(name) {
+  const clean = String(name || '?').trim();
+  const initials = clean.split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
+  let hash = 0;
+  for (const ch of clean) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const colors = ['#0284c7', '#16a34a', '#d97706', '#7c3aed', '#db2777', '#0d9488', '#ea580c', '#4f46e5'];
+  const bg = colors[hash % colors.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${bg}"/>` +
+    `<text x="50" y="50" dy=".35em" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="42" font-weight="700" fill="#fff">${initials.replace(/[<&>"]/g, '')}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+function currentAvatar() { return getSavedAvatar() || initialsAvatar(window.currentUser); }
+window.currentAvatar = currentAvatar;
+window.saveAvatar = saveAvatar;
+
 // ==========================================
 // 3D AVATAR-MODAL & ROLLVÄLJARE (v4.7.1)
 // ==========================================
@@ -170,7 +197,7 @@ function generatePostmanPatAvatar() {
     .then(res => res.json())
     .then(data => {
       if ((data.status === 'success' || data.status === 'fallback') && data.clayAvatarBase64) {
-        localStorage.setItem('lpv_user_avatar', data.clayAvatarBase64);
+        saveAvatar(data.clayAvatarBase64);
         if (typeof updateAvatarDisplays === 'function') {
           updateAvatarDisplays(data.clayAvatarBase64);
         }
@@ -194,7 +221,7 @@ function generatePostmanPatAvatar() {
 }
 
 function checkAvatarOnboarding() {
-  const savedAvatar = localStorage.getItem('lpv_user_avatar');
+  const savedAvatar = getSavedAvatar();
   const userDisplay = document.getElementById('user-display');
 
   if (savedAvatar && userDisplay) {
@@ -213,7 +240,7 @@ function renderMorningGreeting() {
   const container = document.getElementById('outbox-section');
   if (!container) return;
 
-  const savedAvatar = localStorage.getItem('lpv_user_avatar') || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const savedAvatar = currentAvatar();
   const hour = new Date().getHours();
   let greeting = "God dag";
   if (hour < 10) greeting = "God morgon";
@@ -239,8 +266,7 @@ function renderMorningGreeting() {
 }
 
 function updateAvatarDisplays(base64Data) {
-  const imgData = base64Data || localStorage.getItem('lpv_user_avatar');
-  if (!imgData) return;
+  const imgData = base64Data || currentAvatar();
 
   const previewImg = document.getElementById('avatar-preview-img');
   if (previewImg) previewImg.src = imgData;
