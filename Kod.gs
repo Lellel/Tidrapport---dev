@@ -78,7 +78,8 @@ function doGet(e) {
 // generateTractorAvatar låses inte heller: AI:n tar 10-30 s och skriver bara en cell på slutet.
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
-  "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -120,7 +121,8 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties"];
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
+      "blacksta_savePlan"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -168,6 +170,12 @@ function doPost(e) {
     if (action === "saveProperty") return handleSaveProperty(data.property);
     if (action === "deleteProperty") return handleDeleteById(getPropertySheet(), data.id);
     if (action === "importProperties") return handleImportProperties(data.rows);
+    if (action === "blacksta_getPlan") return handleBlackstaGetPlan();
+    if (action === "blacksta_savePlan") return handleBlackstaSavePlan(data.jobs, auth.user);
+    if (action === "blacksta_logEvent") return handleBlackstaLogEvent(data.event, auth.user);
+    if (action === "blacksta_getEvents") return handleBlackstaGetEvents(data);
+    if (action === "blacksta_addMed") return handleBlackstaAddMed(data.entry, auth.user);
+    if (action === "blacksta_getMed") return handleBlackstaGetMed(data);
     if (action === "addPropertyPhoto") return handleAddPropertyPhoto(data.id, data.imageBase64);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
@@ -1460,6 +1468,141 @@ function handleRespondOffer(data) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ==========================================
+// 4e. BLACKSTA (grisgården): plan, händelselogg och läkemedelsjournal
+// Händelser och journal är append-only: rader ändras/raderas aldrig, en rättelse
+// blir en ny rad som pekar på den gamla. Journalen ska sparas i 5 år
+// (se docs/blacksta-krav-lagstiftning.md).
+// ==========================================
+const BL_PLAN_HEADERS = ["Jobb-ID", "Stall", "Titel", "Dag", "Start tim", "Start min", "Minuter", "Status", "Tilldelade (JSON)", "Typ", "Packlista (JSON)", "Uppdaterad", "Uppdaterad av"];
+const BL_EVENT_HEADERS = ["Händelse-ID", "Tidpunkt", "Typ", "Stall", "Jobb-ID", "Utförd av", "Beskrivning", "Detaljer (JSON)"];
+const BL_MED_HEADERS = ["Post-ID", "Behandlingsdatum", "Klockslag", "Djur/grupp", "Stall", "Orsak/diagnos", "Läkemedel", "Dos", "Behandlingstid (dagar)",
+  "Karenstid (dagar)", "Karens slut", "Förskrivande veterinär", "Inköpt från", "Utförd av", "Registrerad", "Rättar post", "Kommentar"];
+const BL_EVENT_TYPES = ["slussning", "moment_utfort", "tillsyn", "kastrering", "besok", "karantan", "utlastning", "dodsfall", "ovrigt"];
+
+function blPlanSheet() { return getSheetOrCreate(getSS(), "Blacksta_Plan", BL_PLAN_HEADERS); }
+function blEventSheet() { return getSheetOrCreate(getSS(), "Blacksta_Händelser", BL_EVENT_HEADERS); }
+function blMedSheet() { return getSheetOrCreate(getSS(), "Läkemedelsjournal", BL_MED_HEADERS); }
+function blStamp(d) { return Utilities.formatDate(d || new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm:ss"); }
+function blDateStr(v) {
+  return v instanceof Date ? Utilities.formatDate(v, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd") : String(v || "");
+}
+
+function handleBlackstaGetPlan() {
+  const rows = blPlanSheet().getDataRange().getValues();
+  const jobs = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[0]) continue;
+    let assigned = [], packlist = [];
+    try { assigned = JSON.parse(r[8] || "[]"); } catch (e) { assigned = []; }
+    try { packlist = JSON.parse(r[10] || "[]"); } catch (e) { packlist = []; }
+    jobs.push({ id: String(r[0]), client: String(r[1]), title: String(r[2]), dayIndex: Number(r[3]) || 0, startH: Number(r[4]) || 0, startM: Number(r[5]) || 0,
+      durM: Number(r[6]) || 60, status: String(r[7] || "scheduled"), assigned: assigned, billingCompany: String(r[9] || ""), packlist: packlist });
+  }
+  return createJsonResponse({ status: "success", jobs: jobs });
+}
+
+// Hela planen sparas på en gång (arbetsledaren på iPad). Max 2000 jobb.
+function handleBlackstaSavePlan(jobs, savedBy) {
+  if (!Array.isArray(jobs) || jobs.length > 2000) return createJsonResponse({ status: "error", message: "Ogiltig plan." });
+  const n = (v, min, max) => { const x = Number(v); return isFinite(x) ? Math.min(max, Math.max(min, Math.round(x))) : min; };
+  const stamp = blStamp();
+  const out = jobs.filter(j => j && j.id).map(j => [
+    sanitize(j.id).slice(0, 60), sanitize(j.client).slice(0, 80), sanitize(j.title).slice(0, 200), n(j.dayIndex, 0, 400), n(j.startH, 0, 23), n(j.startM, 0, 59),
+    n(j.durM, 1, 1440), ["scheduled", "unscheduled", "done"].indexOf(j.status) !== -1 ? j.status : "scheduled",
+    JSON.stringify((Array.isArray(j.assigned) ? j.assigned : []).slice(0, 20).map(a => sanitize(a).slice(0, 40))),
+    sanitize(j.billingCompany).slice(0, 40), JSON.stringify((Array.isArray(j.packlist) ? j.packlist : []).slice(0, 30).map(a => sanitize(a).slice(0, 80))),
+    stamp, sanitize(savedBy)
+  ]);
+  const sheet = blPlanSheet();
+  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, BL_PLAN_HEADERS.length).clearContent();
+  if (out.length) sheet.getRange(2, 1, out.length, BL_PLAN_HEADERS.length).setValues(out);
+  return createJsonResponse({ status: "success", saved: out.length, at: stamp });
+}
+
+function handleBlackstaLogEvent(ev, user) {
+  if (!ev || BL_EVENT_TYPES.indexOf(ev.type) === -1) return createJsonResponse({ status: "error", message: "Okänd händelsetyp." });
+  const details = ev.details && typeof ev.details === "object" ? ev.details : {};
+  // Lagkrav (sedan 2023-11-01): lokalbedövning OCH allmän smärtlindring före kastrering
+  if (ev.type === "kastrering" && !(details.lokalbedovning === true && details.smartlindring === true)) {
+    return createJsonResponse({ status: "error", message: "Kastrering får bara registreras när lokalbedövning och smärtlindring har getts." });
+  }
+  const id = "H-" + Utilities.getUuid().slice(0, 8);
+  const cleanDetails = {};
+  Object.keys(details).slice(0, 30).forEach(k => {
+    const v = details[k];
+    cleanDetails[sanitize(k).slice(0, 40)] = typeof v === "boolean" || typeof v === "number" ? v : sanitize(v).slice(0, 300);
+  });
+  blEventSheet().appendRow([id, blStamp(), ev.type, sanitize(ev.stall).slice(0, 80), sanitize(ev.jobId).slice(0, 60), sanitize(user),
+    sanitize(ev.text).slice(0, 500), JSON.stringify(cleanDetails)]);
+  return createJsonResponse({ status: "success", id: id });
+}
+
+function handleBlackstaGetEvents(data) {
+  const rows = blEventSheet().getDataRange().getValues();
+  const from = String(data.from || ""), to = String(data.to || "9999");
+  const events = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[0]) continue;
+    const t = r[1] instanceof Date ? blStamp(r[1]) : String(r[1]);
+    if (t.slice(0, 10) < from || t.slice(0, 10) > to) continue;
+    if (data.type && r[2] !== data.type) continue;
+    let details = {};
+    try { details = JSON.parse(r[7] || "{}"); } catch (e) { details = {}; }
+    events.push({ id: String(r[0]), time: t, type: String(r[2]), stall: String(r[3]), jobId: String(r[4]), user: String(r[5]), text: String(r[6]), details: details });
+  }
+  return createJsonResponse({ status: "success", events: events.reverse().slice(0, 1000) });
+}
+
+// Läkemedelsjournal: obligatoriska fält enligt Jordbruksverket – djur/grupp, orsak, läkemedel, dos,
+// behandlingstid, karenstid (även 0), förskrivande veterinär, datum (+ klockslag om karens < 1 dygn).
+function handleBlackstaAddMed(e, user) {
+  if (!e) return createJsonResponse({ status: "error", message: "Ingen journalpost skickades." });
+  const date = String(e.date || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return createJsonResponse({ status: "error", message: "Ange behandlingsdatum." });
+  const required = { animals: "djur/grupp", reason: "orsak/diagnos", drug: "läkemedel", dose: "dos", vet: "förskrivande veterinär" };
+  const missing = Object.keys(required).filter(k => !String(e[k] || "").trim()).map(k => required[k]);
+  const withdrawal = Number(e.withdrawalDays);
+  const treatDays = Number(e.treatmentDays);
+  const noWithdrawal = e.withdrawalDays === "" || e.withdrawalDays === null || e.withdrawalDays === undefined || !isFinite(withdrawal) || withdrawal < 0;
+  if (noWithdrawal) missing.push("karenstid (skriv 0 om ingen)");
+  if (!isFinite(treatDays) || treatDays < 1) missing.push("behandlingstid (dagar)");
+  const time = String(e.time || "");
+  if (!noWithdrawal && withdrawal < 1 && !/^\d{2}:\d{2}$/.test(time)) missing.push("klockslag (krävs när karenstiden är under ett dygn)");
+  if (missing.length) return createJsonResponse({ status: "error", message: "Fyll i: " + missing.join(", ") + "." });
+
+  // Karens slut = behandlingens slut + karenstiden
+  const end = new Date(date + "T" + (/^\d{2}:\d{2}$/.test(time) ? time : "12:00") + ":00");
+  end.setTime(end.getTime() + ((treatDays - 1) + withdrawal) * 24 * 3600 * 1000);
+  const id = "L-" + Utilities.getUuid().slice(0, 8);
+  blMedSheet().appendRow([id, date, time, sanitize(e.animals).slice(0, 120), sanitize(e.stall).slice(0, 80), sanitize(e.reason).slice(0, 200),
+    sanitize(e.drug).slice(0, 120), sanitize(e.dose).slice(0, 80), treatDays, withdrawal,
+    Utilities.formatDate(end, Session.getScriptTimeZone() || "Europe/Stockholm", withdrawal < 1 ? "yyyy-MM-dd HH:mm" : "yyyy-MM-dd"),
+    sanitize(e.vet).slice(0, 120), sanitize(e.source).slice(0, 120), sanitize(user), blStamp(), sanitize(e.corrects).slice(0, 20), sanitize(e.comment).slice(0, 300)]);
+  return createJsonResponse({ status: "success", id: id });
+}
+
+function handleBlackstaGetMed(data) {
+  const rows = blMedSheet().getDataRange().getValues();
+  const from = String(data.from || ""), to = String(data.to || "9999");
+  const corrected = {};
+  for (let i = 1; i < rows.length; i++) if (rows[i][15]) corrected[String(rows[i][15])] = String(rows[i][0]);
+  const list = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[0]) continue;
+    const d = blDateStr(r[1]);
+    if (d < from || d > to) continue;
+    list.push({ id: String(r[0]), date: d, time: String(r[2] || ""), animals: String(r[3]), stall: String(r[4]), reason: String(r[5]), drug: String(r[6]),
+      dose: String(r[7]), treatmentDays: Number(r[8]), withdrawalDays: Number(r[9]), withdrawalEnd: r[10] instanceof Date ? blDateStr(r[10]) : String(r[10]),
+      vet: String(r[11]), source: String(r[12]), user: String(r[13]), registered: r[14] instanceof Date ? blStamp(r[14]) : String(r[14]),
+      corrects: String(r[15] || ""), comment: String(r[16] || ""), correctedBy: corrected[String(r[0])] || "" });
+  }
+  return createJsonResponse({ status: "success", entries: list.reverse() });
 }
 
 // ==========================================

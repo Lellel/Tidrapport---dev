@@ -139,7 +139,20 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Svep vänster/höger roterar karusellen, räknaren (t.ex. 2 / 13) uppdateras
 - [ ] Tryck på sidokort → det roterar fram
 - [ ] Tryck på mittkortet → detaljrutan öppnas
-- [ ] "Utförd & Avbockad" fungerar
+- [ ] "Utförd & Avbockad" sparas (meddelande "Utfört och sparat ✅"; vid järn/kastrering/vaccin frågar den om journalföring)
+
+**Sparas & journal (kräver ny Kod.gs uppladdad):**
+- [ ] Flytta ett kort (admin) → statusen bredvid 📒 Journal visar "Sparat" efter några sekunder
+- [ ] Ladda om sidan → kortet ligger kvar där du flyttade det
+- [ ] Öppna "Järn & Kastrering" → knappen 💉 Journalför läkemedel finns
+- [ ] Kastrering utan kryss för bedövning/smärtlindring → nekas med förklaring
+- [ ] Kastrering med alla kryss → 2 rader (bedövning + smärtlindring) i journalen
+- [ ] Karenstid 0 går att spara; tomt fält nekas
+- [ ] 📒 Journal visar posten, ⏳ pågående karens syns överst
+- [ ] "Rätta" en post → ny rad, gamla markeras som rättad (inget raderas)
+- [ ] Fliken Händelser visar slussning/utfört/kastrering med namn och tid
+- [ ] ⬇️ CSV öppnas i Excel/Numbers med rätt å, ä, ö
+- [ ] I kalkylarket finns flikarna Blacksta_Plan, Blacksta_Händelser och Läkemedelsjournal
 
 ## 8. Snözoner – rita (iPad, admin)
 
