@@ -120,7 +120,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms"];
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -167,6 +167,7 @@ function doPost(e) {
     if (action === "getProperties") return handleGetProperties();
     if (action === "saveProperty") return handleSaveProperty(data.property);
     if (action === "deleteProperty") return handleDeleteById(getPropertySheet(), data.id);
+    if (action === "importProperties") return handleImportProperties(data.rows);
     if (action === "addPropertyPhoto") return handleAddPropertyPhoto(data.id, data.imageBase64);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
@@ -859,6 +860,41 @@ function handleSaveProperty(p) {
   ];
   upsertById(sheet, rowData);
   return createJsonResponse({ status: "success", property: propertyFromRow(rowData), geocodeNote: geocodeNote });
+}
+
+// Import från kalkylark: max 50 rader per anrop (appen skickar i omgångar och visar förlopp).
+// Dubbletter (samma adress + ort) hoppas över. Varje adress geokodas.
+function normalizeAddress(address, ort) {
+  return (String(address || "") + "|" + String(ort || "")).toLowerCase().replace(/\s+/g, " ").replace(/[.,]/g, "").trim();
+}
+
+function handleImportProperties(rows) {
+  if (!Array.isArray(rows) || !rows.length) return createJsonResponse({ status: "error", message: "Inga rader att importera." });
+  if (rows.length > 50) return createJsonResponse({ status: "error", message: "Max 50 rader per omgång." });
+  const sheet = getPropertySheet();
+  const existing = sheet.getDataRange().getValues();
+  const seen = {};
+  for (let i = 1; i < existing.length; i++) if (existing[i][0]) seen[normalizeAddress(existing[i][1], existing[i][2])] = true;
+
+  const out = [], skipped = [], notFound = [];
+  rows.forEach(r => {
+    const address = sanitize(r.address).slice(0, 200);
+    if (!address) return;
+    let ort = sanitize(r.ort).slice(0, 80);
+    const key = normalizeAddress(address, ort);
+    if (seen[key]) { skipped.push(address); return; }
+    seen[key] = true;
+    let lat = "", lng = "";
+    try {
+      const geo = geocodeAddress(address, ort);
+      if (geo) { lat = Number(geo.lat.toFixed(7)); lng = Number(geo.lng.toFixed(7)); if (!ort) ort = geo.ort; }
+      else notFound.push(address);
+    } catch (err) { notFound.push(address); }
+    out.push(["F-" + Utilities.getUuid().slice(0, 8), address, ort, lat, lng,
+      SIZES.indexOf(r.size) !== -1 ? r.size : "", "FALSE", r.priority ? "TRUE" : "FALSE", "[]", sanitize(r.note).slice(0, 500), nowStamp()]);
+  });
+  if (out.length) sheet.getRange(sheet.getLastRow() + 1, 1, out.length, out[0].length).setValues(out);
+  return createJsonResponse({ status: "success", added: out.length, skipped: skipped, notFound: notFound });
 }
 
 function handleAddPropertyPhoto(id, imageBase64) {

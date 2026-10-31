@@ -101,6 +101,16 @@
       .layout { grid-template-columns: 1fr; grid-template-rows: 45vh auto; }
       .panel { border-left: none; border-top: 1px solid var(--line); }
     }
+    .imp-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: none; align-items: flex-end; justify-content: center; }
+    .imp-bg.open { display: flex; }
+    .imp { background: var(--panel); width: 100%; max-width: 760px; max-height: 92vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .imp textarea { min-height: 120px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+    .imp-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .imp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .imp-table th, .imp-table td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .imp-table th { color: var(--muted); font-weight: 700; }
+    .bar { height: 10px; border-radius: 999px; background: var(--card); overflow: hidden; }
+    .bar > div { height: 100%; background: var(--ok); width: 0; transition: width .3s; }
   </style>
 </head>
 <body>
@@ -129,6 +139,8 @@
       <div class="panel-body" id="panel-body"></div>
     </aside>
   </div>
+
+  <div class="imp-bg" id="imp-bg" onclick="if (event.target === this && !importBusy) closeImport()"><div class="imp" id="imp"></div></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="config.js"></script>
@@ -224,7 +236,8 @@
     function renderNewForm() {
       return `<div class="detail" style="border-color: var(--line);">
         <div class="detail-head"><h2>➕ Ny fastighet</h2></div>
-        <div class="muted">Importen från kalkylarket kommer – tills dess kan du lägga till för hand.</div>
+        <button onclick="openImport()">📥 Importera från kalkylark</button>
+        <div class="muted">…eller lägg till en i taget:</div>
         <input id="new-address" placeholder="Adress, t.ex. Drottninggatan 4">
         <input id="new-ort" placeholder="Ort (valfritt), t.ex. Flen">
         <button class="ok" onclick="createProperty()">Lägg till & hitta på kartan</button>
@@ -507,6 +520,149 @@
     }
 
     // Visa senast hämtade data direkt, uppdatera sedan från servern
+    // ================= IMPORT FRÅN KALKYLARK =================
+    // Klistra in celler (från Google Kalkylark/Excel) eller välj en CSV-fil. Kolumnerna gissas
+    // från rubrikerna och kan ändras. Rader skickas i omgångar om 25 (varje adress geokodas).
+    let importTable = [];        // rader -> celler
+    let importHeader = true;
+    let importMap = { address: -1, ort: -1, size: -1, priority: -1, note: -1 };
+    let importBusy = false;
+    const IMPORT_FIELDS = [
+      ['address', 'Adress *', /adress|gatuadress|address|gata|objekt|fastighet/],
+      ['ort', 'Ort', /^ort$|postort|stad|tätort|kommundel|område|ort\b/],
+      ['size', 'Traktorstorlek', /storlek|traktor|maskin|fordon|size|typ/],
+      ['priority', 'Prioritet', /prio/],
+      ['note', 'Anteckning', /anteckning|notering|kommentar|info|beskrivning|övrigt|note/]
+    ];
+
+    function parseTable(text) {
+      text = String(text || '').replace(/\r\n?/g, '\n').replace(/\n+$/, '');
+      if (!text.trim()) return [];
+      const first = text.split('\n')[0];
+      const delim = first.includes('\t') ? '\t' : (first.split(';').length > first.split(',').length ? ';' : ',');
+      const rows = []; let row = [], cell = '', quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (quoted) {
+          if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+          else if (c === '"') quoted = false;
+          else cell += c;
+        } else if (c === '"' && cell === '') quoted = true;
+        else if (c === delim) { row.push(cell.trim()); cell = ''; }
+        else if (c === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
+        else cell += c;
+      }
+      row.push(cell.trim()); rows.push(row);
+      return rows.filter(r => r.some(c => c !== ''));
+    }
+
+    function guessMapping() {
+      const head = (importTable[0] || []).map(h => h.toLowerCase());
+      importMap = { address: -1, ort: -1, size: -1, priority: -1, note: -1 };
+      if (importHeader) IMPORT_FIELDS.forEach(([key, , re]) => {
+        const idx = head.findIndex((h, i) => re.test(h) && !Object.values(importMap).includes(i));
+        if (idx !== -1) importMap[key] = idx;
+      });
+      if (importMap.address === -1) importMap.address = 0;
+    }
+
+    // "Stor", "Stor traktor", "kompakt", "liten", "small" … Ensamma "S"/"L" gissas inte
+    // (kan betyda både stor/liten och small/large) – de märks som okända och fylls i efteråt.
+    function parseSize(v) {
+      const t = String(v || '').toLowerCase().trim();
+      if (!t) return '';
+      if (/stor|large|big|hjullast/.test(t)) return 'stor';
+      if (/liten|lilla|small|kompakt|mini/.test(t)) return 'liten';
+      return '';
+    }
+    function parsePrio(v) { return /^(ja|j|x|1|true|prio|hög|hog|yes)$/i.test(String(v || '').trim()); }
+
+    function mappedRows() {
+      const body = importHeader ? importTable.slice(1) : importTable;
+      const get = (r, key) => importMap[key] >= 0 ? (r[importMap[key]] || '') : '';
+      return body.map(r => ({ address: get(r, 'address'), ort: get(r, 'ort'), sizeRaw: get(r, 'size'), size: parseSize(get(r, 'size')),
+        priority: parsePrio(get(r, 'priority')), note: get(r, 'note') })).filter(r => r.address);
+    }
+
+    function openImport() { importTable = []; document.getElementById('imp-bg').classList.add('open'); renderImport(); }
+    function closeImport() { document.getElementById('imp-bg').classList.remove('open'); }
+
+    function renderImport(result) {
+      const el = document.getElementById('imp');
+      if (result) { el.innerHTML = result; return; }
+      const cols = importTable[0] ? importTable[0].length : 0;
+      const colName = (i) => importHeader ? (importTable[0][i] || `Kolumn ${i + 1}`) : `Kolumn ${i + 1}`;
+      const rows = mappedRows();
+      const existing = new Set(properties.map(p => (p.address + '|' + p.ort).toLowerCase().replace(/\s+/g, ' ')));
+      const dupes = rows.filter(r => existing.has((r.address + '|' + r.ort).toLowerCase().replace(/\s+/g, ' '))).length;
+      const sized = rows.filter(r => r.size).length;
+      const unknownSize = [...new Set(rows.filter(r => r.sizeRaw && !r.size).map(r => r.sizeRaw))];
+      el.innerHTML = `
+        <div class="detail-head"><h2>📥 Importera fastigheter</h2><button onclick="closeImport()">✕</button></div>
+        ${!importTable.length ? `
+          <div class="muted"><b>1.</b> Öppna arket, markera cellerna (gärna med rubrikraden), kopiera (Cmd+C) och klistra in här (Cmd+V).</div>
+          <textarea id="imp-text" placeholder="Klistra in här…" oninput="importTable = parseTable(this.value); guessMapping(); if (importTable.length) renderImport()"></textarea>
+          <div class="muted">…eller välj en fil (CSV – i Google Kalkylark: Arkiv → Ladda ned → CSV):</div>
+          <input type="file" accept=".csv,.txt,.tsv,text/csv" onchange="readImportFile(event)">`
+        : `
+          <div class="row"><span class="muted"><b>${rows.length}</b> rader · ${cols} kolumner</span>
+            <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;font-size:13px;"><input type="checkbox" ${importHeader ? 'checked' : ''} onchange="importHeader=this.checked; guessMapping(); renderImport()" style="width:20px;height:20px;"> Första raden är rubriker</label>
+            <button onclick="importTable=[]; renderImport()">↺ Börja om</button></div>
+          <div class="muted"><b>2.</b> Kontrollera vilken kolumn som är vad:</div>
+          <div class="imp-map">${IMPORT_FIELDS.map(([key, label]) => `<div><label>${label}</label><select onchange="importMap.${key}=Number(this.value); renderImport()">
+            <option value="-1">– ingen –</option>${Array.from({ length: cols }, (_, i) => `<option value="${i}" ${importMap[key] === i ? 'selected' : ''}>${snoEscape(colName(i))}</option>`).join('')}</select></div>`).join('')}</div>
+          <div class="muted"><b>3.</b> Förhandsvisning (de första 8):</div>
+          <div style="overflow-x:auto"><table class="imp-table"><tr><th>Adress</th><th>Ort</th><th>Storlek</th><th>Prio</th><th>Anteckning</th></tr>
+            ${rows.slice(0, 8).map(r => `<tr><td>${snoEscape(r.address)}</td><td>${snoEscape(r.ort) || '<span class="muted">hittas</span>'}</td>
+              <td>${r.size ? (r.size === 'stor' ? '🟠 stor' : '🔵 liten') : (r.sizeRaw ? `<span style="color:var(--warn)">? ${snoEscape(r.sizeRaw)}</span>` : '<span class="muted">saknas</span>')}</td>
+              <td>${r.priority ? '⭐' : ''}</td><td>${snoEscape(r.note)}</td></tr>`).join('')}</table></div>
+          <div class="stats">
+            <div class="stat"><b>${rows.length - dupes}</b>nya</div>
+            <div class="stat"><b style="color:${rows.length - sized ? 'var(--warn)' : 'var(--ok)'}">${sized}</b>med storlek</div>
+            <div class="stat"><b>${dupes}</b>finns redan</div>
+          </div>
+          ${unknownSize.length ? `<div class="muted" style="color:var(--warn)">Okända storleksvärden (blir "saknas", fyll i efteråt): ${unknownSize.slice(0, 6).map(snoEscape).join(', ')}</div>` : ''}
+          ${dupes ? '<div class="muted">Adresser som redan finns hoppas över.</div>' : ''}
+          <div class="bar" id="imp-bar" style="display:none"><div></div></div>
+          <div class="msg" id="imp-msg"></div>
+          <button class="ok" id="imp-go" ${rows.length - dupes ? '' : 'disabled'} onclick="runImport()">📥 Importera ${rows.length - dupes} fastigheter</button>`}`;
+    }
+
+    function readImportFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { importTable = parseTable(reader.result); guessMapping(); renderImport(); };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    async function runImport() {
+      const rows = mappedRows().map(r => ({ address: r.address, ort: r.ort, size: r.size, priority: r.priority, note: r.note }));
+      if (!rows.length) return;
+      importBusy = true;
+      document.getElementById('imp-go').disabled = true;
+      const bar = document.getElementById('imp-bar'); bar.style.display = 'block';
+      const msg = document.getElementById('imp-msg');
+      let added = 0, skipped = [], notFound = [], failed = 0;
+      for (let i = 0; i < rows.length; i += 25) {
+        msg.innerText = `Importerar och hittar adresser på kartan… ${Math.min(i + 25, rows.length)} av ${rows.length}`;
+        try {
+          const res = await snoApi({ action: 'importProperties', rows: rows.slice(i, i + 25) });
+          if (res.status !== 'success') { failed += Math.min(25, rows.length - i); msg.innerText = '❌ ' + (res.message || 'Fel'); }
+          else { added += res.added; skipped = skipped.concat(res.skipped); notFound = notFound.concat(res.notFound); }
+        } catch (err) { failed += Math.min(25, rows.length - i); }
+        bar.firstElementChild.style.width = Math.round(Math.min(i + 25, rows.length) / rows.length * 100) + '%';
+      }
+      importBusy = false;
+      await loadAll();
+      renderImport(`<div class="detail-head"><h2>✅ Import klar</h2><button onclick="closeImport()">✕</button></div>
+        <div class="stats"><div class="stat"><b style="color:var(--ok)">${added}</b>importerade</div><div class="stat"><b>${skipped.length}</b>fanns redan</div><div class="stat"><b style="color:${notFound.length ? 'var(--warn)' : 'var(--ok)'}">${notFound.length}</b>utan position</div></div>
+        ${notFound.length ? `<div class="muted">Hittades inte på kartan – välj filtret "📍 Utan position" och tryck på kartan för var och en:<br>${notFound.slice(0, 20).map(snoEscape).join(', ')}${notFound.length > 20 ? ' …' : ''}</div>` : ''}
+        ${failed ? `<div class="muted" style="color:var(--danger)">${failed} rader kunde inte skickas – försök igen (dubbletter hoppas över).</div>` : ''}
+        <div class="muted">Nästa steg: filtret <b>⚠️ Saknar storlek</b> visar kort som behöver en storlek.</div>
+        <button class="ok" onclick="closeImport(); filter='saknar'; render()">Visa de som saknar storlek</button>`);
+    }
+
     async function loadAll() {
       let cache = null;
       try { cache = JSON.parse(localStorage.getItem('lpv_plan_cache') || 'null'); } catch (e) { cache = null; }
