@@ -710,7 +710,9 @@ async function fetchAdminUsers() {
         select.innerHTML += `<option value="${u.name}">${u.name}</option>`;
       });
     } else {
-      select.innerHTML = '<option value="">Fel vid hämtning</option>';
+      // Visa serverns orsak (t.ex. "Kräver administratör" eller "Ogiltig inloggning") så att felet går att åtgärda
+      const reason = String(data.message || 'okänt fel').replace(/[<>&"]/g, '');
+      select.innerHTML = `<option value="">Fel vid hämtning: ${reason}</option>`;
     }
   } catch (err) {
     select.innerHTML = '<option value="">Offline</option>';
