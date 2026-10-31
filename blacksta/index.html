@@ -355,6 +355,9 @@
                 <div id="detail-packlist-tags" class="flex flex-wrap gap-1"></div>
             </div>
 
+            <!-- LÄKEMEDEL (journal.js) -->
+            <div id="detail-med-section"></div>
+
             <!-- MODAL ACTION-KNAPPAR -->
             <div class="flex justify-between items-center pt-2">
                 <button onclick="sendActiveJobToSack()" class="px-3.5 py-2 bg-amber-900/40 hover:bg-amber-800/60 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition">
@@ -964,7 +967,7 @@ function renderMobile() {
                 <div class="text-2xl font-black text-white mb-1 leading-tight">${j.title}</div>
                 <div class="text-emerald-400 font-mono text-xs mb-3">🕒 Dag ${j.dayIndex+1} | ${j.startH.toString().padStart(2,'0')}:${j.startM.toString().padStart(2,'0')}</div>
                 <div class="mt-auto space-y-2 w-full">
-                    <button onclick="event.stopPropagation(); alert('Utförd!')" class="w-full py-3.5 bg-emerald-600 font-bold rounded-2xl text-white text-xs">✅ Utförd & Avbockad</button>
+                    <button onclick="event.stopPropagation(); blMarkDone('${j.id}')" class="w-full py-3.5 bg-emerald-600 font-bold rounded-2xl text-white text-xs">✅ Utförd & Avbockad</button>
                 </div>
             </div>`).join('');
     }
@@ -1059,5 +1062,8 @@ function setupGestureZoom(elementId) {
     }, { passive: false });
 }
 </script>
+<script src="../config.js"></script>
+<script src="../sno.js"></script>
+<script src="journal.js"></script>
 </body>
 </html>
