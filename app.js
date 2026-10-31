@@ -787,8 +787,17 @@ async function adminSendSMS() {
   const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
   const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
   const message = `Hej ${targetUser}! Här är din personliga inloggningslänk till LPV Tidrapport (dela den inte): ${targetUrl}`;
-  if (phone) window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(message)}`;
-  else window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
+  const openMessages = () => {
+    if (phone) window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(message)}`;
+    else window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
+  };
+  if (!phone) { openMessages(); return; }
+  // Via 46elks från servern (avsändare efter personens bolag). Inte inställt = Meddelanden som förut.
+  let res;
+  try { res = await apiPost({ action: 'sendSms', type: 'login', targetUser, to: phone, message }); }
+  catch (err) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+  if (res.status === 'success') { alert(`✅ SMS skickat till ${targetUser} från ${res.sender}.`); return; }
+  if (res.code === 'not_configured' || confirm('❌ ' + (res.message || 'SMS kunde inte skickas.') + '\n\nÖppna Meddelanden i stället?')) openMessages();
 }
 
 async function adminSendEmail() {

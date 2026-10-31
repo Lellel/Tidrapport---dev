@@ -334,13 +334,25 @@
         ${res.emailNote ? `<div class="banner ${/kunde inte/i.test(res.emailNote) ? 'warn' : 'good'}">✉️ ${esc(res.emailNote)}</div>` : '<div class="muted">Ingen e-post angiven – skicka med SMS nedan.</div>'}
         ${res.pdfNote ? `<div class="banner warn">${esc(res.pdfNote)}</div>` : ''}
         ${res.pdfUrl ? `<a href="${esc(res.pdfUrl)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;">📄 Öppna PDF:en</a>` : ''}
-        <button class="ok" onclick="sendSms()">💬 Skicka SMS till kunden</button>
+        <button class="ok" id="sms-btn" onclick="sendSms()">💬 Skicka SMS till kunden</button>
         <button id="copy-btn" onclick="copyLink()">🔗 Kopiera kundlänken</button>
         <button onclick="closeModal()">Klar</button>`);
     }
 
     let sentLink = '', sentSms = '';
-    function sendSms() { location.href = `sms:${draft.phone || ''}?&body=${encodeURIComponent(sentSms)}`; }
+    // Skickas via 46elks från servern. Är tjänsten inte inställd (eller numret saknas) öppnas Meddelanden som förut.
+    async function sendSms() {
+      const btn = document.getElementById('sms-btn');
+      const openMessages = () => { location.href = `sms:${draft.phone || ''}?&body=${encodeURIComponent(sentSms)}`; };
+      if (!draft.phone) { openMessages(); return; }
+      if (btn) { btn.disabled = true; btn.innerText = 'Skickar SMS… ⏳'; }
+      let res;
+      try { res = await snoApi({ action: 'sendSms', type: 'offer', to: draft.phone, message: sentSms }); }
+      catch (err) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+      if (res.status === 'success') { if (btn) btn.innerText = `✅ SMS skickat från ${res.sender}`; return; }
+      if (btn) { btn.disabled = false; btn.innerText = '💬 Skicka SMS till kunden'; }
+      if (res.code === 'not_configured' || confirm('❌ ' + (res.message || 'SMS kunde inte skickas.') + '\n\nÖppna Meddelanden i stället?')) openMessages();
+    }
     function copyLink() {
       navigator.clipboard.writeText(sentLink).then(() => { document.getElementById('copy-btn').innerText = '✅ Kopierad'; })
         .catch(() => prompt('Kopiera länken:', sentLink));
