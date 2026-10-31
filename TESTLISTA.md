@@ -190,6 +190,13 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Fliken **Traktorer** i arket stämmer
 
 **Fastigheter**
+- [ ] **📥 Importera från kalkylark**: markera cellerna i arket (med rubrikraden) → Cmd+C → klistra in i rutan
+- [ ] Kolumnerna gissas rätt (adress, ort, storlek, prio, anteckning) – ändra i listorna om inte
+- [ ] Förhandsvisningen visar 🟠 stor / 🔵 liten, okända storleksvärden listas i gult
+- [ ] Importera → förloppsstapel → "Import klar" med antal importerade / fanns redan / utan position
+- [ ] Importera samma ark igen → allt "fanns redan", inga dubbletter
+- [ ] "Visa de som saknar storlek" → fyll i storlek på dem
+- [ ] Adresser "utan position" → filtret 📍 → tryck på kartan för var och en
 - [ ] Lägg till en adress → hittas på kartan, orten fylls i automatiskt
 - [ ] Felstavad adress → varning + **📍 Flytta på kartan** → tryck på kartan → positionen sparas
 - [ ] Kortet visar ett hål: **Stor** = stort orange hål, **Liten** = litet blått hål, saknas = rött ?
