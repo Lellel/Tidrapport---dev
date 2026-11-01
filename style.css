@@ -1,16 +1,126 @@
+/* ==========================================================
+   LPV & KLARYTA – "Glas, fältanpassat" (designprov 2)
+   Samma glasutseende som förut, men byggt för fält:
+   - tryckytor minst 56 px i telefonen (de viktigaste 60 px)
+   - nästan täta kort i ljust läge så texten syns i snöblänk
+   - fetare text och starkare grått i alla lägen
+   Tre lägen styrs av <html data-theme="light|dark|night">.
+   Sätts av app.js (Auto följer telefonen). AI-glaskulorna behålls.
+   ========================================================== */
+
+/* ---------- Tokens: ljust (standard) ---------- */
 :root {
-  --bg-gradient: linear-gradient(135deg, #cbe8ff 0%, #92cdff 40%, #e8f4ff 100%);
-  --card-glass: rgba(255, 255, 255, 0.55);
-  --card-border: rgba(255, 255, 255, 0.85);
-  --accent-blue: #0284c7;
-  --accent-darkblue: #0369a1;
-  --text-main: #0f172a;
-  --text-muted: #334155;
-  --green: #16a34a;
-  --orange: #ea580c;
-  --danger: #dc2626;
+  color-scheme: light;
+  --bg: linear-gradient(160deg, #bfe0ff 0%, #8ec8ff 45%, #e7f3ff 100%);
+  --bg-solid: #bfe0ff;
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface2: rgba(232, 242, 252, 0.92);
+  --border: rgba(255, 255, 255, 0.9);
+  --fg: #071d33;
+  --fg2: rgba(7, 29, 51, 0.74);
+  --sep: rgba(7, 29, 51, 0.14);
+  --accent: #0a6fe0;
+  --on-accent: #ffffff;
+  --ok: #17803a;      --ok-bg: rgba(52, 199, 89, 0.2);
+  --warn: #9e5500;    --warn-bg: rgba(255, 159, 10, 0.2);
+  --bad: #c0251b;     --bad-bg: rgba(255, 69, 58, 0.18);
+  --on-status: #ffffff;
+  --bar: rgba(255, 255, 255, 0.9);
+  --scrim: rgba(7, 29, 51, 0.45);
+  --shadow: 0 8px 30px rgba(20, 60, 110, 0.15);
+  --orb1: #4aa8ff;
+  --orb2: #ffffff;
+  --blur: blur(18px) saturate(1.4);
+  --avatar-filter: none;
+
+  /* Fältmått */
+  --tap: 60px;          /* viktigaste knapparna */
+  --tap-min: 56px;      /* allt annat man trycker på */
+  --row: 56px;
+  --radius: 24px;
+  --radius-sm: 16px;
+  --fs-body: 16px;
+  --fs-small: 14px;
+  --fs-h3: 20px;
+  --fs-title: 30px;
+  --fs-btn: 17px;
+  --fw-strong: 700;
+  --fw-medium: 600;
+  --fw-thin: 500;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, "Segoe UI", Roboto, sans-serif;
+
+  /* Gamla namn som används i inline-stilar i app.js, index.html och avatar_onboarding.js */
+  --text-main: var(--fg);
+  --text-muted: var(--fg2);
+  --text: var(--fg);
+  --accent-blue: var(--accent);
+  --accent-darkblue: var(--accent);
+  --blue: var(--accent);
+  --green: var(--ok);
+  --orange: var(--warn);
+  --danger: var(--bad);
+  --input-bg: var(--surface2);
+  --card-bg: var(--surface);
+  --glass-bg: var(--surface2);
+  --glass-border: var(--sep);
+  --card-border: var(--border);
+  --shadow-color: rgba(0, 0, 0, 0.12);
 }
 
+/* ---------- Mörkt ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: linear-gradient(160deg, #0f172a 0%, #1e293b 55%, #0c3b5e 100%);
+  --bg-solid: #0f172a;
+  --surface: rgba(255, 255, 255, 0.1);
+  --surface2: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.14);
+  --fg: #eef3f8;
+  --fg2: rgba(238, 243, 248, 0.72);
+  --sep: rgba(255, 255, 255, 0.12);
+  --accent: #2b8fff;
+  --on-accent: #ffffff;
+  --ok: #32d74b;      --ok-bg: rgba(50, 215, 75, 0.16);
+  --warn: #ffb340;    --warn-bg: rgba(255, 179, 64, 0.16);
+  --bad: #ff6961;     --bad-bg: rgba(255, 105, 97, 0.16);
+  --on-status: #000000;
+  --bar: rgba(15, 23, 42, 0.7);
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  --orb1: #2563eb;
+  --orb2: #0ea5e9;
+  --shadow-color: rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- Natt: rött på svart för traktorhytten ---------- */
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --bg: radial-gradient(120% 80% at 50% 0%, #3a0603 0%, #0d0100 60%, #000 100%);
+  --bg-solid: #000000;
+  --surface: rgba(255, 59, 48, 0.1);
+  --surface2: rgba(255, 59, 48, 0.06);
+  --border: rgba(255, 59, 48, 0.22);
+  --fg: #ff4a3d;
+  --fg2: rgba(255, 74, 61, 0.72);
+  --sep: rgba(255, 59, 48, 0.16);
+  --accent: #e8352b;
+  --on-accent: #1a0000;
+  --ok: #ff4a3d;      --ok-bg: rgba(255, 59, 48, 0.12);
+  --warn: #ff4a3d;    --warn-bg: rgba(255, 59, 48, 0.12);
+  --bad: #ff4a3d;     --bad-bg: rgba(255, 59, 48, 0.12);
+  --on-status: #1a0000;
+  --bar: rgba(20, 0, 0, 0.75);
+  --scrim: rgba(0, 0, 0, 0.75);
+  --shadow: none;
+  --orb1: #7a0d06;
+  --orb2: #3a0603;
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  /* Glaskulorna behålls men dämpas så de inte bländar i mörkret */
+  --avatar-filter: brightness(0.6) saturate(0.7);
+}
+
+/* ---------- Grund ---------- */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -18,829 +128,719 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
-  background: var(--bg-gradient) !important;
-  background-attachment: fixed !important;
-  color: var(--text-main) !important;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+html {
+  background: var(--bg-solid);
+  overflow-x: hidden;
+}
+
+body {
+  position: relative;
   min-height: 100vh;
-  padding: calc(env(safe-area-inset-top) + 12px) 14px 40px 14px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* SVÄVANDE GLIDANDE VÄNSTERMENY (HOVER/CLICK) */
-.side-nav-drawer {
+/* Glasbakgrundens färgklot (bara dekor) */
+body::before, body::after {
+  content: "";
   position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  left: 0;
-  width: 52px;
-  height: auto;
-  max-height: 80vh;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(25px) saturate(180%);
-  -webkit-backdrop-filter: blur(25px) saturate(180%);
-  border: 1px solid var(--card-border);
-  border-left: none;
-  border-radius: 0 20px 20px 0;
-  box-shadow: 4px 10px 30px rgba(15, 23, 42, 0.12);
-  z-index: 10005;
-  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  padding: 12px 0;
-  gap: 6px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  filter: blur(48px);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: -1;
 }
+body::before { background: var(--orb1); top: 90px; left: -80px; }
+body::after { background: var(--orb2); bottom: 80px; right: -100px; }
 
-.side-nav-drawer:hover {
-  width: 240px;
-}
+h1, h2, h3, h4 { font-family: var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
+strong, b { font-weight: var(--fw-strong); }
+small, .text-muted { color: var(--fg2); }
 
-.side-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  color: var(--text-main);
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.2s ease, color 0.2s ease;
-  border-radius: 12px;
-  margin: 0 6px;
-}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-.side-nav-item:hover {
-  background: rgba(2, 132, 199, 0.12);
-  color: var(--accent-darkblue);
-}
-
-.side-nav-icon {
-  font-size: 20px;
-  min-width: 24px;
-  text-align: center;
-}
-
-.side-nav-text {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.side-nav-drawer:hover .side-nav-text {
-  opacity: 1;
-}
-
-.app-layout-wrapper {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-}
-
-.app-container {
-  width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
-}
-
-/* HANDSKVÄNLIGA KNAPPAR */
+/* ---------- Knappar (handskvänliga) ---------- */
 button, .main-btn, .glove-btn {
-  min-height: 52px;
-  font-size: 16px;
-  font-weight: 700;
-  border-radius: 16px;
-  border: none;
+  font-family: inherit;
+  min-height: var(--tap-min);
+  padding: 0 18px;
+  font-size: var(--fs-btn);
+  font-weight: var(--fw-strong);
+  border-radius: var(--radius-sm);
+  border: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  color: var(--fg);
+  background: var(--surface2);
   transition: transform 0.15s ease, background 0.2s ease;
 }
+button:active { transform: scale(0.97); }
+button:disabled { opacity: 0.5; cursor: default; }
 
-button:active {
-  transform: scale(0.96);
+.main-btn { min-height: var(--tap); background: var(--surface); border: 1px solid var(--border); }
+
+.main-btn-blue,
+button.btn-primary, .action-button, .btn-blue {
+  min-height: var(--tap);
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid transparent;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+:root[data-theme="night"] .main-btn-blue { box-shadow: none; }
+
+/* "Allt packat"-läget (sätts från index.html) */
+.main-btn.is-go {
+  background: color-mix(in srgb, var(--ok) 92%, transparent);
+  color: var(--on-status);
+  min-height: calc(var(--tap) * 1.15);
+  font-size: calc(var(--fs-btn) + 1px);
 }
 
-.main-btn-blue {
-  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
-  color: #FFFFFF;
-  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35);
+/* ---------- Glaskort ---------- */
+.packing-card-glass, .ios-card, .draft-card, .dashboard-panel,
+.glass-card, .cupertino-card, .view-container, .morning-header-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  color: var(--fg);
 }
+.packing-card-glass, .ios-card, .dashboard-panel { padding: 18px; margin-bottom: 16px; }
 
-/* LJUSBLÅ FROSTADE GLASS-KORT */
-.packing-card-glass, .ios-card, .draft-card, .dashboard-panel {
-  background: var(--card-glass) !important;
-  backdrop-filter: blur(25px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-  border: 1px solid var(--card-border) !important;
-  border-radius: 20px !important;
-  padding: 18px;
+/* ---------- Layout ---------- */
+.app-layout-wrapper { width: 100%; display: flex; justify-content: center; gap: 20px; }
+.app-container { width: 100%; max-width: 440px; margin: 0 auto; }
+
+/* Toppen */
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 16px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08) !important;
-  color: var(--text-main) !important;
 }
+.app-header h1 { font-size: var(--fs-title); font-weight: var(--fw-strong); line-height: 1.1; letter-spacing: -0.02em; }
+.header-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-.checklist-item {
+.user-pill, .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-strong);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+.user-pill { min-height: 44px; cursor: pointer; }
+.user-pill img { border-radius: 50%; filter: var(--avatar-filter); }
+.user-pill.is-admin { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+#app-version-tag { font-size: 11px; color: var(--fg2); margin-left: 2px; padding-left: 6px; border-left: 1px solid var(--sep); }
+
+/* Lägesväljare (Auto / Ljust / Mörkt / Natt) */
+.theme-picker { margin: 18px 0 8px; }
+.theme-picker-label {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  color: var(--fg2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 4px 6px;
+}
+.seg {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+.seg button {
+  min-height: var(--tap-min);
+  padding: 0 6px;
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  background: transparent;
+  color: var(--fg2);
+  border-radius: 12px;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: var(--fw-strong); }
+
+/* ---------- Morgonhälsning och glaskule-avatar ---------- */
+.morning-header-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-main);
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
 }
+.morning-header-card .morning-avatar-slot {
+  width: 52px !important;
+  height: 52px !important;
+  border: 0 !important;
+}
+.morning-header-card .morning-avatar-slot + div > div:first-child { color: var(--fg2) !important; }
+.morning-header-card .morning-avatar-slot + div > div:last-child { color: var(--fg) !important; font-size: var(--fs-h3) !important; }
 
-.checklist-item input[type="checkbox"] {
-  width: 26px;
-  height: 26px;
-  accent-color: var(--accent-blue);
+/* Glaskulan runt AI-avatarerna: ring, glans uppe till vänster, skugga under */
+.postman-pat-bubble, .morning-avatar-slot {
+  --ball: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95) 0%, rgba(120,190,255,0.65) 45%, rgba(10,111,224,0.9) 100%);
+  position: relative;
+  border-radius: 50%;
+  padding: 4px;
+  /* !important: avatar_onboarding.js lägger bilden som inline-bakgrund, men ringen ska vara glas */
+  background: var(--ball) !important;
+  box-shadow: 0 10px 28px rgba(10, 111, 224, 0.35), inset 0 2px 6px rgba(255, 255, 255, 0.9);
+  overflow: hidden;
   cursor: pointer;
 }
-
-/* 3D POSTIS PER AVATAR BUBBLE */
 .postman-pat-bubble {
-  width: 90px;
-  height: 90px;
-  margin: 0 auto 12px auto;
-  border-radius: 50%;
-  position: relative;
-  background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95) 0%, rgba(56,189,248,0.6) 50%, rgba(2,132,199,0.9) 100%);
-  box-shadow: 0 10px 30px rgba(2, 132, 199, 0.35), inset 0 2px 6px rgba(255,255,255,0.9);
-  padding: 4px;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
-.postman-pat-bubble img {
+.postman-pat-bubble img, .morning-avatar-slot img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+  display: block;
+  filter: var(--avatar-filter);
+}
+.postman-pat-bubble::after, .morning-avatar-slot::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 35% at 35% 18%, rgba(255,255,255,0.75), rgba(255,255,255,0) 70%),
+    radial-gradient(circle at 50% 120%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.18) 100%);
+}
+:root[data-theme="dark"] .postman-pat-bubble, :root[data-theme="dark"] .morning-avatar-slot {
+  --ball: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.6) 0%, rgba(43,143,255,0.55) 45%, rgba(15,23,42,0.9) 100%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 2px 6px rgba(255, 255, 255, 0.35);
+}
+:root[data-theme="night"] .postman-pat-bubble, :root[data-theme="night"] .morning-avatar-slot {
+  --ball: radial-gradient(circle at 35% 25%, rgba(255,74,61,0.45) 0%, rgba(122,13,6,0.7) 50%, #1a0000 100%);
+  box-shadow: none;
+}
+:root[data-theme="night"] .postman-pat-bubble::after, :root[data-theme="night"] .morning-avatar-slot::after {
+  background: radial-gradient(ellipse 55% 35% at 35% 18%, rgba(255,74,61,0.25), rgba(255,74,61,0) 70%);
 }
 
-/* FORMULÄR & INMATNINGSFÄLT */
-.ios-row {
+.avatar-kicker {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  color: var(--fg2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.welcome-title { font-size: var(--fs-h3); font-weight: var(--fw-strong); color: var(--fg); }
+
+/* ---------- Packlista ---------- */
+.section-label {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  color: var(--fg2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--row);
+  border-bottom: 1px solid var(--sep);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+}
+.checklist-item:last-of-type { border-bottom: 0; }
+.checklist-item label { flex: 1; min-height: var(--row); display: flex; align-items: center; cursor: pointer; }
+.checklist-item input[type="checkbox"] {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ---------- Dagens pass (karusellen) ---------- */
+.outbox-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-main);
+  gap: 10px;
+  margin: 0 4px 8px;
 }
-
-.val-text, input, select, textarea {
-  color: var(--accent-darkblue) !important;
-  font-weight: 700;
+#outbox-title {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  color: var(--fg2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-
-input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="tel"], textarea, select {
-  background: rgba(255, 255, 255, 0.65) !important;
-  border: 1px solid rgba(255, 255, 255, 0.95) !important;
-  border-radius: 12px;
-  padding: 8px 12px;
-  outline: none;
+.submit-pill-btn {
+  min-height: var(--tap-min) !important;
+  padding: 0 20px !important;
+  border-radius: 99px;
+  background: var(--accent);
+  color: var(--on-accent);
 }
-
-/* MENY-MORFNING */
-.field-tools-grid {
-  display: none;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.field-tools-grid.unlocked {
-  display: grid;
-  animation: fadeInDown 0.4s ease forwards;
-}
-
-/* HEADER PILLS */
-.user-pill, .status-pill {
-  background: rgba(255, 255, 255, 0.65) !important;
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  color: var(--text-main) !important;
-  font-weight: 700;
-  padding: 6px 14px;
-  border-radius: 20px;
-}
-
-.user-pill.is-admin {
-  background: rgba(234, 88, 12, 0.15) !important;
-  border-color: rgba(234, 88, 12, 0.5) !important;
-  color: var(--orange) !important;
-}
-
 .carousel-container {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding: 4px 0 14px 0;
+  padding: 4px 2px 14px;
+  scroll-snap-type: x mandatory;
   scrollbar-width: none;
 }
-
+.carousel-container::-webkit-scrollbar { display: none; }
 .draft-card {
-  flex: 0 0 260px;
+  flex: 0 0 280px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-snap-align: start;
+}
+.draft-card.empty-placeholder { flex: 1 1 100%; font-size: var(--fs-small); color: var(--fg2); }
+.card-body { display: grid; gap: 6px; min-width: 0; }
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-strong);
+  min-width: 0;
+}
+.card-activity { color: var(--fg2); font-size: var(--fs-small); font-weight: var(--fw-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: var(--fs-small);
+  color: var(--fg2);
+  font-variant-numeric: tabular-nums;
+}
+.card-meta span { color: inherit; }
+.card-meta .hours { color: var(--fg); font-weight: var(--fw-strong); }
+.card-note { font-size: var(--fs-small); color: var(--fg2); }
+.dot { color: var(--fg2); }
+.card-actions { display: flex; gap: 8px; }
+.btn-action {
+  flex: 1;
+  min-height: var(--tap-min);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-strong);
+  border-radius: 14px;
+  background: var(--surface2);
+  color: var(--fg);
+}
+.btn-action.clock-in { background: var(--accent); color: var(--on-accent); }
+.btn-action.clock-out { background: color-mix(in srgb, var(--ok) 92%, transparent); color: var(--on-status); }
+.btn-action.delete { background: var(--bad-bg); color: var(--bad); }
+.badge-ata {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 12px;
+  font-weight: var(--fw-strong);
+  flex: none;
+}
+.ongoing-pulse { color: var(--ok); font-weight: var(--fw-strong); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+
+/* ---------- Formulär ---------- */
+.field-tools-grid { display: none; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.field-tools-grid.unlocked { display: grid; animation: fadeInDown 0.35s ease forwards; }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.field-tools-grid .ios-card { margin-bottom: 0; padding: 4px 16px; }
+.field-tools-grid > .section-label { grid-column: 1 / -1; margin: 4px 4px -4px; }
+
+.type-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin: 12px 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+}
+.type-btn { min-height: var(--tap-min); background: transparent; color: var(--fg2); border-radius: 12px; }
+.type-btn.active { background: var(--accent); color: var(--on-accent); }
+
+.ios-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--row);
+  border-bottom: 1px solid var(--sep);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+}
+.ios-row:last-child { border-bottom: 0; }
+
+.val-text, input, select, textarea {
+  font-family: inherit;
+  color: var(--accent);
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-body);
+}
+:root[data-theme="night"] .val-text, :root[data-theme="night"] input, :root[data-theme="night"] select, :root[data-theme="night"] textarea { color: var(--fg); }
+
+input[type="text"], input[type="number"], input[type="date"], input[type="time"],
+input[type="tel"], input[type="email"], input:not([type]), textarea, select {
+  min-height: 44px;
+  background: var(--surface2);
+  border: 1px solid var(--sep);
+  border-radius: 12px;
+  padding: 8px 12px;
+  outline: none;
+  max-width: 60%;
+  text-align: right;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+input::placeholder, textarea::placeholder { color: var(--fg2); font-weight: var(--fw-medium); }
+textarea { width: 100%; max-width: 100%; min-height: 96px; margin: 12px 0 4px; text-align: left; resize: vertical; }
+input[type="checkbox"] { min-height: 0; accent-color: var(--accent); }
+.ios-row > span.val-text { cursor: pointer; }
+
+.add-photo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--tap-min);
+  margin: 8px 0 12px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: var(--surface2);
+  border: 1px dashed var(--sep);
+  color: var(--accent);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-strong);
+  cursor: pointer;
+}
+:root[data-theme="night"] .add-photo-btn { color: var(--fg); }
+
+.duration-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: var(--fs-small);
+  font-weight: var(--fw-strong);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-variant-numeric: tabular-nums;
 }
 
-.dashboard-panel {
-  display: none;
+/* ---------- Glasbubblor (maskiner, personer) ---------- */
+.glass-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  margin: 4px;
+  border-radius: 99px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-strong);
+  color: var(--fg);
+  cursor: pointer;
 }
+.add-bubble-btn { background: var(--ok-bg) !important; border: 1px dashed var(--ok) !important; color: var(--ok) !important; }
 
+/* ---------- Översikt (liggande / iPad) ---------- */
+.dashboard-panel { display: none; }
 @media screen and (min-width: 768px), screen and (orientation: landscape) {
-  .app-layout-wrapper {
-    max-width: 980px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 20px;
-  }
-  .app-container {
-    flex: 1;
-    max-width: 420px;
-  }
+  .app-layout-wrapper { max-width: 1000px; margin: 0 auto; align-items: flex-start; }
+  .app-container { flex: 1; max-width: 440px; }
   .dashboard-panel {
     display: flex;
     flex-direction: column;
     flex: 1;
-    max-width: 480px;
+    max-width: 500px;
     max-height: calc(100vh - 32px);
     overflow-y: auto;
+    position: sticky;
+    top: 16px;
   }
 }
-
-.dash-stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
+.dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.dash-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 .stat-card {
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  border-radius: 12px;
-  padding: 10px;
-  text-align: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: grid;
+  gap: 2px;
 }
-
-.stat-val {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--accent-darkblue);
-}
-
-.stat-lbl {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
+.stat-val { font-size: 28px; font-weight: var(--fw-strong); color: var(--fg); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.stat-lbl { font-size: var(--fs-small); font-weight: var(--fw-medium); color: var(--fg2); }
 .dash-list {
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  padding: 8px 12px;
-  max-height: 180px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 14px;
+  max-height: 220px;
   overflow-y: auto;
 }
-
 .dash-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 48px;
+  border-bottom: 1px solid var(--sep);
+  font-variant-numeric: tabular-nums;
+}
+.dash-row:last-child { border-bottom: 0; }
+.dash-empty { padding: 12px 0; color: var(--fg2); font-size: var(--fs-small); }
+
+/* Admin (kontorsläget behåller kompaktare mått) */
+.admin-heading { font-size: var(--fs-small); font-weight: var(--fw-medium); color: var(--fg2); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 4px 6px; }
+.admin-input-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 52px; border-bottom: 1px solid var(--sep); }
+.admin-label { font-size: var(--fs-small); font-weight: var(--fw-medium); }
+.admin-select, .admin-val-input {
+  flex: 1;
+  max-width: 60%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--sep);
+  background: var(--surface2);
+  color: var(--fg);
+  text-align: right;
+}
+.admin-actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.admin-btn {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--sep);
+  background: var(--surface2);
+  color: var(--fg);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-strong);
+}
+.admin-nav-btn { width: 100%; margin-top: 10px; min-height: 52px; font-size: var(--fs-body); background: var(--surface2); border: 1px solid var(--sep); }
+.admin-nav-btn.is-warn { background: var(--warn); color: var(--on-status); border-color: transparent; }
+
+/* ---------- Sidomeny ---------- */
+.side-nav-drawer {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 56px;
+  max-height: 80vh;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  background: var(--bar);
+  border: 1px solid var(--border);
+  border-left: 0;
+  border-radius: 0 20px 20px 0;
+  box-shadow: var(--shadow);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  z-index: 10005;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-/* TOTAL STÄDNING AV DOLD AKTIVITETSMENY (GÖM TEXT NERE TILL VÄNSTER) */
-.sheet-backdrop {
-  position: fixed !important;
-  inset: 0 !important;
-  background: rgba(15, 23, 42, 0.5) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  display: none !important;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 9999 !important;
-}
-
-.sheet-backdrop.active {
-  display: flex !important;
-}
-
-.sheet-container {
-  width: 100%;
-  max-width: 460px;
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
-  padding: 20px;
-  box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
-}
-
-.sheet-item {
-  padding: 14px 12px;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-main);
+.side-nav-drawer:hover, .side-nav-drawer:focus-within { width: 250px; }
+.side-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 52px;
+  padding: 0 14px;
+  margin: 0 4px;
+  border-radius: 12px;
+  color: var(--fg);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
   cursor: pointer;
 }
+.side-nav-item:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.side-nav-icon { font-size: 22px; min-width: 24px; text-align: center; }
+.side-nav-text { opacity: 0; transition: opacity 0.2s ease; }
+.side-nav-drawer:hover .side-nav-text, .side-nav-drawer:focus-within .side-nav-text { opacity: 1; }
 
-/* KABANOSS & ADMIN MODAL (FLYGLEDARTORNET) */
+/* ---------- Aktivitetslistan (bottenark) ---------- */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--scrim);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9999;
+}
+.sheet-backdrop.active { display: flex; }
+.sheet-container {
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: var(--bar);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+  color: var(--fg);
+}
+:root:not([data-theme="dark"]):not([data-theme="night"]) .sheet-container { background: rgba(255, 255, 255, 0.96); }
+.sheet-header { display: flex; justify-content: space-between; align-items: center; min-height: var(--tap-min); }
+.sheet-close { background: transparent !important; color: var(--accent) !important; font-size: var(--fs-body) !important; }
+.sheet-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 8px;
+  border-bottom: 1px solid var(--sep);
+  font-size: calc(var(--fs-body) + 1px);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+  cursor: pointer;
+}
+.sheet-item:last-child { border-bottom: 0; }
+.sheet-item:active { background: var(--surface2); }
+
+/* ---------- Flygledartornet / Kabanossen (kontor) ---------- */
 .kabanoss-backdrop {
-  position: fixed !important;
-  inset: 0 !important;
-  background: rgba(15, 23, 42, 0.6) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  display: none !important;
+  position: fixed;
+  inset: 0;
+  display: none;
   align-items: center;
   justify-content: center;
-  z-index: 10000 !important;
   padding: 20px;
+  background: var(--scrim);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 10000;
 }
-
-.kabanoss-backdrop.active {
-  display: flex !important;
-}
-
+.kabanoss-backdrop.active { display: flex; }
 .kabanoss-modal {
   width: 100%;
   max-width: 1100px;
   max-height: 90vh;
-  background: rgba(255, 255, 255, 0.88) !important;
-  border: 1px solid var(--card-border) !important;
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
   overflow-y: auto;
-  color: var(--text-main);
+  padding: 22px;
+  border-radius: var(--radius);
+  background: var(--bar);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  color: var(--fg);
 }
-
-.kabanoss-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin-top: 16px;
-}
-
-.kabanoss-col {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 16px;
+.kabanoss-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.kabanoss-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.kabanoss-tabs button { min-height: 44px; padding: 0 14px; font-size: var(--fs-small); background: var(--surface2); color: var(--fg); }
+.kabanoss-tabs button.main-btn-blue { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+.kabanoss-close { min-height: 44px; background: transparent; color: var(--bad); font-size: var(--fs-body); }
+.kabanoss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 16px; }
+.kabanoss-col, .kabanoss-column {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 14px;
   min-height: 280px;
 }
-
 .kabanoss-col-title {
-  font-size: 13px;
-  font-weight: 800;
+  font-size: var(--fs-small);
+  font-weight: var(--fw-strong);
   text-transform: uppercase;
-  color: var(--accent-darkblue);
+  letter-spacing: 0.04em;
+  color: var(--fg2);
   margin-bottom: 12px;
-  padding-bottom: 6px;
-  border-bottom: 2px solid var(--accent-blue);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--sep);
 }
-
-.kabanoss-item-card {
-  background: #FFFFFF;
-  border-radius: 12px;
+.kabanoss-item-card, .kabanoss-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   padding: 12px;
   margin-bottom: 10px;
-  box-shadow: 0 4px 12px rgba(15,23,42,0.06);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
 }
-
-/* TEMA-VARIABLER FOR LIGHT & DARK MODE */
-:root {
-  --bg-gradient: linear-gradient(135deg, #a0c4ff 0%, #c4e0e5 100%);
-  --glass-bg: rgba(255, 255, 255, 0.45);
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --card-bg: rgba(255, 255, 255, 0.65);
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --accent-blue: #0284c7;
-  --shadow-color: rgba(0, 0, 0, 0.08);
-}
-
-body.dark-mode {
-  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --card-bg: rgba(15, 23, 42, 0.78);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --accent-blue: #38bdf8;
-  --shadow-color: rgba(0, 0, 0, 0.45);
-}
-
-body {
-  background: var(--bg-gradient) !important;
-  color: var(--text-main) !important;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-
-.glass-card, .cupertino-card, .modal-content, .kabanoss-column {
-  background: var(--card-bg) !important;
-  border: 1px solid var(--glass-border) !important;
-  color: var(--text-main) !important;
-  box-shadow: 0 8px 32px var(--shadow-color) !important;
-}
-
-/* THEME TOGGLE BUTTON STYLING */
-.theme-toggle-btn {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px var(--shadow-color);
-  transition: transform 0.2s ease;
-}
-
-.theme-toggle-btn:active {
-  transform: scale(0.9);
-}
-
-/* TEXTKONTRAST OCH LÄSBARHET I DARK MODE */
-body.dark-mode {
-  --text-main: #f8fafc !important;
-  --text-muted: #cbd5e1 !important;
-}
-
-body.dark-mode .cupertino-card,
-body.dark-mode .glass-card,
-body.dark-mode div,
-body.dark-mode span,
-body.dark-mode label,
-body.dark-mode h1,
-body.dark-mode h2,
-body.dark-mode h3 {
-  color: #f8fafc !important;
-}
-
-body.dark-mode .text-muted,
-body.dark-mode small {
-  color: #94a3b8 !important;
-}
-
-/* PROGRAMGOLV FÖR SAMTLIGA MODULER */
-.view-container {
-  width: 100%;
-  min-height: calc(100vh - 140px);
-  background: var(--card-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 20px;
-  padding: 24px;
-  box-sizing: border-box;
-  box-shadow: 0 8px 32px var(--shadow-color);
-  margin-top: 16px;
-}
-
-#kabanoss-view, #radar-view, #crm-view, #offert-view {
-  width: 100%;
-}
-
-/* V4.4 TOTAL KONTRAST OCH RENDER-FIX */
-:root {
-  --text-main: #0f172a !important;
-  --text-muted: #334155 !important;
-  --card-bg: #ffffff !important;
-  --glass-border: #cbd5e1 !important;
-  --input-bg: #f1f5f9 !important;
-}
-
-body.dark-mode {
-  --text-main: #f8fafc !important;
-  --text-muted: #94a3b8 !important;
-  --card-bg: #0f172a !important;
-  --glass-border: #334155 !important;
-  --input-bg: #1e293b !important;
-}
-
-.kabanoss-modal-content, .view-container, .glass-card, .cupertino-card {
-  color: var(--text-main) !important;
-  background: var(--card-bg) !important;
-  border: 1px solid var(--glass-border) !important;
-}
-
-.kabanoss-column {
-  background: var(--input-bg) !important;
-  border-radius: 16px;
-  padding: 12px;
-  min-height: 400px;
-}
-
-.kabanoss-card {
-  background: var(--card-bg) !important;
-  color: var(--text-main) !important;
-  border: 1px solid var(--glass-border) !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
+.view-pane { padding: 16px; border-radius: var(--radius-sm); background: var(--surface2); }
+.view-pane h3 { font-size: var(--fs-h3); }
+.view-pane p { color: var(--fg2); font-size: var(--fs-small); margin-top: 4px; }
+.view-container { width: 100%; min-height: calc(100vh - 140px); padding: 24px; margin-top: 16px; }
+#kabanoss-view, #radar-view, #crm-view, #offert-view { width: 100%; }
 .gantt-grid, .crm-card, .offert-box {
-  background: var(--input-bg);
+  background: var(--surface2);
   border-radius: 14px;
   padding: 16px;
   margin-top: 12px;
-  color: var(--text-main);
+  color: var(--fg);
 }
+.offert-total { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--surface); font-size: var(--fs-small); }
 
-/* ========================================== */
-/* POSTIS PER 3D GLASBUBBLOR (ÅTERSTÄLLDA)   */
-/* ========================================== */
-.glass-bubble {
-  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.4);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1), inset 0 2px 4px rgba(255,255,255,0.6);
-  border-radius: 20px;
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #0f172a;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: transform 0.2s, box-shadow 0.2s;
-  cursor: pointer;
-  margin: 4px;
-}
-
-body.dark-mode .glass-bubble {
-  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%);
-  border: 1px solid rgba(255,255,255,0.2);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.1);
-  color: #f8fafc;
-}
-
-.add-bubble-btn {
-  background: rgba(16, 185, 129, 0.2) !important;
-  border: 1px dashed #10b981 !important;
-  color: #10b981 !important;
-}
-
-
-/* ==========================================
-   LPV & KLARYTA - AUTHENTIC FROSTED GLASS THEME
-   DEV v4.7.1
-   ========================================== */
-
-/* Bakgrund och Huvudcontainer */
-body {
-  background: radial-gradient(circle at top right, #1e293b, #0f172a, #020617) !important;
-  color: #f8fafc !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-}
-
-/* Äkta Glastema för alla Huvudkort & Paneler */
-.card, 
-.dashboard-card, 
-.main-widget, 
-.hero-card, 
-.inner-card, 
-.status-card, 
-.grey-box, 
-.panel-grey,
-div[class*="card"],
-div[class*="panel"] {
-  background: rgba(15, 23, 42, 0.55) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
-  backdrop-filter: blur(16px) -webkit-backdrop-filter: blur(16px) !important;
-  border-radius: 20px !important;
-  color: #f8fafc !important;
-}
-
-/* Inre Mätarrutor & Stat-piller i Glas */
-.stat-pill, 
-.summary-box, 
-.stat-box,
-div[class*="stat"] {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(8px) !important;
-  border-radius: 14px !important;
-  color: #ffffff !important;
-}
-
-/* Snygga glasrader i checklistan */
-.check-item, 
-.list-row, 
-label[class*="check"] {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 12px !important;
-  padding: 12px 16px !important;
-  margin-bottom: 10px !important;
-  color: #e2e8f0 !important;
-  transition: all 0.2s ease !important;
-}
-
-.check-item:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-}
-
-/* Avatarcirkel med blåskimrande neonglöd */
-.avatar-ring-container, 
-.avatar-wrapper {
-  padding: 3px !important;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
-  border-radius: 50% !important;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
-}
-
-/* Knappar med modern glas- och accentkänsla */
-button.btn-primary, 
-.action-button,
-.btn-blue {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
-  border-radius: 14px !important;
-  color: #ffffff !important;
-  font-weight: 600 !important;
-}
-
-/* Texttoner för hög kontrast mot mörkt glas */
-h1, h2, h3, h4, strong {
-  color: #ffffff !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
-}
-
-p, span, sub, small {
-  color: #cbd5e1 !important;
-}
-
-
-/* ==========================================
-   MOBILE & IPHONE SAFE-AREA RESPONSIVE FIX
-   LPV & KLARYTA v4.7.1
-   ========================================== */
-
-/* iOS Safe-Area Handling */
-html, body {
-  padding-top: max(12px, env(safe-area-inset-top)) !important;
-  padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
-  padding-left: max(12px, env(safe-area-inset-left)) !important;
-  padding-right: max(12px, env(safe-area-inset-right)) !important;
-  overflow-x: hidden !important;
-}
-
-/* Flexibel Toppbar för Tidrapport, Användare & Anslutningsstatus */
-.header-bar,
-.top-header,
-div[style*="display: flex"][style*="justify-content: space-between"] {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 8px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.user-pill, .status-pill, #app-user-pill {
-  white-space: nowrap !important;
-  font-size: 12px !important;
-  padding: 5px 10px !important;
-  max-width: 100% !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
-/* Anpassning för smala skärmar (< 520px) */
+/* ---------- Smala telefoner ---------- */
 @media screen and (max-width: 520px) {
-  .app-container {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 0 4px !important;
-  }
-
-  /* Justering av sidomeny för att inte skymma innehåll */
-  .side-nav-drawer {
-    width: 44px !important;
-    border-radius: 0 16px 16px 0 !important;
-    background: rgba(15, 23, 42, 0.85) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-    z-index: 9999 !important;
-  }
-
-  .side-nav-drawer:hover,
-  .side-nav-drawer:focus-within {
-    width: 200px !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
-  }
-
-  .side-nav-item {
-    padding: 10px 10px !important;
-    font-size: 13px !important;
-  }
-
-  /* Huvudkort & Morgon-hälsning */
-  .packing-card-glass, 
-  .ios-card, 
-  .draft-card, 
-  .dashboard-panel, 
-  .morning-header-card,
-  .sheet-container {
-    padding: 14px !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    border-radius: 18px !important;
-  }
-
-  /* Checklistor och formulärrader */
-  .checklist-item, 
-  .ios-row {
-    padding: 10px 8px !important;
-  }
+  .app-container { padding: 0 2px 0 46px; }
+  .side-nav-drawer { width: 44px; }
+  .side-nav-drawer:hover, .side-nav-drawer:focus-within { width: 220px; }
+  .side-nav-item { padding: 0 10px; }
+  .packing-card-glass, .ios-card, .dashboard-panel, .sheet-container { border-radius: 22px; }
+  .app-header h1 { font-size: 28px; }
 }
 
-/* ==========================================
-   FOTO, TIMRÄKNARE & ADMIN-VERKTYG (från PROD)
-   ========================================== */
-.duration-pill {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--accent-blue);
-  background: rgba(2, 132, 199, 0.12);
-  padding: 3px 10px;
-  border-radius: 999px;
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }
-.add-photo-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--input-bg);
-  color: var(--accent-blue);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.admin-input-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-}
-.admin-label { font-size: 13px; font-weight: 600; }
-.admin-select, .admin-val-input {
-  flex: 1;
-  max-width: 60%;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid var(--glass-border);
-  background: var(--input-bg);
-  color: var(--text-main);
-  text-align: right;
-}
-.admin-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-top: 6px;
-}
-.admin-btn {
-  min-height: 40px;
-  border-radius: 10px;
-  border: 1px solid var(--glass-border);
-  background: var(--input-bg);
-  color: var(--text-main);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-/* Mörka glaskort har alltid ljus text – även när telefonen/iPaden står i ljust läge
-   (annars blev packlistan och "God dag!" mörk text på mörk bakgrund) */
-.packing-card-glass, .ios-card, .draft-card {
-  --text-main: #f8fafc !important;
-  --text-muted: #cbd5e1 !important;
-  color: var(--text-main);
-}
-.packing-card-glass .checklist-item label { color: #f8fafc; }
