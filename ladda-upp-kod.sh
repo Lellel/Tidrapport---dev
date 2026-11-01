@@ -18,6 +18,24 @@ case "$MILJO" in
   *)    echo "❌ Okänd miljö: $MILJO (använd dev eller prod)"; exit 1 ;;
 esac
 
+# Stoppa om GitHub har nyare kod än den här datorn – annars skriver uppladdningen
+# över ändringar som någon annan (t.ex. en annan Claude-session) har gjort i Kod.gs.
+cd "$REPO"
+if ! git fetch -q origin main; then
+  echo "❌ Kunde inte kontrollera GitHub (ingen täckning?). Avbryter för säkerhets skull."
+  exit 1
+fi
+SAKNAS=$(git rev-list --count HEAD..origin/main)
+if [ "$SAKNAS" != "0" ]; then
+  echo "❌ GitHub har $SAKNAS commit(s) som inte finns på den här datorn:"
+  git log --oneline HEAD..origin/main
+  echo "   Hämta dem först (git pull --rebase) och kör sedan skriptet igen."
+  exit 1
+fi
+if ! git diff --quiet -- Kod.gs; then
+  echo "⚠️  Kod.gs har ändringar som inte är committade – de laddas upp ändå."
+fi
+
 if [ ! -f "$MAPP/.clasp.json" ]; then
   echo "❌ Hittade inget klonat Apps Script-projekt i $MAPP"
   exit 1
