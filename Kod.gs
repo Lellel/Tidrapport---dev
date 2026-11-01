@@ -122,7 +122,7 @@ function doPost(e) {
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
-      "blacksta_savePlan"];
+      "blacksta_savePlan", "addStaff"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -184,6 +184,7 @@ function doPost(e) {
     if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user);
     if (action === "invoicePdf") return handleInvoicePdf(data.draft);
     if (action === "sendSms") return handleSendSms(data, auth.user);
+    if (action === "addStaff") return handleAddStaff(data);
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
 
@@ -288,6 +289,26 @@ function handleGetUserKey(data) {
     clearStaffAuthCache(hit.row[0]);
   }
   return createJsonResponse({ status: "success", user: String(hit.row[0]), key: key });
+}
+
+// Admin lägger till en person i Personal. Rollen styr kolumn D (Roll) och E (Behörighet):
+// Admin = TRUE, Ekonom = "Ekonom", Förare/UE = tomt. Nyckeln skapas direkt så att länken kan skickas.
+const STAFF_ROLES = ["Förare", "UE", "Ekonom", "Admin"];
+
+function handleAddStaff(data) {
+  const name = sanitize(data.name).replace(/\s+/g, " ").slice(0, 60);
+  if (!name) return createJsonResponse({ status: "error", message: "Skriv personens namn." });
+  const role = STAFF_ROLES.indexOf(data.role) !== -1 ? data.role : "Förare";
+  const sheet = getStaffSheet();
+  if (findStaffRow(sheet, name)) return createJsonResponse({ status: "error", message: name + " finns redan i Personal." });
+  const key = Utilities.getUuid().replace(/-/g, "");
+  const row = [name, sanitize(data.email).slice(0, 120), sanitize(data.phone).slice(0, 20), role,
+    role === "Admin" ? "TRUE" : (role === "Ekonom" ? "Ekonom" : ""), "", sanitize(data.company).slice(0, 60) || "LPV", "Aktiv"];
+  while (row.length < KEY_COLUMN - 1) row.push("");
+  row.push(key);
+  sheet.appendRow(row);
+  clearStaffAuthCache(name);
+  return createJsonResponse({ status: "success", user: name, key: key, role: role });
 }
 
 function getDocSecret() {

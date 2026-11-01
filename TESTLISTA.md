@@ -29,6 +29,16 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Tryck **QR** → en QR-kod visas. Skanna med en annan telefon → loggar in som rätt person
 - [ ] **Mail**-knappen öppnar ett mejl med länken
 
+## 1b. Lägg till person
+
+- [ ] Admin-panelen → **➕ Ny person** → namn, mobil, roll **Förare**, bolag **LPV** → **Lägg till & skicka länk**
+- [ ] Personen hamnar i fliken Personal med roll i kolumn D, tom kolumn E och nyckel i kolumn L
+- [ ] SMS:et med länken skickas direkt (från LPV) och länken loggar in personen
+- [ ] Roll **Ekonom** → kolumn E = Ekonom, personen kommer in på 💰 Ekonomi men inte Offerter
+- [ ] Roll **Admin** → kolumn E = TRUE
+- [ ] Bolag **Klaryta** → SMS:et kommer från Klaryta
+- [ ] Samma namn två gånger → "finns redan i Personal"
+
 ## 2. Spärra en person
 
 - [ ] Välj en testperson → **🔑 Spärra & skapa ny länk** → bekräfta

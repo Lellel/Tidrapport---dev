@@ -719,6 +719,41 @@ async function fetchAdminUsers() {
   }
 }
 
+// ➕ Ny person: läggs i fliken Personal med roll och bolag, får nyckel direkt och länken skickas
+function toggleNewPerson() {
+  const box = document.getElementById('admin-new-person');
+  if (!box) return;
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') document.getElementById('new-person-name')?.focus();
+}
+
+async function saveNewPerson() {
+  const val = (id) => document.getElementById(id)?.value.trim() || '';
+  const msg = document.getElementById('new-person-msg');
+  const person = { name: val('new-person-name'), phone: val('new-person-phone'), email: val('new-person-email'),
+                   role: val('new-person-role'), company: val('new-person-company') };
+  if (!person.name) { msg.textContent = '⚠️ Skriv personens namn.'; return; }
+  msg.textContent = 'Sparar… ⏳';
+  let data;
+  try { data = await apiPost({ action: 'addStaff', ...person }); }
+  catch (err) { data = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+  if (data.status !== 'success') { msg.textContent = '❌ ' + (data.message || 'Kunde inte spara.'); return; }
+
+  adminUserList.push({ id: data.user, name: data.user, phone: person.phone, email: person.email, type: data.role, isAdmin: data.role === 'Admin', ownerCompany: person.company });
+  const select = document.getElementById('admin-target-user');
+  const option = document.createElement('option');
+  option.value = data.user; option.textContent = data.user;
+  select.appendChild(option);
+  select.value = data.user;
+  onAdminUserSelect();
+  document.getElementById('admin-target-phone').value = person.phone;
+  ['new-person-name', 'new-person-phone', 'new-person-email'].forEach(id => { document.getElementById(id).value = ''; });
+  msg.textContent = `✅ ${data.user} är tillagd som ${data.role}.`;
+  document.getElementById('admin-new-person').style.display = 'none';
+  if (person.phone) adminSendSMS();
+  else alert(`✅ ${data.user} är tillagd. Inget mobilnummer – skicka länken med Mail eller QR.`);
+}
+
 function onAdminUserSelect() {
   const select = document.getElementById('admin-target-user');
   const phoneInput = document.getElementById('admin-target-phone');

@@ -190,12 +190,26 @@
               <option value="">Laddar kontakter...</option>
             </select>
           </div>
+          <button type="button" class="admin-btn" style="width:100%; margin:4px 0 8px;" onclick="toggleNewPerson()">➕ Ny person</button>
+          <div id="admin-new-person" style="display:none; border:1px solid var(--glass-border, rgba(255,255,255,.15)); border-radius:12px; padding:8px 10px; margin-bottom:10px;">
+            <div class="admin-input-row"><span class="admin-label">Namn</span><input id="new-person-name" class="admin-val-input" placeholder="För- och efternamn" autocomplete="off"></div>
+            <div class="admin-input-row"><span class="admin-label">Mobil</span><input id="new-person-phone" type="tel" class="admin-val-input" placeholder="070..."></div>
+            <div class="admin-input-row"><span class="admin-label">E-post</span><input id="new-person-email" type="email" class="admin-val-input" placeholder="valfritt"></div>
+            <div class="admin-input-row"><span class="admin-label">Roll</span>
+              <select id="new-person-role" class="admin-select">
+                <option>Förare</option><option>UE</option><option>Ekonom</option><option>Admin</option>
+              </select></div>
+            <div class="admin-input-row"><span class="admin-label">Bolag</span><input id="new-person-company" class="admin-val-input" list="new-person-companies" value="LPV" placeholder="LPV, Klaryta eller UE-firma"></div>
+            <datalist id="new-person-companies"><option value="LPV"><option value="Klaryta"></datalist>
+            <button type="button" class="admin-btn" style="width:100%; margin-top:6px;" onclick="saveNewPerson()">💾 Lägg till &amp; skicka länk</button>
+            <div id="new-person-msg" style="font-size:12px; margin-top:6px; color:var(--text-muted);"></div>
+          </div>
           <div class="admin-input-row">
             <span class="admin-label">Mobil (valfritt)</span>
             <input type="tel" id="admin-target-phone" placeholder="070..." class="admin-val-input" oninput="updateAdminTargetLink()">
           </div>
           <div class="admin-input-row">
-            <span class="admin-label">Ge Admin-roll</span>
+            <span class="admin-label">Öppna i admin-läge</span>
             <input type="checkbox" id="admin-target-is-admin" onchange="updateAdminTargetLink()">
           </div>
           <div class="admin-actions-grid">
