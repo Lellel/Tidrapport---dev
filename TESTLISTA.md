@@ -55,8 +55,12 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Stallet visas som 4 rader × 23 rutor; **▶ Starta** på en rad → första rutan blir gul, sluttid ca 7 h 40 min senare
 - [ ] Rutorna blir gröna i takt med roboten (20 min/box) – kolla igen efter en stund
 - [ ] **🚨 Roboten larmar** → rutan blir röd och blinkar, "står still X min" räknas upp
-- [ ] **✅ Larmet åtgärdat – starta** → roboten fortsätter, sluttiden flyttas fram, boxen får röd kant, "Stillestånd: X min" visas
-- [ ] Efter åtgärdat larm finns en tidrapport **Robotlarm** (larm → omstart) och den syns som egen rad i Ekonomi
+- [ ] **👍 Kvittera** → **✅ Larmet åtgärdat – starta** → roboten fortsätter, sluttiden flyttas fram, boxen får röd kant, "Stillestånd: X min" visas
+- [ ] Efter åtgärdat larm finns en tidrapport **Robotlarm** (kvittering → omstart) och den syns som egen rad i Ekonomi
+- [ ] Genvägen "Robotlarm" (kör den för hand) → telefonen ringer på max volym, ficklampan blinkar, appen visar röd blinkande banner "🚨 Robotlarm …"
+- [ ] Riktigt larm-SMS från roboten → samma sak, utan att du rör telefonen
+- [ ] **👍 Kvittera** måste tryckas innan **✅ Åtgärdat – starta** går; tidrapporten Robotlarm räknas från kvitteringen
+- [ ] Fliken Robotlarm i kalkylarket loggar varje SMS
 - [ ] Tryck på en ruta → "Står roboten på box N?" → rutorna justeras
 - [ ] Öppna samma stall på en annan telefon → samma färger
 - [ ] Admin: **✏️ Redigera stallet** → lägg in steg med text och foto → sparas och visas för alla

@@ -133,7 +133,7 @@ function doPost(e) {
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers",
-      "saveStall", "addStallPhoto"];
+      "saveStall", "addStallPhoto", "robotAlarm"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -156,6 +156,7 @@ function doPost(e) {
     if (action === "saveStall") return handleSaveStall(data.stall, auth.user);
     if (action === "addStallPhoto") return handleAddStallPhoto(data.imageBase64);
     if (action === "setRobotRow") return handleSetRobotRow(data, auth.user);
+    if (action === "robotAlarm") return handleRobotAlarm(data, auth.user);
     if (action === "saveKabanossJob") return handleSaveKabanossJob(data);
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
@@ -1112,11 +1113,37 @@ function handleAddStallPhoto(imageBase64) {
 function logRobotAlarmReport(stall, rowIndex, alarm, place, user) {
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   const fmt = (ms, f) => Utilities.formatDate(new Date(ms), tz, f);
-  const start = fmt(alarm.at, "HH:mm"), end = fmt(alarm.cleared, "HH:mm");
+  const from = alarm.ack || alarm.at;
+  const start = fmt(from, "HH:mm"), end = fmt(alarm.cleared, "HH:mm");
   const sheet = getSheetOrCreate(getSS(), CONFIG.SHEET_REPORTS || "Tidrapporter", ["Datum", "Fakturerad", "Plats", "Aktivitet", "Start", "Slut", "Total", "Tidsstämpel", "Användare", "Notering", "Bolag"]);
-  sheet.appendRow([fmt(alarm.at, "yyyy-MM-dd"), "Nej", sanitize(place) || "Blacksta", "Robotlarm", start, end,
-    formatDuration(start, end, ((alarm.cleared - alarm.at) / 3600000).toFixed(2)), fmt(Date.now(), "yyyy-MM-dd HH:mm:ss"), sanitize(user),
-    "Stillestånd tvättrobot: " + stall.name + ", rad " + (rowIndex + 1) + ", box " + (alarm.box + 1) + " (larm " + start + ", omstart " + end + ")", "LPV"]);
+  sheet.appendRow([fmt(from, "yyyy-MM-dd"), "Nej", sanitize(place) || "Blacksta", "Robotlarm", start, end,
+    formatDuration(start, end, ((alarm.cleared - from) / 3600000).toFixed(2)), fmt(Date.now(), "yyyy-MM-dd HH:mm:ss"), sanitize(user),
+    "Tvättrobot: " + stall.name + ", rad " + (rowIndex + 1) + ", box " + (alarm.box + 1) + " – larm " + fmt(alarm.at, "HH:mm") + ", kvitterat " + start +
+    (alarm.ackBy ? " av " + alarm.ackBy : "") + ", omstart " + end + (alarm.text ? ". SMS: " + alarm.text : ""), "LPV"]);
+}
+
+// Larm-SMS från roboten (via genväg på telefonen). Det finns en robot, så larmet gäller
+// den rad som går just nu (senast startad om flera). Alla SMS loggas i fliken Robotlarm.
+function handleRobotAlarm(data, user) {
+  const text = sanitize(data.text).slice(0, 300);
+  const now = Date.now();
+  const rows = getStallSheet().getDataRange().getValues();
+  let best = null;
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    const stall = stallFromRow(rows[i]);
+    if (!stall.robot) continue;
+    ((stall.robotState || {}).rows || []).forEach((st, r) => {
+      if (!st || !st.start || st.paused) return;
+      const done = (st.from || 0) + (now - st.start) / (stall.minPerBox * 60000) >= stall.boxesPerRow;
+      if (!done && (!best || st.start > best.start)) best = { stall: stall, row: r, start: st.start };
+    });
+  }
+  const log = getSheetOrCreate(getSS(), "Robotlarm", ["Tidpunkt", "SMS", "Stall", "Rad", "Mottaget av"]);
+  log.appendRow([nowStamp(), text, best ? best.stall.name : "(ingen rad igång)", best ? best.row + 1 : "", sanitize(user)]);
+  if (!best) return createJsonResponse({ status: "success", matched: false, message: "Larmet sparades, men ingen robotrad var igång." });
+  const res = JSON.parse(handleSetRobotRow({ stallId: best.stall.id, row: best.row, op: "alarm", source: "sms", text: text }, user).getContent());
+  return createJsonResponse(Object.assign(res, { matched: true, stall: best.stall.name, row: best.row + 1 }));
 }
 
 // Robotens läge för en rad. Tiden sätts av servern så att alla telefoner räknar likadant.
@@ -1140,8 +1167,15 @@ function handleSetRobotRow(data, user) {
   else if (data.op === "setBox") next = { start: now, from: box, paused: cur.paused ? now : null, alarm: !!cur.alarm, alarms: alarms };
   else if (data.op === "pause" && cur.start && !cur.paused) next = Object.assign({}, cur, { paused: now });
   // Larm: roboten står still från nu tills någon startar om den. Stilleståndet sparas per larm.
-  else if (data.op === "alarm" && cur.start && !cur.paused) next = Object.assign({}, cur, { paused: now, alarm: true, alarms: alarms.concat([{ at: now, box: atBox, by: sanitize(user) }]) });
+  else if (data.op === "alarm" && cur.start && !cur.paused) next = Object.assign({}, cur, { paused: now, alarm: true,
+    alarms: alarms.concat([{ at: now, box: atBox, by: sanitize(user), source: data.source === "sms" ? "sms" : "app", text: sanitize(data.text).slice(0, 300) }]) });
+  // Kvittering = någon börjar åtgärda larmet. Faktureringen räknas härifrån, inte från larmet.
+  else if (data.op === "ack" && cur.alarm && alarms.length && !alarms[alarms.length - 1].ack) {
+    alarms[alarms.length - 1] = Object.assign({}, alarms[alarms.length - 1], { ack: now, ackBy: sanitize(user) });
+    next = Object.assign({}, cur, { alarms: alarms });
+  }
   else if (data.op === "resume" && cur.start && cur.paused) {
+    if (cur.alarm && alarms.length && !alarms[alarms.length - 1].ack) return createJsonResponse({ status: "error", message: "Kvittera larmet först." });
     if (cur.alarm && alarms.length && !alarms[alarms.length - 1].cleared) alarms[alarms.length - 1] = Object.assign({}, alarms[alarms.length - 1], { cleared: now, clearedBy: sanitize(user) });
     next = Object.assign({}, cur, { start: cur.start + (now - cur.paused), paused: null, alarm: false, alarms: alarms });
   }
@@ -1151,7 +1185,7 @@ function handleSetRobotRow(data, user) {
   rows[rowIndex] = next;
   state.rows = rows;
   sheet.getRange(hit.rowNumber, 9, 1, 3).setValues([[JSON.stringify(state), nowStamp(), sanitize(user)]]);
-  // Åtgärdat larm = en tidrapport "Robotlarm" från larmet till omstarten, så att stilleståndet hamnar på fakturan
+  // Åtgärdat larm = en tidrapport "Robotlarm" från kvitteringen till omstarten (tiden någon faktiskt arbetade med larmet)
   const cleared = data.op === "resume" && cur.alarm ? next.alarms[next.alarms.length - 1] : null;
   if (cleared && cleared.cleared) logRobotAlarmReport(stall, rowIndex, cleared, data.place, user);
   return createJsonResponse({ status: "success", robotState: state, serverNow: now });

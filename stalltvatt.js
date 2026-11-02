@@ -46,7 +46,9 @@
     const done = Math.min(stall.boxesPerRow, (st.from || 0) + Math.max(0, until - st.start) / (stall.minPerBox * 60000));
     const alarms = Array.isArray(st.alarms) ? st.alarms : [];
     const downMin = alarms.reduce((sum, a) => sum + ((a.cleared || now()) - a.at), 0) / 60000;
-    return { done, state: done >= stall.boxesPerRow ? 'done' : st.alarm ? 'alarm' : st.paused ? 'paused' : 'running', st, alarms, downMin };
+    const last = alarms[alarms.length - 1] || {};
+    return { done, state: done >= stall.boxesPerRow ? 'done' : st.alarm ? 'alarm' : st.paused ? 'paused' : 'running', st, alarms, downMin,
+      acked: !!(st.alarm && last.ack), last };
   }
 
   function robotHtml(stall) {
@@ -55,7 +57,9 @@
     const running = Array.from({ length: stall.rows }, (_, r) => r).filter(r => rowProgress(stall, r).state === 'running');
     const alarmed = Array.from({ length: stall.rows }, (_, r) => r).filter(r => rowProgress(stall, r).state === 'alarm');
     // Stor knapp när en rad är igång: det är oftast den som larmar
-    const big = alarmed.length ? alarmed.map(r => `<button class="wo-big ok" onclick="woRobot(${r},'resume')">✅ Larmet åtgärdat – starta roboten (rad ${r + 1})</button>`).join('')
+    const big = alarmed.length ? alarmed.map(r => rowProgress(stall, r).acked
+        ? `<button class="wo-big ok" onclick="woRobot(${r},'resume')">✅ Larmet åtgärdat – starta roboten (rad ${r + 1})</button>`
+        : `<button class="wo-big" onclick="woRobot(${r},'ack')">👍 Kvittera – jag åtgärdar larmet nu (rad ${r + 1})</button>`).join('')
       : running.length === 1 ? `<button class="wo-big" onclick="woRobot(${running[0]},'alarm')">🚨 Roboten larmar (rad ${running[0] + 1})</button>` : '';
     return `${big}<div class="wo-legend"><span><i style="background:#cbd5e1"></i>Väntar</span><span><i style="background:#facc15"></i>Tvättas nu</span><span><i style="background:#ef4444"></i>Larm</span><span><i style="background:#fb923c"></i>Pausad</span><span><i style="background:#22c55e"></i>Klar</span><span><i style="background:#22c55e;box-shadow:inset 0 0 0 2px #dc2626"></i>Har larmat</span></div>
       ${Array.from({ length: stall.rows }, (_, r) => {
@@ -63,7 +67,7 @@
         const full = Math.floor(p.done);
         const status = p.state === 'idle' ? `Ej startad · tar ${dur(perRow)}`
           : p.state === 'done' ? 'Klar ✅'
-          : p.state === 'alarm' ? `🚨 Larm på box ${full + 1} sedan ${hhmm(p.st.paused)} · står still ${dur(Math.max(0, (now() - p.st.paused) / 60000))}`
+          : p.state === 'alarm' ? `🚨 Larm${p.last.source === 'sms' ? ' (SMS)' : ''} på box ${full + 1} sedan ${hhmm(p.st.paused)} · står still ${dur(Math.max(0, (now() - p.st.paused) / 60000))} · ${p.acked ? `kvitterat ${hhmm(p.last.ack)}${p.last.ackBy ? ' av ' + esc(p.last.ackBy) : ''}` : '<b style="color:#dc2626">ej kvitterat</b>'}${p.last.text ? `<br>”${esc(p.last.text)}”` : ''}`
           : p.state === 'paused' ? `Pausad på box ${full + 1}`
           : `Box ${full + 1} av ${stall.boxesPerRow} · klar ca ${hhmm(now() + (stall.boxesPerRow - p.done) * stall.minPerBox * 60000)}`;
         const boxes = Array.from({ length: stall.boxesPerRow }, (_, b) => {
@@ -73,7 +77,7 @@
         }).join('');
         const btns = p.state === 'idle' ? `<button class="wo-btn go" onclick="woRobot(${r},'start')">▶ Starta</button>`
           : p.state === 'running' ? `<button class="wo-btn alarm" onclick="woRobot(${r},'alarm')">🚨 Larm</button><button class="wo-btn" onclick="woRobot(${r},'pause')">⏸</button><button class="wo-btn" onclick="woRobot(${r},'reset')">↺</button>`
-          : p.state === 'alarm' ? `<button class="wo-btn go" onclick="woRobot(${r},'resume')">✅ Åtgärdat – starta</button>`
+          : p.state === 'alarm' ? (p.acked ? `<button class="wo-btn go" onclick="woRobot(${r},'resume')">✅ Åtgärdat – starta</button>` : `<button class="wo-btn alarm" onclick="woRobot(${r},'ack')">👍 Kvittera</button>`)
           : p.state === 'paused' ? `<button class="wo-btn go" onclick="woRobot(${r},'resume')">▶ Fortsätt</button><button class="wo-btn" onclick="woRobot(${r},'reset')">↺</button>`
           : `<button class="wo-btn" onclick="woRobot(${r},'reset')">↺ Börja om</button>`;
         const down = p.alarms.length ? `<div class="wo-muted">Stillestånd: <b style="color:#dc2626">${dur(p.downMin)}</b> (${p.alarms.length} larm: ${p.alarms.map(a => hhmm(a.at) + (a.cleared ? '–' + hhmm(a.cleared) : '–pågår')).join(', ')})</div>` : '';
@@ -85,7 +89,7 @@
 
   function stepsHtml(stall, draft) {
     if (!stall.steps.length) return `<div class="wo-empty">Instruktioner saknas för ${esc(stall.name)} ännu.${admin() ? ' Tryck på ✏️ Redigera för att lägga in steg och bilder.' : ''}</div>`;
-    const checks = ((draft.woChecks || {})[stall.id]) || [];
+    const checks = draft ? (((draft.woChecks || {})[stall.id]) || []) : [];
     return stall.steps.map((s, i) => `<label class="wo-step">
         <input type="checkbox" ${checks[i] ? 'checked' : ''} onchange="woCheck(${i}, this.checked)">
         <span class="wo-num">${i + 1}</span>
@@ -175,15 +179,16 @@
     if (el && stall && !current.edit) el.innerHTML = robotHtml(stall);
   }
 
-  window.openWorkOrder = async function (draftId) {
-    const draft = drafts.find(d => d.id === draftId);
-    if (!draft) return;
-    current = { draftId, stallId: draft.stallId || '', edit: null };
+  // draftId = passet arbetsordern hör till; null + stallId när den öppnas från larmbannern
+  window.openWorkOrder = async function (draftId, stallId) {
+    const draft = draftId ? drafts.find(d => d.id === draftId) : null;
+    if (draftId && !draft) return;
+    current = { draftId, stallId: stallId || (draft && draft.stallId) || '', edit: null };
     if (!stalls) { try { stalls = JSON.parse(store.get('lpv_stalls_cache') || 'null'); } catch (e) { stalls = null; } }
     render();
     await loadStalls();
     if (!current) return;
-    if (!current.stallId || !stalls.some(s => s.id === current.stallId)) {
+    if (draft && (!current.stallId || !stalls.some(s => s.id === current.stallId))) {
       const g = guessStall(draft);
       current.stallId = g ? g.id : '';
       if (g) { draft.stallId = g.id; saveDraftsToStorage(); }
@@ -197,7 +202,35 @@
   window.closeWorkOrder = function () {
     clearInterval(timer); clearInterval(poll); current = null;
     const m = document.getElementById('wo-modal'); if (m) m.remove();
+    checkRobotAlarms();
   };
+
+  // ---------- LARMBANNER (admin): okvitterade robotlarm syns överst i appen ----------
+  async function checkRobotAlarms() {
+    if (!admin() || !navigator.onLine) return;
+    await loadStalls();
+    const open = [];
+    (stalls || []).forEach(st => ((st.robotState || {}).rows || []).forEach((row, r) => {
+      const last = row && row.alarm && (row.alarms || [])[row.alarms.length - 1];
+      if (last && !last.ack) open.push({ stall: st, row: r, at: last.at });
+    }));
+    let b = document.getElementById('wo-alarm-banner');
+    if (!open.length) { if (b) b.remove(); return; }
+    if (!b) {
+      b = document.createElement('button'); b.id = 'wo-alarm-banner';
+      b.style.cssText = 'display:block;width:100%;margin:0 0 12px;padding:14px;border:0;border-radius:14px;background:#dc2626;color:#fff;font-size:16px;font-weight:800;text-align:left;cursor:pointer;animation:woblink2 1.2s infinite;';
+      const st = document.createElement('style'); st.textContent = '@keyframes woblink2{50%{background:#991b1b}}'; document.head.appendChild(st);
+      const container = document.querySelector('.app-container') || document.body;
+      container.insertBefore(b, container.firstChild);
+    }
+    const a = open[0];
+    b.textContent = `🚨 Robotlarm: ${a.stall.name}, rad ${a.row + 1} sedan ${hhmm(a.at)} – tryck för att kvittera`;
+    b.onclick = () => openWorkOrder(null, a.stall.id);
+  }
+  window.checkRobotAlarms = checkRobotAlarms;
+  const startChecks = () => { checkRobotAlarms(); setInterval(checkRobotAlarms, 120000); };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkRobotAlarms(); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startChecks); else startChecks();
 
   window.woPickStall = function (id) {
     const draft = drafts.find(d => d.id === current.draftId);
