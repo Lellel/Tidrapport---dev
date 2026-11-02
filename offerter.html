@@ -296,7 +296,7 @@
 
     function customerMatches(c, q) {
       q = q.trim().toLowerCase();
-      return !q || [c.name, c.company, c.email, c.phone, c.address].some(v => String(v || '').toLowerCase().includes(q));
+      return !q || [c.name, c.company, c.contact, c.email, c.phone, c.address, c.orgnr, c.fortnoxNr].some(v => String(v || '').toLowerCase().includes(q));
     }
     const kr = (v) => Math.round(Number(v) || 0).toLocaleString('sv-SE') + ' kr';
     function renderDeals(c) {
@@ -304,11 +304,42 @@
       return c.deals.map(d => `<div class="deal"><span>${esc(d.name)}<br><span class="muted">${esc(d.closed || d.created)} · ${esc(d.stage)}</span></span><b>${kr(d.amount)}</b></div>`).join('');
     }
 
+    // Import från Fortnox: en tabellfil (tab, semikolon eller komma) med rubrikerna Kundnr, Namn, Orgnr, Postnr, Ort, Telefon, E-post
+    const IMPORT_COLS = { nr: /^kund ?nr|^kundnummer/i, name: /^namn|^kundnamn/i, orgnr: /^org/i, type: /^typ/i, address: /^adress|^gatuadress/i,
+      postnr: /^post ?nr|^postnummer/i, city: /^ort/i, phone: /^tel/i, email: /^e-?post|^mail/i };
+    function parseCustomerFile(text) {
+      const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+      const sep = ['\t', ';', ','].sort((a, b) => lines[0].split(b).length - lines[0].split(a).length)[0];
+      const head = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g, ''));
+      const map = {};
+      head.forEach((h, i) => { const k = Object.keys(IMPORT_COLS).find(k => IMPORT_COLS[k].test(h)); if (k && map[k] === undefined) map[k] = i; });
+      if (map.nr === undefined || map.name === undefined) throw new Error('Hittar inte kolumnerna Kundnr och Namn i första raden.');
+      return lines.slice(1).map(l => { const c = l.split(sep).map(x => x.trim().replace(/^"|"$/g, ''));
+        const o = {}; Object.keys(map).forEach(k => { o[k] = c[map[k]] || ''; }); return o; }).filter(o => o.nr && o.name);
+    }
+    async function importCustomerFile(file) {
+      if (!file) return;
+      let list;
+      try { list = parseCustomerFile(await file.text()); } catch (e) { setMessage('❌ ' + esc(e.message)); return; }
+      if (!confirm(`Importera ${list.length} kunder från ${file.name}?\n\nKunder som redan finns (samma Fortnox-nummer, organisationsnummer eller e-post) uppdateras – inget skrivs över, bara tomma fält fylls i.`)) return;
+      let created = 0, updated = 0;
+      for (let i = 0; i < list.length; i += 400) {
+        setMessage(`📥 Importerar ${Math.min(i + 400, list.length)} av ${list.length}…`);
+        const res = await snoApi({ action: 'importCustomers', customers: list.slice(i, i + 400) });
+        if (res.status !== 'success') { setMessage('❌ ' + esc(res.message || 'Importen misslyckades.')); return; }
+        created += res.created; updated += res.updated;
+      }
+      customers = null; await loadCustomers();
+      message = `✅ Klart: ${created} nya kunder, ${updated} fanns redan och kompletterades.`;
+      render();
+    }
+
     function renderCustomers() {
       if (!customers) return '<div class="muted">Hämtar kundregistret…</div>';
-      if (!customers.length) return `<div class="card"><h2>Kundregistret är tomt</h2><div class="muted">Hämta kunderna från HubSpot under ⚙️ Inställningar → HubSpot.</div></div>`;
+      const importBox = `<div class="msg" id="msg">${message}</div><label class="btn-like" style="display:block;text-align:center;padding:10px;border:1px dashed var(--line);border-radius:12px;cursor:pointer;font-weight:700;font-size:13px">📥 Importera kunder från Fortnox (tabellfil)<input type="file" accept=".tsv,.csv,.txt" style="display:none" onchange="importCustomerFile(this.files[0])"></label>`;
+      if (!customers.length) return importBox + `<div class="card"><h2>Kundregistret är tomt</h2><div class="muted">Importera från Fortnox ovan, eller hämta från HubSpot under ⚙️ Inställningar → HubSpot.</div></div>`;
       const list = customers.filter(c => customerMatches(c, customerSearch));
-      return `<input placeholder="🔎 Sök namn, företag, telefon, e-post, adress" value="${esc(customerSearch)}" oninput="customerSearch=this.value; document.getElementById('custlist').innerHTML=renderCustomerList()">
+      return importBox + `<input placeholder="🔎 Sök namn, kundnr, orgnr, telefon, e-post, adress" value="${esc(customerSearch)}" oninput="customerSearch=this.value; document.getElementById('custlist').innerHTML=renderCustomerList()">
         <div id="custlist">${renderCustomerList(list)}</div>`;
     }
     function renderCustomerList(list) {
@@ -316,12 +347,12 @@
       return `<div class="muted">${list.length} kunder</div>` + list.slice(0, 200).map(c => `
         <div class="ocard" style="flex-direction:column" onclick="openCustomer = openCustomer === '${esc(c.id)}' ? '' : '${esc(c.id)}'; document.getElementById('custlist').innerHTML=renderCustomerList()">
           <div style="display:flex;justify-content:space-between;gap:8px">
-            <div><b>${esc(c.company && c.type === 'foretag' && c.company !== c.name ? c.company + ' – ' + c.name : c.name)}</b>${c.brand ? `<span class="brand">${esc(c.brand)}</span>` : ''}<br>
+            <div><b>${esc(c.name)}</b>${c.contact ? ` <span class="muted">${esc(c.contact)}</span>` : ''}${c.brand ? `<span class="brand">${esc(c.brand)}</span>` : ''}${c.fortnoxNr ? `<span class="brand">Fortnox ${esc(c.fortnoxNr)}</span>` : ''}<br>
               <span class="muted">${esc([c.phone, c.email].filter(Boolean).join(' · '))}</span></div>
             <span class="muted" style="white-space:nowrap">${c.deals.length ? c.deals.length + ' affärer' : ''}</span>
           </div>
           ${openCustomer === c.id ? `<div onclick="event.stopPropagation()">
-            ${c.address ? `<div class="muted">📍 ${esc(c.address)}</div>` : ''}
+            ${c.address ? `<div class="muted">📍 ${esc(c.address)}</div>` : ''}${c.orgnr ? `<div class="muted">Org.nr ${esc(c.orgnr)}</div>` : ''}
             ${renderDeals(c)}
             <button class="primary" style="margin-top:8px" onclick="newOffer('offert'); pickCustomer('${esc(c.id)}')">➕ Ny offert till kunden</button></div>` : ''}
         </div>`).join('') + (list.length > 200 ? '<div class="muted">Visar 200 – sök för att hitta fler.</div>' : '');

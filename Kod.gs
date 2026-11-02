@@ -132,7 +132,7 @@ function doPost(e) {
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
-      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers",
+      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
       "saveStall", "addStallPhoto", "robotAlarm"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
@@ -184,6 +184,7 @@ function doPost(e) {
     if (action === "hubspotSyncPending") return handleHubspotSyncPending();
     if (action === "hubspotImport") return handleHubspotImport();
     if (action === "getCustomers") return handleGetCustomers();
+    if (action === "importCustomers") return handleImportCustomers(data.customers, auth.user);
     if (action === "getOfferSettings") return createJsonResponse({ status: "success", settings: getOfferSettings() });
     if (action === "saveOfferSettings") return handleSaveOfferSettings(data.settings);
     if (action === "getFleet") return handleGetFleet();
@@ -2283,35 +2284,86 @@ function handleHubspotSyncPending() {
     errors: errors.slice(0, 5), brands: hubspotBrandInfo() });
 }
 
-// ---------- KUNDREGISTER (hämtas från HubSpot med knappen "Hämta från HubSpot") ----------
-// En rad per kontakt/företag och HubSpot-konto. Kund-ID = "FASAD:contact:123" så att
-// samma kund aldrig dubbleras. Gamla affärer sparas som historik på kunden.
-// Stora konton hämtas i omgångar: avbryts efter ~4 min och fortsätter vid nästa tryck.
-const CUSTOMER_HEADERS = ["Kund-ID", "Namn", "Företag", "Typ", "Telefon", "E-post", "Adress", "Varumärke",
-  "HubSpot-konto", "HubSpot-typ", "HubSpot-ID", "Affärer (JSON)", "Uppdaterad"];
+// ---------- KUNDREGISTER (fliken "Kunder", gemensam för ekonomi, radarn, offerter, HubSpot och Fortnox) ----------
+// De 13 första kolumnerna är den ursprungliga kundfliken som ekonomi och radarn läser på fast plats.
+// HubSpot och Fortnox lägger sina uppgifter i kolumner till höger, som hittas på rubrik (läggs till om de saknas).
+// Fliken skrivs alltid tillbaka i sin helhet, så att rader utan Kund-ID och egna kolumner ligger kvar orörda.
+// En HubSpot-kund känns igen på konto + typ + HubSpot-ID, en Fortnox-kund på kundnumret. Samma kund från
+// båda källorna (samma e-post eller organisationsnummer) blir en rad. Personnummer tas aldrig in här.
+const CUSTOMER_HEADERS = ["Kund-ID", "Namn", "Org-/personnr", "E-post", "Fakturerande bolag", "Status", "Kontakt", "Telefon", "Adress",
+  "Kundtyp", "ROT/RUT", "Fastighetsbeteckning", "Logo-URL"];
+const CUSTOMER_EXTRA = ["Varumärke", "Källa", "HubSpot-typ", "HubSpot-ID", "Affärer (JSON)", "Uppdaterad", "Fortnox-kundnr"];
 const HUBSPOT_IMPORT_PROPS = {
   contacts: "firstname,lastname,email,phone,mobilephone,address,zip,city,company,varumarke",
   companies: "name,phone,address,zip,city,varumarke",
   deals: "dealname,amount,dealstage,closedate,createdate,varumarke"
 };
 
-function getCustomerSheet() { return getSheetOrCreate(getSS(), "Kunder", CUSTOMER_HEADERS); }
+function getCustomerSheet() { return getSheetOrCreate(getSS(), "Kunder", CUSTOMER_HEADERS.concat(CUSTOMER_EXTRA)); }
 
-function customerFromRow(r) {
+// Hela fliken i minnet: { rows (rubrik + data, alla lika breda), col: {rubrik: index}, save() }
+function loadCustomerTable() {
+  const sheet = getCustomerSheet();
+  const rows = sheet.getDataRange().getValues();
+  if (!rows.length) rows.push(CUSTOMER_HEADERS.concat(CUSTOMER_EXTRA));
+  const head = rows[0];
+  CUSTOMER_HEADERS.forEach((h, i) => { if (head[i] === "" || head[i] === undefined) head[i] = h; });
+  const col = {};
+  CUSTOMER_EXTRA.forEach(h => {
+    let i = head.indexOf(h);
+    if (i === -1) { i = Math.max(head.length, CUSTOMER_HEADERS.length); head[i] = h; }
+    col[h] = i;
+  });
+  const width = () => Math.max.apply(null, rows.map(r => r.length).concat([head.length]));
+  return {
+    rows: rows, col: col,
+    blank: function () { return new Array(width()).fill(""); },
+    save: function () {
+      const w = width();
+      const data = rows.map(r => { const x = r.slice(); while (x.length < w) x.push(""); return x; });
+      sheet.getRange(1, 1, data.length, w).setValues(data);
+      sheet.getRange(1, 1, 1, w).setFontWeight("bold").setBackground("#f3f3f3");
+    }
+  };
+}
+
+const isOrgNr = (v) => { const d = String(v || "").replace(/\D/g, ""); return d.length === 10 && Number(d.slice(2, 4)) >= 20; };
+
+function customerFromRow(r, col) {
   let deals = [];
-  try { deals = JSON.parse(r[11] || "[]"); } catch (e) { deals = []; }
-  return { id: String(r[0]), name: String(r[1] || ""), company: String(r[2] || ""), type: String(r[3] || "privat"),
-    phone: String(r[4] || ""), email: String(r[5] || ""), address: String(r[6] || ""), brand: String(r[7] || ""),
-    account: String(r[8] || ""), deals: deals, updated: String(r[12] || "") };
+  try { deals = JSON.parse(r[col["Affärer (JSON)"]] || "[]"); } catch (e) { deals = []; }
+  const company = /^(company|foretag|företag)$/i.test(String(r[9] || "")) || (!r[9] && isOrgNr(r[2]));
+  return { id: String(r[0] || ""), name: String(r[1] || ""), company: company ? String(r[1] || "") : "", contact: String(r[6] || ""),
+    type: company ? "foretag" : "privat", phone: String(r[7] || ""), email: String(r[3] || ""), address: String(r[8] || ""),
+    orgnr: isOrgNr(r[2]) ? String(r[2]) : "", brand: String(r[col["Varumärke"]] || ""), account: String(r[col["Källa"]] || ""),
+    fortnoxNr: String(r[col["Fortnox-kundnr"]] || ""), deals: deals, updated: String(r[col["Uppdaterad"]] || "") };
 }
 
 function handleGetCustomers() {
-  const rows = getCustomerSheet().getDataRange().getValues();
+  const t = loadCustomerTable();
   const list = [];
-  for (let i = 1; i < rows.length; i++) if (rows[i][0]) list.push(customerFromRow(rows[i]));
-  list.sort((a, b) => (a.company || a.name).localeCompare(b.company || b.name, "sv"));
+  for (let i = 1; i < t.rows.length; i++) if (t.rows[i][1]) list.push(customerFromRow(t.rows[i], t.col));
+  list.sort((a, b) => a.name.localeCompare(b.name, "sv"));
   return createJsonResponse({ status: "success", customers: list });
 }
+
+// Index för att hitta en kund: HubSpot-nyckel, Fortnox-nummer, e-post, organisationsnummer, Kund-ID
+function customerIndex(t) {
+  const idx = { hs: {}, fx: {}, email: {}, org: {}, id: {} };
+  for (let i = 1; i < t.rows.length; i++) {
+    const r = t.rows[i];
+    if (r[col_(t, "HubSpot-ID")]) idx.hs[r[col_(t, "Källa")] + ":" + r[col_(t, "HubSpot-typ")] + ":" + r[col_(t, "HubSpot-ID")]] = i;
+    if (r[col_(t, "Fortnox-kundnr")]) idx.fx[String(r[col_(t, "Fortnox-kundnr")])] = i;
+    if (r[3]) idx.email[String(r[3]).toLowerCase().trim()] = idx.email[String(r[3]).toLowerCase().trim()] || i;
+    if (isOrgNr(r[2])) idx.org[String(r[2]).replace(/\D/g, "")] = i;
+    if (r[0]) idx.id[String(r[0])] = i;
+  }
+  return idx;
+}
+function col_(t, h) { return t.col[h]; }
+
+// Fyller bara tomma fält – det som redan står i fliken (t.ex. inskrivet för hand) skrivs aldrig över
+function fillEmpty(row, i, value) { if (value && (row[i] === "" || row[i] === undefined)) row[i] = value; }
 
 function hubspotImportSteps() {
   const props = PropertiesService.getScriptProperties();
@@ -2335,14 +2387,30 @@ function handleHubspotImport() {
   try { progress = JSON.parse(props.getProperty("HUBSPOT_IMPORT_PROGRESS") || "{}"); } catch (e) { progress = {}; }
   let step = Number(progress.step) || 0, after = progress.after || "";
 
-  // Hela registret i minnet, skrivs tillbaka en gång på slutet
-  const sheet = getCustomerSheet();
-  const rows = sheet.getDataRange().getValues();
-  const byId = {};
-  for (let i = 1; i < rows.length; i++) if (rows[i][0]) byId[String(rows[i][0])] = rows[i].slice(0, CUSTOMER_HEADERS.length);
+  const t = loadCustomerTable();
+  const idx = customerIndex(t);
+  const C = t.col;
   const counts = { contacts: 0, companies: 0, deals: 0, dealsWithoutCustomer: 0 };
   const stageLabels = {};
   let done = false, error = "";
+
+  // Hittar (eller skapar) raden för en HubSpot-kontakt/ett företag
+  const rowFor = (account, type, id, email, orgName) => {
+    const key = account + ":" + type + ":" + id;
+    let i = idx.hs[key];
+    if (i === undefined && idx.id[key] !== undefined) i = idx.id[key];                     // äldre rader: Kund-ID = nyckeln
+    if (i === undefined && email && idx.email[email] !== undefined && !t.rows[idx.email[email]][C["HubSpot-ID"]]) i = idx.email[email]; // samma kund från Fortnox
+    if (i === undefined && orgName) {
+      for (let j = 1; j < t.rows.length; j++) if (!t.rows[j][C["HubSpot-ID"]] && String(t.rows[j][1]).toLowerCase() === orgName.toLowerCase()) { i = j; break; }
+    }
+    if (i === undefined) { const r = t.blank(); r[0] = key; t.rows.push(r); i = t.rows.length - 1; }
+    const r = t.rows[i];
+    if (!r[0]) r[0] = key;
+    r[C["Källa"]] = account; r[C["HubSpot-typ"]] = type; r[C["HubSpot-ID"]] = id;
+    idx.hs[key] = i;
+    if (email) idx.email[email] = idx.email[email] || i;
+    return r;
+  };
 
   try {
     while (step < steps.length) {
@@ -2362,32 +2430,39 @@ function handleHubspotImport() {
       (page.results || []).forEach(item => {
         const p = item.properties || {};
         if (s.obj === "contacts") {
-          const id = s.account + ":contact:" + item.id;
-          const old = byId[id] || [];
-          byId[id] = [id, [p.firstname, p.lastname].filter(Boolean).join(" ") || p.email || "", p.company || "", p.company ? "foretag" : "privat",
-            p.phone || p.mobilephone || "", p.email || "", joinAddress(p), p.varumarke || "", s.account, "contact", String(item.id), old[11] || "[]", nowStamp()];
+          const email = String(p.email || "").toLowerCase().trim();
+          const person = [p.firstname, p.lastname].filter(Boolean).join(" ") || p.email || "";
+          const r = rowFor(s.account, "contact", String(item.id), email, "");
+          r[1] = p.company || person; r[6] = p.company ? person : r[6];
+          fillEmpty(r, 3, email); fillEmpty(r, 7, p.phone || p.mobilephone); fillEmpty(r, 8, joinAddress(p));
+          fillEmpty(r, 9, p.company ? "company" : "private"); fillEmpty(r, 10, "none");
+          if (p.varumarke) r[C["Varumärke"]] = p.varumarke;
+          if (!r[C["Affärer (JSON)"]]) r[C["Affärer (JSON)"]] = "[]";
+          r[C["Uppdaterad"]] = nowStamp();
           counts.contacts++;
         } else if (s.obj === "companies") {
-          const id = s.account + ":company:" + item.id;
-          const old = byId[id] || [];
-          byId[id] = [id, p.name || "", p.name || "", "foretag", p.phone || "", "", joinAddress(p), p.varumarke || "", s.account, "company",
-            String(item.id), old[11] || "[]", nowStamp()];
+          const r = rowFor(s.account, "company", String(item.id), "", p.name || "");
+          r[1] = p.name || r[1];
+          fillEmpty(r, 7, p.phone); fillEmpty(r, 8, joinAddress(p)); fillEmpty(r, 9, "company"); fillEmpty(r, 10, "none");
+          if (p.varumarke) r[C["Varumärke"]] = p.varumarke;
+          if (!r[C["Affärer (JSON)"]]) r[C["Affärer (JSON)"]] = "[]";
+          r[C["Uppdaterad"]] = nowStamp();
           counts.companies++;
         } else {
           // Affären läggs som historik på företaget, annars på kontakten
           const assoc = item.associations || {};
           const firstId = (key) => assoc[key] && assoc[key].results && assoc[key].results.length ? String(assoc[key].results[0].id) : "";
-          const companyId = firstId("companies"), contactId = firstId("contacts");
-          const target = (companyId && byId[s.account + ":company:" + companyId]) ? s.account + ":company:" + companyId
-            : (contactId && byId[s.account + ":contact:" + contactId]) ? s.account + ":contact:" + contactId : "";
-          if (!target) { counts.dealsWithoutCustomer++; return; }
+          const ci = idx.hs[s.account + ":company:" + firstId("companies")], pi = idx.hs[s.account + ":contact:" + firstId("contacts")];
+          const target = ci !== undefined ? ci : pi;
+          if (target === undefined) { counts.dealsWithoutCustomer++; return; }
+          const r = t.rows[target];
           let deals = [];
-          try { deals = JSON.parse(byId[target][11] || "[]"); } catch (e) { deals = []; }
+          try { deals = JSON.parse(r[C["Affärer (JSON)"]] || "[]"); } catch (e) { deals = []; }
           const deal = { id: String(item.id), name: p.dealname || "", amount: Number(p.amount) || 0,
             stage: (stageLabels[s.account] || {})[p.dealstage] || p.dealstage || "", stageId: p.dealstage || "",
             closed: String(p.closedate || "").slice(0, 10), created: String(p.createdate || "").slice(0, 10), brand: p.varumarke || "" };
           deals = deals.filter(d => d.id !== deal.id).concat([deal]).sort((a, b) => (b.closed || b.created).localeCompare(a.closed || a.created)).slice(0, 50);
-          byId[target][11] = JSON.stringify(deals);
+          r[C["Affärer (JSON)"]] = JSON.stringify(deals);
           counts.deals++;
         }
       });
@@ -2400,15 +2475,52 @@ function handleHubspotImport() {
     error = String(err.message || err).slice(0, 300);
   }
 
-  // Skriv tillbaka (även vid fel/avbrott – det som hunnit hämtas sparas)
-  const ids = Object.keys(byId);
-  if (ids.length) {
-    const data = ids.map(id => byId[id]);
-    sheet.getRange(2, 1, data.length, CUSTOMER_HEADERS.length).setValues(data);
-  }
+  t.save(); // även vid fel/avbrott – det som hunnit hämtas sparas
   if (done) props.deleteProperty("HUBSPOT_IMPORT_PROGRESS");
   return createJsonResponse({ status: error ? "error" : "success", message: error ? "HubSpot: " + error + " – det som hann hämtas är sparat, tryck igen." : "",
-    done: done, counts: counts, total: ids.length });
+    done: done, counts: counts, total: t.rows.length - 1 });
+}
+
+// Import från Fortnox (kundlista som tabell). Rader: { nr, name, orgnr, type, postnr, city, phone, email, address }
+function handleImportCustomers(list, user) {
+  if (!Array.isArray(list) || !list.length) return createJsonResponse({ status: "error", message: "Inga kunder skickades." });
+  if (list.length > 1000) return createJsonResponse({ status: "error", message: "Högst 1000 kunder per gång." });
+  const t = loadCustomerTable();
+  const idx = customerIndex(t);
+  const C = t.col;
+  let created = 0, updated = 0;
+  list.forEach(k => {
+    const nr = sanitize(k.nr).replace(/\D/g, "").slice(0, 12);
+    const name = sanitize(k.name).slice(0, 120);
+    if (!nr || !name) return;
+    const email = sanitize(k.email).toLowerCase().trim().slice(0, 120);
+    const org = isOrgNr(k.orgnr) ? String(k.orgnr).replace(/[^\d-]/g, "") : "";
+    const company = !!org || k.type === "foretag";
+    const address = [sanitize(k.address), [sanitize(k.postnr), sanitize(k.city)].filter(Boolean).join(" ")].filter(Boolean).join(", ").slice(0, 200);
+    let i = idx.fx[nr];
+    // Fortnox-kundnumret är unikt: en rad som redan har ett annat Fortnox-nummer är en annan kund
+    const free = (j) => j !== undefined && !t.rows[j][C["Fortnox-kundnr"]];
+    if (i === undefined && org && free(idx.org[org.replace(/\D/g, "")])) i = idx.org[org.replace(/\D/g, "")];
+    if (i === undefined && email && free(idx.email[email])) i = idx.email[email];
+    let r;
+    if (i === undefined) {
+      r = t.blank(); r[0] = "FORTNOX:" + nr; t.rows.push(r); i = t.rows.length - 1; created++;
+      r[1] = name; r[C["Källa"]] = "FORTNOX";
+    } else {
+      r = t.rows[i]; updated++;
+      fillEmpty(r, 1, name);
+    }
+    r[C["Fortnox-kundnr"]] = nr;
+    fillEmpty(r, 2, org); fillEmpty(r, 3, email); fillEmpty(r, 7, sanitize(k.phone).slice(0, 40)); fillEmpty(r, 8, address);
+    fillEmpty(r, 9, company ? "company" : "private"); fillEmpty(r, 10, "none");
+    if (!r[C["Affärer (JSON)"]]) r[C["Affärer (JSON)"]] = "[]";
+    r[C["Uppdaterad"]] = nowStamp();
+    idx.fx[nr] = i;
+    if (email) idx.email[email] = idx.email[email] || i;
+    if (org) idx.org[org.replace(/\D/g, "")] = i;
+  });
+  t.save();
+  return createJsonResponse({ status: "success", created: created, updated: updated, total: t.rows.length - 1 });
 }
 
 // ==========================================

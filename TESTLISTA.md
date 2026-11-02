@@ -332,6 +332,15 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Tryck "Hämta" igen → antalet kunder ökar inte (inga dubbletter)
 - [ ] Medan hämtningen pågår går det att spara tidrapporter i appen
 
+**Kundregister – gemensamt + Fortnox:**
+- [ ] Fliken Kunder: de gamla 13 kolumnerna (ROT/RUT, fastighetsbeteckning m.m.) är orörda; nya kolumner till höger (Varumärke, Källa, HubSpot-…, Fortnox-kundnr)
+- [ ] 👥 Kunder → 📥 Importera kunder från Fortnox → välj `Fortnox-kunder-import.tsv` → "388 nya kunder"
+- [ ] Importera igen → inga dubbletter
+- [ ] Sök på kundnummer, orgnr eller ort hittar rätt; kortet visar "Fortnox 123"
+- [ ] Ekonomi → kundvalet innehåller Fortnox-kunderna
+- [ ] Hämta från HubSpot efteråt → samma kund (e-post/orgnr) blir en rad med både Fortnox-nr och HubSpot
+- [ ] Inga personnummer i kundfliken från importen
+
 ## 10b. Ekonomi – fakturaunderlag
 
 Öppnas via sidomenyn → **💰 Ekonomi** (eller admin-panelen).
