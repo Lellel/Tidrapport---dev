@@ -391,7 +391,7 @@
       if (draft.sent) return `<div class="muted">Varumärke: <b>${esc(brandLabel(current))}</b> ${hubspotIcon(draft)} ${draft.hubspot && draft.hubspot.message ? esc(draft.hubspot.message) : ''}</div>`;
       const keys = brands ? Object.keys(brands) : ['lpv', 'fasadmalarna', 'linjemalarna', 'klaryta'];
       return `<label>Varumärke${draft.brandSet ? '' : ' (väljs efter innehållet tills du väljer själv)'}</label>
-        <div class="seg two">${keys.map(k => `<button class="${current === k ? 'active' : ''}" ${dis} onclick="draft.brand='${k}'; draft.brandSet=true; render()">${esc(brandLabel(k))}</button>`).join('')}</div>`;
+        <div class="seg two">${keys.map(k => `<button class="${current === k ? 'active' : ''}" ${dis} onclick="draft.brand='${k}'; draft.brandSet=true; render()" style="display:flex;align-items:center;justify-content:center;gap:6px"><img src="loggor/${k}.png" alt="" style="height:20px;max-width:70px;object-fit:contain;background:#fff;border-radius:4px;padding:2px">${esc(brandLabel(k))}</button>`).join('')}</div>`;
     }
 
     function refreshTotals() {

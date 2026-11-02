@@ -114,7 +114,8 @@ async function apiPost(payload) {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     redirect: 'follow',
-    body: JSON.stringify({ ...getAuthFields(), ...payload })
+    // site = appens adress, så att servern hittar loggorna (loggor/) i rätt miljö (dev/prod)
+    body: JSON.stringify({ ...getAuthFields(), site: location.origin + location.pathname.replace(/[^/]*$/, ''), ...payload })
   });
   return res.json();
 }
@@ -1428,7 +1429,7 @@ function drawCustomerOffer(o) {
         <div><div style="font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;">${label}</div>
           <h1 style="font-size:22px;margin:4px 0 0;color:#0369a1;">${customerEsc(o.title || label)}</h1>
           <div style="font-size:13px;color:#64748b;margin-top:2px;">${customerEsc(o.id)}${o.version > 1 ? ' · version ' + o.version : ''} · till ${customerEsc(o.customerName)}</div></div>
-        <div style="text-align:right;font-size:12px;color:#475569;white-space:nowrap;"><b>${customerEsc(o.company.name)}</b><br>${o.company.phone ? `<a href="tel:${customerEsc(o.company.phone.replace(/[^0-9+]/g, ''))}" style="color:#0369a1;">${customerEsc(o.company.phone)}</a>` : ''}</div>
+        <div style="text-align:right;font-size:12px;color:#475569;white-space:nowrap;">${['lpv', 'fasadmalarna', 'linjemalarna', 'klaryta'].includes(o.company.brand) ? `<img src="loggor/${o.company.brand}.png" alt="${customerEsc(o.company.name)}" style="display:block;margin-left:auto;max-height:48px;max-width:150px;margin-bottom:4px;">` : ''}<b>${customerEsc(o.company.name)}</b><br>${o.company.phone ? `<a href="tel:${customerEsc(o.company.phone.replace(/[^0-9+]/g, ''))}" style="color:#0369a1;">${customerEsc(o.company.phone)}</a>` : ''}</div>
       </div>
       ${o.site ? `<p style="font-size:14px;color:#334155;margin:14px 0 0;">📍 ${customerEsc(o.site)}</p>` : ''}
       ${o.description ? `<p style="font-size:14px;color:#334155;white-space:pre-wrap;">${customerEsc(o.description)}</p>` : ''}

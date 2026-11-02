@@ -160,6 +160,8 @@ function doPost(e) {
       data.resursId = auth.user;
     }
 
+    if (data.site) rememberSiteUrl(data.site);
+
     // --- ROUTER ---
     if (action === "me") return createJsonResponse({ status: "success", user: auth.user, company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist });
     // Offerter: Klaryta-admin får bara röra Klarytas offerter
@@ -236,7 +238,7 @@ function doPost(e) {
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
     if (action === "getInvoiceBasis") return handleGetInvoiceBasis(auth);
     if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user, auth);
-    if (action === "invoicePdf") return handleInvoicePdf(data.draft);
+    if (action === "invoicePdf") return handleInvoicePdf(data.draft, auth);
     if (action === "sendSms") return handleSendSms(data, auth.user);
     if (action === "addStaff") {
       // Admin på Klaryta kan lägga till förare/UE i Klaryta – admin- och ekonombehörighet delas bara ut av admin på LPV
@@ -1528,7 +1530,13 @@ function handleSignEk(data, user) {
 }
 
 function buildEkPdf(e, tpl, check) {
-  const settings = getOfferSettings();
+  // Varumärke: från den kopplade offerten, annars bolaget som personen som startade kontrollen tillhör
+  let brand = "";
+  const offerHit = e.link ? findRowById(getOfferSheet(), e.link) : null;
+  if (offerHit) brand = offerFromRow(offerHit.row).brand;
+  if (!brand) { const st = getStaffSheet() ? findStaffRow(getStaffSheet(), e.createdBy) : null; brand = st && companyOf(st.row[6]) === "Klaryta" ? "klaryta" : "lpv"; }
+  const settings = settingsForBrand(brand);
+  const logo = brandLogoHtml(brand, 48);
   const valueText = (it, a) => it.type === "check" ? ({ ja: "✔ Ja", nej: "✘ Nej", ea: "Ej aktuellt" }[a.v] || "–")
     : it.type === "photo" ? ((a.photos || []).length + " foto")
     : it.type === "textarea" ? "" : escapeHtml(a.v === undefined || a.v === "" ? "–" : a.v + (it.unit ? " " + it.unit : ""));
@@ -1552,7 +1560,7 @@ function buildEkPdf(e, tpl, check) {
   const html = "<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:11px;color:#111}h1{font-size:18px;margin:0}h2{font-size:13px;margin:14px 0 4px;border-bottom:1px solid #999}" +
     "table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:4px;vertical-align:top}.v{width:26%;font-weight:bold}.who{width:110px;color:#666;font-size:9px}" +
     ".dev td{background:#fde8e8}.note{color:#444;font-style:italic;margin-top:2px}.long{margin-top:3px;font-weight:bold}.ph{display:inline-block;width:23%;margin:3px;vertical-align:top;font-size:8px}.ph img{width:100%}.muted{color:#666}</style></head><body>" +
-    "<h1>" + escapeHtml(tpl.name) + "</h1><p>" + escapeHtml(settings.companyName) + (settings.companyOrgNr ? " · " + escapeHtml(settings.companyOrgNr) : "") + "</p>" +
+    (logo ? "<div style='float:right'>" + logo + "</div>" : "") + "<h1>" + escapeHtml(tpl.name) + "</h1><p>" + escapeHtml(settings.brandName) + (settings.brandName !== settings.companyName ? " · " + escapeHtml(settings.companyName) : "") + (settings.companyOrgNr ? " · " + escapeHtml(settings.companyOrgNr) : "") + "</p>" +
     "<p><b>Kund:</b> " + escapeHtml(e.customer || "–") + " &nbsp; <b>Plats:</b> " + escapeHtml(e.place || "–") + (e.link ? " &nbsp; <b>Uppdrag:</b> " + escapeHtml(e.link) : "") +
     "<br><b>Egenkontroll:</b> " + escapeHtml(e.id) + " (mall version " + e.version + ") &nbsp; <b>Påbörjad:</b> " + escapeHtml(e.created) + " av " + escapeHtml(e.createdBy) + "</p>" +
     (check.deviations.length ? "<p><b>Avvikelser:</b> " + check.deviations.length + " – markerade i rött med åtgärd.</p>" : "<p><b>Inga avvikelser.</b></p>") +
@@ -1591,6 +1599,65 @@ const DEFAULT_OFFER_SETTINGS = {
 };
 
 function getSettingsSheet() { return getSheetOrCreate(getSS(), "Inställningar", ["Nyckel", "Värde", "Beskrivning"]); }
+
+// ---------- LOGGOR & FÖRETAGSUPPGIFTER PER VARUMÄRKE ----------
+// Loggorna ligger i appens mapp loggor/ på webbplatsen. Adressen till webbplatsen sparas när appen
+// anropar servern (SITE_URL i Skriptegenskaper), så dev och prod hämtar var sin. Cachas i 6 timmar.
+const BRAND_LOGO_FILES = { lpv: "lpv.png", fasadmalarna: "fasadmalarna.png", linjemalarna: "linjemalarna.png", klaryta: "klaryta.png" };
+const DEFAULT_SITE_URL = "https://lellel.github.io/Tidrapport---dev/";
+
+function rememberSiteUrl(site) {
+  const url = String(site || "");
+  if (!/^https:\/\/[a-z0-9-]+\.github\.io\/[A-Za-z0-9._-]+\/$/.test(url)) return;
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty("SITE_URL") !== url) props.setProperty("SITE_URL", url);
+}
+
+function brandLogoBlob(brand) {
+  const file = BRAND_LOGO_FILES[brand] || BRAND_LOGO_FILES.lpv;
+  const site = PropertiesService.getScriptProperties().getProperty("SITE_URL") || DEFAULT_SITE_URL;
+  const cache = CacheService.getScriptCache();
+  const key = "logo:" + site + file;
+  let b64 = cache.get(key);
+  try {
+    if (!b64) {
+      const res = UrlFetchApp.fetch(site + "loggor/" + file, { muteHttpExceptions: true });
+      if (res.getResponseCode() !== 200) throw new Error("HTTP " + res.getResponseCode());
+      b64 = Utilities.base64Encode(res.getContent());
+      try { cache.put(key, b64, 21600); } catch (e) { /* för stor för cachen – hämtas igen nästa gång */ }
+    }
+    return Utilities.newBlob(Utilities.base64Decode(b64), "image/png", file);
+  } catch (err) {
+    // Reserv: logga i Drive (CONFIG.FILE_ID_LOGO) för LPV
+    try { if (CONFIG.FILE_ID_LOGO && (!brand || brand === "lpv")) return DriveApp.getFileById(CONFIG.FILE_ID_LOGO).getBlob(); } catch (e) { /* ingen logga */ }
+    return null;
+  }
+}
+
+function brandLogoHtml(brand, height) {
+  const blob = brandLogoBlob(brand);
+  return blob ? '<img src="data:image/png;base64,' + Utilities.base64Encode(blob.getBytes()) + '" style="display:block;height:' + (height || 60) + 'px;max-width:240px;margin-bottom:10px;">' : "";
+}
+
+// Företagsuppgifter: LPV:s från Inställningar. Klaryta har egna rader i fliken Inställningar
+// ("Klaryta.companyName", "Klaryta.companyOrgNr" …) – saknas de lämnas fälten tomma i stället för LPV:s.
+// Fasad- och linjemålarna är LPV:s varumärken: LPV:s uppgifter men varumärkets namn.
+const COMPANY_FIELDS = ["companyName", "companyOrgNr", "companyPhone", "companyEmail", "companyAddress", "companyBankgiro", "companyFTax"];
+function settingsForBrand(brand) {
+  const settings = getOfferSettings();
+  if (brand === "klaryta") {
+    const own = {};
+    getSettingsSheet().getDataRange().getValues().slice(1).forEach(r => {
+      const m = String(r[0] || "").match(/^Klaryta\.(\w+)$/);
+      if (m && COMPANY_FIELDS.indexOf(m[1]) !== -1) own[m[1]] = String(r[1] || "");
+    });
+    COMPANY_FIELDS.forEach(f => { settings[f] = own[f] !== undefined ? own[f] : (f === "companyName" ? "Klaryta AB" : ""); });
+  } else if (brand === "fasadmalarna" || brand === "linjemalarna") {
+    settings.brandName = BRANDS[brand].label;
+  }
+  settings.brandName = settings.brandName || settings.companyName;
+  return settings;
+}
 
 function getOfferSettings() {
   const settings = JSON.parse(JSON.stringify(DEFAULT_OFFER_SETTINGS));
@@ -1865,13 +1932,7 @@ function escapeHtml(text) {
 function buildOfferPdf(o, settings, drawing) {
   const t = computeOfferTotals(o, settings);
   const label = o.type === "ata" ? "ÄTA – tilläggsarbete" : "Offert";
-  let logo = "";
-  try {
-    if (CONFIG.FILE_ID_LOGO) {
-      const blob = DriveApp.getFileById(CONFIG.FILE_ID_LOGO).getBlob();
-      logo = '<img src="data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) + '" style="height:60px;">';
-    }
-  } catch (e) { logo = ""; }
+  const logo = brandLogoHtml(o.brand, 60);
   const rowsHtml = o.rows.map(r => "<tr><td>" + escapeHtml(r.text) + (r.deductible && o.deduction !== "inget" && o.customerType === "privat" ? " *" : "") +
     "</td><td style='text-align:right'>" + r.qty + " " + escapeHtml(r.unit) + "</td><td style='text-align:right'>" + moneySv(r.price) +
     "</td><td style='text-align:right'>" + moneySv(r.qty * r.price) + "</td></tr>").join("");
@@ -1880,7 +1941,8 @@ function buildOfferPdf(o, settings, drawing) {
     'table{width:100%;border-collapse:collapse;margin-top:14px;} th{background:#f1f5f9;text-align:left;padding:6px;font-size:10pt;} td{padding:6px;border-bottom:1px solid #e2e8f0;font-size:10pt;}' +
     '.tot td{border:none;padding:3px 6px;} .big{font-size:14pt;font-weight:bold;color:#0369a1;} .muted{color:#64748b;font-size:9pt;}</style></head><body>' +
     '<table style="margin:0"><tr><td style="border:none;padding:0">' + logo + '<h1>' + label + '</h1><div class="muted">' + escapeHtml(o.id) + (o.version > 1 ? " · version " + o.version : "") + '</div></td>' +
-    '<td style="border:none;padding:0;text-align:right" class="muted"><b>' + escapeHtml(settings.companyName) + '</b><br>' + escapeHtml(settings.companyAddress) +
+    '<td style="border:none;padding:0;text-align:right" class="muted"><b>' + escapeHtml(settings.brandName || settings.companyName) + '</b>' +
+    (settings.brandName && settings.brandName !== settings.companyName ? '<br>' + escapeHtml(settings.companyName) : '') + '<br>' + escapeHtml(settings.companyAddress) +
     '<br>' + escapeHtml(settings.companyPhone) + '<br>' + escapeHtml(settings.companyEmail) + (settings.companyOrgNr ? '<br>Org.nr ' + escapeHtml(settings.companyOrgNr) : '') + '</td></tr></table>' +
     '<p><b>Till:</b> ' + escapeHtml(o.customerName) + (o.site ? '<br><b>Arbetsplats:</b> ' + escapeHtml(o.site) : '') +
     '<br><b>Datum:</b> ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd") +
@@ -1915,7 +1977,7 @@ function handleSendOffer(id, appUrl, drawingPng) {
   if (!hit) return createJsonResponse({ status: "error", message: "Offerten hittades inte." });
   const o = offerFromRow(hit.row);
   if (o.status === "godkänd" || o.status === "makulerad") return createJsonResponse({ status: "error", message: "Offerten är " + o.status + "." });
-  const settings = getOfferSettings();
+  const settings = settingsForBrand(o.brand);
   let pdfFile = null, pdfNote = "";
   // Ritningen (PNG från appen) tas bara med om den är en giltig och rimligt stor PNG
   const drawing = /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(String(drawingPng || "")) && String(drawingPng).length < 3000000 ? String(drawingPng) : "";
@@ -1931,17 +1993,19 @@ function handleSendOffer(id, appUrl, drawingPng) {
   let emailNote = "";
   if (o.email && /@/.test(o.email)) {
     try {
+      const logo = brandLogoBlob(o.brand);
       const link = /^https:\/\/[^\s"<>]+$/.test(String(appUrl || "")) ? appUrl + "?" + o.type + "=" + encodeURIComponent(o.id) + "&code=" + encodeURIComponent(code) : "";
       MailApp.sendEmail({
         to: o.email,
-        subject: (o.version > 1 ? "Uppdaterad " : "") + label.charAt(0).toUpperCase() + label.slice(1) + " " + o.id + " från " + settings.companyName,
-        htmlBody: "<p>Hej " + escapeHtml(o.customerName) + "!</p><p>Här kommer " + (o.version > 1 ? "en uppdaterad " : "vår ") + label + " " + escapeHtml(o.id) +
+        subject: (o.version > 1 ? "Uppdaterad " : "") + label.charAt(0).toUpperCase() + label.slice(1) + " " + o.id + " från " + settings.brandName,
+        htmlBody: (logo ? '<p><img src="cid:logo" alt="' + escapeHtml(settings.brandName) + '" style="height:56px;"></p>' : "") + "<p>Hej " + escapeHtml(o.customerName) + "!</p><p>Här kommer " + (o.version > 1 ? "en uppdaterad " : "vår ") + label + " " + escapeHtml(o.id) +
           (o.title ? " – " + escapeHtml(o.title) : "") + ". Den finns som PDF i bifogad fil." +
           (link ? '</p><p><a href="' + link + '">Klicka här för att godkänna eller avböja</a>' : "") +
           "</p><p>Att betala: <b>" + moneySv(computeOfferTotals(o, settings).toPay) + "</b> (giltig till " + escapeHtml(o.validUntil) + ")</p><p>Vänliga hälsningar<br>" +
-          escapeHtml(settings.companyName) + "<br>" + escapeHtml(settings.companyPhone) + "</p>",
+          escapeHtml(settings.brandName) + (settings.brandName !== settings.companyName ? "<br>" + escapeHtml(settings.companyName) : "") + "<br>" + escapeHtml(settings.companyPhone) + "</p>",
         attachments: pdfFile ? [pdfFile.getBlob()] : [],
-        name: settings.companyName
+        inlineImages: logo ? { logo: logo } : undefined,
+        name: settings.brandName
       });
       emailNote = "Mejlat till " + o.email;
     } catch (err) { emailNote = "Mejlet kunde inte skickas: " + err.message; }
@@ -2051,7 +2115,7 @@ function customerView(o, settings) {
     layout: o.layout,
     colorOptions: (o.colorOptions || []).map(c => ({ url: driveImageUrl(c.imageId), beforeUrl: c.beforeId ? driveImageUrl(c.beforeId) : "", main: c.main, detail: c.detail, windows: c.windows, label: c.label, building: c.building })),
     chosenColor: o.chosenColor,
-    company: { name: settings.companyName, phone: settings.companyPhone, email: settings.companyEmail }
+    company: { name: settings.brandName || settings.companyName, phone: settings.companyPhone, email: settings.companyEmail, brand: o.brand || "lpv" }
   };
 }
 
@@ -2071,7 +2135,7 @@ function handleGetOfferForCustomer(data) {
       } finally { lock.releaseLock(); }
     }
   }
-  return createJsonResponse({ status: "success", offer: customerView(o, getOfferSettings()) });
+  return createJsonResponse({ status: "success", offer: customerView(o, settingsForBrand(o.brand)) });
 }
 
 function handleRespondOffer(data) {
@@ -2081,7 +2145,7 @@ function handleRespondOffer(data) {
     const found = findOfferForCode(data);
     if (found.error) return createJsonResponse({ status: "error", message: found.error });
     const o = found.offer;
-    const settings = getOfferSettings();
+    const settings = settingsForBrand(o.brand);
     // Redan besvarad: svara likadant igen (dubbeltryck skapar inte två jobb)
     if (o.status === "godkänd" || o.status === "avböjd") {
       return createJsonResponse({ status: "success", alreadyAnswered: true, offer: customerView(o, settings) });
@@ -3004,21 +3068,18 @@ function buildInvoiceHtml(d, settings, t, number, today, due, logoHtml) {
     '</body></html>';
 }
 
-function handleInvoicePdf(input) {
+function handleInvoicePdf(input, auth) {
   const d = cleanInvoiceDraft(input);
   if (!d.customer.name) return createJsonResponse({ status: "error", message: "Välj vilken kund underlaget gäller." });
   if (!d.rows.length) return createJsonResponse({ status: "error", message: "Underlaget har inga rader." });
-  const settings = getOfferSettings();
+  // Bolaget som fakturerar: från underlaget, men aldrig ett annat bolag än det man har behörighet till
+  const company = scopeOf(auth) || companyOf(input && input.company);
+  const brand = company === "Klaryta" ? "klaryta" : "lpv";
+  const settings = settingsForBrand(brand);
   const t = computeOfferTotals({ rows: d.rows, customerType: d.customerType, deduction: d.deduction, deductionPersons: d.deductionPersons }, settings);
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   const number = "FU-" + Utilities.formatDate(new Date(), tz, "yyyyMMdd-HHmmss");
-  let logo = "";
-  try {
-    if (CONFIG.FILE_ID_LOGO) {
-      const blob = DriveApp.getFileById(CONFIG.FILE_ID_LOGO).getBlob();
-      logo = '<img src="data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) + '" style="height:60px;">';
-    }
-  } catch (e) { logo = ""; }
+  const logo = brandLogoHtml(brand, 60);
   const html = buildInvoiceHtml(d, settings, t, number, Utilities.formatDate(new Date(), tz, "yyyy-MM-dd"), addDays(settings.invoiceDueDays || 30), logo);
   const pdf = Utilities.newBlob(html, "text/html", number + ".html").getAs("application/pdf")
     .setName(number + " " + d.customer.name.replace(/[\\/:*?"<>|]/g, "") + ".pdf");

@@ -260,7 +260,7 @@
     const inc = g.reports.filter(r => g.included[r.row]);
     makePdf({
       customer: { name: c.name, address: c.address, idNr: c.idNr, email: c.email },
-      customerType: g.private ? 'privat' : 'företag', site: g.place, period: period(inc),
+      company: g.company, customerType: g.private ? 'privat' : 'företag', site: g.place, period: period(inc),
       title: 'Utfört arbete ' + period(inc), rows: invoiceRows(g), deduction: g.deduction,
       spec: inc.map(r => ({ date: r.date, user: r.user, activity: r.activity, hours: r.hours }))
     }, btn);
@@ -271,7 +271,7 @@
     const c = data.customers.find(x => x.name === o.customerName) || {};
     makePdf({
       customer: { name: o.customerName, address: c.address || o.site, idNr: c.idNr || '', email: o.email },
-      customerType: o.customerType === 'privat' ? 'privat' : 'företag', site: o.site, reference: o.id + (o.version > 1 ? ' v' + o.version : ''),
+      company: o.brand === 'klaryta' ? 'Klaryta' : 'LPV', customerType: o.customerType === 'privat' ? 'privat' : 'företag', site: o.site, reference: o.id + (o.version > 1 ? ' v' + o.version : ''),
       title: o.title + ' – enligt godkänd ' + (o.type === 'ata' ? 'ÄTA' : 'offert') + ' ' + o.id,
       rows: o.rows, deduction: o.deduction, deductionPersons: o.deductionPersons, spec: []
     }, btn);

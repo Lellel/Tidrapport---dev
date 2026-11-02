@@ -407,9 +407,12 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 
 - [ ] Avsnitt 1, 3 och 4 är helt gröna
 - [ ] **Varumärken (villkor för att gå live med offerter/HubSpot):** rätt logga och avsändare finns för varje varumärke och syns på offert-PDF och kundmejl
-  - [ ] fasadmålarna.se – logga levererad, fasadofferter visar den
-  - [ ] linjemålarna.se – logga levererad, linjeofferter visar den
-  - [ ] Klaryta – logga levererad, Klaryta-jobb visar den
+  - [x] Loggor levererade (LPV, Fasadmålarna, Linjemålarna, Klaryta) – ligger i `loggor/`
+  - [ ] Skicka en offert per varumärke till dig själv: rätt logga i PDF, mejl (överst) och på kundsidan; avsändare och ämne med varumärkets namn
+  - [ ] Fakturaunderlag (Ekonomi) för ett Klaryta-pass har Klarytas logga och namn
+  - [ ] Egenkontroll-PDF har loggan
+  - [ ] Lägg in Klarytas uppgifter i fliken Inställningar: rader `Klaryta.companyOrgNr`, `Klaryta.companyAddress`, `Klaryta.companyPhone`, `Klaryta.companyEmail`, `Klaryta.companyBankgiro` (annars blir de tomma på Klarytas dokument)
+  - [ ] Fasadmålarnas logga är liten (190×85 px) – byt mot en större eller SVG när den finns
   - [ ] HubSpot-nycklar i Apps Script (Skriptegenskaper): `HUBSPOT_TOKEN_FASAD`, `HUBSPOT_TOKEN_LINJE` – aldrig i GitHub
 - [ ] Fyll i företagsuppgifter under Offerter → ⚙️ i **PROD** också
 - [ ] Ladda upp samma `Kod.gs` till **PROD**-versionens Apps Script med `./ladda-upp-kod.sh prod` (prod har en egen backend, klonad i `~/Dev-repot/AppsScript-prod`) → Ny version
