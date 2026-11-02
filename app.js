@@ -86,6 +86,8 @@ if (appUrlParams.has('key')) {
 window.currentUser = appUrlParams.get('user') || localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || 'Daniel';
 var currentUser = window.currentUser;
 let isAdmin = localStorage.getItem('lpv_is_admin') === 'true';
+// Sidomenyn leder bara till admin-sidor: dölj den för förare
+document.body.classList.toggle('has-side-nav', isAdmin);
 
 // Alla anrop till backend går härigenom: skickar med användare + personlig nyckel.
 // Gamla gemensamma nyckeln (CONFIG.API_TOKEN) skickas bara om den finns kvar i config.js.
@@ -1072,6 +1074,7 @@ function handleUserPillClick() {
     userClickCount = 0;
     isAdmin = !isAdmin;
     localStorage.setItem('lpv_is_admin', isAdmin ? 'true' : 'false');
+    document.body.classList.toggle('has-side-nav', isAdmin);
     updateAdminUI();
     alert(isAdmin ? "👑 Admin-läge aktiverat!" : "Admin-läge avstängt.");
     return;

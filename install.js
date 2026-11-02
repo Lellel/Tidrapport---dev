@@ -86,7 +86,7 @@
     m.innerHTML = `<div role="dialog" aria-modal="true" aria-labelledby="inst-title" style="background:#fff;border-radius:22px;max-width:460px;width:100%;max-height:92vh;overflow-y:auto;padding:20px 18px calc(16px + env(safe-area-inset-bottom));box-shadow:0 20px 50px rgba(0,0,0,.3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
       <div style="text-align:center;margin-bottom:8px">
         <img src="icon.png" alt="" width="64" height="64" style="border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.15)">
-        <h2 id="inst-title" style="margin:10px 0 4px;font-size:21px;color:#0f172a">Välkommen${name ? ', ' + name : ''}! 👋</h2>
+        <div id="inst-title" role="heading" aria-level="2" style="margin:10px 0 4px;font-size:21px;font-weight:800;color:#0f172a">Välkommen${name ? ', ' + name : ''}! 👋</div>
         <div style="font-size:14px;color:#475569">Lägg appen på ${isIOS ? 'hemskärmen' : 'startskärmen'} – då öppnas den som en vanlig app, utan adressfält, och du är alltid inloggad.</div>
       </div>
       ${isIOS ? iosSteps() : androidSteps()}

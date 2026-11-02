@@ -844,3 +844,10 @@ div[style*="display: flex"][style*="justify-content: space-between"] {
   color: var(--text-main);
 }
 .packing-card-glass .checklist-item label { color: #f8fafc; }
+
+/* Sidomenyn bara för admin. På telefon flyttas innehållet så att menyn inte täcker det. */
+body:not(.has-side-nav) .side-nav-drawer { display: none; }
+@media screen and (max-width: 520px) {
+  body.has-side-nav .app-layout-wrapper { padding-left: 46px; box-sizing: border-box; }
+  .header-badges { flex-wrap: wrap; }
+}

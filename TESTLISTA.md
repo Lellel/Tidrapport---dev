@@ -31,6 +31,10 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Installera → öppna från startskärmen → inloggad
 - [ ] Öppna länken i Chrome igen efter installation → ingen guide
 
+**Sidomeny & sidhuvud (telefon):**
+- [ ] Förare: sidomenyn (🌭 🔭 💼 …) syns inte
+- [ ] Admin: sidomenyn syns och täcker inte texten; "Ansluten | DEV v…" syns helt
+
 **Ska inte synas:**
 - [ ] På datorn
 - [ ] För kunder som öppnar en offertlänk
