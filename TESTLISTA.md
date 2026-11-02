@@ -349,7 +349,8 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
 **Först (snabbt och viktigast):**
 - [x] Byt personalnamnen i Blacksta-filerna och prototyperna mot påhittade (Lisa, Kalle, Stina …) och UE-numret mot ett fiktivt
-- [ ] Rensa namnen ur Git-historiken (kräver omskrivning av historiken + force push – bestäm först)
+- [x] Rensa namnen ur Git-historiken (gjort 2026-11-02, säkerhetskopia i ~/Dev-repot/backup/)
+- [ ] Be GitHub Support rensa gamla commits (pull request #1 pekar på gammal historik)
 - [ ] Flytta kalkylark/Drive/Apps Script från privat Gmail till **Google Workspace** och godkänn Googles databehandlingsavtal (DPA)
 - [ ] Tvåstegsverifiering på Google, HubSpot, GitHub och 46elks
 
