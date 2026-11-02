@@ -17,7 +17,7 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
 ---
 
-## 0. Ny användare – lägg appen på hemskärmen
+## 0b. Ny användare – lägg appen på hemskärmen
 
 **iPhone (Safari):**
 - [ ] Öppna en ny inloggningslänk → guiden "Välkommen, Namn! 👋" visar iPhone-stegen
@@ -326,4 +326,5 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Kör deploy (GitHub Actions → "Deploy to Production")
 - [ ] Öppna prod-appen och spara ett riktigt testpass
 - [ ] Skicka nya inloggningslänkar till alla förare
+- [ ] iPhone-förare: ta bort den gamla appen från hemskärmen, öppna nya länken i Safari och lägg till appen igen via guiden (annars saknar hemskärmsappen nyckeln)
 - [ ] När alla har nya länkar: ta bort `API_TOKEN` ur `Config.gs` och `config.js`
