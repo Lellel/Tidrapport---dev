@@ -274,6 +274,11 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 ## Innan deploy till PROD
 
 - [ ] Avsnitt 1, 3 och 4 är helt gröna
+- [ ] **Varumärken (villkor för att gå live med offerter/HubSpot):** rätt logga och avsändare finns för varje varumärke och syns på offert-PDF och kundmejl
+  - [ ] fasadmålarna.se – logga levererad, fasadofferter visar den
+  - [ ] linjemålarna.se – logga levererad, linjeofferter visar den
+  - [ ] Klaryta – logga levererad, Klaryta-jobb visar den
+  - [ ] HubSpot-nycklar i Apps Script (Skriptegenskaper): `HUBSPOT_TOKEN_FASAD`, `HUBSPOT_TOKEN_LINJE` – aldrig i GitHub
 - [ ] Fyll i företagsuppgifter under Offerter → ⚙️ i **PROD** också
 - [ ] Ladda upp samma `Kod.gs` till **PROD**-versionens Apps Script med `./ladda-upp-kod.sh prod` (prod har en egen backend, klonad i `~/Dev-repot/AppsScript-prod`) → Ny version
 - [ ] Kör deploy (GitHub Actions → "Deploy to Production")
