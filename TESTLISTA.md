@@ -39,6 +39,15 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] På datorn
 - [ ] För kunder som öppnar en offertlänk
 
+## 0c. Planerade jobb – kalender + radarn (kräver ny Kod.gs)
+
+- [ ] Kör `godkannBehorigheter` → godkänn **Kalender** när Google frågar → loggen visar "✅ Kalender: … (N händelser idag)"
+- [ ] Lägg en händelse i jobbkalendern idag med plats → efter omladdning syns ett blått kort **📅 PLANERAT** med tid och plats
+- [ ] En godkänd offert som inte är inplanerad i radarn syns som **⏱️ VID TILLFÄLLE**
+- [ ] "Stämpla in" på ett kort → passet startar med plats och aktivitet ifyllda, kortet försvinner
+- [ ] Byt datum i formuläret → korten för den dagen visas
+- [ ] Logga in som förare → inga planerade jobb syns
+
 ## 1. Inloggning med personlig länk
 
 - [ ] Tryck 3 gånger snabbt på namnet uppe till höger → "Admin-läge aktiverat"

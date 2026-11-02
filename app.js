@@ -539,6 +539,8 @@ function renderOutbox() {
   title.innerText = `Dagens pass (${drafts.length} st • ${totalHours.toFixed(1)} h)`;
 
   // Rendera Buffert och Planerade jobb
+  // Texterna kommer från kalendern/radarn – skrivs aldrig in som HTML
+  const escJob = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   plannedJobs.forEach(job => {
     if (drafts.some(d => String(d.calendarJobId) === String(job.id))) return;
     const card = document.createElement('div');
@@ -552,14 +554,14 @@ function renderOutbox() {
       <div class="card-body">
         <div class="card-title">
           <span style="color:var(--blue); margin-right:12px; display:inline-flex;">${getActivityIcon(job.title)}</span>
-          <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${job.title}</span>
+          <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escJob(job.title)}</span>
         </div>
         <div class="card-meta" style="margin-top:6px;">
           ${badgeHtml}
-          <span style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;">${job.place}</span>
-          ${job.start ? `<span class="dot">•</span><span>${job.start}</span>` : ''}
+          <span style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;">${escJob(job.place)}</span>
+          ${job.start ? `<span class="dot">•</span><span>${escJob(job.start)}</span>` : ''}
         </div>
-        ${job.description ? `<div class="card-note">${job.description}</div>` : ''}
+        ${job.description ? `<div class="card-note">${escJob(job.description)}</div>` : ''}
       </div>
       <div class="card-actions">
         <button class="btn-action clock-in">Stämpla in</button>

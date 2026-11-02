@@ -49,6 +49,10 @@ function godkannBehorigheter() {
         : "46elks: fel användarnamn eller lösenord (HTTP " + me.getResponseCode() + ")");
     } catch (e) { rad(false, "46elks: " + e.message); }
   }
+  if (CONFIG.CALENDAR_ID) {
+    try { const cal = CalendarApp.getCalendarById(CONFIG.CALENDAR_ID); rad(!!cal, cal ? "Kalender: " + cal.getName() + " (" + cal.getEventsForDay(new Date()).length + " händelser idag)" : "Kalender: hittar inte CALENDAR_ID – dela kalendern med kontot som kör skriptet"); }
+    catch (e) { rad(false, "Kalender: " + e.message); }
+  } else Logger.log("ℹ️ CALENDAR_ID saknas i Config.gs – planerade jobb kommer bara från radarn");
   ["FASAD", "LINJE", "KLARYTA"].forEach(account => {
     const token = props.getProperty("HUBSPOT_TOKEN_" + account);
     if (!token) { Logger.log("ℹ️ HUBSPOT_TOKEN_" + account + " saknas – de offerterna väntar tills nyckeln finns"); return; }
@@ -146,6 +150,7 @@ function doPost(e) {
 
     // --- ROUTER ---
     if (action === "getKabanossData") return handleGetKabanossData();
+    if (action === "getJobs") return handleGetJobs(data, auth);
     if (action === "saveKabanossJob") return handleSaveKabanossJob(data);
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
@@ -955,6 +960,72 @@ function handleRemovePropertyPhoto(id, photoId) {
   sheet.getRange(hit.rowNumber, 9).setValue(JSON.stringify(photos));
   try { DriveApp.getFileById(photoId).setTrashed(true); } catch (err) { /* redan borta */ }
   return createJsonResponse({ status: "success" });
+}
+
+// ==========================================
+// 4c2. PLANERADE JOBB (startsidans blå kort, "Osthyveln")
+// Dagens jobb från Google-kalendern (CONFIG.CALENDAR_ID) + radarn (Gantt_Jobb).
+// Bara admin ser dem. Radarjobb utan dag (t.ex. godkända offerter) visas som
+// "vid tillfälle" så att de inte glöms bort.
+// ==========================================
+const RADAR_START_DATE = "2026-10-26"; // samma som START_DATE i radar.html – dag 0 i radarn
+
+function stripHtml(text) {
+  return String(text || "").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+}
+
+function handleGetJobs(data, auth) {
+  if (!auth || !auth.isAdmin) return createJsonResponse({ status: "success", events: [] });
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const dateText = /^\d{4}-\d{2}-\d{2}$/.test(String(data.date || "")) ? String(data.date) : Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+  const [y, m, d] = dateText.split("-").map(Number);
+  const day = new Date(y, m - 1, d);
+  const events = [];
+  const notes = [];
+
+  // 1. Google-kalendern
+  if (CONFIG.CALENDAR_ID) {
+    try {
+      const cal = CalendarApp.getCalendarById(CONFIG.CALENDAR_ID);
+      if (!cal) throw new Error("hittar inte kalendern (CALENDAR_ID) – är den delad med kontot som kör skriptet?");
+      cal.getEventsForDay(day).forEach(ev => {
+        const desc = stripHtml(ev.getDescription()).slice(0, 500);
+        events.push({
+          id: "cal:" + ev.getId() + ":" + dateText,
+          title: ev.getTitle() || "Kalenderjobb",
+          place: ev.getLocation() || desc.split("\n")[0].slice(0, 80) || "",
+          description: desc,
+          start: ev.isAllDayEvent() ? "" : Utilities.formatDate(ev.getStartTime(), tz, "HH:mm"),
+          source: "kalender", isBuffer: false
+        });
+      });
+    } catch (err) { notes.push("Kalendern: " + err.message); }
+  }
+
+  // 2. Radarn: jobb inplanerade den här dagen + oplanerade "vid tillfälle"
+  const sheet = getSS().getSheetByName("Gantt_Jobb");
+  if (sheet) {
+    const [by, bm, bd] = RADAR_START_DATE.split("-").map(Number);
+    const dayIndex = Math.round((day - new Date(by, bm - 1, bd)) / 86400000);
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r[0] || String(r[4]) === "done" || String(r[4]) === "klar") continue;
+      const scheduled = r[5] !== "" && r[5] !== null;
+      if (scheduled && Number(r[5]) !== dayIndex) continue;
+      events.push({
+        id: "radar:" + r[0],
+        title: String(r[3] || r[1] || "Jobb"),
+        place: String(r[8] || r[1] || ""),
+        description: [r[1], r[9], r[10]].filter(Boolean).join(" · "),
+        start: "", source: "radar", isBuffer: !scheduled
+      });
+    }
+  }
+
+  events.sort((a, b) => (a.isBuffer - b.isBuffer) || String(a.start || "99").localeCompare(String(b.start || "99")));
+  return createJsonResponse({ status: "success", date: dateText, events: events, notes: notes });
 }
 
 // ==========================================
