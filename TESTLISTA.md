@@ -345,6 +345,35 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
 ---
 
+## GDPR – att göra
+
+**Först (snabbt och viktigast):**
+- [ ] Byt personalnamnen i Blacksta-filerna (`blacksta/`, `prototyper/blacksta/`) mot påhittade och hämta riktiga namn från fliken Personal – repot är publikt (namnen finns kvar i Git-historiken)
+- [ ] Flytta kalkylark/Drive/Apps Script från privat Gmail till **Google Workspace** och godkänn Googles databehandlingsavtal (DPA)
+- [ ] Tvåstegsverifiering på Google, HubSpot, GitHub och 46elks
+
+**Sedan:**
+- [ ] Bilder i Drive delas med "alla som har länken" (fastighetsfoton, stallbilder, kulörförslag) – visa via appens inloggning i stället, eller begränsa
+- [ ] Gemini (kulörförslag): använd betald API-nivå så att husfoton inte används för träning; nämn det i kundinformationen
+- [ ] Personnummer (ROT, när det byggs): bara i offert/faktura, aldrig till HubSpot, maskerat i listor
+- [ ] Integritetspolicy för kunder – länk i offertmejlet och på kundsidan
+- [ ] Information till personalen om vad appen sparar (tider, jour, larmkvitteringar). Sparas GPS i framtiden: bedömning, info, bara arbetstid, ev. MBL-förhandling
+
+**Avtal & dokumentation:**
+- [ ] Personuppgiftsbiträdesavtal: Google (Workspace + Gemini), HubSpot, 46elks, GitHub – kolla EU–US Data Privacy Framework/standardavtalsklausuler, välj EU-lagring där det går
+- [ ] Registerförteckning: vilka uppgifter, ändamål, laglig grund, lagringstid, vem som har åtkomst
+- [ ] Laglig grund per ändamål (kunder: avtal · bokföring/ROT: rättslig förpliktelse · personal: anställningsavtal · HubSpot-marknadsföring: berättigat intresse)
+
+**Gallring & rättigheter (byggs i appen):**
+- [ ] Automatisk gallring: bokföringsunderlag 7 år · offerter som inte blev av ~2 år · inaktiva kunder ~3 år · personal efter avslut · larmloggar och bilder · läkemedelsjournal 5 år
+- [ ] Registerutdrag och radering per person (admin-funktion)
+
+**Säkerhet & incidenter:**
+- [ ] Kalkylarket bara delat med de som behöver; spärra nycklar direkt när någon slutar
+- [ ] Incidentrutin: anmälan till IMY inom 72 timmar – vem gör vad
+
+---
+
 ## Innan deploy till PROD
 
 - [ ] Avsnitt 1, 3 och 4 är helt gröna
