@@ -49,6 +49,12 @@ function godkannBehorigheter() {
         : "46elks: fel användarnamn eller lösenord (HTTP " + me.getResponseCode() + ")");
     } catch (e) { rad(false, "46elks: " + e.message); }
   }
+  ["FASAD", "LINJE", "KLARYTA"].forEach(account => {
+    const token = props.getProperty("HUBSPOT_TOKEN_" + account);
+    if (!token) { Logger.log("ℹ️ HUBSPOT_TOKEN_" + account + " saknas – de offerterna väntar tills nyckeln finns"); return; }
+    try { hubspotFetch(token, "get", "/crm/v3/objects/contacts?limit=1"); rad(true, "HubSpot " + account + ": nyckeln fungerar"); }
+    catch (e) { rad(false, "HubSpot " + account + ": " + e.message); }
+  });
   Logger.log("Klart. Ladda upp ny kod med ./ladda-upp-kod.sh – den skapar även ny version av webbappen.");
 }
 
@@ -122,7 +128,7 @@ function doPost(e) {
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
-      "blacksta_savePlan", "addStaff"];
+      "blacksta_savePlan", "addStaff", "hubspotSyncPending"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -160,6 +166,7 @@ function doPost(e) {
     if (action === "saveOffer") return handleSaveOffer(data.offer, auth.user);
     if (action === "sendOffer") return handleSendOffer(data.id, data.appUrl, data.drawingPng);
     if (action === "cancelOffer") return handleCancelOffer(data.id);
+    if (action === "hubspotSyncPending") return handleHubspotSyncPending();
     if (action === "getOfferSettings") return createJsonResponse({ status: "success", settings: getOfferSettings() });
     if (action === "saveOfferSettings") return handleSaveOfferSettings(data.settings);
     if (action === "getFleet") return handleGetFleet();
@@ -1038,6 +1045,15 @@ function computeOfferTotals(offer, settings) {
 }
 
 function offerFromRow(row) {
+  const o = offerFromBaseRow(row);
+  const stored = brandFromCell(row[OFFER_BRAND_COLUMN - 1]);
+  o.brandSet = !!stored;
+  o.brand = stored || guessBrand(o);
+  o.hubspot = parseHubspotState(row[OFFER_HUBSPOT_COLUMN - 1]);
+  return o;
+}
+
+function offerFromBaseRow(row) {
   let rows = [];
   try { rows = JSON.parse(row[11] || "[]"); } catch (e) { rows = []; }
   const fmt = v => v instanceof Date ? Utilities.formatDate(v, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm") : String(v || "");
@@ -1147,7 +1163,7 @@ function handleGetOffers() {
     o.pdfUrl = o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "";
     offers.push(o);
   }
-  return createJsonResponse({ status: "success", offers: offers.reverse(), settings: settings });
+  return createJsonResponse({ status: "success", offers: offers.reverse(), settings: settings, brands: hubspotBrandInfo() });
 }
 
 // Innehållet som kunden ser – ändras det på en skickad offert blir det en ny version
@@ -1183,6 +1199,12 @@ function handleSaveOffer(input, savedBy) {
     chosenColor: old ? old.chosenColor : "",
     facade: cleanFacade(input.facade)
   };
+  // Valt varumärke sparas; annars gissas det (fasad/linje/LPV). Efter utskick ligger det fast.
+  let chosenBrand = input.brandSet === true ? cleanBrand(input.brand) : "";
+  if (!chosenBrand && old && old.sent) chosenBrand = old.brand;
+  offer.brand = chosenBrand || guessBrand(offer);
+  offer.brandSet = !!chosenBrand;
+  offer.hubspot = old ? old.hubspot : {};
   if (!offer.customerName) return createJsonResponse({ status: "error", message: "Ange kundens namn." });
   if (!offer.rows.length) return createJsonResponse({ status: "error", message: "Lägg till minst en rad." });
 
@@ -1196,6 +1218,8 @@ function handleSaveOffer(input, savedBy) {
   }
   offer.toPay = computeOfferTotals(offer, settings).toPay;
   upsertById(sheet, offerToRow(offer));
+  if (old && old.sent && old.brand !== offer.brand) syncOfferToHubspot(sheet, offer, settings);
+  else writeOfferExtras(sheet, offer.id, chosenBrand, offer.hubspot);
   offer.totals = computeOfferTotals(offer, settings);
   return createJsonResponse({ status: "success", offer: offer, changedAfterSend: changedAfterSend });
 }
@@ -1208,6 +1232,7 @@ function handleCancelOffer(id) {
   if (o.status === "godkänd") return createJsonResponse({ status: "error", message: "En godkänd offert kan inte makuleras här." });
   o.status = "makulerad";
   upsertById(sheet, offerToRow(o));
+  syncOfferToHubspot(sheet, o);
   return createJsonResponse({ status: "success" });
 }
 
@@ -1283,6 +1308,7 @@ function handleSendOffer(id, appUrl, drawingPng) {
   o.status = "skickad";
   o.sent = nowStamp();
   upsertById(sheet, offerToRow(o));
+  syncOfferToHubspot(sheet, o, settings);
 
   const code = offerLinkCode(o);
   const label = o.type === "ata" ? "tilläggsarbete (ÄTA)" : "offert";
@@ -1477,6 +1503,7 @@ function handleRespondOffer(data) {
       o.jobId = jobId;
     }
     upsertById(getOfferSheet(), offerToRow(o));
+    syncOfferToHubspot(getOfferSheet(), o, settings);
     // Meddela admin
     try {
       const to = CONFIG.ADMIN_EMAIL || Session.getEffectiveUser().getEmail();
@@ -1489,6 +1516,216 @@ function handleRespondOffer(data) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ==========================================
+// 4d2. VARUMÄRKEN & HUBSPOT
+// Varje offert har ett varumärke. Fasad- och linjeofferter väljs automatiskt,
+// övriga är LPV eller Klaryta. Varje varumärke pekar på en HubSpot-nyckel i
+// Skriptegenskaper (HUBSPOT_TOKEN_FASAD / _LINJE / _KLARYTA). LPV delar
+// fasadmålarnas HubSpot men märks med eget varumärke. Saknas nyckeln står
+// offerten som "väntar" och kan skickas i efterhand ("Skicka väntande").
+// Varumärke och HubSpot-status ligger i kolumnerna efter "Fakturerad".
+// ==========================================
+const OFFER_BRAND_COLUMN = OFFER_HEADERS.length + 2;
+const OFFER_HUBSPOT_COLUMN = OFFER_HEADERS.length + 3;
+const BRANDS = {
+  lpv: { label: "LPV", hubspot: "FASAD" },
+  fasadmalarna: { label: "Fasadmålarna", hubspot: "FASAD" },
+  linjemalarna: { label: "Linjemålarna", hubspot: "LINJE" },
+  klaryta: { label: "Klaryta", hubspot: "KLARYTA" }
+};
+const HUBSPOT_STAGES = { utkast: "contractsent", skickad: "contractsent", "öppnad": "contractsent", "godkänd": "closedwon", "avböjd": "closedlost", makulerad: "closedlost" };
+
+function guessBrand(o) {
+  if (o.facade || (o.colorOptions && o.colorOptions.length)) return "fasadmalarna";
+  if (o.layout) return "linjemalarna";
+  return "lpv";
+}
+
+function cleanBrand(value) { return BRANDS[value] ? value : ""; }
+
+// Arket visar namnet ("Fasadmålarna"), koden använder nyckeln ("fasadmalarna")
+function brandFromCell(value) {
+  const v = String(value || "").trim();
+  if (BRANDS[v]) return v;
+  return Object.keys(BRANDS).filter(k => BRANDS[k].label === v)[0] || "";
+}
+
+function parseHubspotState(cell) {
+  if (!cell) return {};
+  try { const s = JSON.parse(cell); return s && typeof s === "object" ? s : {}; } catch (e) { return {}; }
+}
+
+function ensureOfferExtraHeaders(sheet) {
+  const head = sheet.getRange(1, OFFER_INVOICED_COLUMN, 1, 3).getValues()[0];
+  if (head[0] && head[1] && head[2]) return;
+  sheet.getRange(1, OFFER_INVOICED_COLUMN, 1, 3).setValues([[head[0] || "Fakturerad", "Varumärke", "HubSpot"]])
+    .setFontWeight("bold").setBackground("#f3f3f3");
+}
+
+function writeOfferExtras(sheet, id, brand, hubspot) {
+  const hit = findRowById(sheet, id);
+  if (!hit) return;
+  ensureOfferExtraHeaders(sheet);
+  sheet.getRange(hit.rowNumber, OFFER_BRAND_COLUMN, 1, 2).setValues([[BRANDS[brand] ? BRANDS[brand].label : "", JSON.stringify(hubspot || {})]]);
+}
+
+function hubspotTokenFor(brand) {
+  const b = BRANDS[brand] || BRANDS.lpv;
+  return PropertiesService.getScriptProperties().getProperty("HUBSPOT_TOKEN_" + b.hubspot) || "";
+}
+
+// Vilka varumärken som har en HubSpot-nyckel (aldrig själva nyckeln)
+function hubspotBrandInfo() {
+  const out = {};
+  Object.keys(BRANDS).forEach(k => { out[k] = { label: BRANDS[k].label, connected: !!hubspotTokenFor(k) }; });
+  return out;
+}
+
+function hubspotFetch(token, method, path, body) {
+  const res = UrlFetchApp.fetch("https://api.hubapi.com" + path, {
+    method: method, contentType: "application/json", muteHttpExceptions: true,
+    headers: { Authorization: "Bearer " + token },
+    payload: body ? JSON.stringify(body) : undefined
+  });
+  const code = res.getResponseCode();
+  const text = res.getContentText() || "";
+  let json = {};
+  try { json = text ? JSON.parse(text) : {}; } catch (e) { json = {}; }
+  if (code >= 300) {
+    const err = new Error("HubSpot " + code + ": " + String(json.message || text).slice(0, 200));
+    err.code = code;
+    throw err;
+  }
+  return json;
+}
+
+// Fältet "Varumärke" skapas en gång per HubSpot-konto på kontakter, företag och affärer
+function hubspotEnsureSchema(token, account) {
+  const props = PropertiesService.getScriptProperties();
+  const flag = "HUBSPOT_SCHEMA_OK_" + account;
+  if (props.getProperty(flag)) return;
+  const groups = { contacts: "contactinformation", companies: "companyinformation", deals: "dealinformation" };
+  const options = Object.keys(BRANDS).map((k, i) => ({ label: BRANDS[k].label, value: BRANDS[k].label, displayOrder: i }));
+  Object.keys(groups).forEach(obj => {
+    try {
+      hubspotFetch(token, "post", "/crm/v3/properties/" + obj, {
+        name: "varumarke", label: "Varumärke", type: "enumeration", fieldType: "select", groupName: groups[obj], options: options
+      });
+    } catch (err) {
+      if (err.code !== 409) throw err; // 409 = fältet finns redan
+    }
+  });
+  props.setProperty(flag, "1");
+}
+
+function hubspotUpsert(token, obj, id, properties) {
+  if (id) {
+    try { return hubspotFetch(token, "patch", "/crm/v3/objects/" + obj + "/" + id, { properties: properties }).id; }
+    catch (err) { if (err.code !== 404) throw err; } // raderad i HubSpot: skapa ny
+  }
+  return hubspotFetch(token, "post", "/crm/v3/objects/" + obj, { properties: properties }).id;
+}
+
+function hubspotSearch(token, obj, property, value) {
+  if (!value) return "";
+  const res = hubspotFetch(token, "post", "/crm/v3/objects/" + obj + "/search",
+    { filterGroups: [{ filters: [{ propertyName: property, operator: "EQ", value: value }] }], limit: 1 });
+  return res.results && res.results.length ? String(res.results[0].id) : "";
+}
+
+function hubspotAssociate(token, fromObj, fromId, toObj, toId) {
+  if (fromId && toId) hubspotFetch(token, "put", "/crm/v4/objects/" + fromObj + "/" + fromId + "/associations/default/" + toObj + "/" + toId);
+}
+
+// Skickar kund + affär för en offert. Returnerar nytt HubSpot-tillstånd; kastar aldrig.
+function hubspotSyncOffer(o, settings) {
+  const brand = cleanBrand(o.brand) || guessBrand(o);
+  const account = (BRANDS[brand] || BRANDS.lpv).hubspot;
+  const prev = o.hubspot && o.hubspot.account === account ? o.hubspot : {};
+  const state = { account: account, contactId: prev.contactId || "", companyId: prev.companyId || "", dealId: prev.dealId || "" };
+  const token = hubspotTokenFor(brand);
+  if (!token) return Object.assign(state, { status: "väntar", at: nowStamp(), message: "Ingen HubSpot-nyckel för " + BRANDS[brand].label + " ännu." });
+  try {
+    hubspotEnsureSchema(token, account);
+    const label = BRANDS[brand].label;
+    const email = /@/.test(o.email) ? o.email.toLowerCase() : "";
+    const isNew = !state.contactId && !state.companyId;
+
+    if (o.customerType === "foretag") {
+      if (!state.companyId) state.companyId = hubspotSearch(token, "companies", "name", o.customerName);
+      const companyProps = { name: o.customerName, phone: o.phone, address: o.site };
+      if (isNew) companyProps.varumarke = label;
+      state.companyId = hubspotUpsert(token, "companies", state.companyId, companyProps);
+    }
+    if (o.customerType !== "foretag" || email) {
+      if (!state.contactId) state.contactId = hubspotSearch(token, "contacts", "email", email);
+      const parts = o.customerType === "foretag" ? [] : String(o.customerName).split(/\s+/);
+      const contactProps = { phone: o.phone, address: o.site };
+      if (email) contactProps.email = email;
+      if (parts.length) { contactProps.firstname = parts[0]; contactProps.lastname = parts.slice(1).join(" "); }
+      if (o.customerType === "foretag") contactProps.company = o.customerName;
+      if (isNew) contactProps.varumarke = label;
+      state.contactId = hubspotUpsert(token, "contacts", state.contactId, contactProps);
+    }
+
+    const totals = computeOfferTotals(o, settings);
+    const dealProps = {
+      dealname: o.id + " – " + (o.title || o.customerName), amount: String(totals.net), pipeline: "default",
+      dealstage: HUBSPOT_STAGES[o.status] || "contractsent", varumarke: label,
+      description: [o.site, o.pdfId ? "PDF: https://drive.google.com/file/d/" + o.pdfId + "/view" : ""].filter(Boolean).join("\n")
+    };
+    if (o.status === "godkänd" || o.status === "avböjd") dealProps.closedate = new Date().toISOString();
+    const hadDeal = !!state.dealId;
+    try { state.dealId = hubspotUpsert(token, "deals", state.dealId, dealProps); }
+    catch (err) {
+      if (err.code !== 400) throw err;
+      // Egen pipeline i HubSpot: spara utan fas hellre än inte alls
+      delete dealProps.pipeline; delete dealProps.dealstage;
+      state.dealId = hubspotUpsert(token, "deals", state.dealId, dealProps);
+    }
+    if (!hadDeal) {
+      hubspotAssociate(token, "deals", state.dealId, "contacts", state.contactId);
+      hubspotAssociate(token, "deals", state.dealId, "companies", state.companyId);
+      hubspotAssociate(token, "contacts", state.contactId, "companies", state.companyId);
+    }
+    return Object.assign(state, { status: "ok", at: nowStamp(), message: "" });
+  } catch (err) {
+    return Object.assign(state, { status: "fel", at: nowStamp(), message: String(err.message || err).slice(0, 300) });
+  }
+}
+
+// Synkar en offert och sparar resultatet i arket. Fel i HubSpot stoppar aldrig offertflödet.
+function syncOfferToHubspot(sheet, o, settings) {
+  if (!o.sent) return o.hubspot || {};
+  o.hubspot = hubspotSyncOffer(o, settings || getOfferSettings());
+  o.brand = cleanBrand(o.brand) || guessBrand(o);
+  o.brandSet = true; // varumärket låses när offerten har skickats
+  writeOfferExtras(sheet, o.id, o.brand, o.hubspot);
+  return o.hubspot;
+}
+
+// "Skicka väntande till HubSpot": skickade offerter som inte är synkade (max 25 per tryck)
+function handleHubspotSyncPending() {
+  const sheet = getOfferSheet();
+  const settings = getOfferSettings();
+  const rows = sheet.getDataRange().getValues();
+  let done = 0, failed = 0, waiting = 0, remaining = 0;
+  const errors = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    const o = offerFromRow(rows[i]);
+    if (!o.sent || o.hubspot.status === "ok" || !hubspotTokenFor(o.brand)) {
+      if (o.sent && o.hubspot.status !== "ok") waiting++;
+      continue;
+    }
+    if (done + failed >= 25) { remaining++; continue; }
+    const s = syncOfferToHubspot(sheet, o, settings);
+    if (s.status === "ok") done++; else { failed++; errors.push(o.id + ": " + s.message); }
+  }
+  return createJsonResponse({ status: "success", synced: done, failed: failed, waiting: waiting, remaining: remaining,
+    errors: errors.slice(0, 5), brands: hubspotBrandInfo() });
 }
 
 // ==========================================

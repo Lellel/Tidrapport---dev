@@ -233,6 +233,21 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] När inget saknas: "✅ Alla kort har storlek – redo att generera slingor"
 - [ ] Fliken **Fastigheter** i arket stämmer
 
+## 10c. Varumärken & HubSpot (kräver ny Kod.gs uppladdad)
+
+- [ ] Kör `godkannBehorigheter` i Apps Script → loggen visar "✅ HubSpot FASAD: nyckeln fungerar"
+- [ ] Ny vanlig offert → varumärke LPV är förvalt; lägg till fasadmått → byter till Fasadmålarna
+- [ ] Välj Klaryta själv → ligger kvar efter Spara och omladdning
+- [ ] Offertlistan har filter per varumärke, och varje kort visar varumärket
+- [ ] Skicka en fasadoffert till dig själv → 🟢 på kortet; i HubSpot finns kontakten och en affär i fasen "Kontrakt skickat" med Varumärke = Fasadmålarna
+- [ ] Skicka en LPV-offert → hamnar i fasadmålarnas HubSpot med Varumärke = LPV
+- [ ] Skicka en Klaryta- eller linjeoffert (ingen nyckel än) → ⏳ på kortet, offerten skickas ändå till kunden
+- [ ] Godkänn offerten via kundlänken → affären blir "Vunnen" i HubSpot
+- [ ] Makulera en skickad offert → affären blir "Förlorad"
+- [ ] Samma kund (samma e-post) två gånger → en kontakt i HubSpot, två affärer
+- [ ] ⚙️ Priser & inställningar → HubSpot-rutan visar vilka varumärken som är kopplade och antal väntande
+- [ ] I kalkylarket "Offerter": kolumnerna Varumärke och HubSpot finns efter Fakturerad, och Fakturerad fungerar som förut
+
 ## 10b. Ekonomi – fakturaunderlag
 
 Öppnas via sidomenyn → **💰 Ekonomi** (eller admin-panelen).
