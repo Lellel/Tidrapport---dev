@@ -137,12 +137,14 @@ function doPost(e) {
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
-    // Bara admin på LPV: behörigheter till andra bolag, inställningar, importer, HubSpot och snöplaneringen
-    const lpvAdminOnly = ["saveOfferSettings", "importCustomers", "hubspotImport", "hubspotSyncPending",
-      "saveSnowZone", "deleteSnowZone", "setSlingaDrivers", "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "importProperties"];
+    // Bara admin på LPV: inställningar, importer, HubSpot och stallregistret. (Snöplaneringen är gemensam.)
+    const lpvAdminOnly = ["saveOfferSettings", "importCustomers", "hubspotImport", "hubspotSyncPending", "saveStall", "addStallPhoto", "robotAlarm"];
     if (lpvAdminOnly.indexOf(action) !== -1 && !auth.isSuper) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör på LPV." });
+    }
+    // Stalltvätten är LPV:s: bara LPV:s personal ser stallen och styr roboten
+    if (["getStalls", "setRobotRow"].indexOf(action) !== -1 && auth.company !== "LPV") {
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: stalltvätten hör till LPV." });
     }
     const economyOnly = ["getInvoiceBasis", "markInvoiced", "invoicePdf"];
     if (economyOnly.indexOf(action) !== -1 && !auth.isAdmin && !auth.isEconomist) {

@@ -120,7 +120,9 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
 - [ ] Admin på LPV ser allt: alla offerter, kunder, pass i Ekonomi, radarn, snöplanering, inställningar
 - [ ] Admin på Klaryta: ser bara Klarytas offerter, kunder, pass, radarjobb och personal; nya offerter blir alltid Klaryta
-- [ ] Admin på Klaryta: Snöplanering och Rita snözoner syns inte i menyn; fliken ⚙️ Inställningar och importknapparna syns inte
+- [ ] Snöplaneringen är gemensam: admin på Klaryta kommer åt Snöplanering och Rita snözoner
+- [ ] Stalltvätten är LPV:s: Klarytas personal får ingen 📋 Arbetsorder och ingen robotlarmbanner; stallregister och robotlarm bara admin på LPV
+- [ ] Admin på Klaryta: fliken ⚙️ Inställningar och importknapparna syns inte
 - [ ] Admin på Klaryta kan lägga till förare/UE (hamnar i Klaryta) men inte ge admin- eller ekonombehörighet
 - [ ] Admin på Klaryta kan skapa inloggningslänk för Klarytas förare, men inte för LPV:s personal
 - [ ] Ekonom på Klaryta ser bara Klarytas pass/offerter/kunder i Ekonomi – och tvärtom för ekonom på LPV

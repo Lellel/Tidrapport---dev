@@ -16,7 +16,9 @@
   const hhmm = (ms) => { const d = new Date(ms - clockOffset); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
   const dur = (min) => { const h = Math.floor(min / 60), m = Math.round(min % 60); return h ? `${h} h${m ? ' ' + m + ' min' : ''}` : `${m} min`; };
 
-  window.isStallWash = (d) => /tv[äa]tt|sanering|högtryck/i.test(`${d.activity || ''} ${d.place || ''}`);
+  // Stalltvätten är LPV:s – Klarytas personal får ingen arbetsorder eller larmbanner
+  const isLpv = () => store.get('lpv_company') !== 'Klaryta';
+  window.isStallWash = (d) => isLpv() && /tv[äa]tt|sanering|högtryck/i.test(`${d.activity || ''} ${d.place || ''}`);
 
   async function loadStalls() {
     try {
@@ -207,7 +209,7 @@
 
   // ---------- LARMBANNER (admin): okvitterade robotlarm syns överst i appen ----------
   async function checkRobotAlarms() {
-    if (!admin() || !navigator.onLine) return;
+    if (!admin() || !isLpv() || store.get('lpv_is_super') === 'false' || !navigator.onLine) return;
     await loadStalls();
     const open = [];
     (stalls || []).forEach(st => ((st.robotState || {}).rows || []).forEach((row, r) => {
