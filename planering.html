@@ -690,7 +690,7 @@
 
     mapCtl = snoCreateMap('map');
     map = mapCtl.map;
-    map.setZoom(11);
+    map.setZoom(11, { animate: false }); // utan animering, annars kan den skriva över fitToProperties
     map.on('click', onMapClick);
     render();
     if (!snoIsAdmin()) { message = '⚠️ Snöplaneringen är bara för admin. Logga in med din admin-länk.'; render(); }
