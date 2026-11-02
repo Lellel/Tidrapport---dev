@@ -1205,7 +1205,7 @@ function handleSetRobotRow(data, user) {
 // ==========================================
 const EK_TEMPLATES = {
   fasad: {
-    name: "Egenkontroll – fasadmålning", version: 1, match: "fasad|målning|måla|fönster|snickeri",
+    name: "Egenkontroll – fasadmålning", version: 1, match: "fasad|målning|måla|fönster|snickeri", exclude: "linje",
     sections: [
       { id: "fore", title: "Före start", items: [
         { id: "underlag", type: "check", label: "Underlaget är tvättat och fritt från smuts, mögel och alger", req: true },
@@ -1244,6 +1244,104 @@ const EK_TEMPLATES = {
         { id: "genomgang", type: "check", label: "Slutgenomgång gjord med kunden" }
       ] }
     ]
+  },
+  linje: {
+    name: "Egenkontroll – linjemålning", version: 1, match: "linje|p-plats|parkering|vägmarkering",
+    sections: [
+      { id: "fore", title: "Före start", items: [
+        { id: "ta", type: "check", label: "Avstängning/TA-plan enligt beställningen – skyltar och avspärrning är på plats", req: true },
+        { id: "matt", type: "check", label: "Utsättning och mått är kontrollerade mot ritningen", req: true },
+        { id: "underlag", type: "check", label: "Ytan är sopad, torr och fri från grus, löv, olja och is", req: true },
+        { id: "gammal", type: "check", label: "Gammal markering är borttagen eller godkänd att måla över", req: true },
+        { id: "lufttemp", type: "number", label: "Lufttemperatur", unit: "°C", min: 5, req: true, help: "Följ produktbladet – kallplast och vissa färger kräver högre temperatur." },
+        { id: "yttemp", type: "number", label: "Yttemperatur på asfalten", unit: "°C", min: 5, req: true },
+        { id: "rf", type: "number", label: "Relativ luftfuktighet", unit: "%", max: 85 },
+        { id: "produkt", type: "text", label: "Material och kulör", req: true, help: "T.ex. vägmarkeringsfärg vit, termoplast, glaspärlor" },
+        { id: "batch", type: "text", label: "Tillverkningsnummer (batch)" },
+        { id: "foto_fore", type: "photo", label: "Foton före start", req: true }
+      ] },
+      { id: "utf", title: "Utförande", items: [
+        { id: "datum", type: "date", label: "Datum", req: true },
+        { id: "platser", type: "number", label: "Antal p-platser", unit: "st" },
+        { id: "meter", type: "number", label: "Linje totalt", unit: "m" },
+        { id: "bredd", type: "number", label: "Linjebredd", unit: "mm", req: true },
+        { id: "atgang", type: "number", label: "Materialåtgång", unit: "liter/kg" },
+        { id: "parlor", type: "check", label: "Glaspärlor är påförda enligt beställningen" },
+        { id: "torktid", type: "check", label: "Ytan var avstängd tills markeringen var torr", req: true }
+      ] },
+      { id: "efter", title: "Slutkontroll", items: [
+        { id: "linjer", type: "check", label: "Raka, jämna linjer med skarpa kanter – mått enligt ritningen", req: true },
+        { id: "symboler", type: "check", label: "Symboler och text (HCP, elbil, pilar) är utförda enligt beställningen" },
+        { id: "stadning", type: "check", label: "Avstängning borttagen, städat, material- och färgrester omhändertagna", req: true },
+        { id: "foto_efter", type: "photo", label: "Foton efter (samma vinklar som före)", req: true },
+        { id: "kund", type: "check", label: "Kunden är informerad om att ytan är klar" }
+      ] }
+    ]
+  },
+  sno: {
+    name: "Egenkontroll – snöröjning och halkbekämpning", version: 1, match: "snö|plog|sand|halk|salt",
+    sections: [
+      { id: "pass", title: "Passet", items: [
+        { id: "datum", type: "date", label: "Datum", req: true },
+        { id: "tid", type: "text", label: "Klockslag (start–slut)", req: true, help: "T.ex. 04:30–06:15" },
+        { id: "snodjup", type: "number", label: "Snödjup när du kom", unit: "cm" },
+        { id: "vader", type: "select", label: "Väglag", options: ["Snö", "Snömodd", "Is/halka", "Underkylt regn", "Torrt"], req: true }
+      ] },
+      { id: "atgard", title: "Åtgärder", items: [
+        { id: "plogat", type: "check", label: "Plogat enligt avtalet (körytor, parkering, infarter)", req: true },
+        { id: "gangytor", type: "check", label: "Gångytor, trappor och entréer är skottade" },
+        { id: "sandat", type: "check", label: "Sandat/saltat där det behövs" },
+        { id: "material", type: "text", label: "Material och ungefärlig mängd", help: "T.ex. sand 0–4, 2 skopor" },
+        { id: "upplag", type: "check", label: "Snön är lagd där det är tillåtet – skymmer inte sikt, brandvägar eller brunnar", req: true }
+      ] },
+      { id: "kontroll", title: "Kontroll", items: [
+        { id: "skador", type: "check", label: "Inga skador på fastighet, bilar eller utrustning", req: true, help: "Svara Nej om något skadats – skriv vad och vem som informerats." },
+        { id: "hinder", type: "check", label: "Inga hinder eller risker lämnade (snövallar vid övergångar, halka kvar)", req: true },
+        { id: "foto", type: "photo", label: "Foto efter (rekommenderas – bra underlag vid halkolyckor)" }
+      ] }
+    ]
+  },
+  risk: {
+    name: "Riskbedömning – arbetsmiljö", version: 1, always: true,
+    sections: [
+      { id: "arbete", title: "Arbetet", items: [
+        { id: "info", type: "info", label: "Gör riskbedömningen före ett nytt arbete, på en ny plats eller när något ändras. Svara Nej om risken inte är omhändertagen – skriv då vad som görs innan start." },
+        { id: "moment", type: "textarea", label: "Vad ska göras?", req: true }
+      ] },
+      { id: "risker", title: "Risker", items: [
+        { id: "fall", type: "check", label: "Fall från höjd: ställning, lift eller stege är kontrollerad och fallskydd används", req: true },
+        { id: "trafik", type: "check", label: "Trafik: avspärrning, varselkläder och säkert avstånd till fordon", req: true },
+        { id: "maskin", type: "check", label: "Maskiner och verktyg: kontrollerade, skydd på plats, behörighet finns", req: true },
+        { id: "kemi", type: "check", label: "Kemikalier: säkerhetsdatablad finns, rätt skyddsutrustning används", req: true },
+        { id: "buller", type: "check", label: "Buller, damm och vibrationer: hörsel- och andningsskydd används", req: true },
+        { id: "ledningar", type: "check", label: "Grävning: ledningsanvisning finns, kablar och rör är utmärkta", req: true },
+        { id: "vader", type: "check", label: "Väder, kyla, värme och halka är omhändertaget", req: true },
+        { id: "ensam", type: "check", label: "Ensamarbete: någon vet var du är och när du ska vara klar", req: true },
+        { id: "forsta", type: "check", label: "Första hjälpen och brandsläckare finns på plats", req: true },
+        { id: "ovrigt", type: "textarea", label: "Andra risker och vad som görs åt dem" }
+      ] },
+      { id: "bedomning", title: "Bedömning", items: [
+        { id: "niva", type: "select", label: "Samlad risknivå efter åtgärderna", options: ["Låg", "Medel", "Hög"], devOptions: ["Hög"], req: true,
+          help: "Hög = arbetet får inte starta förrän risken är åtgärdad." }
+      ] }
+    ]
+  },
+  tillbud: {
+    name: "Tillbud, olycka eller riskobservation", version: 1, free: true, notify: true,
+    sections: [
+      { id: "handelse", title: "Händelsen", items: [
+        { id: "info", type: "info", label: "Allvarliga olyckor och allvarliga tillbud ska anmälas till Arbetsmiljöverket utan dröjsmål. Ring arbetsledningen direkt – rapporten här ersätter inte det." },
+        { id: "typ", type: "select", label: "Vad gäller det?", options: ["Riskobservation", "Tillbud (nära olycka)", "Olycka med skada"], req: true },
+        { id: "datum", type: "date", label: "Datum", req: true },
+        { id: "tid", type: "text", label: "Klockslag", req: true },
+        { id: "plats", type: "text", label: "Plats", req: true },
+        { id: "vad", type: "textarea", label: "Vad hände eller vad såg du?", req: true },
+        { id: "skada", type: "select", label: "Personskada?", options: ["Nej", "Lindrig", "Allvarlig"], req: true },
+        { id: "orsak", type: "textarea", label: "Varför tror du att det hände?" },
+        { id: "forslag", type: "textarea", label: "Vad kan vi göra så att det inte händer igen?" },
+        { id: "foto", type: "photo", label: "Foto (om det går)" }
+      ] }
+    ]
   }
 };
 
@@ -1272,10 +1370,12 @@ function ekCheck(tpl, answers) {
     const key = sec.id + "." + it.id;
     const a = answers[key] || {};
     const v = a.v;
+    if (it.type === "info") return;
     const empty = it.type === "photo" ? !(a.photos && a.photos.length) : (v === undefined || v === null || v === "");
     if (empty) { if (it.req) missing.push(sec.title + ": " + it.label); return; }
     let dev = false;
     if (it.type === "check" && v === "nej") dev = true;
+    if (it.type === "select" && (it.devOptions || []).indexOf(v) !== -1) dev = true;
     if (it.type === "number") {
       const n = Number(String(v).replace(",", "."));
       if ((it.min !== undefined && n < it.min) || (it.max !== undefined && n > it.max)) dev = true;
@@ -1321,7 +1421,9 @@ function handleSaveEk(input, user) {
     if (it.type === "check") v = ["ja", "nej", "ea"].indexOf(v) !== -1 ? v : "";
     else if (it.type === "number") v = v === "" || v === null || v === undefined ? "" : String(v).replace(",", ".").replace(/[^0-9.\-]/g, "").slice(0, 12);
     else if (it.type === "date") v = /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? v : "";
-    else v = sanitize(v).slice(0, 500);
+    else if (it.type === "select") v = (it.options || []).indexOf(v) !== -1 ? v : "";
+    else if (it.type === "info") return;
+    else v = sanitize(v).slice(0, it.type === "textarea" ? 2000 : 500);
     answers[key] = { v: v, note: sanitize(a.note).slice(0, 1000), photos: (Array.isArray(a.photos) ? a.photos : []).map(photoId).filter(Boolean).slice(0, 12),
       by: sanitize(user), at: nowStamp() };
   });
@@ -1355,21 +1457,35 @@ function handleSignEk(data, user) {
   let pdfNote = "";
   try { e.pdfId = buildEkPdf(e, tpl, check).getId(); } catch (err) { pdfNote = "PDF kunde inte skapas: " + err.message; }
   upsertById(sheet, ekToRow(e));
+  // Tillbud m.m.: arbetsledningen får det direkt
+  if (tpl.notify) {
+    try {
+      const to = CONFIG.ADMIN_EMAIL || Session.getEffectiveUser().getEmail();
+      const a = (k) => ((e.answers[k] || {}).v || "");
+      if (to) MailApp.sendEmail({ to: to, subject: "⚠️ " + (a("handelse.typ") || tpl.name) + " – rapport från " + sanitize(user),
+        body: tpl.name + " (" + e.id + ")\n\nTyp: " + a("handelse.typ") + "\nNär: " + a("handelse.datum") + " " + a("handelse.tid") + "\nPlats: " + a("handelse.plats") +
+          "\nPersonskada: " + a("handelse.skada") + "\n\nVad hände:\n" + a("handelse.vad") + "\n\nOrsak:\n" + a("handelse.orsak") + "\n\nFörslag:\n" + a("handelse.forslag") +
+          (e.pdfId ? "\n\nPDF: https://drive.google.com/file/d/" + e.pdfId + "/view" : ""),
+        attachments: e.pdfId ? [DriveApp.getFileById(e.pdfId).getBlob()] : [] });
+    } catch (err) { pdfNote = (pdfNote ? pdfNote + " " : "") + "Mejlet till arbetsledningen kunde inte skickas: " + err.message; }
+  }
   return createJsonResponse({ status: "success", item: ekFromRow(ekToRow(e)), pdfNote: pdfNote });
 }
 
 function buildEkPdf(e, tpl, check) {
   const settings = getOfferSettings();
   const valueText = (it, a) => it.type === "check" ? ({ ja: "✔ Ja", nej: "✘ Nej", ea: "Ej aktuellt" }[a.v] || "–")
-    : it.type === "photo" ? ((a.photos || []).length + " foto") : escapeHtml(a.v === undefined || a.v === "" ? "–" : a.v + (it.unit ? " " + it.unit : ""));
+    : it.type === "photo" ? ((a.photos || []).length + " foto")
+    : it.type === "textarea" ? "" : escapeHtml(a.v === undefined || a.v === "" ? "–" : a.v + (it.unit ? " " + it.unit : ""));
   const devKeys = {};
   check.deviations.forEach(d => { devKeys[d.key] = true; });
   const photos = [];
-  const sections = tpl.sections.map(sec => "<h2>" + escapeHtml(sec.title) + "</h2><table>" + sec.items.map(it => {
+  const sections = tpl.sections.map(sec => "<h2>" + escapeHtml(sec.title) + "</h2><table>" + sec.items.filter(it => it.type !== "info").map(it => {
     const key = sec.id + "." + it.id;
     const a = e.answers[key] || {};
     (a.photos || []).forEach(p => photos.push({ id: p, label: sec.title + ": " + it.label }));
-    return "<tr" + (devKeys[key] ? " class='dev'" : "") + "><td>" + escapeHtml(it.label) + (a.note ? "<div class='note'>" + (devKeys[key] ? "Åtgärd: " : "") + escapeHtml(a.note) + "</div>" : "") +
+    return "<tr" + (devKeys[key] ? " class='dev'" : "") + "><td>" + escapeHtml(it.label) +
+      (it.type === "textarea" ? "<div class='long'>" + escapeHtml(a.v || "–").replace(/\n/g, "<br>") + "</div>" : "") + (a.note ? "<div class='note'>" + (devKeys[key] ? "Åtgärd: " : "") + escapeHtml(a.note) + "</div>" : "") +
       "</td><td class='v'>" + valueText(it, a) + "</td><td class='who'>" + escapeHtml(a.by || "") + "<br>" + escapeHtml(a.at || "") + "</td></tr>";
   }).join("") + "</table>").join("");
   const photoHtml = photos.slice(0, 24).map(p => {
@@ -1380,7 +1496,7 @@ function buildEkPdf(e, tpl, check) {
   }).join("");
   const html = "<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:11px;color:#111}h1{font-size:18px;margin:0}h2{font-size:13px;margin:14px 0 4px;border-bottom:1px solid #999}" +
     "table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:4px;vertical-align:top}.v{width:26%;font-weight:bold}.who{width:110px;color:#666;font-size:9px}" +
-    ".dev td{background:#fde8e8}.note{color:#444;font-style:italic;margin-top:2px}.ph{display:inline-block;width:23%;margin:3px;vertical-align:top;font-size:8px}.ph img{width:100%}.muted{color:#666}</style></head><body>" +
+    ".dev td{background:#fde8e8}.note{color:#444;font-style:italic;margin-top:2px}.long{margin-top:3px;font-weight:bold}.ph{display:inline-block;width:23%;margin:3px;vertical-align:top;font-size:8px}.ph img{width:100%}.muted{color:#666}</style></head><body>" +
     "<h1>" + escapeHtml(tpl.name) + "</h1><p>" + escapeHtml(settings.companyName) + (settings.companyOrgNr ? " · " + escapeHtml(settings.companyOrgNr) : "") + "</p>" +
     "<p><b>Kund:</b> " + escapeHtml(e.customer || "–") + " &nbsp; <b>Plats:</b> " + escapeHtml(e.place || "–") + (e.link ? " &nbsp; <b>Uppdrag:</b> " + escapeHtml(e.link) : "") +
     "<br><b>Egenkontroll:</b> " + escapeHtml(e.id) + " (mall version " + e.version + ") &nbsp; <b>Påbörjad:</b> " + escapeHtml(e.created) + " av " + escapeHtml(e.createdBy) + "</p>" +

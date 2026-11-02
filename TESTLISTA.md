@@ -67,9 +67,11 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Stall utan steg visar "Instruktioner saknas"
 - [ ] Bocka av steg → bockarna ligger kvar när arbetsordern öppnas igen
 
-## 0e. Egenkontroll – fasadmålning (kräver ny Kod.gs)
+## 0e. Egenkontroll (kräver ny Kod.gs)
 
-- [ ] Ett pass med aktiviteten Fasadmålning (eller fönster/snickeri) har knappen **✅ Egenkontroll** – linjemålning har det inte (egen mall kommer)
+**Fasadmålning:**
+
+- [ ] Alla pass har **✅ Egenkontroll**; ett fasadpass visar valet "Egenkontroll – fasadmålning" + "Riskbedömning"
 - [ ] Startat från ett planerat jobb (godkänd offert) → kund och offertnummer är ifyllda
 - [ ] Ja/Nej/Ej aktuellt, mätvärden, text, datum och foto går att fylla i; "Sparat ✓" visas
 - [ ] Fuktkvot över 18 %, temperatur under 5 °C, luftfuktighet över 80 % eller "Nej" → punkten blir röd och kräver en åtgärd
@@ -79,6 +81,16 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Efter signering: PDF i Drive-mappen Egenkontroller med alla punkter, avvikelser i rött, foton och signatur; kontrollen går inte att ändra
 - [ ] Admin: **📂 Alla egenkontroller** listar alla; förare ser bara sina egna
 - [ ] Fliken Egenkontroller i kalkylarket
+
+**Linjemålning & snöröjning:**
+- [ ] Linjepass → mallen linjemålning (TA-plan, mått mot ritning, yttemperatur, linjebredd, glaspärlor, torktid)
+- [ ] Snöpass → mallen snöröjning (tid, väglag, plogat, gångytor, sandat, snöupplag, skador)
+
+**Arbetsmiljö:**
+- [ ] Riskbedömning finns för alla pass; "Nej" eller risknivå **Hög** kräver åtgärd
+- [ ] **⚠️ Rapportera tillbud eller olycka** syns på startsidan även innan packlistan är avbockad
+- [ ] Signerad tillbudsrapport → mejl till arbetsledningen med PDF
+- [ ] Öppna en kontroll och stäng utan att ändra → ingen tom kontroll skapas
 
 ## 1. Inloggning med personlig länk
 
