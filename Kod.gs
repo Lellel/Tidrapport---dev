@@ -89,7 +89,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -132,7 +132,8 @@ function doPost(e) {
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
-      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers"];
+      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers",
+      "saveStall", "addStallPhoto"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -151,6 +152,10 @@ function doPost(e) {
     // --- ROUTER ---
     if (action === "getKabanossData") return handleGetKabanossData();
     if (action === "getJobs") return handleGetJobs(data, auth);
+    if (action === "getStalls") return handleGetStalls();
+    if (action === "saveStall") return handleSaveStall(data.stall, auth.user);
+    if (action === "addStallPhoto") return handleAddStallPhoto(data.imageBase64);
+    if (action === "setRobotRow") return handleSetRobotRow(data, auth.user);
     if (action === "saveKabanossJob") return handleSaveKabanossJob(data);
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
@@ -1026,6 +1031,130 @@ function handleGetJobs(data, auth) {
 
   events.sort((a, b) => (a.isBuffer - b.isBuffer) || String(a.start || "99").localeCompare(String(b.start || "99")));
   return createJsonResponse({ status: "success", date: dateText, events: events, notes: notes });
+}
+
+// ==========================================
+// 4c3. STALLREGISTER & STALLTVÄTT (arbetsorder i Tidrapport-appen)
+// Ett stall = rader × boxar, minuter per box, om tvättroboten används, och en
+// arbetsorder med steg (text + bild) som admin skriver. Robotens läge sparas
+// per rad: { start (ms), from (box roboten startade på), paused (ms|null) }.
+// Appen räknar ut vilka boxar som är klara: from + (nu - start) / min per box.
+// ==========================================
+const STALL_HEADERS = ["Stall-ID", "Namn", "Site", "Rader", "Boxar per rad", "Min per box", "Robot",
+  "Instruktioner (JSON)", "Robotläge (JSON)", "Uppdaterad", "Uppdaterad av"];
+const DEFAULT_STALLS = ["Stall 1", "Stall 2", "Stall 5BB", "Stall 5TV", "Stall 6BBTV", "Stall 7BB (Site 2)", "Stall 7TV (Site 2)", "Seminstall (Site 2)"];
+
+function getStallSheet() {
+  const ss = getSS();
+  let sheet = ss.getSheetByName("Stallregister");
+  if (!sheet) {
+    sheet = getSheetOrCreate(ss, "Stallregister", STALL_HEADERS);
+    // Samma stall som i Blacksta: 4 rader × 23 boxar, 20 min per box med roboten
+    DEFAULT_STALLS.forEach((name, i) => sheet.appendRow(["S" + (i + 1), name, /Site 2/.test(name) ? "Site 2" : "Site 1", 4, 23, 20, "ja", "[]", "{}", nowStamp(), "start"]));
+  }
+  return sheet;
+}
+
+function parseJsonCell(cell, fallback) {
+  try { const v = JSON.parse(cell || ""); return v && typeof v === "object" ? v : fallback; } catch (e) { return fallback; }
+}
+
+function stallFromRow(r) {
+  const steps = parseJsonCell(r[7], []);
+  return {
+    id: String(r[0]), name: String(r[1] || ""), site: String(r[2] || ""),
+    rows: Math.max(1, Number(r[3]) || 4), boxesPerRow: Math.max(1, Number(r[4]) || 23), minPerBox: Math.max(1, Number(r[5]) || 20),
+    robot: String(r[6]).toLowerCase() !== "nej",
+    steps: (Array.isArray(steps) ? steps : []).map(s => ({ text: String(s.text || ""), photoId: String(s.photoId || ""), photoUrl: driveImageUrl(s.photoId) })),
+    robotState: parseJsonCell(r[8], {}),
+    updated: String(r[9] || ""), updatedBy: String(r[10] || "")
+  };
+}
+
+function handleGetStalls() {
+  const rows = getStallSheet().getDataRange().getValues();
+  const stalls = [];
+  for (let i = 1; i < rows.length; i++) if (rows[i][0]) stalls.push(stallFromRow(rows[i]));
+  return createJsonResponse({ status: "success", stalls: stalls, serverNow: Date.now() });
+}
+
+function handleSaveStall(input, user) {
+  if (!input) return createJsonResponse({ status: "error", message: "Inget stall skickades." });
+  const sheet = getStallSheet();
+  const hit = input.id ? findRowById(sheet, input.id) : null;
+  const old = hit ? stallFromRow(hit.row) : null;
+  const name = sanitize(input.name).slice(0, 60);
+  if (!name) return createJsonResponse({ status: "error", message: "Ange stallets namn." });
+  const num = (v, min, max, def) => { const n = Math.round(Number(v)); return isFinite(n) && n >= min ? Math.min(max, n) : def; };
+  const photoId = (v) => /^[A-Za-z0-9_-]{10,100}$/.test(String(v || "")) ? String(v) : "";
+  const steps = (Array.isArray(input.steps) ? input.steps : []).slice(0, 40)
+    .map(s => ({ text: sanitize(s.text).slice(0, 1000), photoId: photoId(s.photoId) })).filter(s => s.text || s.photoId);
+  let id = old ? old.id : "";
+  if (!id) {
+    const rows = sheet.getDataRange().getValues();
+    let max = 0;
+    for (let i = 1; i < rows.length; i++) max = Math.max(max, Number(String(rows[i][0]).replace(/\D/g, "")) || 0);
+    id = "S" + (max + 1);
+  }
+  const row = [id, name, sanitize(input.site).slice(0, 40), num(input.rows, 1, 20, 4), num(input.boxesPerRow, 1, 100, 23),
+    num(input.minPerBox, 1, 600, 20), input.robot === false ? "nej" : "ja", JSON.stringify(steps),
+    JSON.stringify(old ? old.robotState : {}), nowStamp(), sanitize(user)];
+  upsertById(sheet, row);
+  return createJsonResponse({ status: "success", stall: stallFromRow(row) });
+}
+
+function handleAddStallPhoto(imageBase64) {
+  if (!imageBase64 || String(imageBase64).length > 8000000) return createJsonResponse({ status: "error", message: "Bilden saknas eller är för stor." });
+  const fileId = saveImageToDrive(imageBase64, "Stallbilder", "stall_" + Date.now() + ".jpg");
+  return createJsonResponse({ status: "success", photo: { id: fileId, url: driveImageUrl(fileId) } });
+}
+
+function logRobotAlarmReport(stall, rowIndex, alarm, place, user) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const fmt = (ms, f) => Utilities.formatDate(new Date(ms), tz, f);
+  const start = fmt(alarm.at, "HH:mm"), end = fmt(alarm.cleared, "HH:mm");
+  const sheet = getSheetOrCreate(getSS(), CONFIG.SHEET_REPORTS || "Tidrapporter", ["Datum", "Fakturerad", "Plats", "Aktivitet", "Start", "Slut", "Total", "Tidsstämpel", "Användare", "Notering", "Bolag"]);
+  sheet.appendRow([fmt(alarm.at, "yyyy-MM-dd"), "Nej", sanitize(place) || "Blacksta", "Robotlarm", start, end,
+    formatDuration(start, end, ((alarm.cleared - alarm.at) / 3600000).toFixed(2)), fmt(Date.now(), "yyyy-MM-dd HH:mm:ss"), sanitize(user),
+    "Stillestånd tvättrobot: " + stall.name + ", rad " + (rowIndex + 1) + ", box " + (alarm.box + 1) + " (larm " + start + ", omstart " + end + ")", "LPV"]);
+}
+
+// Robotens läge för en rad. Tiden sätts av servern så att alla telefoner räknar likadant.
+function handleSetRobotRow(data, user) {
+  const sheet = getStallSheet();
+  const hit = findRowById(sheet, data.stallId);
+  if (!hit) return createJsonResponse({ status: "error", message: "Stallet hittades inte." });
+  const stall = stallFromRow(hit.row);
+  const rowIndex = Math.round(Number(data.row));
+  if (!(rowIndex >= 0 && rowIndex < stall.rows)) return createJsonResponse({ status: "error", message: "Raden finns inte." });
+  const now = Date.now();
+  const state = stall.robotState && typeof stall.robotState === "object" ? stall.robotState : {};
+  const rows = Array.isArray(state.rows) ? state.rows : [];
+  const cur = rows[rowIndex] || {};
+  const box = Math.min(stall.boxesPerRow, Math.max(0, Math.round(Number(data.box) || 0)));
+  // Var roboten står just nu (för larm: vilken box larmet kom på)
+  const atBox = cur.start ? Math.min(stall.boxesPerRow - 1, Math.floor((cur.from || 0) + ((cur.paused || now) - cur.start) / (stall.minPerBox * 60000))) : 0;
+  const alarms = Array.isArray(cur.alarms) ? cur.alarms.slice(-50) : [];
+  let next;
+  if (data.op === "start") next = { start: now, from: 0, paused: null, alarms: [] };
+  else if (data.op === "setBox") next = { start: now, from: box, paused: cur.paused ? now : null, alarm: !!cur.alarm, alarms: alarms };
+  else if (data.op === "pause" && cur.start && !cur.paused) next = Object.assign({}, cur, { paused: now });
+  // Larm: roboten står still från nu tills någon startar om den. Stilleståndet sparas per larm.
+  else if (data.op === "alarm" && cur.start && !cur.paused) next = Object.assign({}, cur, { paused: now, alarm: true, alarms: alarms.concat([{ at: now, box: atBox, by: sanitize(user) }]) });
+  else if (data.op === "resume" && cur.start && cur.paused) {
+    if (cur.alarm && alarms.length && !alarms[alarms.length - 1].cleared) alarms[alarms.length - 1] = Object.assign({}, alarms[alarms.length - 1], { cleared: now, clearedBy: sanitize(user) });
+    next = Object.assign({}, cur, { start: cur.start + (now - cur.paused), paused: null, alarm: false, alarms: alarms });
+  }
+  else if (data.op === "reset") next = {};
+  else return createJsonResponse({ status: "error", message: "Okänt robotkommando." });
+  next.by = sanitize(user);
+  rows[rowIndex] = next;
+  state.rows = rows;
+  sheet.getRange(hit.rowNumber, 9, 1, 3).setValues([[JSON.stringify(state), nowStamp(), sanitize(user)]]);
+  // Åtgärdat larm = en tidrapport "Robotlarm" från larmet till omstarten, så att stilleståndet hamnar på fakturan
+  const cleared = data.op === "resume" && cur.alarm ? next.alarms[next.alarms.length - 1] : null;
+  if (cleared && cleared.cleared) logRobotAlarmReport(stall, rowIndex, cleared, data.place, user);
+  return createJsonResponse({ status: "success", robotState: state, serverNow: now });
 }
 
 // ==========================================

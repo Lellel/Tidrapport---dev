@@ -75,7 +75,17 @@
       step(4, `Öppna <b>appen från startskärmen</b>. Du är inloggad direkt.`);
   }
 
+  // Appens style.css tvingar ljus text på span/p/strong (mörkt glas) – guiden och bannern har egna färger
+  function ensureStyle() {
+    if (document.getElementById('inst-style')) return;
+    const st = document.createElement('style');
+    st.id = 'inst-style';
+    st.textContent = '#inst-modal span,#inst-modal p,#inst-modal strong,#inst-banner span{color:inherit !important;text-shadow:none !important}';
+    document.head.appendChild(st);
+  }
+
   function render() {
+    ensureStyle();
     let m = document.getElementById('inst-modal');
     if (!m) {
       m = document.createElement('div');
@@ -111,6 +121,7 @@
   function hideBanner() { const b = document.getElementById('inst-banner'); if (b) b.remove(); }
   function showBanner() {
     if (get('lpv_install_banner_hidden') === 'true' || document.getElementById('inst-banner')) return;
+    ensureStyle();
     const b = document.createElement('div');
     b.id = 'inst-banner';
     b.style.cssText = 'display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:#0284c7;color:#fff;font-size:14px;font-weight:700;cursor:pointer;';

@@ -48,6 +48,21 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Byt datum i formuläret → korten för den dagen visas
 - [ ] Logga in som förare → inga planerade jobb syns
 
+## 0d. Stalltvätt – arbetsorder & tvättrobot (kräver ny Kod.gs)
+
+- [ ] Ett pass med aktiviteten Stalltvätt har knappen **📋 Arbetsorder**
+- [ ] Står stallets namn i platsen eller aktiviteten (t.ex. "Stall 7BB") väljs stallet automatiskt, annars kan du välja i listan
+- [ ] Stallet visas som 4 rader × 23 rutor; **▶ Starta** på en rad → första rutan blir gul, sluttid ca 7 h 40 min senare
+- [ ] Rutorna blir gröna i takt med roboten (20 min/box) – kolla igen efter en stund
+- [ ] **🚨 Roboten larmar** → rutan blir röd och blinkar, "står still X min" räknas upp
+- [ ] **✅ Larmet åtgärdat – starta** → roboten fortsätter, sluttiden flyttas fram, boxen får röd kant, "Stillestånd: X min" visas
+- [ ] Efter åtgärdat larm finns en tidrapport **Robotlarm** (larm → omstart) och den syns som egen rad i Ekonomi
+- [ ] Tryck på en ruta → "Står roboten på box N?" → rutorna justeras
+- [ ] Öppna samma stall på en annan telefon → samma färger
+- [ ] Admin: **✏️ Redigera stallet** → lägg in steg med text och foto → sparas och visas för alla
+- [ ] Stall utan steg visar "Instruktioner saknas"
+- [ ] Bocka av steg → bockarna ligger kvar när arbetsordern öppnas igen
+
 ## 1. Inloggning med personlig länk
 
 - [ ] Tryck 3 gånger snabbt på namnet uppe till höger → "Admin-läge aktiverat"

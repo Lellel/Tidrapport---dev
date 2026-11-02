@@ -589,7 +589,9 @@ function renderOutbox() {
     const ataBadge = draft.type === 'ata' ? `<span class="badge-ata">${draft.ataNumber || 'ÄTA'}</span>` : '';
     const photoIcon = (draft.images && draft.images.length > 0) ? `<span style="color:var(--green); margin-left:auto;">📸</span>` : '';
 
-    let actionButtons = isOngoing ? `
+    const woButton = typeof isStallWash === 'function' && isStallWash(draft)
+      ? `<button class="btn-action" onclick="openWorkOrder(${draft.id})" style="color:var(--accent-blue);">📋 Arbetsorder</button>` : '';
+    let actionButtons = woButton + (isOngoing ? `
       <button class="btn-action clock-out" onclick="clockOut(${draft.id})">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
         Stämpla ut nu
@@ -602,7 +604,7 @@ function renderOutbox() {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
         Radera
       </button>
-    `;
+    `);
 
     card.innerHTML = `
       <div class="card-body">
