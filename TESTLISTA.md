@@ -17,6 +17,24 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 
 ---
 
+## 0. Ny användare – lägg appen på hemskärmen
+
+**iPhone (Safari):**
+- [ ] Öppna en ny inloggningslänk → guiden "Välkommen, Namn! 👋" visar iPhone-stegen
+- [ ] Följ stegen (Dela → Lägg till på hemskärmen) → öppna appen från hemskärmen → **du är inloggad** utan att öppna länken igen
+- [ ] I den installerade appen syns varken guiden eller bannern
+- [ ] "Senare" → guiden kommer inte automatiskt igen, men bannern "📲 Lägg appen på hemskärmen" finns och öppnar den
+- [ ] ✕ på bannern döljer den
+
+**Android (Chrome):**
+- [ ] Öppna en ny inloggningslänk → guiden visar Android-stegen (ofta med knappen 📲 Installera appen)
+- [ ] Installera → öppna från startskärmen → inloggad
+- [ ] Öppna länken i Chrome igen efter installation → ingen guide
+
+**Ska inte synas:**
+- [ ] På datorn
+- [ ] För kunder som öppnar en offertlänk
+
 ## 1. Inloggning med personlig länk
 
 - [ ] Tryck 3 gånger snabbt på namnet uppe till höger → "Admin-läge aktiverat"
