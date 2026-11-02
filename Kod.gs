@@ -89,7 +89,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -157,6 +157,10 @@ function doPost(e) {
     if (action === "addStallPhoto") return handleAddStallPhoto(data.imageBase64);
     if (action === "setRobotRow") return handleSetRobotRow(data, auth.user);
     if (action === "robotAlarm") return handleRobotAlarm(data, auth.user);
+    if (action === "getEk") return handleGetEk(data, auth);
+    if (action === "saveEk") return handleSaveEk(data.ek, auth.user);
+    if (action === "addEkPhoto") return handleAddEkPhoto(data.imageBase64);
+    if (action === "signEk") return handleSignEk(data, auth.user);
     if (action === "saveKabanossJob") return handleSaveKabanossJob(data);
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
@@ -1189,6 +1193,205 @@ function handleSetRobotRow(data, user) {
   const cleared = data.op === "resume" && cur.alarm ? next.alarms[next.alarms.length - 1] : null;
   if (cleared && cleared.cleared) logRobotAlarmReport(stall, rowIndex, cleared, data.place, user);
   return createJsonResponse({ status: "success", robotState: state, serverNow: now });
+}
+
+// ==========================================
+// 4c4. EGENKONTROLL
+// En mall per jobbtyp (EK_TEMPLATES). Föraren fyller i i fält: kontrollpunkter
+// (ja/nej/ej aktuellt), mätvärden med gränser, text och foton. "Nej" eller ett
+// värde utanför gränsen är en avvikelse och kräver en åtgärd. Signerad egenkontroll
+// blir en PDF i Drive-mappen "Egenkontroller". Mallarna är förslag – justera fritt,
+// höj "version" när innehållet ändras så att gamla kontroller visar vilken mall de följde.
+// ==========================================
+const EK_TEMPLATES = {
+  fasad: {
+    name: "Egenkontroll – fasadmålning", version: 1, match: "fasad|målning|måla|fönster|snickeri",
+    sections: [
+      { id: "fore", title: "Före start", items: [
+        { id: "underlag", type: "check", label: "Underlaget är tvättat och fritt från smuts, mögel och alger", req: true },
+        { id: "skrapat", type: "check", label: "Löst sittande färg är bortskrapad och renskrapat trä är grundat", req: true },
+        { id: "skador", type: "check", label: "Röta och skador är kontrollerade – åtgärdade eller anmälda till kunden", req: true },
+        { id: "fuktkvot", type: "number", label: "Fuktkvot i träet (högsta uppmätta)", unit: "%", max: 18, req: true, help: "Mät på flera ställen, även i solsidan och nära marken." },
+        { id: "skydd", type: "check", label: "Fönster, växter, mark och fordon är skyddade", req: true },
+        { id: "stallning", type: "check", label: "Ställning/lift är kontrollerad (förankring, räcken, märkning)", req: true },
+        { id: "kulor", type: "check", label: "Produkt och kulör stämmer med beställningen (provyta godkänd av kund där det behövs)", req: true },
+        { id: "produkt", type: "text", label: "Produkt och kulör", req: true, help: "T.ex. Alcro Bestå Täckfärg, NCS S 5040-Y80R" },
+        { id: "batch", type: "text", label: "Tillverkningsnummer (batch) på burkarna" },
+        { id: "foto_fore", type: "photo", label: "Foton före start (en per fasad)", req: true }
+      ] },
+      { id: "s1", title: "Strykning 1", items: [
+        { id: "datum", type: "date", label: "Datum", req: true },
+        { id: "lufttemp", type: "number", label: "Lufttemperatur", unit: "°C", min: 5, req: true, help: "Följ färgens produktblad – för många färger minst +5 °C." },
+        { id: "yttemp", type: "number", label: "Yttemperatur på underlaget", unit: "°C", min: 5 },
+        { id: "rf", type: "number", label: "Relativ luftfuktighet", unit: "%", max: 80, req: true },
+        { id: "vader", type: "check", label: "Inget regn, ingen dagg och inget direkt starkt solsken på ytan under målning och torktid", req: true },
+        { id: "atgang", type: "number", label: "Färgåtgång", unit: "liter" }
+      ] },
+      { id: "s2", title: "Strykning 2", items: [
+        { id: "datum", type: "date", label: "Datum", req: true },
+        { id: "lufttemp", type: "number", label: "Lufttemperatur", unit: "°C", min: 5, req: true },
+        { id: "yttemp", type: "number", label: "Yttemperatur på underlaget", unit: "°C", min: 5 },
+        { id: "rf", type: "number", label: "Relativ luftfuktighet", unit: "%", max: 80, req: true },
+        { id: "torktid", type: "check", label: "Torktiden mellan strykningarna enligt produktbladet har hållits", req: true },
+        { id: "vader", type: "check", label: "Inget regn, ingen dagg och inget direkt starkt solsken på ytan under målning och torktid", req: true },
+        { id: "atgang", type: "number", label: "Färgåtgång", unit: "liter" }
+      ] },
+      { id: "efter", title: "Slutkontroll", items: [
+        { id: "tackning", type: "check", label: "Jämn täckning – inga rinningar, missade partier eller färgstänk", req: true },
+        { id: "detaljer", type: "check", label: "Fönster, foder, knutar och vindskivor är utförda enligt beställningen", req: true },
+        { id: "stadning", type: "check", label: "Skyddstäckning borttagen, städat, färgrester omhändertagna som farligt avfall", req: true },
+        { id: "foto_efter", type: "photo", label: "Foton efter (samma vinklar som före)", req: true },
+        { id: "genomgang", type: "check", label: "Slutgenomgång gjord med kunden" }
+      ] }
+    ]
+  }
+};
+
+const EK_HEADERS = ["EK-ID", "Mall", "Mallversion", "Koppling", "Kund", "Plats", "Status", "Svar (JSON)",
+  "Skapad", "Skapad av", "Uppdaterad", "Uppdaterad av", "Signerad av", "Signerad", "PDF (Drive-ID)"];
+
+function getEkSheet() { return getSheetOrCreate(getSS(), "Egenkontroller", EK_HEADERS); }
+
+function ekFromRow(r) {
+  return { id: String(r[0]), template: String(r[1]), version: Number(r[2]) || 1, link: String(r[3] || ""), customer: String(r[4] || ""),
+    place: String(r[5] || ""), status: String(r[6] || "pågår"), answers: parseJsonCell(r[7], {}),
+    created: String(r[8] || ""), createdBy: String(r[9] || ""), updated: String(r[10] || ""), updatedBy: String(r[11] || ""),
+    signedBy: String(r[12] || ""), signed: String(r[13] || ""), pdfId: String(r[14] || ""),
+    pdfUrl: r[14] ? "https://drive.google.com/file/d/" + r[14] + "/view" : "" };
+}
+
+function ekToRow(e) {
+  return [e.id, e.template, e.version, e.link, e.customer, e.place, e.status, JSON.stringify(e.answers || {}),
+    e.created, e.createdBy, e.updated, e.updatedBy, e.signedBy, e.signed, e.pdfId];
+}
+
+// Vad som saknas och vilka avvikelser som finns. Samma regler som i appen (egenkontroll.js).
+function ekCheck(tpl, answers) {
+  const missing = [], deviations = [];
+  tpl.sections.forEach(sec => sec.items.forEach(it => {
+    const key = sec.id + "." + it.id;
+    const a = answers[key] || {};
+    const v = a.v;
+    const empty = it.type === "photo" ? !(a.photos && a.photos.length) : (v === undefined || v === null || v === "");
+    if (empty) { if (it.req) missing.push(sec.title + ": " + it.label); return; }
+    let dev = false;
+    if (it.type === "check" && v === "nej") dev = true;
+    if (it.type === "number") {
+      const n = Number(String(v).replace(",", "."));
+      if ((it.min !== undefined && n < it.min) || (it.max !== undefined && n > it.max)) dev = true;
+    }
+    if (dev) deviations.push({ key: key, label: sec.title + ": " + it.label, value: v, note: String(a.note || "") });
+  }));
+  return { missing: missing, deviations: deviations, deviationsWithoutAction: deviations.filter(d => !d.note.trim()) };
+}
+
+function handleGetEk(data, auth) {
+  const rows = getEkSheet().getDataRange().getValues();
+  const list = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    const e = ekFromRow(rows[i]);
+    if (data.id && e.id !== data.id) continue;
+    if (data.link && e.link !== data.link) continue;
+    if (!auth.isAdmin && e.createdBy !== auth.user && !data.id) continue;
+    list.push(e);
+  }
+  return createJsonResponse({ status: "success", templates: EK_TEMPLATES, items: list.reverse().slice(0, 200) });
+}
+
+// Sparar svar. Bara de punkter som skickas ändras (två personer kan fylla i samma kontroll).
+function handleSaveEk(input, user) {
+  if (!input) return createJsonResponse({ status: "error", message: "Ingen egenkontroll skickades." });
+  const tpl = EK_TEMPLATES[input.template];
+  const sheet = getEkSheet();
+  const hit = input.id ? findRowById(sheet, input.id) : null;
+  const old = hit ? ekFromRow(hit.row) : null;
+  if (!old && !tpl) return createJsonResponse({ status: "error", message: "Okänd mall." });
+  if (old && old.status === "klar") return createJsonResponse({ status: "error", message: "Egenkontrollen är signerad och kan inte ändras." });
+  const t = old ? EK_TEMPLATES[old.template] : tpl;
+  const valid = {};
+  t.sections.forEach(sec => sec.items.forEach(it => { valid[sec.id + "." + it.id] = it; }));
+  const answers = old ? old.answers : {};
+  const photoId = (v) => /^[A-Za-z0-9_-]{10,100}$/.test(String(v || "")) ? String(v) : "";
+  Object.keys(input.answers || {}).forEach(key => {
+    const it = valid[key];
+    if (!it) return;
+    const a = input.answers[key] || {};
+    let v = a.v;
+    if (it.type === "check") v = ["ja", "nej", "ea"].indexOf(v) !== -1 ? v : "";
+    else if (it.type === "number") v = v === "" || v === null || v === undefined ? "" : String(v).replace(",", ".").replace(/[^0-9.\-]/g, "").slice(0, 12);
+    else if (it.type === "date") v = /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? v : "";
+    else v = sanitize(v).slice(0, 500);
+    answers[key] = { v: v, note: sanitize(a.note).slice(0, 1000), photos: (Array.isArray(a.photos) ? a.photos : []).map(photoId).filter(Boolean).slice(0, 12),
+      by: sanitize(user), at: nowStamp() };
+  });
+  const e = old || { id: "EK-" + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyyMMdd-HHmmss"),
+    template: input.template, version: tpl.version, link: sanitize(input.link).slice(0, 60), customer: sanitize(input.customer).slice(0, 100),
+    place: sanitize(input.place).slice(0, 150), status: "pågår", created: nowStamp(), createdBy: sanitize(user), signedBy: "", signed: "", pdfId: "" };
+  e.answers = answers; e.updated = nowStamp(); e.updatedBy = sanitize(user);
+  upsertById(sheet, ekToRow(e));
+  return createJsonResponse({ status: "success", item: e, check: ekCheck(t, answers) });
+}
+
+function handleAddEkPhoto(imageBase64) {
+  if (!imageBase64 || String(imageBase64).length > 8000000) return createJsonResponse({ status: "error", message: "Bilden saknas eller är för stor." });
+  const fileId = saveImageToDrive(imageBase64, "Egenkontroller", "ek_" + Date.now() + ".jpg");
+  return createJsonResponse({ status: "success", photo: { id: fileId, url: driveImageUrl(fileId) } });
+}
+
+function handleSignEk(data, user) {
+  const sheet = getEkSheet();
+  const hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Egenkontrollen hittades inte." });
+  const e = ekFromRow(hit.row);
+  if (e.status === "klar") return createJsonResponse({ status: "error", message: "Redan signerad." });
+  const tpl = EK_TEMPLATES[e.template];
+  const check = ekCheck(tpl, e.answers);
+  if (check.missing.length) return createJsonResponse({ status: "error", message: "Det saknas " + check.missing.length + " punkter.", check: check });
+  if (check.deviationsWithoutAction.length) return createJsonResponse({ status: "error", message: "Skriv vilken åtgärd som gjorts för varje avvikelse.", check: check });
+  const name = sanitize(data.name).slice(0, 80);
+  if (name.length < 2) return createJsonResponse({ status: "error", message: "Skriv ditt namn för att signera." });
+  e.status = "klar"; e.signedBy = name + (name !== sanitize(user) ? " (" + sanitize(user) + ")" : ""); e.signed = nowStamp();
+  let pdfNote = "";
+  try { e.pdfId = buildEkPdf(e, tpl, check).getId(); } catch (err) { pdfNote = "PDF kunde inte skapas: " + err.message; }
+  upsertById(sheet, ekToRow(e));
+  return createJsonResponse({ status: "success", item: ekFromRow(ekToRow(e)), pdfNote: pdfNote });
+}
+
+function buildEkPdf(e, tpl, check) {
+  const settings = getOfferSettings();
+  const valueText = (it, a) => it.type === "check" ? ({ ja: "✔ Ja", nej: "✘ Nej", ea: "Ej aktuellt" }[a.v] || "–")
+    : it.type === "photo" ? ((a.photos || []).length + " foto") : escapeHtml(a.v === undefined || a.v === "" ? "–" : a.v + (it.unit ? " " + it.unit : ""));
+  const devKeys = {};
+  check.deviations.forEach(d => { devKeys[d.key] = true; });
+  const photos = [];
+  const sections = tpl.sections.map(sec => "<h2>" + escapeHtml(sec.title) + "</h2><table>" + sec.items.map(it => {
+    const key = sec.id + "." + it.id;
+    const a = e.answers[key] || {};
+    (a.photos || []).forEach(p => photos.push({ id: p, label: sec.title + ": " + it.label }));
+    return "<tr" + (devKeys[key] ? " class='dev'" : "") + "><td>" + escapeHtml(it.label) + (a.note ? "<div class='note'>" + (devKeys[key] ? "Åtgärd: " : "") + escapeHtml(a.note) + "</div>" : "") +
+      "</td><td class='v'>" + valueText(it, a) + "</td><td class='who'>" + escapeHtml(a.by || "") + "<br>" + escapeHtml(a.at || "") + "</td></tr>";
+  }).join("") + "</table>").join("");
+  const photoHtml = photos.slice(0, 24).map(p => {
+    try {
+      const blob = DriveApp.getFileById(p.id).getThumbnail();
+      return "<div class='ph'><img src='data:image/png;base64," + Utilities.base64Encode(blob.getBytes()) + "'><div>" + escapeHtml(p.label) + "</div></div>";
+    } catch (err) { return ""; }
+  }).join("");
+  const html = "<html><head><meta charset='utf-8'><style>body{font-family:Arial,sans-serif;font-size:11px;color:#111}h1{font-size:18px;margin:0}h2{font-size:13px;margin:14px 0 4px;border-bottom:1px solid #999}" +
+    "table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:4px;vertical-align:top}.v{width:26%;font-weight:bold}.who{width:110px;color:#666;font-size:9px}" +
+    ".dev td{background:#fde8e8}.note{color:#444;font-style:italic;margin-top:2px}.ph{display:inline-block;width:23%;margin:3px;vertical-align:top;font-size:8px}.ph img{width:100%}.muted{color:#666}</style></head><body>" +
+    "<h1>" + escapeHtml(tpl.name) + "</h1><p>" + escapeHtml(settings.companyName) + (settings.companyOrgNr ? " · " + escapeHtml(settings.companyOrgNr) : "") + "</p>" +
+    "<p><b>Kund:</b> " + escapeHtml(e.customer || "–") + " &nbsp; <b>Plats:</b> " + escapeHtml(e.place || "–") + (e.link ? " &nbsp; <b>Uppdrag:</b> " + escapeHtml(e.link) : "") +
+    "<br><b>Egenkontroll:</b> " + escapeHtml(e.id) + " (mall version " + e.version + ") &nbsp; <b>Påbörjad:</b> " + escapeHtml(e.created) + " av " + escapeHtml(e.createdBy) + "</p>" +
+    (check.deviations.length ? "<p><b>Avvikelser:</b> " + check.deviations.length + " – markerade i rött med åtgärd.</p>" : "<p><b>Inga avvikelser.</b></p>") +
+    sections + (photoHtml ? "<h2>Foton</h2>" + photoHtml : "") +
+    "<h2>Signatur</h2><p>Kontrollen är utförd och signerad av <b>" + escapeHtml(e.signedBy) + "</b> " + escapeHtml(e.signed) + ".</p></body></html>";
+  const pdf = Utilities.newBlob(html, "text/html", e.id + ".html").getAs("application/pdf").setName(e.id + " " + (e.customer || e.place || "") + ".pdf");
+  const root = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);
+  const existing = root.getFoldersByName("Egenkontroller");
+  const folder = existing.hasNext() ? existing.next() : root.createFolder("Egenkontroller");
+  return folder.createFile(pdf);
 }
 
 // ==========================================

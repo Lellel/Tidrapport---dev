@@ -591,7 +591,9 @@ function renderOutbox() {
 
     const woButton = typeof isStallWash === 'function' && isStallWash(draft)
       ? `<button class="btn-action" onclick="openWorkOrder(${draft.id})" style="color:var(--accent-blue);">📋 Arbetsorder</button>` : '';
-    let actionButtons = woButton + (isOngoing ? `
+    const ekButton = typeof ekTemplateFor === 'function' && ekTemplateFor(draft)
+      ? `<button class="btn-action" onclick="openEgenkontroll(${draft.id})" style="color:var(--green);">✅ Egenkontroll</button>` : '';
+    let actionButtons = woButton + ekButton + (isOngoing ? `
       <button class="btn-action clock-out" onclick="clockOut(${draft.id})">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
         Stämpla ut nu

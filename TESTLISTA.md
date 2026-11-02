@@ -67,6 +67,19 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Stall utan steg visar "Instruktioner saknas"
 - [ ] Bocka av steg → bockarna ligger kvar när arbetsordern öppnas igen
 
+## 0e. Egenkontroll – fasadmålning (kräver ny Kod.gs)
+
+- [ ] Ett pass med aktiviteten Fasadmålning (eller fönster/snickeri) har knappen **✅ Egenkontroll** – linjemålning har det inte (egen mall kommer)
+- [ ] Startat från ett planerat jobb (godkänd offert) → kund och offertnummer är ifyllda
+- [ ] Ja/Nej/Ej aktuellt, mätvärden, text, datum och foto går att fylla i; "Sparat ✓" visas
+- [ ] Fuktkvot över 18 %, temperatur under 5 °C, luftfuktighet över 80 % eller "Nej" → punkten blir röd och kräver en åtgärd
+- [ ] Utan täckning: "Inte sparat – sparas när du har täckning"; ändringarna finns kvar och sparas när täckningen kommer tillbaka
+- [ ] Två personer kan fylla i samma kontroll
+- [ ] **✍️ Signera** går först när alla obligatoriska punkter är klara och varje avvikelse har en åtgärd
+- [ ] Efter signering: PDF i Drive-mappen Egenkontroller med alla punkter, avvikelser i rött, foton och signatur; kontrollen går inte att ändra
+- [ ] Admin: **📂 Alla egenkontroller** listar alla; förare ser bara sina egna
+- [ ] Fliken Egenkontroller i kalkylarket
+
 ## 1. Inloggning med personlig länk
 
 - [ ] Tryck 3 gånger snabbt på namnet uppe till höger → "Admin-läge aktiverat"
