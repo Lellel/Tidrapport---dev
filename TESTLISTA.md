@@ -348,7 +348,8 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 ## GDPR – att göra
 
 **Först (snabbt och viktigast):**
-- [ ] Byt personalnamnen i Blacksta-filerna (`blacksta/`, `prototyper/blacksta/`) mot påhittade och hämta riktiga namn från fliken Personal – repot är publikt (namnen finns kvar i Git-historiken)
+- [x] Byt personalnamnen i Blacksta-filerna och prototyperna mot påhittade (Lisa, Kalle, Stina …) och UE-numret mot ett fiktivt
+- [ ] Rensa namnen ur Git-historiken (kräver omskrivning av historiken + force push – bestäm först)
 - [ ] Flytta kalkylark/Drive/Apps Script från privat Gmail till **Google Workspace** och godkänn Googles databehandlingsavtal (DPA)
 - [ ] Tvåstegsverifiering på Google, HubSpot, GitHub och 46elks
 
