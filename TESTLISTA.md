@@ -248,6 +248,15 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] ⚙️ Priser & inställningar → HubSpot-rutan visar vilka varumärken som är kopplade och antal väntande
 - [ ] I kalkylarket "Offerter": kolumnerna Varumärke och HubSpot finns efter Fakturerad, och Fakturerad fungerar som förut
 
+**Kundregister från HubSpot:**
+- [ ] ⚙️ Inställningar → "⬇️ Hämta kunder och affärer från HubSpot" → "✅ Klart! N kunder i registret"
+- [ ] I kalkylarket finns fliken Kunder med kontakter och företag
+- [ ] Fliken 👥 Kunder: sök på namn/telefon/adress hittar rätt; tryck på en kund visar tidigare affärer
+- [ ] "➕ Ny offert till kunden" → offerten är ifylld med kundens uppgifter
+- [ ] I en ny offert: "🔎 Välj kund ur registret" → välj → namn, telefon, e-post, adress fylls i; BRF/företag får ingen ROT
+- [ ] Tryck "Hämta" igen → antalet kunder ökar inte (inga dubbletter)
+- [ ] Medan hämtningen pågår går det att spara tidrapporter i appen
+
 ## 10b. Ekonomi – fakturaunderlag
 
 Öppnas via sidomenyn → **💰 Ekonomi** (eller admin-panelen).

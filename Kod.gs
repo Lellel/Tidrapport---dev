@@ -85,7 +85,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -128,7 +128,7 @@ function doPost(e) {
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
-      "blacksta_savePlan", "addStaff", "hubspotSyncPending"];
+      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -167,6 +167,8 @@ function doPost(e) {
     if (action === "sendOffer") return handleSendOffer(data.id, data.appUrl, data.drawingPng);
     if (action === "cancelOffer") return handleCancelOffer(data.id);
     if (action === "hubspotSyncPending") return handleHubspotSyncPending();
+    if (action === "hubspotImport") return handleHubspotImport();
+    if (action === "getCustomers") return handleGetCustomers();
     if (action === "getOfferSettings") return createJsonResponse({ status: "success", settings: getOfferSettings() });
     if (action === "saveOfferSettings") return handleSaveOfferSettings(data.settings);
     if (action === "getFleet") return handleGetFleet();
@@ -1726,6 +1728,134 @@ function handleHubspotSyncPending() {
   }
   return createJsonResponse({ status: "success", synced: done, failed: failed, waiting: waiting, remaining: remaining,
     errors: errors.slice(0, 5), brands: hubspotBrandInfo() });
+}
+
+// ---------- KUNDREGISTER (hämtas från HubSpot med knappen "Hämta från HubSpot") ----------
+// En rad per kontakt/företag och HubSpot-konto. Kund-ID = "FASAD:contact:123" så att
+// samma kund aldrig dubbleras. Gamla affärer sparas som historik på kunden.
+// Stora konton hämtas i omgångar: avbryts efter ~4 min och fortsätter vid nästa tryck.
+const CUSTOMER_HEADERS = ["Kund-ID", "Namn", "Företag", "Typ", "Telefon", "E-post", "Adress", "Varumärke",
+  "HubSpot-konto", "HubSpot-typ", "HubSpot-ID", "Affärer (JSON)", "Uppdaterad"];
+const HUBSPOT_IMPORT_PROPS = {
+  contacts: "firstname,lastname,email,phone,mobilephone,address,zip,city,company,varumarke",
+  companies: "name,phone,address,zip,city,varumarke",
+  deals: "dealname,amount,dealstage,closedate,createdate,varumarke"
+};
+
+function getCustomerSheet() { return getSheetOrCreate(getSS(), "Kunder", CUSTOMER_HEADERS); }
+
+function customerFromRow(r) {
+  let deals = [];
+  try { deals = JSON.parse(r[11] || "[]"); } catch (e) { deals = []; }
+  return { id: String(r[0]), name: String(r[1] || ""), company: String(r[2] || ""), type: String(r[3] || "privat"),
+    phone: String(r[4] || ""), email: String(r[5] || ""), address: String(r[6] || ""), brand: String(r[7] || ""),
+    account: String(r[8] || ""), deals: deals, updated: String(r[12] || "") };
+}
+
+function handleGetCustomers() {
+  const rows = getCustomerSheet().getDataRange().getValues();
+  const list = [];
+  for (let i = 1; i < rows.length; i++) if (rows[i][0]) list.push(customerFromRow(rows[i]));
+  list.sort((a, b) => (a.company || a.name).localeCompare(b.company || b.name, "sv"));
+  return createJsonResponse({ status: "success", customers: list });
+}
+
+function hubspotImportSteps() {
+  const props = PropertiesService.getScriptProperties();
+  const steps = [];
+  ["FASAD", "LINJE", "KLARYTA"].forEach(account => {
+    if (props.getProperty("HUBSPOT_TOKEN_" + account)) ["contacts", "companies", "deals"].forEach(obj => steps.push({ account: account, obj: obj }));
+  });
+  return steps;
+}
+
+function joinAddress(p) {
+  return [p.address, [p.zip, p.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+}
+
+function handleHubspotImport() {
+  const started = Date.now();
+  const props = PropertiesService.getScriptProperties();
+  const steps = hubspotImportSteps();
+  if (!steps.length) return createJsonResponse({ status: "error", message: "Ingen HubSpot-nyckel finns ännu." });
+  let progress = {};
+  try { progress = JSON.parse(props.getProperty("HUBSPOT_IMPORT_PROGRESS") || "{}"); } catch (e) { progress = {}; }
+  let step = Number(progress.step) || 0, after = progress.after || "";
+
+  // Hela registret i minnet, skrivs tillbaka en gång på slutet
+  const sheet = getCustomerSheet();
+  const rows = sheet.getDataRange().getValues();
+  const byId = {};
+  for (let i = 1; i < rows.length; i++) if (rows[i][0]) byId[String(rows[i][0])] = rows[i].slice(0, CUSTOMER_HEADERS.length);
+  const counts = { contacts: 0, companies: 0, deals: 0, dealsWithoutCustomer: 0 };
+  const stageLabels = {};
+  let done = false, error = "";
+
+  try {
+    while (step < steps.length) {
+      if (Date.now() - started > 240000) break; // fortsätter vid nästa tryck
+      const s = steps[step];
+      const token = props.getProperty("HUBSPOT_TOKEN_" + s.account);
+      if (s.obj === "deals" && !stageLabels[s.account]) {
+        stageLabels[s.account] = {};
+        try {
+          (hubspotFetch(token, "get", "/crm/v3/pipelines/deals").results || []).forEach(p =>
+            (p.stages || []).forEach(st => { stageLabels[s.account][st.id] = st.label; }));
+        } catch (e) { /* utan namn på faserna visas id:t */ }
+      }
+      const path = "/crm/v3/objects/" + s.obj + "?limit=100&properties=" + HUBSPOT_IMPORT_PROPS[s.obj] +
+        (s.obj === "deals" ? "&associations=contacts,companies" : "") + (after ? "&after=" + encodeURIComponent(after) : "");
+      const page = hubspotFetch(token, "get", path);
+      (page.results || []).forEach(item => {
+        const p = item.properties || {};
+        if (s.obj === "contacts") {
+          const id = s.account + ":contact:" + item.id;
+          const old = byId[id] || [];
+          byId[id] = [id, [p.firstname, p.lastname].filter(Boolean).join(" ") || p.email || "", p.company || "", p.company ? "foretag" : "privat",
+            p.phone || p.mobilephone || "", p.email || "", joinAddress(p), p.varumarke || "", s.account, "contact", String(item.id), old[11] || "[]", nowStamp()];
+          counts.contacts++;
+        } else if (s.obj === "companies") {
+          const id = s.account + ":company:" + item.id;
+          const old = byId[id] || [];
+          byId[id] = [id, p.name || "", p.name || "", "foretag", p.phone || "", "", joinAddress(p), p.varumarke || "", s.account, "company",
+            String(item.id), old[11] || "[]", nowStamp()];
+          counts.companies++;
+        } else {
+          // Affären läggs som historik på företaget, annars på kontakten
+          const assoc = item.associations || {};
+          const firstId = (key) => assoc[key] && assoc[key].results && assoc[key].results.length ? String(assoc[key].results[0].id) : "";
+          const companyId = firstId("companies"), contactId = firstId("contacts");
+          const target = (companyId && byId[s.account + ":company:" + companyId]) ? s.account + ":company:" + companyId
+            : (contactId && byId[s.account + ":contact:" + contactId]) ? s.account + ":contact:" + contactId : "";
+          if (!target) { counts.dealsWithoutCustomer++; return; }
+          let deals = [];
+          try { deals = JSON.parse(byId[target][11] || "[]"); } catch (e) { deals = []; }
+          const deal = { id: String(item.id), name: p.dealname || "", amount: Number(p.amount) || 0,
+            stage: (stageLabels[s.account] || {})[p.dealstage] || p.dealstage || "", stageId: p.dealstage || "",
+            closed: String(p.closedate || "").slice(0, 10), created: String(p.createdate || "").slice(0, 10), brand: p.varumarke || "" };
+          deals = deals.filter(d => d.id !== deal.id).concat([deal]).sort((a, b) => (b.closed || b.created).localeCompare(a.closed || a.created)).slice(0, 50);
+          byId[target][11] = JSON.stringify(deals);
+          counts.deals++;
+        }
+      });
+      after = page.paging && page.paging.next && page.paging.next.after ? String(page.paging.next.after) : "";
+      if (!after) step++;
+      props.setProperty("HUBSPOT_IMPORT_PROGRESS", JSON.stringify({ step: step, after: after }));
+    }
+    done = step >= steps.length;
+  } catch (err) {
+    error = String(err.message || err).slice(0, 300);
+  }
+
+  // Skriv tillbaka (även vid fel/avbrott – det som hunnit hämtas sparas)
+  const ids = Object.keys(byId);
+  if (ids.length) {
+    const data = ids.map(id => byId[id]);
+    sheet.getRange(2, 1, data.length, CUSTOMER_HEADERS.length).setValues(data);
+  }
+  if (done) props.deleteProperty("HUBSPOT_IMPORT_PROGRESS");
+  return createJsonResponse({ status: error ? "error" : "success", message: error ? "HubSpot: " + error + " – det som hann hämtas är sparat, tryck igen." : "",
+    done: done, counts: counts, total: ids.length });
 }
 
 // ==========================================

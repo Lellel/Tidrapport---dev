@@ -16,7 +16,10 @@
     h1 { font-size: 20px; margin: 0; }
     h2 { font-size: 15px; margin: 0 0 8px; }
     .tabs, .grid2, .grid3 { display: grid; gap: 8px; }
-    .tabs { grid-template-columns: 1fr 1fr; }
+    .tabs { grid-template-columns: 1fr 1fr 1fr; }
+    .cust-hits { display: grid; gap: 4px; }
+    .cust-hits button { text-align: left; min-height: 40px; font-weight: 600; }
+    .deal { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 4px 0; border-top: 1px solid var(--line); }
     .grid2 { grid-template-columns: 1fr 1fr; }
     .grid3 { grid-template-columns: repeat(3, 1fr); }
     label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
@@ -105,6 +108,8 @@
     let message = '';
     let brands = null;         // { lpv: { label, connected }, ... } från backend
     let brandFilter = 'alla';
+    let customers = null;      // kundregistret (hämtas när det behövs)
+    let customerSearch = '', pickSearch = '', openCustomer = '';
 
     const KIND_LABELS = { arbete: 'Arbete', maskin: 'Maskin', material: 'Material', resa: 'Resa', ovrigt: 'Övrigt' };
     const money = (v) => Math.round(v).toLocaleString('sv-SE') + ' kr';
@@ -209,6 +214,7 @@
 
         <div class="card">
           <h2>Kund</h2>
+          ${locked() || draft.sent ? '' : renderCustomerPicker()}
           <input placeholder="Kundens namn *" value="${esc(draft.customerName)}" ${dis} oninput="draft.customerName=this.value">
           <div class="seg two">${seg('customerType', 'privat', '🏠 Privatperson')}${seg('customerType', 'foretag', '🏢 Företag/BRF')}</div>
           <div class="grid2">
@@ -216,6 +222,7 @@
             <input type="email" placeholder="E-post (PDF skickas hit)" value="${esc(draft.email)}" ${dis} oninput="draft.email=this.value">
           </div>
           <input placeholder="Arbetsplats / adress" value="${esc(draft.site)}" ${dis} oninput="draft.site=this.value">
+          ${renderPickedHistory()}
           ${renderBrandPicker(dis)}
         </div>
 
@@ -276,6 +283,75 @@
         <div><span>Summa inkl. moms</span><span>${money(t.gross)}</span></div>
         ${t.deduction ? `<div><span>${t.label}${t.capped ? ' (tak)' : ''}</span><span>−${money(t.deduction)}</span></div>` : ''}
         <div class="pay"><span>Kunden betalar</span><span>${money(t.toPay)}</span></div>`;
+    }
+
+    // ================= KUNDREGISTER =================
+    async function loadCustomers() {
+      if (customers) return customers;
+      const res = await snoApi({ action: 'getCustomers' });
+      customers = res.status === 'success' ? res.customers : [];
+      return customers;
+    }
+    async function showCustomers() { view = 'customers'; message = ''; render(); if (!customers) { await loadCustomers(); render(); } }
+
+    function customerMatches(c, q) {
+      q = q.trim().toLowerCase();
+      return !q || [c.name, c.company, c.email, c.phone, c.address].some(v => String(v || '').toLowerCase().includes(q));
+    }
+    const kr = (v) => Math.round(Number(v) || 0).toLocaleString('sv-SE') + ' kr';
+    function renderDeals(c) {
+      if (!c.deals || !c.deals.length) return '<div class="muted">Inga tidigare affärer.</div>';
+      return c.deals.map(d => `<div class="deal"><span>${esc(d.name)}<br><span class="muted">${esc(d.closed || d.created)} · ${esc(d.stage)}</span></span><b>${kr(d.amount)}</b></div>`).join('');
+    }
+
+    function renderCustomers() {
+      if (!customers) return '<div class="muted">Hämtar kundregistret…</div>';
+      if (!customers.length) return `<div class="card"><h2>Kundregistret är tomt</h2><div class="muted">Hämta kunderna från HubSpot under ⚙️ Inställningar → HubSpot.</div></div>`;
+      const list = customers.filter(c => customerMatches(c, customerSearch));
+      return `<input placeholder="🔎 Sök namn, företag, telefon, e-post, adress" value="${esc(customerSearch)}" oninput="customerSearch=this.value; document.getElementById('custlist').innerHTML=renderCustomerList()">
+        <div id="custlist">${renderCustomerList(list)}</div>`;
+    }
+    function renderCustomerList(list) {
+      list = list || customers.filter(c => customerMatches(c, customerSearch));
+      return `<div class="muted">${list.length} kunder</div>` + list.slice(0, 200).map(c => `
+        <div class="ocard" style="flex-direction:column" onclick="openCustomer = openCustomer === '${esc(c.id)}' ? '' : '${esc(c.id)}'; document.getElementById('custlist').innerHTML=renderCustomerList()">
+          <div style="display:flex;justify-content:space-between;gap:8px">
+            <div><b>${esc(c.company && c.type === 'foretag' && c.company !== c.name ? c.company + ' – ' + c.name : c.name)}</b>${c.brand ? `<span class="brand">${esc(c.brand)}</span>` : ''}<br>
+              <span class="muted">${esc([c.phone, c.email].filter(Boolean).join(' · '))}</span></div>
+            <span class="muted" style="white-space:nowrap">${c.deals.length ? c.deals.length + ' affärer' : ''}</span>
+          </div>
+          ${openCustomer === c.id ? `<div onclick="event.stopPropagation()">
+            ${c.address ? `<div class="muted">📍 ${esc(c.address)}</div>` : ''}
+            ${renderDeals(c)}
+            <button class="primary" style="margin-top:8px" onclick="newOffer('offert'); pickCustomer('${esc(c.id)}')">➕ Ny offert till kunden</button></div>` : ''}
+        </div>`).join('') + (list.length > 200 ? '<div class="muted">Visar 200 – sök för att hitta fler.</div>' : '');
+    }
+
+    function renderCustomerPicker() {
+      return `<input placeholder="🔎 Välj kund ur registret (namn, telefon, e-post)" value="${esc(pickSearch)}" onfocus="loadCustomers().then(updatePickHits)" oninput="pickSearch=this.value; updatePickHits()">
+        <div class="cust-hits" id="pickhits"></div>`;
+    }
+    function updatePickHits() {
+      const el = document.getElementById('pickhits');
+      if (!el || !customers) return;
+      if (!pickSearch.trim()) { el.innerHTML = customers.length ? '' : '<div class="muted">Kundregistret är tomt – hämta från HubSpot under ⚙️.</div>'; return; }
+      const hits = customers.filter(c => customerMatches(c, pickSearch)).slice(0, 8);
+      el.innerHTML = hits.map(c => `<button onclick="pickCustomer('${esc(c.id)}')">${esc(c.company && c.type === 'foretag' ? c.company : c.name)} <span class="muted">${esc([c.phone, c.address].filter(Boolean).join(' · '))}${c.deals.length ? ' · ' + c.deals.length + ' affärer' : ''}</span></button>`).join('') || '<div class="muted">Ingen träff.</div>';
+    }
+    function pickCustomer(id) {
+      const c = (customers || []).find(x => x.id === id);
+      if (!c || !draft) return;
+      draft.customerType = c.type === 'foretag' ? 'foretag' : 'privat';
+      draft.customerName = c.type === 'foretag' && c.company ? c.company : c.name;
+      if (draft.customerType === 'foretag') draft.deduction = 'inget';
+      draft.phone = c.phone || draft.phone; draft.email = c.email || draft.email; draft.site = draft.site || c.address;
+      draft.pickedCustomer = c.id;
+      pickSearch = '';
+      render();
+    }
+    function renderPickedHistory() {
+      const c = draft.pickedCustomer && (customers || []).find(x => x.id === draft.pickedCustomer);
+      return c && c.deals.length ? `<details><summary class="muted">📜 ${c.deals.length} tidigare affärer med kunden</summary>${renderDeals(c)}</details>` : '';
     }
 
     function renderBrandPicker(dis) {
@@ -766,9 +842,27 @@
       ${brands ? `<div class="card"><h2>HubSpot</h2>
         ${Object.keys(brands).map(k => `<div>${brands[k].connected ? '🟢' : '⏳'} <b>${esc(brands[k].label)}</b> <span class="muted">${brands[k].connected ? 'kopplat' : 'ingen nyckel ännu – offerterna väntar'}</span></div>`).join('')}
         <div class="muted">Väntande: ${offers.filter(o => o.sent && (o.hubspot || {}).status !== 'ok').length} skickade offerter är inte i HubSpot än.</div>
-        <button onclick="syncPending()">🔄 Skicka väntande till HubSpot</button></div>` : ''}
+        <button onclick="syncPending()">🔄 Skicka väntande till HubSpot</button>
+        <button onclick="importFromHubspot()">⬇️ Hämta kunder och affärer från HubSpot</button>
+        <div class="muted">Hämtningen går att köra hur ofta som helst – inget dubbleras.</div></div>` : ''}
       <div class="msg" id="msg">${message}</div>`;
     }
+    async function importFromHubspot() {
+      let total = 0;
+      for (let round = 1; round <= 10; round++) {
+        setMessage(`⬇️ Hämtar från HubSpot… (omgång ${round}${total ? ', ' + total + ' kunder hittills' : ''})`);
+        const res = await snoApi({ action: 'hubspotImport' });
+        if (res.status !== 'success') { setMessage('❌ ' + esc(res.message || 'Kunde inte hämta.')); return; }
+        total = res.total;
+        if (res.done) {
+          customers = null;
+          setMessage(`✅ Klart! ${res.total} kunder i registret.` + (res.counts.dealsWithoutCustomer ? ` ${res.counts.dealsWithoutCustomer} affärer saknade kund och hoppades över.` : ''));
+          return;
+        }
+      }
+      setMessage(`⏳ ${total} kunder hämtade, men det finns mer. Tryck igen för att fortsätta.`);
+    }
+
     async function syncPending() {
       setMessage('🔄 Skickar till HubSpot…');
       const res = await snoApi({ action: 'hubspotSyncPending' });
@@ -805,8 +899,8 @@
       const sticky = document.getElementById('sticky');
       if (!settings) { app.innerHTML = `<div class="topbar"><a href="index.html">← Tidrapport</a></div><h1>📄 Offerter & ÄTA</h1><div class="msg" id="msg">${message || 'Hämtar…'}</div>`; return; }
       const head = view === 'edit' ? '' : `<div class="topbar"><a href="index.html">← Tidrapport</a></div><h1>📄 Offerter & ÄTA</h1>
-        <div class="tabs"><button class="${view === 'list' ? 'active' : ''}" onclick="view='list'; message=''; render()">Offerter</button><button class="${view === 'settings' ? 'active' : ''}" onclick="view='settings'; message=''; render()">⚙️ Priser & inställningar</button></div>`;
-      app.innerHTML = head + (view === 'list' ? renderList() : view === 'edit' ? renderEdit() : renderSettings());
+        <div class="tabs"><button class="${view === 'list' ? 'active' : ''}" onclick="view='list'; message=''; render()">Offerter</button><button class="${view === 'customers' ? 'active' : ''}" onclick="showCustomers()">👥 Kunder</button><button class="${view === 'settings' ? 'active' : ''}" onclick="view='settings'; message=''; render()">⚙️ Inställningar</button></div>`;
+      app.innerHTML = head + (view === 'list' ? renderList() : view === 'edit' ? renderEdit() : view === 'customers' ? renderCustomers() : renderSettings());
       if (view === 'edit' && !locked()) {
         sticky.style.display = 'flex';
         sticky.innerHTML = `<button onclick="saveAndMaybeSend()">💾 Spara</button><button class="ok" onclick="sendOffer()">📨 ${draft.status === 'utkast' && !draft.sent ? 'Spara & skicka' : 'Skicka igen'}</button>`;
