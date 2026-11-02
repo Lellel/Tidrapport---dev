@@ -137,6 +137,13 @@ function doPost(e) {
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
+    // Bara admin på LPV: behörigheter till andra bolag, inställningar, importer, HubSpot och snöplaneringen
+    const lpvAdminOnly = ["saveOfferSettings", "importCustomers", "hubspotImport", "hubspotSyncPending",
+      "saveSnowZone", "deleteSnowZone", "setSlingaDrivers", "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "importProperties"];
+    if (lpvAdminOnly.indexOf(action) !== -1 && !auth.isSuper) {
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör på LPV." });
+    }
     const economyOnly = ["getInvoiceBasis", "markInvoiced", "invoicePdf"];
     if (economyOnly.indexOf(action) !== -1 && !auth.isAdmin && !auth.isEconomist) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver ekonom eller administratör." });
@@ -150,7 +157,13 @@ function doPost(e) {
     }
 
     // --- ROUTER ---
-    if (action === "getKabanossData") return handleGetKabanossData();
+    if (action === "me") return createJsonResponse({ status: "success", user: auth.user, company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist });
+    // Offerter: Klaryta-admin får bara röra Klarytas offerter
+    if ((action === "sendOffer" || action === "cancelOffer") && !auth.isSuper) {
+      const hit = findRowById(getOfferSheet(), data.id);
+      if (hit && !inScope(auth, offerFromRow(hit.row).brand === "klaryta" ? "Klaryta" : "LPV")) return createJsonResponse({ status: "error", message: "Åtkomst nekad: offerten tillhör ett annat bolag." });
+    }
+    if (action === "getKabanossData") return handleGetKabanossData(auth);
     if (action === "getJobs") return handleGetJobs(data, auth);
     if (action === "getStalls") return handleGetStalls();
     if (action === "saveStall") return handleSaveStall(data.stall, auth.user);
@@ -161,29 +174,41 @@ function doPost(e) {
     if (action === "saveEk") return handleSaveEk(data.ek, auth.user);
     if (action === "addEkPhoto") return handleAddEkPhoto(data.imageBase64);
     if (action === "signEk") return handleSignEk(data, auth.user);
-    if (action === "saveKabanossJob") return handleSaveKabanossJob(data);
+    if (action === "saveKabanossJob") {
+      if (scopeOf(auth)) data.billingCompany = scopeOf(auth);
+      const gantt = getSS().getSheetByName("Gantt_Jobb");
+      const hit = gantt && data.id ? findRowById(gantt, data.id) : null;
+      if (hit && !inScope(auth, hit.row[2])) return createJsonResponse({ status: "error", message: "Åtkomst nekad: jobbet tillhör ett annat bolag." });
+      return handleSaveKabanossJob(data);
+    }
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
-    if (action === "getUsers") return handleGetUsers();
-    if (action === "getUserKey") return handleGetUserKey(data);
+    if (action === "getUsers") return handleGetUsers(auth);
+    if (action === "getUserKey") {
+      if (!auth.isSuper) {
+        const st = findStaffRow(getStaffSheet(), data.targetUser);
+        if (!st || !inScope(auth, st.row[6]) || isAdminRow(st.row) || isEconomistRow(st.row)) return createJsonResponse({ status: "error", message: "Åtkomst nekad: bara admin på LPV kan hantera den personens länk." });
+      }
+      return handleGetUserKey(data);
+    }
     if (action === "signDocument") return createJsonResponse({ status: "success", code: signDocument(data.docType, data.docId) });
     if (action === "transform_to_clay") return handleClayTransformation(data);
     if (action === "save_time_report") return handleSaveTimeReport(data);
     if (action === "save_ata") return handleSaveAta(data);
     if (action === "getSnowZones") return handleGetSnowZones(auth);
     if (action === "setSlingaDrivers") return handleSetSlingaDrivers(data, auth.user);
-    if (action === "getOffers") return handleGetOffers();
+    if (action === "getOffers") return handleGetOffers(auth);
     if (action === "recolorHouse") return handleRecolorHouse(data);
     if (action === "geocode") {
       const geo = geocodeAddress(String(data.address || "").slice(0, 200), "");
       return createJsonResponse(geo ? { status: "success", lat: geo.lat, lng: geo.lng } : { status: "error", message: "Hittade inte adressen." });
     }
-    if (action === "saveOffer") return handleSaveOffer(data.offer, auth.user);
+    if (action === "saveOffer") return handleSaveOffer(data.offer, auth.user, auth);
     if (action === "sendOffer") return handleSendOffer(data.id, data.appUrl, data.drawingPng);
     if (action === "cancelOffer") return handleCancelOffer(data.id);
     if (action === "hubspotSyncPending") return handleHubspotSyncPending();
     if (action === "hubspotImport") return handleHubspotImport();
-    if (action === "getCustomers") return handleGetCustomers();
+    if (action === "getCustomers") return handleGetCustomers(auth);
     if (action === "importCustomers") return handleImportCustomers(data.customers, auth.user);
     if (action === "getOfferSettings") return createJsonResponse({ status: "success", settings: getOfferSettings() });
     if (action === "saveOfferSettings") return handleSaveOfferSettings(data.settings);
@@ -205,11 +230,18 @@ function doPost(e) {
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
-    if (action === "getInvoiceBasis") return handleGetInvoiceBasis();
-    if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user);
+    if (action === "getInvoiceBasis") return handleGetInvoiceBasis(auth);
+    if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user, auth);
     if (action === "invoicePdf") return handleInvoicePdf(data.draft);
     if (action === "sendSms") return handleSendSms(data, auth.user);
-    if (action === "addStaff") return handleAddStaff(data);
+    if (action === "addStaff") {
+      // Admin på Klaryta kan lägga till förare/UE i Klaryta – admin- och ekonombehörighet delas bara ut av admin på LPV
+      if (!auth.isSuper) {
+        if (data.role === "Admin" || data.role === "Ekonom") return createJsonResponse({ status: "error", message: "Bara admin på LPV kan ge admin- eller ekonombehörighet." });
+        data.company = auth.company;
+      }
+      return handleAddStaff(data);
+    }
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
 
@@ -275,6 +307,7 @@ function readStaffAuth(name) {
     key: String(hit.row[KEY_COLUMN - 1] || ""),
     isAdmin: isAdminRow(hit.row),
     isEconomist: isEconomistRow(hit.row),
+    company: companyOf(hit.row[6]),
     quarantined: String(hit.row[7] || "").toLowerCase() === "karantän"
   };
   cache.put(cacheKey, JSON.stringify(info), AUTH_CACHE_SECONDS);
@@ -285,11 +318,21 @@ function clearStaffAuthCache(name) {
   CacheService.getScriptCache().remove("auth:" + String(name).trim());
 }
 
+// Bolag: kolumn G i Personal. Allt som inte är Klaryta räknas som LPV.
+function companyOf(value) { return /kla/i.test(String(value || "")) ? "Klaryta" : "LPV"; }
+
+// Admin på LPV ser och ändrar allt (och är den som delar ut behörigheter). Admin och ekonom på
+// Klaryta ser bara Klarytas data – och omvänt ser en ekonom på LPV bara LPV:s. scope = null betyder allt.
+// Utan auth = internt anrop (alla anrop utifrån går via doPost med auth) – ingen begränsning.
+function scopeOf(auth) { return !auth || (auth.isAdmin && auth.company === "LPV") ? null : auth.company || "LPV"; }
+function inScope(auth, company) { const sc = scopeOf(auth); return !sc || companyOf(company) === sc; }
+
 function authenticate(data) {
   if (data.user && data.key) {
     const info = readStaffAuth(data.user);
     if (info && info.key && info.key === String(data.key) && !info.quarantined) {
-      return { user: info.user, isAdmin: info.isAdmin, isEconomist: !!info.isEconomist, legacy: false };
+      const company = info.company || "LPV";
+      return { user: info.user, isAdmin: info.isAdmin, isEconomist: !!info.isEconomist, company: company, isSuper: info.isAdmin && company === "LPV", legacy: false };
     }
     return null;
   }
@@ -297,7 +340,9 @@ function authenticate(data) {
   const legacyToken = (typeof CONFIG !== "undefined" && CONFIG.API_TOKEN) || "";
   if (legacyToken && data.token === legacyToken) {
     const info = data.user ? readStaffAuth(data.user) : null;
-    return { user: String(data.user || "Okänd"), isAdmin: !!(info && info.isAdmin), isEconomist: !!(info && info.isEconomist), legacy: true };
+    const company = (info && info.company) || "LPV";
+    const isAdmin = !!(info && info.isAdmin);
+    return { user: String(data.user || "Okänd"), isAdmin: isAdmin, isEconomist: !!(info && info.isEconomist), company: company, isSuper: isAdmin && company === "LPV", legacy: true };
   }
   return null;
 }
@@ -426,7 +471,7 @@ function parseMachineModel(text) {
 // ==========================================
 // 4. KABANOSS / GANTT API HANDLERS
 // ==========================================
-function handleGetKabanossData() {
+function handleGetKabanossData(auth) {
   const ss = getSS();
 
   // 1. Kunder
@@ -434,7 +479,7 @@ function handleGetKabanossData() {
   const klientRows = klientSheet ? klientSheet.getDataRange().getValues() : [];
   const clients = [];
   for (let i = 1; i < klientRows.length; i++) {
-    if (klientRows[i][1]) {
+    if (klientRows[i][1] && inScope(auth, klientRows[i][4])) {
       clients.push({
         id: klientRows[i][0],
         name: klientRows[i][1],
@@ -458,7 +503,7 @@ function handleGetKabanossData() {
   const resursRows = resursSheet ? resursSheet.getDataRange().getValues() : [];
   const resources = [];
   for (let i = 1; i < resursRows.length; i++) {
-    if (resursRows[i][0]) {
+    if (resursRows[i][0] && inScope(auth, resursRows[i][6])) {
       let name = String(resursRows[i][0]);
       let id = name;
       let rollTyp = String(resursRows[i][3] || "");
@@ -505,7 +550,7 @@ function handleGetKabanossData() {
   const jobbRows = jobbSheet ? jobbSheet.getDataRange().getValues() : [];
   const jobs = [];
   for (let i = 1; i < jobbRows.length; i++) {
-    if (jobbRows[i][0]) {
+    if (jobbRows[i][0] && inScope(auth, jobbRows[i][2] || "LPV")) {
       let assignedArr = [];
       try {
         assignedArr = JSON.parse(jobbRows[i][11] || "[]");
@@ -995,8 +1040,8 @@ function handleGetJobs(data, auth) {
   const events = [];
   const notes = [];
 
-  // 1. Google-kalendern
-  if (CONFIG.CALENDAR_ID) {
+  // 1. Google-kalendern (LPV:s – bara admin på LPV)
+  if (CONFIG.CALENDAR_ID && auth.isSuper) {
     try {
       const cal = CalendarApp.getCalendarById(CONFIG.CALENDAR_ID);
       if (!cal) throw new Error("hittar inte kalendern (CALENDAR_ID) – är den delad med kontot som kör skriptet?");
@@ -1022,7 +1067,7 @@ function handleGetJobs(data, auth) {
     const rows = sheet.getDataRange().getValues();
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
-      if (!r[0] || String(r[4]) === "done" || String(r[4]) === "klar") continue;
+      if (!r[0] || String(r[4]) === "done" || String(r[4]) === "klar" || !inScope(auth, r[2] || "LPV")) continue;
       const scheduled = r[5] !== "" && r[5] !== null;
       if (scheduled && Number(r[5]) !== dayIndex) continue;
       events.push({
@@ -1388,6 +1433,10 @@ function ekCheck(tpl, answers) {
 
 function handleGetEk(data, auth) {
   const rows = getEkSheet().getDataRange().getValues();
+  // Vilket bolag varje person tillhör (för att admin på Klaryta bara ska se Klarytas kontroller)
+  const staffCompany = {};
+  const staff = getStaffSheet();
+  if (staff) staff.getDataRange().getValues().slice(1).forEach(r => { if (r[0]) staffCompany[String(r[0]).trim()] = companyOf(r[6]); });
   const list = [];
   for (let i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
@@ -1395,6 +1444,7 @@ function handleGetEk(data, auth) {
     if (data.id && e.id !== data.id) continue;
     if (data.link && e.link !== data.link) continue;
     if (!auth.isAdmin && e.createdBy !== auth.user && !data.id) continue;
+    if (auth.isAdmin && !inScope(auth, staffCompany[e.createdBy] || "LPV") && e.createdBy !== auth.user) continue;
     list.push(e);
   }
   return createJsonResponse({ status: "success", templates: EK_TEMPLATES, items: list.reverse().slice(0, 200) });
@@ -1708,18 +1758,21 @@ function addDays(days) {
   return Utilities.formatDate(d, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd");
 }
 
-function handleGetOffers() {
+function handleGetOffers(auth) {
   const settings = getOfferSettings();
   const rows = getOfferSheet().getDataRange().getValues();
   const offers = [];
   for (let i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
     const o = offerFromRow(rows[i]);
+    if (!inScope(auth, o.brand === "klaryta" ? "Klaryta" : "LPV")) continue;
     o.totals = computeOfferTotals(o, settings);
     o.pdfUrl = o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "";
     offers.push(o);
   }
-  return createJsonResponse({ status: "success", offers: offers.reverse(), settings: settings, brands: hubspotBrandInfo() });
+  const brands = hubspotBrandInfo();
+  if (scopeOf(auth) === "Klaryta") Object.keys(brands).forEach(k => { if (k !== "klaryta") delete brands[k]; });
+  return createJsonResponse({ status: "success", offers: offers.reverse(), settings: settings, brands: brands, scope: scopeOf(auth) });
 }
 
 // Innehållet som kunden ser – ändras det på en skickad offert blir det en ny version
@@ -1727,12 +1780,15 @@ function offerContentKey(o) {
   return JSON.stringify([o.customerName, o.customerType, o.site, o.title, o.description, o.rows, o.deduction, o.deductionPersons, o.validUntil, o.layout || null, o.colorOptions || [], o.facade || null]);
 }
 
-function handleSaveOffer(input, savedBy) {
+function handleSaveOffer(input, savedBy, auth) {
   if (!input) return createJsonResponse({ status: "error", message: "Ingen offert skickades." });
   const settings = getOfferSettings();
   const sheet = getOfferSheet();
   const existing = input.id ? findRowById(sheet, input.id) : null;
   const old = existing ? offerFromRow(existing.row) : null;
+  if (scopeOf(auth) === "Klaryta") { input.brand = "klaryta"; input.brandSet = true; }
+  else if (scopeOf(auth) === "LPV" && input.brand === "klaryta") input.brand = "";
+  if (old && !inScope(auth, old.brand === "klaryta" ? "Klaryta" : "LPV")) return createJsonResponse({ status: "error", message: "Åtkomst nekad: offerten tillhör ett annat bolag." });
   if (old && (old.status === "godkänd" || old.status === "makulerad")) {
     return createJsonResponse({ status: "error", message: "Offerten är " + old.status + " och kan inte ändras. Gör en ny." });
   }
@@ -2339,10 +2395,10 @@ function customerFromRow(r, col) {
     fortnoxNr: String(r[col["Fortnox-kundnr"]] || ""), deals: deals, updated: String(r[col["Uppdaterad"]] || "") };
 }
 
-function handleGetCustomers() {
+function handleGetCustomers(auth) {
   const t = loadCustomerTable();
   const list = [];
-  for (let i = 1; i < t.rows.length; i++) if (t.rows[i][1]) list.push(customerFromRow(t.rows[i], t.col));
+  for (let i = 1; i < t.rows.length; i++) if (t.rows[i][1] && inScope(auth, t.rows[i][4])) list.push(customerFromRow(t.rows[i], t.col));
   list.sort((a, b) => a.name.localeCompare(b.name, "sv"));
   return createJsonResponse({ status: "success", customers: list });
 }
@@ -2435,7 +2491,7 @@ function handleHubspotImport() {
           const r = rowFor(s.account, "contact", String(item.id), email, "");
           r[1] = p.company || person; r[6] = p.company ? person : r[6];
           fillEmpty(r, 3, email); fillEmpty(r, 7, p.phone || p.mobilephone); fillEmpty(r, 8, joinAddress(p));
-          fillEmpty(r, 9, p.company ? "company" : "private"); fillEmpty(r, 10, "none");
+          fillEmpty(r, 9, p.company ? "company" : "private"); fillEmpty(r, 10, "none"); fillEmpty(r, 4, s.account === "KLARYTA" ? "Klaryta" : "LPV");
           if (p.varumarke) r[C["Varumärke"]] = p.varumarke;
           if (!r[C["Affärer (JSON)"]]) r[C["Affärer (JSON)"]] = "[]";
           r[C["Uppdaterad"]] = nowStamp();
@@ -2443,7 +2499,7 @@ function handleHubspotImport() {
         } else if (s.obj === "companies") {
           const r = rowFor(s.account, "company", String(item.id), "", p.name || "");
           r[1] = p.name || r[1];
-          fillEmpty(r, 7, p.phone); fillEmpty(r, 8, joinAddress(p)); fillEmpty(r, 9, "company"); fillEmpty(r, 10, "none");
+          fillEmpty(r, 7, p.phone); fillEmpty(r, 8, joinAddress(p)); fillEmpty(r, 9, "company"); fillEmpty(r, 10, "none"); fillEmpty(r, 4, s.account === "KLARYTA" ? "Klaryta" : "LPV");
           if (p.varumarke) r[C["Varumärke"]] = p.varumarke;
           if (!r[C["Affärer (JSON)"]]) r[C["Affärer (JSON)"]] = "[]";
           r[C["Uppdaterad"]] = nowStamp();
@@ -2512,7 +2568,7 @@ function handleImportCustomers(list, user) {
     }
     r[C["Fortnox-kundnr"]] = nr;
     fillEmpty(r, 2, org); fillEmpty(r, 3, email); fillEmpty(r, 7, sanitize(k.phone).slice(0, 40)); fillEmpty(r, 8, address);
-    fillEmpty(r, 9, company ? "company" : "private"); fillEmpty(r, 10, "none");
+    fillEmpty(r, 9, company ? "company" : "private"); fillEmpty(r, 10, "none"); fillEmpty(r, 4, "LPV"); // LPV:s Fortnox
     if (!r[C["Affärer (JSON)"]]) r[C["Affärer (JSON)"]] = "[]";
     r[C["Uppdaterad"]] = nowStamp();
     idx.fx[nr] = i;
@@ -2804,7 +2860,7 @@ function reportHours(totalText, start, end) {
   return isFinite(diff) ? diff / 60 : 0;
 }
 
-function handleGetInvoiceBasis() {
+function handleGetInvoiceBasis(auth) {
   const ss = getSS();
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   const settings = getOfferSettings();
@@ -2814,7 +2870,7 @@ function handleGetInvoiceBasis() {
   const tidRows = tid ? tid.getDataRange().getValues() : [];
   for (let i = 1; i < tidRows.length; i++) {
     const r = tidRows[i];
-    if (!r[0] || isInvoicedValue(r[1])) continue;
+    if (!r[0] || isInvoicedValue(r[1]) || !inScope(auth, r[10] || "LPV")) continue;
     const start = sheetTimeText(r[4], tz), end = sheetTimeText(r[5], tz);
     const imageLink = (String(r[9] || "").match(/https:\/\/drive\.google\.com\/\S+/) || [""])[0];
     reports.push({
@@ -2836,6 +2892,7 @@ function handleGetInvoiceBasis() {
   const offerRows = offerSheet.getDataRange().getValues();
   for (let i = 1; i < offerRows.length; i++) {
     if (!offerRows[i][0] || String(offerRows[i][3]) !== "godkänd" || offerRows[i][OFFER_INVOICED_COLUMN - 1]) continue;
+    if (!inScope(auth, brandFromCell(offerRows[i][OFFER_BRAND_COLUMN - 1]) === "klaryta" ? "Klaryta" : "LPV")) continue;
     const o = offerFromRow(offerRows[i]);
     o.totals = computeOfferTotals(o, settings);
     o.pdfUrl = o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "";
@@ -2847,7 +2904,7 @@ function handleGetInvoiceBasis() {
   const kundRows = kunder ? kunder.getDataRange().getValues() : [];
   for (let i = 1; i < kundRows.length; i++) {
     const k = kundRows[i];
-    if (!k[1]) continue;
+    if (!k[1] || !inScope(auth, k[4])) continue;
     customers.push({ id: String(k[0]), name: String(k[1]), idNr: String(k[2] || ""), email: String(k[3] || ""),
       phone: String(k[7] || ""), address: String(k[8] || ""), type: String(k[9] || "company"), rotRut: String(k[10] || "none") });
   }
@@ -2857,7 +2914,7 @@ function handleGetInvoiceBasis() {
 
 // Markerar pass och offerter som fakturerade. Passen identifieras med rad + tidsstämpel,
 // så att inget fel pass markeras om någon har sorterat eller tagit bort rader i arket.
-function handleMarkInvoiced(data, user) {
+function handleMarkInvoiced(data, user, auth) {
   const ss = getSS();
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   let marked = 0, skipped = 0;
@@ -2865,7 +2922,8 @@ function handleMarkInvoiced(data, user) {
   (Array.isArray(data.reports) ? data.reports : []).slice(0, 500).forEach(ref => {
     const rowNumber = Number(ref.row);
     if (!tid || !(rowNumber >= 2 && rowNumber <= tid.getLastRow())) { skipped++; return; }
-    const row = tid.getRange(rowNumber, 1, 1, 9).getValues()[0];
+    const row = tid.getRange(rowNumber, 1, 1, 11).getValues()[0];
+    if (!inScope(auth, row[10] || "LPV")) { skipped++; return; }
     const stamp = row[7] instanceof Date ? Utilities.formatDate(row[7], tz, "yyyy-MM-dd HH:mm:ss") : String(row[7] || "");
     if (stamp !== String(ref.stamp) || String(row[8]) !== String(ref.user)) { skipped++; return; }
     tid.getRange(rowNumber, 2).setValue(typeof row[1] === "boolean" ? true : "Ja");
@@ -2874,7 +2932,7 @@ function handleMarkInvoiced(data, user) {
   const offerSheet = getOfferSheet();
   (Array.isArray(data.offerIds) ? data.offerIds : []).slice(0, 100).forEach(id => {
     const hit = findRowById(offerSheet, id);
-    if (!hit || String(hit.row[3]) !== "godkänd") { skipped++; return; }
+    if (!hit || String(hit.row[3]) !== "godkänd" || !inScope(auth, offerFromRow(hit.row).brand === "klaryta" ? "Klaryta" : "LPV")) { skipped++; return; }
     offerSheet.getRange(hit.rowNumber, OFFER_INVOICED_COLUMN).setValue(nowStamp() + " av " + sanitize(user));
     marked++;
   });
@@ -3090,14 +3148,14 @@ function handleBatchReports(data) {
   return createJsonResponse({ status: "success", count: passList.length });
 }
 
-function handleGetUsers() {
+function handleGetUsers(auth) {
   const ss = getSS();
   const personalSheet = ss.getSheetByName(CONFIG.SHEET_STAFF || "Personal");
   const sheetData = personalSheet.getDataRange().getValues();
   const users = [];
 
   for (let i = 1; i < sheetData.length; i++) {
-    if (sheetData[i][0] !== "") {
+    if (sheetData[i][0] !== "" && inScope(auth, sheetData[i][6])) {
       users.push({
         id: String(sheetData[i][0]),
         name: String(sheetData[i][0]),

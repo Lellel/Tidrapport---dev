@@ -16,7 +16,7 @@
     h1 { font-size: 20px; margin: 0; }
     h2 { font-size: 15px; margin: 0 0 8px; }
     .tabs, .grid2, .grid3 { display: grid; gap: 8px; }
-    .tabs { grid-template-columns: 1fr 1fr 1fr; }
+    .tabs { grid-auto-flow: column; grid-auto-columns: 1fr; }
     .cust-hits { display: grid; gap: 4px; }
     .cust-hits button { text-align: left; min-height: 40px; font-weight: 600; }
     .deal { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 4px 0; border-top: 1px solid var(--line); }
@@ -107,6 +107,7 @@
     let draft = null;          // offerten som redigeras
     let message = '';
     let brands = null;         // { lpv: { label, connected }, ... } från backend
+    let scope = null;          // null = admin på LPV (allt); "Klaryta"/"LPV" = bara det bolagets offerter
     let brandFilter = 'alla';
     let customers = null;      // kundregistret (hämtas när det behövs)
     let customerSearch = '', pickSearch = '', openCustomer = '';
@@ -336,8 +337,8 @@
 
     function renderCustomers() {
       if (!customers) return '<div class="muted">Hämtar kundregistret…</div>';
-      const importBox = `<div class="msg" id="msg">${message}</div><label class="btn-like" style="display:block;text-align:center;padding:10px;border:1px dashed var(--line);border-radius:12px;cursor:pointer;font-weight:700;font-size:13px">📥 Importera kunder från Fortnox (tabellfil)<input type="file" accept=".tsv,.csv,.txt" style="display:none" onchange="importCustomerFile(this.files[0])"></label>`;
-      if (!customers.length) return importBox + `<div class="card"><h2>Kundregistret är tomt</h2><div class="muted">Importera från Fortnox ovan, eller hämta från HubSpot under ⚙️ Inställningar → HubSpot.</div></div>`;
+      const importBox = scope ? `<div class="msg" id="msg">${message}</div>` : `<div class="msg" id="msg">${message}</div><label class="btn-like" style="display:block;text-align:center;padding:10px;border:1px dashed var(--line);border-radius:12px;cursor:pointer;font-weight:700;font-size:13px">📥 Importera kunder från Fortnox (tabellfil)<input type="file" accept=".tsv,.csv,.txt" style="display:none" onchange="importCustomerFile(this.files[0])"></label>`;
+      if (!customers.length) return importBox + `<div class="card"><h2>Kundregistret är tomt</h2><div class="muted">${scope ? 'Inga kunder för ' + esc(scope) + ' ännu.' : 'Importera från Fortnox ovan, eller hämta från HubSpot under ⚙️ Inställningar → HubSpot.'}</div></div>`;
       const list = customers.filter(c => customerMatches(c, customerSearch));
       return importBox + `<input placeholder="🔎 Sök namn, kundnr, orgnr, telefon, e-post, adress" value="${esc(customerSearch)}" oninput="customerSearch=this.value; document.getElementById('custlist').innerHTML=renderCustomerList()">
         <div id="custlist">${renderCustomerList(list)}</div>`;
@@ -930,7 +931,8 @@
       const sticky = document.getElementById('sticky');
       if (!settings) { app.innerHTML = `<div class="topbar"><a href="index.html">← Tidrapport</a></div><h1>📄 Offerter & ÄTA</h1><div class="msg" id="msg">${message || 'Hämtar…'}</div>`; return; }
       const head = view === 'edit' ? '' : `<div class="topbar"><a href="index.html">← Tidrapport</a></div><h1>📄 Offerter & ÄTA</h1>
-        <div class="tabs"><button class="${view === 'list' ? 'active' : ''}" onclick="view='list'; message=''; render()">Offerter</button><button class="${view === 'customers' ? 'active' : ''}" onclick="showCustomers()">👥 Kunder</button><button class="${view === 'settings' ? 'active' : ''}" onclick="view='settings'; message=''; render()">⚙️ Inställningar</button></div>`;
+        <div class="tabs"><button class="${view === 'list' ? 'active' : ''}" onclick="view='list'; message=''; render()">Offerter</button><button class="${view === 'customers' ? 'active' : ''}" onclick="showCustomers()">👥 Kunder</button>${scope ? '' : `<button class="${view === 'settings' ? 'active' : ''}" onclick="view='settings'; message=''; render()">⚙️ Inställningar</button>`}</div>`;
+      if (scope && view === 'settings') view = 'list';
       app.innerHTML = head + (view === 'list' ? renderList() : view === 'edit' ? renderEdit() : view === 'customers' ? renderCustomers() : renderSettings());
       if (view === 'edit' && !locked()) {
         sticky.style.display = 'flex';
@@ -949,7 +951,7 @@
       try {
         const res = await snoApi({ action: 'getOffers' });
         if (res.status !== 'success') { message = '❌ ' + esc(res.message || 'Kunde inte hämta.'); settings = null; render(); return; }
-        offers = res.offers; settings = res.settings; brands = res.brands || null;
+        offers = res.offers; settings = res.settings; brands = res.brands || null; scope = res.scope || null;
         const q = new URLSearchParams(location.search);
         if (q.get('id') && offers.find(o => o.id === q.get('id'))) openOffer(q.get('id'));
         else if (q.get('ny')) newOffer(q.get('ny') === 'ata' ? 'ata' : 'offert');

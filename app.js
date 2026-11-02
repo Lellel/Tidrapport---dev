@@ -88,6 +88,18 @@ var currentUser = window.currentUser;
 let isAdmin = localStorage.getItem('lpv_is_admin') === 'true';
 // Sidomenyn leder bara till admin-sidor: dölj den för förare
 document.body.classList.toggle('has-side-nav', isAdmin);
+// Bolag och behörighet från servern: admin på Klaryta ser inte LPV:s snöplanering m.m.
+document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super') === 'false');
+(async () => {
+  try {
+    if (!navigator.onLine || !localStorage.getItem('lpv_key')) return;
+    const me = await apiPost({ action: 'me' });
+    if (me.status !== 'success') return;
+    localStorage.setItem('lpv_company', me.company);
+    localStorage.setItem('lpv_is_super', me.isSuper ? 'true' : 'false');
+    document.body.classList.toggle('not-super', !me.isSuper);
+  } catch (e) { /* offline – senaste kända behörighet gäller */ }
+})();
 
 // Alla anrop till backend går härigenom: skickar med användare + personlig nyckel.
 // Gamla gemensamma nyckeln (CONFIG.API_TOKEN) skickas bara om den finns kvar i config.js.

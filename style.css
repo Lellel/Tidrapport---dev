@@ -851,3 +851,6 @@ body:not(.has-side-nav) .side-nav-drawer { display: none; }
   body.has-side-nav .app-layout-wrapper { padding-left: 46px; box-sizing: border-box; }
   .header-badges { flex-wrap: wrap; }
 }
+
+/* Admin på Klaryta: LPV:s snöplanering och zoner döljs (servern nekar ändå) */
+body.not-super .lpv-only { display: none !important; }

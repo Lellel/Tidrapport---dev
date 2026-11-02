@@ -114,6 +114,18 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Bolag **Klaryta** → SMS:et kommer från Klaryta
 - [ ] Samma namn två gånger → "finns redan i Personal"
 
+## 1b. Behörigheter per bolag (LPV / Klaryta)
+
+**Förberedelse:** kolumn G i fliken Personal = "LPV" eller "Klaryta" för alla (tom räknas som LPV).
+
+- [ ] Admin på LPV ser allt: alla offerter, kunder, pass i Ekonomi, radarn, snöplanering, inställningar
+- [ ] Admin på Klaryta: ser bara Klarytas offerter, kunder, pass, radarjobb och personal; nya offerter blir alltid Klaryta
+- [ ] Admin på Klaryta: Snöplanering och Rita snözoner syns inte i menyn; fliken ⚙️ Inställningar och importknapparna syns inte
+- [ ] Admin på Klaryta kan lägga till förare/UE (hamnar i Klaryta) men inte ge admin- eller ekonombehörighet
+- [ ] Admin på Klaryta kan skapa inloggningslänk för Klarytas förare, men inte för LPV:s personal
+- [ ] Ekonom på Klaryta ser bara Klarytas pass/offerter/kunder i Ekonomi – och tvärtom för ekonom på LPV
+- [ ] Bara admin på LPV kan ge admin- och ekonombehörighet (även i Klaryta)
+
 ## 2. Spärra en person
 
 - [ ] Välj en testperson → **🔑 Spärra & skapa ny länk** → bekräfta
