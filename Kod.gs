@@ -138,7 +138,9 @@ function doPost(e) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
     // Bara admin på LPV: inställningar, importer, HubSpot och stallregistret. (Snöplaneringen är gemensam.)
-    const lpvAdminOnly = ["saveOfferSettings", "importCustomers", "hubspotImport", "hubspotSyncPending", "saveStall", "addStallPhoto", "robotAlarm"];
+    const lpvAdminOnly = ["saveOfferSettings", "importCustomers", "hubspotImport", "hubspotSyncPending", "saveStall", "addStallPhoto", "robotAlarm",
+      // Blacksta är ett eget projekt (repot Blacksta, eget kalkylark). Kvar här bara tills datan är flyttad.
+      "blacksta_getPlan", "blacksta_savePlan", "blacksta_logEvent", "blacksta_getEvents", "blacksta_addMed", "blacksta_getMed"];
     if (lpvAdminOnly.indexOf(action) !== -1 && !auth.isSuper) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör på LPV." });
     }

@@ -224,34 +224,13 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] En AI-bild (eller ditt foto om AI inte svarar) visas
 - [ ] Ingen "Servern var upptagen" för andra som rapporterar samtidigt
 
-## 7. Blacksta (Gårds-Kabanossen)
+## 7. Blacksta – flyttat till eget projekt
 
-**iPad liggande (Paddan):**
-- [ ] Dra en person från vänsterpanelen till ett jobbkort → personen hamnar på kortet
-- [ ] Dra ett jobbkort till en annan rad/tid → kortet flyttas
-- [ ] Dra ett jobbkort till orderboken → kortet avplaneras
-- [ ] Ett vanligt tryck på ett kort öppnar detaljrutan (utan att något flyttas)
-- [ ] Zoomknapparna fungerar
+Blacksta finns nu i repot **Blacksta** med egen backend, eget kalkylark och egna inloggningar.
+I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan är flyttad; därefter tas `blacksta/` och backenddelen bort härifrån.
 
-**Telefon stående (Stöveln):**
-- [ ] Korten visas som 3D-karusell, mittkortet framme
-- [ ] Svep vänster/höger roterar karusellen, räknaren (t.ex. 2 / 13) uppdateras
-- [ ] Tryck på sidokort → det roterar fram
-- [ ] Tryck på mittkortet → detaljrutan öppnas
-- [ ] "Utförd & Avbockad" sparas (meddelande "Utfört och sparat ✅"; vid järn/kastrering/vaccin frågar den om journalföring)
-
-**Sparas & journal (kräver ny Kod.gs uppladdad):**
-- [ ] Flytta ett kort (admin) → statusen bredvid 📒 Journal visar "Sparat" efter några sekunder
-- [ ] Ladda om sidan → kortet ligger kvar där du flyttade det
-- [ ] Öppna "Järn & Kastrering" → knappen 💉 Journalför läkemedel finns
-- [ ] Kastrering utan kryss för bedövning/smärtlindring → nekas med förklaring
-- [ ] Kastrering med alla kryss → 2 rader (bedövning + smärtlindring) i journalen
-- [ ] Karenstid 0 går att spara; tomt fält nekas
-- [ ] 📒 Journal visar posten, ⏳ pågående karens syns överst
-- [ ] "Rätta" en post → ny rad, gamla markeras som rättad (inget raderas)
-- [ ] Fliken Händelser visar slussning/utfört/kastrering med namn och tid
-- [ ] ⬇️ CSV öppnas i Excel/Numbers med rätt å, ä, ö
-- [ ] I kalkylarket finns flikarna Blacksta_Plan, Blacksta_Händelser och Läkemedelsjournal
+- [ ] Flikarna Blacksta_Plan, Blacksta_Händelser och Läkemedelsjournal är kopierade till Blacksta-kalkylarket
+- [ ] Ta bort `blacksta/` och Blacksta-delen i Kod.gs från den här appen
 
 ## 8. Snözoner – rita (iPad, admin)
 
