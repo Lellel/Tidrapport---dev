@@ -317,6 +317,18 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] **Flera hjälps åt:** välj **Mitt område** → nästa fastighet stannar i området; den som en annan har öppen visas med 🔒 och hoppas över (släpps efter 30 min eller vid Klar/Senare)
 - [ ] **✅ Klar – nästa** / **⏭ Senare – nästa** → hoppar till nästa fastighet; de överhoppade kommer sist; "x av 74 klara" stämmer
 
+### 8d. Ändra form (iPad med Apple Pencil, admin)
+- [ ] Förslag → **Ta med** på en yta → går direkt till ✏️ Ändra form (vita hörn, ram i panelen, ➕/➖/↶ nere till höger på kartan)
+- [ ] **➕ Lägg till:** ringa in en bit som saknas med pennan → ytan växer, m² visas
+- [ ] **➖ Sudda:** ringa in gräs från kanten → biten försvinner; skär man rakt igenom blir det 2 delar (sparas som 2 zoner)
+- [ ] Sudda en bit mitt i (hål) → varning, inget ändras
+- [ ] Välj **🖌️ Pensel** under ändring → pennan målar till/suddar med penselbredd
+- [ ] Byt **Maskinzon ↔ Handskottning** under ändring → typen byts, formen ligger kvar
+- [ ] Dra ett hörn (penna och finger) · tryck på ett hörn = bort · tryck/dra en kantprick = nytt hörn · fingrar flyttar kartan
+- [ ] **↶ Ångra** stegvis · **✕ Avbryt** → sparad zon ser ut som förut
+- [ ] Sparad zon → tryck på den → **✏️ Ändra form** → ändra → **💾 Spara ändringar** → rätt efter omladdning
+- [ ] Pensel utan ändra-läge: **➖ Sudda** i penselraden tar bort det man målat för mycket
+
 ## 9. Snöjour – förarens vy (telefon)
 
 Öppnas via knappen **❄️ Snöjour – karta & GPS** under formuläret.
