@@ -13,7 +13,31 @@ function getSavedAvatar() {
   if (legacy) { localStorage.setItem(avatarKey(), legacy); localStorage.removeItem('lpv_user_avatar'); }
   return legacy || '';
 }
-function saveAvatar(data) { localStorage.setItem(avatarKey(), data); }
+// Avataren sparas liten (256 px). AI-bilden är 1–2 MB och fyllde webbläsarens lagring ("The quota has been exceeded").
+function saveAvatar(data) {
+  try { localStorage.setItem(avatarKey(), data); }
+  catch (e) {
+    // Lagringen full: rensa gamla avatarkopior (andra användare på samma enhet, gamla nyckeln) och försök igen
+    Object.keys(localStorage).filter(k => (k.startsWith('lpv_user_avatar') && k !== avatarKey())).forEach(k => localStorage.removeItem(k));
+    try { localStorage.setItem(avatarKey(), data); } catch (e2) { /* visas ändå i appen den här gången */ }
+  }
+}
+function shrinkAvatar(dataUrl, size = 256) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = size; c.height = size;
+      const s = Math.min(img.width, img.height); // beskär till kvadrat från mitten
+      c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      // Under 48 000 tecken så att den ryms i en cell i Personal-fliken
+      let out = c.toDataURL('image/jpeg', 0.85);
+      for (const q of [0.7, 0.55, 0.4]) { if (out.length < 48000) break; out = c.toDataURL('image/jpeg', q); }
+      resolve(out);
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
 function initialsAvatar(name) {
   const clean = String(name || '?').trim();
   const initials = clean.split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
@@ -195,12 +219,16 @@ function generatePostmanPatAvatar() {
       })
     })
     .then(res => res.json())
-    .then(data => {
+    .then(async data => {
       if ((data.status === 'success' || data.status === 'fallback') && data.clayAvatarBase64) {
-        saveAvatar(data.clayAvatarBase64);
+        const small = await shrinkAvatar(data.clayAvatarBase64);
+        saveAvatar(small);
         if (typeof updateAvatarDisplays === 'function') {
-          updateAvatarDisplays(data.clayAvatarBase64);
+          updateAvatarDisplays(small);
         }
+        // Den lilla bilden sparas också i Personal-fliken, så att den följer med till andra enheter
+        if (typeof window.getAuthFields === 'function') fetch(gasUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'saveMyAvatar', ...window.getAuthFields(), imageBase64: small }) }).catch(() => {});
         closePostmanPatModal();
         // AI:n svarade inte (t.ex. dagens kvot slut) – fotot sparades som det är
         if (data.status === 'fallback') alert('Ditt foto sparades som avatar.\n\n' + (data.message || 'AI-bilden kunde inte skapas just nu.'));
@@ -209,7 +237,7 @@ function generatePostmanPatAvatar() {
       }
     })
     .catch(err => {
-      alert('Nätverksfel: ' + err.message);
+      alert(/quota/i.test(err.message) ? 'Telefonens lagring för appen är full. Avataren kunde inte sparas – försök igen.' : 'Nätverksfel: ' + err.message);
     })
     .finally(() => {
       if (btn) {

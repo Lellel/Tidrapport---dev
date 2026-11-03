@@ -204,6 +204,12 @@ function doPost(e) {
     if (action === "radarSaveJob") return handleRadarSaveJob(data, auth);
     if (action === "radarDeleteJob") return handleRadarDeleteJob(data, auth);
     if (action === "getNotices") return handleGetNotices(auth);
+    if (action === "saveMyAvatar") {
+      const img = String(data.imageBase64 || "");
+      if (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+\/=]+$/.test(img) || img.length > 50000) return createJsonResponse({ status: "error", message: "Bilden är för stor eller ogiltig." });
+      saveAvatarToSheet(auth.user, img);
+      return createJsonResponse({ status: "success" });
+    }
     if (action === "markNoticesRead") return handleMarkNoticesRead(data, auth);
     if (action === "getStalls") return handleGetStalls();
     if (action === "saveStall") return handleSaveStall(data.stall, auth.user);
