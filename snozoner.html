@@ -714,7 +714,14 @@
         renderPropList();
         setInterval(refreshProperties, 60000);
         const want = new URLSearchParams(location.search).get('fastighet');
-        if (want) { const p = properties.find(x => x.id === want); if (p) { document.getElementById('f-fastighet').value = propLabel(p); chooseProperty(propLabel(p)); } }
+        const wanted = want && properties.find(x => x.id === want);
+        if (wanted) { document.getElementById('f-fastighet').value = propLabel(wanted); chooseProperty(propLabel(wanted)); }
+        else {
+          // Ingen adress att kunna: nästa som inte är klar (i mitt område) öppnas direkt
+          const first = nextProperty(null);
+          if (first) { openProperty(first); setStatus(`Nu: <b>${snoEscape(first.address)}</b>. Rita zonerna och tryck <b>✅ Klar – nästa</b>.`); }
+          else if (properties.length) setStatus(area ? `🎉 Allt i ${snoEscape(area)} är klart (eller upptaget av någon annan)!` : '🎉 Alla fastigheter är klara!');
+        }
       } catch (err) { /* utan nät: fastighetslistan saknas, resten fungerar */ }
     }
     const me = snoCurrentUser();
