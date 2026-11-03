@@ -158,6 +158,7 @@ function testaGemini() {
 // 2. MAIN GET & POST HANDLERS (WEBAPP ROUTER)
 // ==========================================
 function doGet(e) {
+  if (e && e.parameter && e.parameter.widget) return handleWidget(e.parameter);
   if (e && e.parameter && e.parameter.api === "true") {
     return createJsonResponse({
       status: "online",
@@ -359,6 +360,7 @@ function doPost(e) {
     if (action === "setPropertyZoneStatus") return handleSetPropertyZoneStatus(data);
     if (action === "claimProperty") return handleClaimProperty(data, auth);
     if (action === "getWeather") return handleGetWeather(data, auth);
+    if (action === "createWidgetKey") return handleCreateWidgetKey(data, auth);
     if (action === "setPlowThreshold") return handleSetPlowThreshold(data);
     if (action === "analyzePropertyMap") return handleAnalyzePropertyMap(data);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
@@ -491,6 +493,7 @@ function handleGetUserKey(data) {
   if (!hit) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
   let key = String(hit.row[KEY_COLUMN - 1] || "");
   if (!key || data.reset) {
+    if (data.reset) revokeWidgetKeys(hit.row[0]);
     key = Utilities.getUuid().replace(/-/g, "");
     sheet.getRange(hit.rowNumber, KEY_COLUMN).setValue(key);
     clearStaffAuthCache(hit.row[0]);
@@ -1496,6 +1499,12 @@ function handleGetJobs(data, auth) {
   if (!auth) return createJsonResponse({ status: "success", events: [] });
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   const dateText = /^\d{4}-\d{2}-\d{2}$/.test(String(data.date || "")) ? String(data.date) : Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+  const r = jobsForDay(dateText, auth);
+  return createJsonResponse({ status: "success", date: dateText, events: r.events, notes: r.notes });
+}
+
+function jobsForDay(dateText, auth) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   const [y, m, d] = dateText.split("-").map(Number);
   const day = new Date(y, m - 1, d);
   const events = [];
@@ -1532,12 +1541,12 @@ function handleGetJobs(data, auth) {
     events.push({
       id: "radar:" + j.id, title: j.title || j.client || "Jobb", place: j.siteAddress || j.client || "",
       description: [j.client, j.siteContactName, j.siteContactPhone].filter(Boolean).join(" · "),
-      start: seg ? hh(seg.from) : "", source: "radar", isBuffer: !j.startDate
+      start: seg ? hh(seg.from) : "", source: "radar", isBuffer: !j.startDate, mine: mine, crew: j.assigned.slice(0, 8)
     });
   });
 
   events.sort((a, b) => (a.isBuffer - b.isBuffer) || String(a.start || "99").localeCompare(String(b.start || "99")));
-  return createJsonResponse({ status: "success", date: dateText, events: events, notes: notes });
+  return { events: events, notes: notes };
 }
 
 // ==========================================
@@ -2451,6 +2460,71 @@ function installeraVaderKoll() {
   ScriptApp.newTrigger("vaderKollTrigger").timeBased().everyMinutes(15).create();
   vaderKoll(true);
   Logger.log("✅ Vädret mäts nu var 15:e minut. Läget: " + JSON.stringify(Object.keys(readVaderLage().areas).map(k => k + " plog " + readVaderLage().areas[k].plog + "% sand " + readVaderLage().areas[k].sand + "%")));
+}
+
+// ==========================================
+// 4d2. WIDGET (Scriptable på iPhone/iPad): Plogometern, Sandometern och Mina jobb
+// Varje person skapar en egen widgetnyckel i appen (widget.html). Nyckeln kan bara LÄSA widgetdatan,
+// bara en hash sparas, och den spärras när man skapar en ny eller när admin spärrar personens länk.
+// Widgeten hämtar med GET: <webbapp>?widget=<nyckel>[&alla=1]
+// ==========================================
+const WIDGET_HEADERS = ["Skapad", "Användare", "Nyckel (hash)", "Aktiv"];
+function getWidgetSheet() { return getSheetOrCreate(getSS(), "Widgetnycklar", WIDGET_HEADERS); }
+
+function revokeWidgetKeys(user) {
+  const sheet = getWidgetSheet();
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) if (String(rows[i][1]) === String(user) && rows[i][3] === "ja") sheet.getRange(i + 1, 4).setValue("nej");
+}
+
+function handleCreateWidgetKey(data, auth) {
+  if (data.revoke) { revokeWidgetKeys(auth.user); return createJsonResponse({ status: "success", revoked: true }); }
+  revokeWidgetKeys(auth.user);
+  const token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "").slice(0, 16);
+  getWidgetSheet().appendRow([nowStamp(), sanitize(auth.user), pcLinkHash(token), "ja"]);
+  return createJsonResponse({ status: "success", token: token });
+}
+
+function widgetUser(token) {
+  const t = String(token || "").replace(/[^A-Za-z0-9]/g, "");
+  if (t.length < 30) return null;
+  const hash = pcLinkHash(t);
+  const rows = getWidgetSheet().getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][2]) !== hash || rows[i][3] !== "ja") continue;
+    const info = readStaffAuth(rows[i][1]);
+    if (!info || !info.key || info.quarantined) return null;
+    return { user: info.user, isAdmin: info.isAdmin, isEconomist: info.isEconomist, company: info.company, isSuper: info.isAdmin && info.company === "LPV", role: info.role || "" };
+  }
+  return null;
+}
+
+const WIDGET_LABELS = { plog: [[25, "Sov gott"], [50, "Ha luren nära"], [70, "Håll koll"], [90, "Ladda kaffebryggaren"], [101, "Starta kaffebryggaren!"]],
+  sand: [[25, "Torrt och fint"], [50, "Kan bli halt"], [70, "Håll koll"], [90, "Fyll sandspridaren"], [101, "Ut och sanda!"]] };
+const widgetLabel = (kind, v) => WIDGET_LABELS[kind].find(x => v < x[0])[1];
+
+function handleWidget(params) {
+  const auth = widgetUser(params.widget);
+  if (!auth) return createJsonResponse({ status: "error", message: "Widgetnyckeln gäller inte längre. Skapa en ny i appen: 📱 Widget." });
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const state = readVaderLage();
+  let names = myWeatherAreas(auth.user);
+  if (!names.length && auth.isAdmin && state) names = Object.keys(state.areas).sort((a, b) => Math.max(state.areas[b].plog, state.areas[b].sand) - Math.max(state.areas[a].plog, state.areas[a].sand)).slice(0, 2);
+  const areas = state ? names.filter(n => state.areas[n]).map(n => {
+    const a = state.areas[n];
+    return { name: n, plog: a.plog, sand: a.sand, plogLabel: widgetLabel("plog", a.plog), sandLabel: widgetLabel("sand", a.sand),
+      plogWhy: a.plogWhy, plogWhen: a.plogWhen, sandWhy: a.sandWhy, sandWhen: a.sandWhen, level: a.level };
+  }) : [];
+  const all = params.alla === "1" && auth.isAdmin;
+  const day = (offset) => {
+    const d = new Date(Date.now() + offset * 86400000);
+    const text = Utilities.formatDate(d, tz, "yyyy-MM-dd");
+    return jobsForDay(text, auth).events.filter(e => all || e.mine || e.source === "kalender" && !auth.isAdmin)
+      .filter(e => !e.isBuffer).slice(0, 8).map(e => ({ title: e.title, place: e.place, start: e.start, crew: e.crew || [] }));
+  };
+  return createJsonResponse({ status: "success", user: auth.user, at: state ? state.at : 0, now: Date.now(), areas: areas,
+    jobs: { today: day(0), tomorrow: day(1) }, all: all,
+    site: PropertiesService.getScriptProperties().getProperty("SITE_URL") || DEFAULT_SITE_URL });
 }
 
 // Vilka väderområden en förare har: slingorna -> fastigheterna -> ort/område (Flen Norra -> Flen)

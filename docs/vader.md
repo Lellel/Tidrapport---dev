@@ -28,3 +28,10 @@ Förarens område: slingorna → fastigheterna → område/ort (Flen Norra → F
 - Notisen visas **i appen** (ingen push/SMS – föraren kollar själv), en gång per ändring.
 - Förarna ser bara sina områden (mätarna i Snöjour). Admin: `vader.html` med timprognos, vägytor, kamera och gräns.
 - Allt loggas i fliken **Väderlogg** (underlag för fakturan senare).
+
+## Widget (Scriptable på iPhone/iPad)
+- Sidan `widget.html` skapar personens skript från mallen `widget-scriptable.js` (ingen nyckel i repot).
+- Widgetnyckeln kan bara läsa: `GET <webbapp>?widget=<nyckel>[&alla=1]` → område(n), mätare, dagens och morgondagens jobb.
+- Bara hash sparas (fliken **Widgetnycklar**). Ny nyckel, "Spärra min widget" eller admins "Spärra & skapa ny länk" spärrar den.
+- Parametrar: tomt = mätarna, `jobb` = Mina jobb, `alla` = alla jobb (admin). Låsskärm: rund, bred och rad.
+- Android: ingen widget – appen räcker.

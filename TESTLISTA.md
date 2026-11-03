@@ -346,6 +346,15 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Vid 70 % / 90 %: notisen med kaffebryggaren visas när appen öppnas → 👍 Uppfattat → visas inte igen förrän läget ändras
 - [ ] Fliken **Väderlogg** fylls på (en rad per område och mätning)
 
+## 9d. Widget på hemskärmen (iPhone/iPad, Scriptable – kräver ny Kod.gs)
+- [ ] Startsidan: mini-mätarna (Plogometern och Sandometern) överst för den som har en snöslinga → tryck öppnar Snöjour
+- [ ] Startsidan → **📱 Widget på hemskärmen** → **🔑 Skapa mitt widgetskript** → **📋 Kopiera**
+- [ ] Scriptable → ＋ → klistra in → döp till LPV → ▶ visar mätarna
+- [ ] Hemskärmen: liten widget (tom parameter) = mätarna; mellan med parameter `jobb` = Mina jobb; `alla` = alla jobb (admin)
+- [ ] Låsskärmen: rund (högsta av plog/sand) och bred (båda)
+- [ ] **🚫 Spärra min widget** → widgeten visar "gäller inte längre"; skapa nytt → fungerar igen
+- [ ] Admin: 🔑 Spärra & skapa ny länk för en person → personens widget slutar också fungera
+
 ## 10. Snöplanering – fastigheter & traktorer (admin)
 
 Öppnas via admin-panelen → **❄️ Snöplanering** (eller sidomenyn).

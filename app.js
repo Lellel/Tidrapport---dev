@@ -177,6 +177,7 @@ async function checkWeatherNotice() {
   let seen = {};
   try { seen = JSON.parse(localStorage.getItem('lpv_vader_sett') || '{}'); } catch (e) { seen = {}; }
   const names = res.mine || Object.keys(res.areas || {});
+  renderWeatherMini(res, names);
   const fresh = names.filter(n => res.areas[n] && res.areas[n].changeId && seen[n] !== res.areas[n].changeId && Date.now() - (res.areas[n].changedAt || 0) < 18 * 3600000);
   document.getElementById('vader-notice')?.remove();
   if (!fresh.length) return;
@@ -195,6 +196,22 @@ async function checkWeatherNotice() {
     try { localStorage.setItem('lpv_vader_sett', JSON.stringify(seen)); } catch (e) { /* privat läge */ }
     box.remove();
   };
+}
+// Mini-mätarna överst på startsidan för den som har en snöslinga
+function renderWeatherMini(res, names) {
+  const a = names.map(n => res.areas[n] && Object.assign({ name: n }, res.areas[n])).filter(Boolean)
+    .sort((x, y) => Math.max(y.plog, y.sand) - Math.max(x.plog, x.sand))[0];
+  let box = document.getElementById('vader-mini');
+  if (!a || typeof vxMeters !== 'function') { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement('div'); box.id = 'vader-mini';
+    box.style.cssText = 'margin:0 0 12px;padding:12px;border-radius:20px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);color:var(--fg);cursor:pointer;';
+    box.onclick = () => { location.href = 'snojour.html'; };
+    const head = document.querySelector('.app-header');
+    if (head && head.parentNode) head.parentNode.insertBefore(box, head.nextSibling);
+    else (document.querySelector('.app-container') || document.body).prepend(box);
+  }
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px;"><span>❄️ ${a.name}</span><span style="opacity:.7;font-weight:600;">${typeof vxAge === 'function' ? vxAge(res.at) : ''}</span></div>` + vxMeters(a);
 }
 document.addEventListener('DOMContentLoaded', checkWeatherNotice);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkWeatherNotice(); });

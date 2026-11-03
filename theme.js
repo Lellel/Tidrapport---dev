@@ -30,7 +30,7 @@
       `<button type="button" class="${page === 'ekonomi.html' ? 'on' : ''}"><span>•••</span>Mer</button>`;
     const more = document.createElement('div');
     more.className = 'lpv-more';
-    more.innerHTML = '<div><a href="offerter.html?view=customers">💼&nbsp; Kunder</a><a href="vader.html">🌨️&nbsp; Väder – Plogometern</a><a href="snozoner.html">❄️&nbsp; Rita snözoner</a><a href="ekonomi.html">💰&nbsp; Ekonomi</a></div>';
+    more.innerHTML = '<div><a href="offerter.html?view=customers">💼&nbsp; Kunder</a><a href="vader.html">🌨️&nbsp; Väder – Plogometern</a><a href="snozoner.html">❄️&nbsp; Rita snözoner</a><a href="ekonomi.html">💰&nbsp; Ekonomi</a><a href="widget.html">📱&nbsp; Widget</a></div>';
     more.onclick = (e) => { if (e.target === more) more.classList.remove('open'); };
     bar.querySelector('button').onclick = () => more.classList.add('open');
     document.body.append(bar, more);
