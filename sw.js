@@ -2,7 +2,7 @@
 // Appens filer visas direkt från telefonen (snabb start, fungerar utan täckning).
 // Ny version: höj CACHE_NAME → telefonen hämtar allt nytt i bakgrunden och appen
 // visar "Ny version – tryck för att uppdatera". Deploy-workflowen höjer den automatiskt i prod.
-const CACHE_NAME = 'lpv-dev-v4.7.1-b30';
+const CACHE_NAME = 'lpv-dev-v4.7.1-b31';
 const RUNTIME_CACHE = 'lpv-runtime';   // CDN-bibliotek och Drive-bilder
 const TILE_CACHE = 'lpv-tiles';        // kartbitar för Snöjour
 const MAX_TILES = 1500;
@@ -87,13 +87,19 @@ self.addEventListener('fetch', (event) => {
   // Backend (Apps Script) och allt som inte är GET går alltid direkt till nätet
   if (request.method !== 'GET' || url.hostname.includes('script.google.com') || url.hostname.includes('script.googleusercontent.com')) return;
 
-  // Sidor: visa sparad version direkt (oavsett ?user=&key=-parametrar), annars nätet
+  // Sidor: nätet först (så att en ny version syns direkt), sparad version om nätet saknas eller är för långsamt (4 s)
   if (request.mode === 'navigate' && url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(request, { ignoreSearch: true })
-        .then((cached) => cached || fetch(request))
-        .catch(() => caches.match('./index.html'))
-    );
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const key = new Request(url.origin + url.pathname); // utan ?user=&key=
+      try {
+        const res = await Promise.race([fetch(request), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 4000))]);
+        if (res && res.ok) cache.put(key, res.clone()).catch(() => {});
+        return res;
+      } catch (e) {
+        return (await caches.match(key, { ignoreSearch: true })) || (await caches.match('./index.html')) || Response.error();
+      }
+    })());
     return;
   }
 
