@@ -612,6 +612,14 @@ $('tl').addEventListener('touchstart', (e) => { if (!isSafariGestures && e.touch
 $('tl').addEventListener('touchmove', (e) => { if (!pinch || e.touches.length !== 2) return; const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
   if (d > pinch.d * 1.35) { zoomBy(-1); pinch.d = d; } else if (d < pinch.d * 0.74) { zoomBy(1); pinch.d = d; } }, { passive: true });
 $('tl').addEventListener('touchend', () => { pinch = null; });
+// Dator: nyp på styrplattan (Chrome/Edge skickar det som ctrl + hjul) eller ctrl + mushjul zoomar tidslinjen, inte sidan
+let wheelSum = 0;
+document.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  wheelSum += e.deltaY;
+  if (wheelSum < -40) { zoomBy(-1); wheelSum = 0; } else if (wheelSum > 40) { zoomBy(1); wheelSum = 0; }
+}, { passive: false });
 load();
 </script>
 </body>
