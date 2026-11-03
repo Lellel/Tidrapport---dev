@@ -38,6 +38,9 @@
     .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px 0; }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
+    .sno-legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: calc(100% - 120px); padding: 5px 9px; border-radius: 10px; background: var(--t-overlay); font-size: 11px; font-weight: 600; pointer-events: none; }
+    .sno-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .sno-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(255,255,255,.7); }
   </style>
 </head>
 <body>
@@ -49,6 +52,7 @@
 
   <div class="map-wrap">
     <div id="map"></div>
+    <div class="sno-legend" id="sno-legend"></div>
     <div class="map-buttons">
       <button id="btn-follow" onclick="toggleFollow()">📍 Följ mig</button>
       <button onclick="toggleTiles()">🗺️ Karta</button>
@@ -116,7 +120,7 @@
         ongoing.end = nowHHMM();
         ongoing.totalHours = hoursBetween(ongoing.start, ongoing.end).toFixed(1);
       }
-      const count = zonesInSlinga().filter(z => SNO_TYPES[z.type].kind !== 'marker').length;
+      const count = zonesInSlinga().filter(z => snoZoneKind(z) !== 'marker' && z.type !== 'upplag').length;
       drafts.push({
         id: Date.now(), type: 'nya', ataNumber: '', date: localDate(), user: snoCurrentUser(),
         place: currentSlinga, activity: 'Snöröjning', notes: `Snöjour: slinga ${currentSlinga} (${count} objekt)`,
@@ -314,6 +318,7 @@
     }
 
     mapCtl = snoCreateMap('map');
+    if (!SNO_MAP_MISSING) document.getElementById('sno-legend').innerHTML = snoLegendHtml();
     map = mapCtl.map;
     map.on('dragstart', () => { following = false; updateFollowButton(); });
     if (snoIsAdmin()) document.getElementById('link-draw').style.visibility = 'visible';

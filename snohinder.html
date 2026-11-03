@@ -139,7 +139,7 @@
         if (!z.property) return;
         const a = by[z.property] || (by[z.property] = { property: z.property, slinga: z.slinga, coords: [], hazards: 0 });
         a.coords.push(...z.coords);
-        if (def(z.type).kind === 'marker' && SNO_TYPES[z.type]) a.hazards++;
+        if (SNO_TYPES[z.type] && snoZoneKind(z) === 'marker') a.hazards++;
         if (!a.slinga && z.slinga) a.slinga = z.slinga;
       });
       const list = Object.values(by).map(a => ({ ...a, center: snoCenter(a.coords) }));

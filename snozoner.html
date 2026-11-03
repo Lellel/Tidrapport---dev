@@ -13,7 +13,7 @@
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--t-font); }
     .layout { display: grid; grid-template-columns: 1fr 340px; height: 100%; }
     #map { height: 100%; width: 100%; }
-    .panel { background: var(--panel); border-left: 1px solid var(--line); padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .panel { background: var(--panel); border-left: 1px solid var(--line); padding: calc(14px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 0; }
@@ -30,7 +30,8 @@
     .status { font-size: 13px; color: var(--muted); min-height: 18px; }
     .status b { color: var(--text); }
     .banner { background: rgba(239,68,68,.12); border: 1px solid var(--danger); color: var(--t-danger); padding: 10px; border-radius: var(--t-r); font-size: 13px; display: none; }
-    .map-toggle { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; gap: 6px; }
+    /* Statusraden (klocka/batteri) på iPad: inget läggs under den */
+    .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); z-index: 500; display: flex; gap: 6px; }
     .map-toggle button { min-height: 36px; padding: 0 12px; background: var(--t-overlay); }
     .map-wrap { position: relative; height: 100%; }
     .zone-list { display: flex; flex-direction: column; gap: 6px; }
@@ -51,12 +52,25 @@
     .kk-handle { width: 34px; height: 34px; border-radius: 50%; background: #38bdf8; color: var(--t-on-accent); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,.5); border: 2px solid #fff; }
     .kk-row { display: flex; gap: 6px; flex-wrap: wrap; }
     .kk-row button { flex: 1; min-height: 40px; padding: 0 8px; }
+    .kk-icon { min-height: 32px; padding: 0 8px; background: transparent; font-size: 16px; }
+    .kk-main { min-height: 48px; font-size: 14px; }
+    .kk-small { min-height: 36px; font-size: 12px; background: transparent; }
+    .sno-legend { position: absolute; left: calc(env(safe-area-inset-left) + 12px); bottom: calc(env(safe-area-inset-bottom) + 12px); z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: var(--t-r); background: var(--t-overlay); font-size: 12px; font-weight: 600; pointer-events: none; }
+    .sno-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .sno-legend i, .tools .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,.7); vertical-align: -1px; }
+    .brush-opts { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+    /* Gestknappen till vänster på kartan – nås med vänster tumme i liggande läge */
+    .kk-fab { position: absolute; left: calc(env(safe-area-inset-left) + 12px); top: 50%; transform: translateY(-50%); z-index: 600; display: none; flex-direction: column; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+    .kk-fab button { width: 76px; min-height: 64px; border: none; border-radius: 0; background: var(--t-overlay); font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+    .kk-fab button span { font-size: 22px; }
+    .kk-fab button.on { background: var(--accent); color: var(--t-on-accent); }
+    .kk-progress { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
     input[type=range] { padding: 0; }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
     @media (max-width: 800px) {
       .layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
-      .panel { border-left: none; border-top: 1px solid var(--line); }
+      .panel { border-left: none; border-top: 1px solid var(--line); padding-top: 14px; }
     }
   </style>
 </head>
@@ -67,7 +81,10 @@
       <div class="map-toggle">
         <button onclick="mapCtl.setTiles('sat')">🛰️ Satellit</button>
         <button onclick="mapCtl.setTiles('street')">🗺️ Vägkarta</button>
+        <button id="btn-fs" onclick="toggleFullscreen()" title="Helskärm – döljer klockan och batteriet">⛶ Helskärm</button>
       </div>
+      <div class="sno-legend" id="sno-legend"></div>
+      <div class="kk-fab" id="kk-fab"></div>
     </div>
 
     <aside class="panel">
@@ -111,6 +128,7 @@
       <div>
         <label>Verktyg</label>
         <div class="tools" id="tools"></div>
+        <div class="brush-opts" id="brush-opts" style="display:none"></div>
       </div>
 
       <div>
@@ -161,7 +179,10 @@
 
     // 🚪 Entré = en handskottningsyta på 3 × 3 m med ett tryck (sparas som Handskottning)
     const ENTRE_SIZE = 3;
-    const toolType = () => currentTool === 'entre' ? 'hand' : currentTool;
+    // 🖌️ Pensel = handskottning som målas med en viss bredd (meter på marken)
+    const toolType = () => currentTool === 'entre' || currentTool === 'pensel' ? 'hand' : currentTool;
+    let brushW = 1.5;
+    const BRUSH_WIDTHS = [1, 1.5, 2];
     const toolDef = () => SNO_TYPES[toolType()];
     function squareAround(pt, sizeM) {
       const dLat = sizeM / 2 / 111320, dLng = sizeM / 2 / (111320 * Math.cos(pt[0] * Math.PI / 180));
@@ -170,8 +191,12 @@
 
     function renderTools() {
       document.getElementById('tools').innerHTML = Object.entries(SNO_TYPES).map(([key, def]) =>
-        `<button class="${key === currentTool ? 'active' : ''}" onclick="setTool('${key}')">${def.icon || '■'} ${def.label}</button>`
-      ).join('') + `<button class="${currentTool === 'entre' ? 'active' : ''}" onclick="setTool('entre')">🚪 Entré</button>`;
+        `<button class="${key === currentTool ? 'active' : ''}" onclick="setTool('${key}')">${def.color ? `<span class="sw" style="background:${def.color}"></span>` : ''} ${def.icon || ''} ${def.label}</button>`
+      ).join('') + `<button class="${currentTool === 'pensel' ? 'active' : ''}" onclick="setTool('pensel')"><span class="sw" style="background:${SNO_TYPES.hand.color}"></span> 🖌️ Pensel</button>` +
+        `<button class="${currentTool === 'entre' ? 'active' : ''}" onclick="setTool('entre')">🚪 Entré</button>`;
+      const bo = document.getElementById('brush-opts');
+      bo.style.display = currentTool === 'pensel' ? 'flex' : 'none';
+      bo.innerHTML = 'Bredd:' + BRUSH_WIDTHS.map(w => `<button class="chip ${w === brushW ? 'on' : ''}" onclick="brushW=${w}; renderTools()">${String(w).replace('.', ',')} m</button>`).join('');
     }
 
     function setTool(tool) {
@@ -180,9 +205,11 @@
       renderTools();
       const kind = toolDef().kind;
       setStatus(tool === 'entre' ? `Tryck vid entrén – en handskottningsyta på ${ENTRE_SIZE} × ${ENTRE_SIZE} m läggs ut. Spara, och fortsätt med nästa entré.` :
+        tool === 'pensel' ? `Måla gångytorna med pennan (${String(brushW).replace('.', ',')} m bred) – fingrarna flyttar kartan. Utan penna målar fingret. Spara när du är klar.` :
         kind === 'marker' ? 'Tryck på kartan där markören ska sitta.' :
-        kind === 'line' ? 'Tryck ut sträckan punkt för punkt, spara när du är klar.' :
-        'Tryck ut hörnen runt ytan, spara när du är klar.');
+        kind === 'line' ? 'Dra sträckan med pennan, eller tryck ut den punkt för punkt. Spara när du är klar.' :
+        toolDef().allowPoint ? 'Rita runt upplaget med pennan eller tryck ut hörnen – eller tryck en punkt. Spara när du är klar.' :
+        'Rita runt ytan med pennan, eller tryck ut hörnen. Spara när du är klar.');
     }
 
     function drawPreview() {
@@ -193,6 +220,9 @@
       if (def.kind === 'polygon' && drawingPoints.length >= 3) {
         previewLayer = L.polygon(drawingPoints, { color: def.color, fillOpacity: 0.25, dashArray: '6 6' }).addTo(map);
         setStatus(`${drawingPoints.length} punkter · Yta: <b>${Math.round(snoGeodesicArea(drawingPoints)).toLocaleString('sv-SE')} m²</b>`);
+      } else if (def.allowPoint && drawingPoints.length === 1) {
+        previewLayer = L.marker(drawingPoints[0], { icon: L.divIcon({ className: 'sno-hazard', html: def.icon, iconSize: [30, 30] }) }).addTo(map);
+        setStatus(`${def.label} som punkt – tryck Spara, eller fortsätt runt ytan.`);
       } else if (def.kind !== 'marker') {
         previewLayer = L.polyline(drawingPoints, { color: def.color || '#fff', dashArray: '6 6', weight: 4 }).addTo(map);
         setStatus(`${drawingPoints.length} punkter`);
@@ -204,6 +234,7 @@
 
     function onMapClick(e) {
       if (kk.adjusting) return; // kundkartan justeras – tryck på kartan ritar inget
+      if (currentTool === 'pensel' || Date.now() < clickBlockUntil) return; // pensel/pennan ritar själv
       selectZone(null);
       const point = [e.latlng.lat, e.latlng.lng];
       if (currentTool === 'entre') drawingPoints = squareAround(point, ENTRE_SIZE);
@@ -212,10 +243,14 @@
       drawPreview();
     }
 
-    function undoPoint() { drawingPoints.pop(); drawPreview(); }
+    function undoPoint() {
+      if (currentTool === 'pensel') { brushStrokes.pop(); updateBrush(); return; }
+      drawingPoints.pop(); drawPreview();
+    }
 
     function cancelDrawing() {
       drawingPoints = [];
+      brushStrokes = []; updateBrush(true);
       if (previewLayer) map.removeLayer(previewLayer);
       previewLayer = null;
     }
@@ -235,18 +270,27 @@
       if (selectedZone) {
         zone = { ...selectedZone, ...form };
       } else {
-        const kind = toolDef().kind;
-        const minPoints = kind === 'polygon' ? 3 : kind === 'line' ? 2 : 1;
-        if (drawingPoints.length < minPoints) { setStatus(`Rita minst ${minPoints} punkter först.`); return; }
-        zone = { ...form, type: toolType(), coords: drawingPoints, areaM2: kind === 'polygon' ? snoGeodesicArea(drawingPoints) : 0 };
+        const def = toolDef(), kind = def.kind;
+        if (currentTool === 'pensel') {
+          if (!brushPolys.length) { setStatus('Måla ytan först.'); return; }
+        } else {
+          const minPoints = kind === 'polygon' ? 3 : kind === 'line' ? 2 : 1;
+          const okPoint = def.allowPoint && drawingPoints.length === 1;
+          if (drawingPoints.length < minPoints && !okPoint) { setStatus(def.allowPoint ? 'Rita runt ytan (minst 3 punkter) eller tryck en punkt.' : `Rita minst ${minPoints} punkter först.`); return; }
+        }
+        zone = { ...form, type: toolType(), coords: drawingPoints, areaM2: kind === 'polygon' && drawingPoints.length >= 3 ? snoGeodesicArea(drawingPoints) : 0 };
         if (currentTool === 'entre' && !zone.note) zone.note = 'Entré';
       }
       if (!zone.property) { setStatus('Fyll i Fastighet / Adress.'); document.getElementById('f-property').focus(); return; }
+      // Penseln: varje sammanhängande målad yta blir en egen zon på samma adress
+      const toSave = !selectedZone && currentTool === 'pensel' ? brushPolys.map(p => ({ ...zone, coords: p.coords, areaM2: p.area })) : [zone];
 
       setStatus('Sparar…');
       try {
-        const res = await snoApi({ action: 'saveSnowZone', zone });
-        if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return; }
+        for (const z of toSave) {
+          const res = await snoApi({ action: 'saveSnowZone', zone: z });
+          if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return; }
+        }
         cancelDrawing();
         selectZone(null);
         // Vald fastighet ligger kvar, så att nästa zon på samma adress går fort
@@ -255,7 +299,7 @@
         const orderInput = document.getElementById('f-order');
         if (orderInput.value) orderInput.value = Number(orderInput.value) + 1;
         await loadZones();
-        setStatus('✅ Sparad. Rita nästa zon.');
+        setStatus(toSave.length > 1 ? `✅ ${toSave.length} ytor sparade. Rita nästa zon.` : '✅ Sparad. Rita nästa zon.');
       } catch (err) {
         setStatus('❌ Ingen kontakt med servern. Försök igen.');
       }
@@ -314,6 +358,7 @@
         // Mitt i en ritning blir tryck på en befintlig zon en ny punkt, annars väljs zonen
         zoneLayers = zones.map(z => snoRenderZone(map, z, (zone, layer, e) => {
           // Entréer och markörer läggs ofta inne i en zon: då räknas trycket som ett tryck på kartan
+          if (currentTool === 'pensel' || Date.now() < clickBlockUntil) { layer.closePopup(); return; }
           if (drawingPoints.length > 0 || currentTool === 'entre' || toolDef().kind === 'marker') { layer.closePopup(); onMapClick(e); }
           else selectZone(zone);
         }));
@@ -384,6 +429,7 @@
 
     async function addGpsPoint() {
       if (gpsSamples) return;
+      if (currentTool === 'pensel') { setStatus('Penseln målas på kartan. Välj Handskottning för att gå runt ytan med GPS.'); return; }
       selectZone(null);
       startGps();
       const btn = document.getElementById('btn-gps');
@@ -457,11 +503,208 @@
       if (!document.getElementById('f-property').value) document.getElementById('f-property').focus();
     }
 
+    // ---------- HELSKÄRM ----------
+    // Webbläsarens helskärmsläge döljer statusraden i Safari på iPad. I appen från hemskärmen
+    // kan det saknas – då får man öppna sidan i Safari.
+    const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+    function toggleFullscreen() {
+      const d = document.documentElement;
+      try {
+        if (fsElement()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        else if (d.requestFullscreen) d.requestFullscreen().catch(fsUnsupported);
+        else if (d.webkitRequestFullscreen) d.webkitRequestFullscreen();
+        else fsUnsupported();
+      } catch (err) { fsUnsupported(); }
+    }
+    function fsUnsupported() { setStatus('Helskärm stöds inte här. Öppna <b>Rita zoner</b> i Safari och tryck <b>⛶ Helskärm</b> där.'); }
+    function onFullscreenChange() {
+      document.getElementById('btn-fs').textContent = fsElement() ? '✕ Lämna helskärm' : '⛶ Helskärm';
+      setTimeout(() => map.invalidateSize && map.invalidateSize(), 200);
+    }
+
+    // ---------- PENNAN OCH PENSELN ----------
+    // Apple Pencil ritar med valt verktyg, fingrarna flyttar och zoomar kartan.
+    //  • Ytor (maskin, hand, upplag): rita runt ytan – när pennan lyfts blir det hörnen.
+    //  • Sträcka: dra linjen.  • Markörer/entré: ett tryck, som förut.
+    //  • 🖌️ Pensel: måla handskottning; dragen slås ihop till ytor (utan penna målar fingret).
+    let penSeen = false, stroke = null, strokeLayer = null, clickBlockUntil = 0;
+    let brushStrokes = [], brushPolys = [], brushLayers = [];
+
+    function penMode() {
+      if (currentTool === 'pensel') return 'brush';
+      if (currentTool === 'entre' || selectedZone) return null;
+      const k = toolDef().kind;
+      return k === 'polygon' ? 'lasso' : k === 'line' ? 'line' : null;
+    }
+
+    // Lokala meter kring en punkt (räcker för en fastighet)
+    function meterFrame(ref) {
+      const kx = 111320 * Math.cos(ref[0] * Math.PI / 180), ky = 110540;
+      return { xy: (ll) => [(ll[1] - ref[1]) * kx, (ll[0] - ref[0]) * ky], ll: (p) => [ref[0] + p[1] / ky, ref[1] + p[0] / kx] };
+    }
+
+    // Douglas–Peucker i meter
+    function simplifyXY(pts, tol) {
+      if (pts.length < 3) return pts.slice();
+      const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
+      const stack = [[0, pts.length - 1]];
+      while (stack.length) {
+        const [a, b] = stack.pop();
+        const [ax, ay] = pts[a], [bx, by] = pts[b], dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1e-9;
+        let best = -1, bi = -1;
+        for (let i = a + 1; i < b; i++) { const d = Math.abs(dy * (pts[i][0] - ax) - dx * (pts[i][1] - ay)) / len; if (d > best) { best = d; bi = i; } }
+        if (best > tol) { keep[bi] = 1; stack.push([a, bi], [bi, b]); }
+      }
+      return pts.filter((_, i) => keep[i]);
+    }
+
+    function simplifyLL(lls, tol, closed) {
+      const f = meterFrame(lls[0]);
+      const xy = lls.map(f.xy);
+      // Sluten kontur: dela vid punkten längst från starten och förenkla halvorna var för sig
+      let k = 0;
+      if (closed) xy.forEach((p, i) => { if (Math.hypot(p[0] - xy[0][0], p[1] - xy[0][1]) > Math.hypot(xy[k][0] - xy[0][0], xy[k][1] - xy[0][1])) k = i; });
+      const run = (t) => closed && k > 0 ? simplifyXY(xy.slice(0, k + 1), t).concat(simplifyXY(xy.slice(k).concat([xy[0]]), t).slice(1, -1)) : simplifyXY(xy, t);
+      let out = run(tol);
+      while (out.length > 400) { tol *= 1.5; out = run(tol); }
+      return out.map(f.ll);
+    }
+
+    // Penseldragen målas på en rutnätsbild (0,1 m per ruta, grövre för stora ytor) och konturerna spåras (marching squares)
+    function brushToPolygons(strokes) {
+      const all = strokes.flatMap(st => st.pts);
+      if (!all.length) return [];
+      const f = meterFrame(all[0]);
+      const sxy = strokes.map(st => ({ w: st.w, pts: st.pts.map(f.xy) }));
+      const pad = Math.max(...strokes.map(st => st.w)) / 2 + 0.5;
+      const xs = sxy.flatMap(st => st.pts.map(p => p[0])), ys = sxy.flatMap(st => st.pts.map(p => p[1]));
+      const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
+      let res = 0.1;
+      while (((maxX - minX) / res) * ((maxY - minY) / res) > 4e6) res *= 1.5;
+      const W = Math.ceil((maxX - minX) / res) + 1, H = Math.ceil((maxY - minY) / res) + 1;
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const ctx = cv.getContext('2d');
+      const px = (p) => [(p[0] - minX) / res, (maxY - p[1]) / res];
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = ctx.fillStyle = '#000';
+      sxy.forEach(st => {
+        const r = st.w / res / 2;
+        if (st.pts.length === 1) { const [x, y] = px(st.pts[0]); ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fill(); return; }
+        ctx.lineWidth = 2 * r; ctx.beginPath();
+        st.pts.forEach((p, i) => { const [x, y] = px(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.stroke();
+      });
+      const data = ctx.getImageData(0, 0, W, H).data;
+      const on = (i, j) => i >= 0 && j >= 0 && i < W && j < H && data[(j * W + i) * 4 + 3] > 127;
+      // Kanternas mittpunkter: h,i,j = mellan (i,j) och (i+1,j); v,i,j = mellan (i,j) och (i,j+1)
+      const adj = new Map();
+      const link = (a, b) => { (adj.get(a) || adj.set(a, []).get(a)).push(b); (adj.get(b) || adj.set(b, []).get(b)).push(a); };
+      const SEG = { 1: [['L', 'B']], 2: [['B', 'R']], 3: [['L', 'R']], 4: [['T', 'R']], 5: [['L', 'T'], ['B', 'R']], 6: [['T', 'B']], 7: [['L', 'T']],
+        8: [['L', 'T']], 9: [['T', 'B']], 10: [['T', 'R'], ['L', 'B']], 11: [['T', 'R']], 12: [['L', 'R']], 13: [['B', 'R']], 14: [['L', 'B']] };
+      for (let j = -1; j < H; j++) for (let i = -1; i < W; i++) {
+        const c = (on(i, j) ? 8 : 0) | (on(i + 1, j) ? 4 : 0) | (on(i + 1, j + 1) ? 2 : 0) | (on(i, j + 1) ? 1 : 0);
+        if (!SEG[c]) continue;
+        const e = { T: `h,${i},${j}`, R: `v,${i + 1},${j}`, B: `h,${i},${j + 1}`, L: `v,${i},${j}` };
+        SEG[c].forEach(([a, b]) => link(e[a], e[b]));
+      }
+      const toXY = (k) => { const [t, i, j] = k.split(','); const gx = Number(i) + (t === 'h' ? 0.5 : 0), gy = Number(j) + (t === 'v' ? 0.5 : 0);
+        return [minX + (gx + 0.5) * res, maxY - (gy + 0.5) * res]; };
+      const seen = new Set(), loops = [];
+      adj.forEach((_, start) => {
+        if (seen.has(start)) return;
+        const loop = [];
+        let prev = null, cur = start;
+        while (cur && !seen.has(cur)) {
+          seen.add(cur); loop.push(toXY(cur));
+          const next = adj.get(cur).find(n => n !== prev && !seen.has(n));
+          prev = cur; cur = next;
+        }
+        if (loop.length >= 3) loops.push(loop);
+      });
+      const inside = (pt, poly) => { let r = false; for (let a = 0, b = poly.length - 1; a < poly.length; b = a++) {
+        if ((poly[a][1] > pt[1]) !== (poly[b][1] > pt[1]) && pt[0] < (poly[b][0] - poly[a][0]) * (pt[1] - poly[a][1]) / (poly[b][1] - poly[a][1]) + poly[a][0]) r = !r; } return r; };
+      // Hål (t.ex. en rabatt man målat runt) tas inte med – bara de yttre konturerna blir zoner
+      return loops.filter(l => loops.filter(o => o !== l && inside(l[0], o)).length % 2 === 0)
+        .map(l => { const coords = simplifyLL(l.map(f.ll), 0.15, true); return { coords, area: snoGeodesicArea(coords) }; })
+        .filter(p => p.coords.length >= 3 && p.area >= 0.5);
+    }
+
+    function updateBrush(clearOnly) {
+      brushLayers.forEach(l => map.removeLayer(l)); brushLayers = [];
+      brushPolys = clearOnly ? [] : brushToPolygons(brushStrokes);
+      const c = SNO_TYPES.hand.color;
+      brushLayers = brushPolys.map(p => L.polygon(p.coords, { color: c, fillColor: c, fillOpacity: 0.4, weight: 2, dashArray: '6 6', interactive: false }).addTo(map));
+      if (clearOnly) return;
+      const total = brushPolys.reduce((s, p) => s + p.area, 0);
+      setStatus(brushStrokes.length ? `🖌️ ${brushStrokes.length} drag · <b>${Math.round(total).toLocaleString('sv-SE')} m²</b>${brushPolys.length > 1 ? ` i ${brushPolys.length} ytor` : ''} – måla mer eller tryck <b>Spara zon</b>.` : 'Måla gångytorna med pennan.');
+    }
+
+    // Penselns bredd i pixlar på aktuell zoomnivå
+    const metersToPx = (m) => m / (40075016.686 * Math.cos(map.getCenter().lat * Math.PI / 180) / Math.pow(2, map.getZoom() + 8));
+
+    function drawStroke() {
+      if (strokeLayer) map.removeLayer(strokeLayer);
+      const lls = stroke.pts.map(p => map.containerPointToLatLng(p));
+      strokeLayer = stroke.mode === 'brush'
+        ? L.polyline(lls, { color: SNO_TYPES.hand.color, opacity: 0.6, weight: Math.max(3, metersToPx(brushW)), lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map)
+        : L.polyline(lls, { color: toolDef().color || '#fff', weight: 3, dashArray: '4 6', interactive: false }).addTo(map);
+    }
+
+    function endStroke(save) {
+      const st = stroke; stroke = null;
+      if (strokeLayer) { map.removeLayer(strokeLayer); strokeLayer = null; }
+      map.dragging.enable(); map.touchZoom.enable();
+      if (!save || !st) return;
+      const lls = st.pts.map(p => { const ll = map.containerPointToLatLng(p); return [ll.lat, ll.lng]; });
+      if (st.mode === 'brush') {
+        clickBlockUntil = Date.now() + 400;
+        brushStrokes.push({ pts: st.moved ? simplifyLL(lls, 0.05, false) : [lls[0]], w: brushW });
+        updateBrush();
+        return;
+      }
+      if (!st.moved) return; // ett tryck: kartans vanliga klick lägger punkten
+      clickBlockUntil = Date.now() + 400;
+      const pts = simplifyLL(lls, 0.3, st.mode === 'lasso');
+      if (st.mode === 'lasso' && pts.length < 3) return;
+      selectZone(null);
+      drawingPoints = pts;
+      drawPreview();
+    }
+
+    function setupPen() {
+      if (!map || !map.dragging) return;
+      const el = map.getContainer();
+      // Fångas före Leaflet, så att kartan inte hinner börja flyttas av pennan
+      el.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'pen') penSeen = true;
+        if (stroke) { if (e.pointerType === 'touch' && stroke.type === 'touch') endStroke(false); return; } // två fingrar = zooma
+        if (kk.adjusting || e.target.closest('.leaflet-control')) return;
+        const mode = penMode();
+        if (!mode) return;
+        const draws = e.pointerType === 'pen' || (mode === 'brush' && (e.pointerType === 'mouse' || !penSeen));
+        if (!draws) return;
+        map.dragging.disable(); map.touchZoom.disable(); // handflatan mot skärmen ska inte zooma
+        stroke = { id: e.pointerId, type: e.pointerType, mode, moved: false, pts: [map.mouseEventToContainerPoint(e)] };
+        try { el.setPointerCapture(e.pointerId); } catch (err) { /* äldre webbläsare */ }
+        if (mode === 'brush') drawStroke();
+      }, true);
+      el.addEventListener('pointermove', (e) => {
+        if (!stroke || e.pointerId !== stroke.id) return;
+        const p = map.mouseEventToContainerPoint(e), last = stroke.pts[stroke.pts.length - 1];
+        if (p.distanceTo(last) < 2) return;
+        stroke.pts.push(p);
+        if (!stroke.moved && p.distanceTo(stroke.pts[0]) > 6) stroke.moved = true;
+        if (stroke.moved || stroke.mode === 'brush') drawStroke();
+      }, true);
+      el.addEventListener('pointerup', (e) => { if (stroke && e.pointerId === stroke.id) endStroke(true); }, true);
+      el.addEventListener('pointercancel', (e) => { if (stroke && e.pointerId === stroke.id) endStroke(false); }, true);
+    }
+
     // ---------- FASTIGHETER OCH KUNDENS KARTA ----------
     // Kundens karta (från PDF:en) läggs halvgenomskinlig ovanpå satellitbilden. Två handtag:
     // ✥ flyttar, ⟳ vrider och skalar (sidförhållandet behålls). Läget sparas på fastigheten.
+    // Medan man justerar kan gesterna (finger, två fingrar, Apple Pencil) styra kundkartan eller satellitbilden.
     let properties = [], currentProp = null;
-    const kk = { idx: 0, layer: null, place: null, W: 0, H: 0, opacity: 0.6, adjusting: false, dirty: false, hidden: false, handles: [] };
+    const kk = { idx: 0, layer: null, place: null, W: 0, H: 0, opacity: 0.6, adjusting: false, dirty: false, hidden: false, handles: [], gestures: 'kk', placeBefore: null };
 
     async function loadProperties() {
       try {
@@ -586,6 +829,7 @@
       if (kk.layer) map.removeLayer(kk.layer);
       kk.handles.forEach(h => map.removeLayer(h));
       kk.layer = null; kk.handles = []; kk.adjusting = false; kk.dirty = false;
+      applyGestureMode(); renderKkFab();
     }
 
     function showCustomerMap() {
@@ -661,7 +905,96 @@
       kk.handles = [mv, rt];
     }
 
-    function startAdjust() { kk.adjusting = true; cancelDrawing(); placeHandles(); renderKkCard(); setStatus('Dra <b>✥</b> för att flytta kundkartan och <b>⟳</b> för att vrida och ändra storlek, tills husen ligger rätt. Tryck sedan <b>Spara läge</b>.'); }
+    function syncHandles() {
+      if (kk.handles.length !== 2) return;
+      kk.handles[0].setLatLng(kk.place.c);
+      kk.handles[1].setLatLng(kkCorners(kk.place).tr);
+    }
+
+    function startAdjust() {
+      kk.adjusting = true; kk.gestures = 'kk'; kk.placeBefore = { ...kk.place };
+      cancelDrawing(); placeHandles(); applyGestureMode(); renderKkCard();
+      setStatus('Dra med ett finger för att flytta kundkartan, vrid och nyp med två fingrar (eller använd <b>✥</b> och <b>⟳</b>). Byt till <b>🛰️ Satellit</b> (till vänster på kartan) för att flytta satellitbilden. Tryck sedan <b>Spara läge</b>.');
+    }
+
+    function setGestures(g) { kk.gestures = g; applyGestureMode(); renderKkCard(); }
+
+    // ✕ Avbryt: kundkartan tillbaka där den låg när justeringen började
+    function cancelAdjust() {
+      if (kk.placeBefore) kk.place = { ...kk.placeBefore };
+      kk.adjusting = false; kk.dirty = false;
+      placeHandles(); applyGestureMode();
+      if (kk.layer) kk.layer.update();
+      renderKkCard();
+      setStatus('Justeringen avbruten.');
+    }
+
+    // ---------- GESTER PÅ KUNDKARTAN ----------
+    // Pekhändelser: ett finger/penna flyttar, två fingrar vrider och skalar runt mittpunkten.
+    const kkPtrs = new Map();
+    let kkG = null;
+    const kkGestureOn = () => kk.adjusting && kk.gestures === 'kk' && !!kk.layer;
+
+    function applyGestureMode() {
+      if (!map || !map.dragging) return; // kartan saknas (ingen täckning)
+      const on = kkGestureOn();
+      ['dragging', 'touchZoom', 'doubleClickZoom'].forEach(h => on ? map[h].disable() : map[h].enable());
+      map.getContainer().style.touchAction = on ? 'none' : '';
+      if (!on) { kkPtrs.clear(); kkG = null; }
+    }
+
+    function kkGestureBase() {
+      const pts = [...kkPtrs.values()];
+      if (!pts.length) { kkG = null; return; }
+      const two = pts.length > 1;
+      kkG = {
+        c: map.latLngToContainerPoint(kk.place.c), w: kk.place.w, rot: kk.place.rot,
+        mid: two ? pts[0].add(pts[1]).divideBy(2) : pts[0],
+        dist: two ? pts[0].distanceTo(pts[1]) : 0,
+        ang: two ? Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x) : 0
+      };
+    }
+
+    function kkGestureMove() {
+      const pts = [...kkPtrs.values()];
+      let c;
+      if (pts.length > 1 && kkG.dist > 0) {
+        const mid = pts[0].add(pts[1]).divideBy(2);
+        const s = pts[0].distanceTo(pts[1]) / kkG.dist;
+        const dA = Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x) - kkG.ang;
+        const v = kkG.c.subtract(kkG.mid);
+        c = L.point(mid.x + s * (v.x * Math.cos(dA) - v.y * Math.sin(dA)), mid.y + s * (v.x * Math.sin(dA) + v.y * Math.cos(dA)));
+        kk.place.w = Math.max(10, kkG.w * s);
+        kk.place.rot = kkG.rot - dA; // skärmens y pekar nedåt, kartans uppåt
+      } else {
+        c = kkG.c.add(pts[0].subtract(kkG.mid));
+      }
+      const ll = map.containerPointToLatLng(c);
+      kk.place.c = [ll.lat, ll.lng];
+      kk.dirty = true;
+      kk.layer.update(); syncHandles();
+    }
+
+    function setupKkGestures() {
+      if (!map || !map.dragging) return;
+      const el = map.getContainer();
+      el.addEventListener('pointerdown', (e) => {
+        if (!kkGestureOn() || e.target.closest('.leaflet-marker-icon, .leaflet-control')) return;
+        kkPtrs.set(e.pointerId, map.mouseEventToContainerPoint(e));
+        try { el.setPointerCapture(e.pointerId); } catch (err) { /* äldre webbläsare */ }
+        kkGestureBase();
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!kkPtrs.has(e.pointerId) || !kkGestureOn()) return;
+        kkPtrs.set(e.pointerId, map.mouseEventToContainerPoint(e));
+        if (kkG) kkGestureMove();
+      });
+      const end = (e) => { if (!kkPtrs.delete(e.pointerId)) return; kkGestureBase(); };
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
+      // Safari: hindra att hela sidan zoomas när två fingrar vrider kundkartan
+      document.addEventListener('gesturestart', (e) => { if (kkGestureOn()) e.preventDefault(); }, { passive: false });
+    }
 
     async function saveKkPlace() {
       const m = kkMap();
@@ -670,7 +1003,7 @@
         const res = await snoApi({ action: 'savePropertyMapPlace', id: currentProp.id, mapId: m.id, place });
         if (res.status !== 'success') throw new Error(res.message);
         m.place = res.place; kk.place = { ...res.place }; kk.dirty = false; kk.adjusting = false;
-        placeHandles(); renderKkCard();
+        placeHandles(); applyGestureMode(); renderKkCard();
         setStatus('✅ Kundkartans läge sparat. Rita av zonerna, eller tryck <b>🤖 Föreslå zoner</b>.');
         return true;
       } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'Kunde inte spara läget.')); return false; }
@@ -700,22 +1033,36 @@
       if (btn) btn.disabled = false;
     }
 
+    function renderKkFab() {
+      const fab = document.getElementById('kk-fab');
+      fab.style.display = kk.adjusting && kk.layer ? 'flex' : 'none';
+      fab.innerHTML = `<button class="${kk.gestures === 'kk' ? 'on' : ''}" onclick="setGestures('kk')"><span>🗺️</span>Kundkarta</button>
+        <button class="${kk.gestures === 'map' ? 'on' : ''}" onclick="setGestures('map')"><span>🛰️</span>Satellit</button>`;
+    }
+
     function renderKkCard() {
+      renderKkFab();
       const el = document.getElementById('kk-card');
       const m = kkMap();
       if (!currentProp) { el.style.display = 'none'; return; }
       el.style.display = 'flex';
       if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${progressHtml()}`; return; }
-      el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta</span><small>${snoEscape(currentProp.kund || '')}</small></div>
+      const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); kk.hidden=false; kk.layer && kk.layer.update()" onchange="renderKkCard()"></div>`;
+      if (kk.adjusting) {
+        el.innerHTML = `<div class="slinga-card-head"><span>✋ Justera kundkartan</span><small>${snoEscape(m.label || '')}</small></div>
+          <div class="status" style="font-size:12px">Gesterna styr <b>${kk.gestures === 'kk' ? '🗺️ kundkartan' : '🛰️ satellitbilden'}</b> – byt med knappen till vänster på kartan.</div>
+          ${opacity}
+          <div class="kk-row"><button class="ok" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
+        return;
+      }
+      el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta <small>· ${snoEscape(currentProp.kund || '')}</small></span>
+          <button class="kk-icon" title="${kk.hidden ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="kk.hidden=!kk.hidden; kk.layer && kk.layer.update(); renderKkCard()">${kk.hidden ? '🙈' : '👁'}</button></div>
         ${currentProp.maps.length > 1 ? `<div class="chips">${currentProp.maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
-        <div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); kk.hidden=false; kk.layer && kk.layer.update()"></div>
-        <div class="kk-row">
-          ${kk.adjusting ? `<button class="ok" onclick="saveKkPlace()">💾 Spara läge</button>` : `<button onclick="startAdjust()">✋ Justera läge</button>`}
-          <button onclick="kk.hidden=!kk.hidden; kk.layer && kk.layer.update(); renderKkCard()">${kk.hidden ? '👁 Visa' : '🙈 Dölj'}</button>
-        </div>
-        <button id="kk-ai" onclick="analyzeKk()" ${kk.adjusting && !kk.dirty && !m.place ? 'disabled' : ''}>🤖 Föreslå zoner från kundkartan</button>
+        ${opacity}
+        <button id="kk-ai" class="kk-main" onclick="analyzeKk()">🤖 Föreslå zoner från kundkartan</button>
+        <button class="kk-small" onclick="startAdjust()">✋ Justera läge</button>
         ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}
-        ${progressHtml()}`;
+        <div class="kk-progress">${progressHtml()}</div>`;
     }
 
     function dropSuggestion(i) { suggestions.splice(i, 1); renderSuggestions(); }
@@ -723,6 +1070,10 @@
     mapCtl = snoCreateMap('map');
     map = mapCtl.map;
     map.on('click', onMapClick);
+    setupKkGestures();
+    setupPen();
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, onFullscreenChange));
+    document.getElementById('sno-legend').innerHTML = snoLegendHtml();
     if (!snoIsAdmin()) document.getElementById('admin-banner').style.display = 'block';
     renderTools();
     loadZones();

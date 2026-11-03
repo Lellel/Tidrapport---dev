@@ -12,15 +12,28 @@ if (SNO_MAP_MISSING) {
 }
 
 const SNO_TYPES = {
-  maskin:   { label: 'Maskinzon',     color: '#38bdf8', kind: 'polygon' },
+  maskin:   { label: 'Maskinzon',     color: '#2563eb', kind: 'polygon' },
   hand:     { label: 'Handskottning', color: '#f59e0b', kind: 'polygon' },
   stracka:  { label: 'Sträcka',       color: '#a78bfa', kind: 'line' },
   kantsten: { label: 'Kantsten',      icon: '⚠️', kind: 'marker' },
   lucka:    { label: 'Brunnslock',    icon: '🛑', kind: 'marker' },
   trappa:   { label: 'Trappa',        icon: '🪜', kind: 'marker' },
   hinder:   { label: 'Övrigt hinder', icon: '❗', kind: 'marker' },
-  upplag:   { label: 'Snöupplag',     icon: '🏔️', kind: 'marker' }
+  // Snöupplag ritas som yta; äldre upplag är sparade som en punkt och visas då som 🏔️
+  upplag:   { label: 'Snöupplag',     icon: '🏔️', color: '#d946ef', kind: 'polygon', allowPoint: true }
 };
+
+// Zonens form: ett upplag med en enda punkt är en markör, annars gäller typen
+function snoZoneKind(zone) {
+  const def = SNO_TYPES[zone.type] || SNO_TYPES.maskin;
+  return def.allowPoint && zone.coords && zone.coords.length < 3 ? 'marker' : def.kind;
+}
+
+// Färgförklaring för kartan
+function snoLegendHtml() {
+  return ['maskin', 'hand', 'upplag', 'stracka'].map(t =>
+    `<span><i style="background:${SNO_TYPES[t].color}"></i>${SNO_TYPES[t].label}</span>`).join('');
+}
 
 const SNO_TILES = {
   sat: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -107,9 +120,10 @@ function snoRenderZone(map, zone, onClick) {
   const def = SNO_TYPES[zone.type] || SNO_TYPES.maskin;
   let layer;
   // bubblingMouseEvents: false = tryck på zonen räknas inte också som tryck på kartan
-  if (def.kind === 'polygon') {
+  const kind = snoZoneKind(zone);
+  if (kind === 'polygon') {
     layer = L.polygon(zone.coords, { color: def.color, fillColor: def.color, fillOpacity: 0.35, weight: 3, bubblingMouseEvents: false });
-  } else if (def.kind === 'line') {
+  } else if (kind === 'line') {
     layer = L.polyline(zone.coords, { color: def.color, weight: 6, bubblingMouseEvents: false });
   } else {
     const icon = L.divIcon({ className: 'sno-hazard', html: `<span>${def.icon}</span>`, iconSize: [30, 30] });

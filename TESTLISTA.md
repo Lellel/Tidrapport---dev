@@ -293,6 +293,18 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Importera → klart, "utan position" listar Smedjan, Salsta Gärde, Kvarteret Pokalen m.fl. → peka ut dem
 - [ ] Fastighetskortet visar kund, område och kundkartor → **❄️ Rita zoner från kundkartan**
 - [ ] Kundkartan ligger ovanpå satellitbilden → ✥ flytta, ⟳ vrid/skala tills husen passar → 💾 Spara läge
+- [ ] iPad, Justera läge: ett finger/Pencil flyttar kundkartan, två fingrar vrider och nyper; sidan zoomas inte
+- [ ] Knappen 🗺️/🛰️ till vänster på kartan (nås med tummen liggande) → 🛰️ Satellit: kartan går att dra/zooma igen; ✕ Avbryt lägger tillbaka kundkartan
+- [ ] Rutan i vanligt läge: 👁 i rubriken, 🤖 stor, ✋ liten, Klar/Senare under strecket
+- [ ] Färger: maskin blå, handskottning orange, snöupplag magenta – förklaring nere till vänster i Rita zoner och Snöjour
+- [ ] Apple Pencil, Maskinzon: rita runt ytan → hörnen läggs ut när pennan lyfts; fingrarna flyttar/zoomar kartan under tiden
+- [ ] Apple Pencil, Sträcka: dra linjen; Kantsten/Entré: ett tryck med pennan lägger markören
+- [ ] 🏔️ Snöupplag som yta (rita runt) och som punkt (ett tryck / Punkt där jag står) – båda sparas; gamla upplag syns som 🏔️
+- [ ] 🖌️ Pensel 1 / 1,5 / 2 m: måla en gångväg → m² visas; överlapp räknas en gång; ↶ tar bort senaste draget
+- [ ] Pensel med två skilda fläckar → Spara ger två handskottningszoner på samma adress
+- [ ] Pensel utan penna (telefon): fingret målar; två fingrar avbryter draget och zoomar
+- [ ] iPad: inga knappar i Rita zoner hamnar under klockan/batteriet
+- [ ] ⛶ Helskärm i Rita zoner döljer statusraden – prova både i hemskärmsappen och i Safari; ✕ Lämna helskärm
 - [ ] **🤖 Föreslå zoner** → förslagen hamnar på rätt ställen → Ta med → Spara zon
 - [ ] Malmaskolan och vårdcentralen: välj del 1 / del 2
 - [ ] **🚪 Entré** → tryck vid en dörr (även inne i en zon) → Spara → 3 × 3 m handskottning

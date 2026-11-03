@@ -10,6 +10,12 @@ Bestämt med Daniel 2026-11-03. Byggt.
 5. **🤖 Föreslå zoner från kundkartan:** AI:n föreslår maskinytor, handskottning, snöupplag och brunnar. Admin tar med det som stämmer.
 6. **Handskottning: samtliga entréer.** 🚪 Entré = en 3 × 3 m handskottningsyta med ett tryck. 💡 Förslag från kartan visar entréer som finns i OpenStreetMap.
 
+## Rita med Apple Pencil (2026-11-03)
+- Pennan ritar med valt verktyg, fingrarna flyttar och zoomar kartan. Ytor: rita runt ytan. Sträcka: dra. Markörer: tryck.
+- **🖌️ Pensel** (1 / 1,5 / 2 m) = handskottning. Dragen målas på ett rutnät (0,1 m) och konturen spåras till en yta; skilda fläckar blir egna zoner. Hål räknas inte bort.
+- **Snöupplag** är en yta (magenta). Äldre upplag sparade som punkt visas som 🏔️ (`snoZoneKind`).
+- Justera kundkartan: ett finger/penna flyttar, två fingrar vrider och skalar. Knappen 🗺️/🛰️ till vänster på kartan väljer vad gesterna styr.
+
 ## Format som känns igen
 | Kund | Format | AI läser |
 |---|---|---|
