@@ -20,7 +20,7 @@ Bestämt med Daniel 2026-11-03. Byggt.
 | Kund | Format | AI läser |
 |---|---|---|
 | Flens Bostads AB | LandInfo "Områdes beskrivning" (text + karta) | mörkgrå asfalt inom lila gräns → maskin, plattytor → hand |
-| FKAB (kommunfastigheter) | Snökarta (bild) | rödrandigt = snöröjning, S = snöupplag |
+| FKAB (kommunfastigheter) | Snökarta (bild) – egen instruktion (etikett med "snökarta") | det rödrandiga är HELA uppdraget: maskin + handskottning runt entréer, inget utanför; S = snöupplag |
 | Flens Bostads AB (Kungsgatan 15) | Markplaneringsplan (vriden) | A1/A2 → maskin, A3/BTG → hand |
 | Framtidsbruket/Unikabruket | Flygfoto med fastighetsgränser | asfalt/grus kring husen |
 

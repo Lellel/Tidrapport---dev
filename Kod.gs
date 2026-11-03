@@ -1442,7 +1442,21 @@ function handleAnalyzePropertyMap(data) {
   let b64;
   try { b64 = Utilities.base64Encode(DriveApp.getFileById(m.id).getBlob().getBytes()); }
   catch (err) { return createJsonResponse({ status: "error", message: "Kunde inte läsa kartbilden: " + err.message }); }
-  const prompt = "Bilden är en kunds karta över en fastighet som ska snöröjas (" + String(m.label || "karta") + "). " +
+  // FKAB:s snökartor: det rödrandiga är hela uppdraget (maskin + handskottning runt entréer) – inget utanför
+  const snokarta = /snökarta/i.test(String(m.label || ""));
+  const prompt = snokarta ?
+    "Bilden är en snökarta över en fastighet (" + String(m.label) + "). Det RÖDRANDIGA området (röd snedrandning/skraffering) är HELA området som ska snöröjas. " +
+    "Allt utanför det rödrandiga ska ignoreras helt – även asfalt, gångar och entréer som inte är randade. Inga polygoner får gå utanför randningen; följ randningens kant noga. " +
+    "Dela upp det rödrandiga i polygoner av två typer: " +
+    "\"maskin\" = de delar av det randade som plogas med maskin: körytor, parkeringar, gårdar och breda gångvägar. " +
+    "\"hand\" = de delar av det randade som handskottas: ytorna framför och runt entréer, trappor och smala gångar intill husväggarna. " +
+    "Tillsammans ska maskin- och handytorna täcka det rödrandiga, utan att överlappa. " +
+    "\"upplag\" = snöupplag (markerat med S) – ange som punkt. " +
+    "\"lucka\" = dagvattenbrunnar inom det randade om de syns tydligt – ange som punkt. " +
+    "Ignorera teckenförklaring, rubriker, byggnader och omgivningen. " +
+    "Koordinater som [y, x] normaliserade 0–1000 i bilden (0,0 = övre vänstra hörnet). " +
+    "Svara ENDAST med JSON: {\"ytor\":[{\"typ\":\"maskin|hand\",\"polygon\":[[y,x],...],\"namn\":\"kort beskrivning\"}],\"punkter\":[{\"typ\":\"upplag|lucka\",\"punkt\":[y,x]}]}. Högst 25 ytor och 30 punkter. Gissa inte." :
+    "Bilden är en kunds karta över en fastighet som ska snöröjas (" + String(m.label || "karta") + "). " +
     "Hitta ytorna och markera dem som polygoner. Typer: " +
     "\"maskin\" = ytor som plogas med maskin: körytor, parkeringar, asfaltytor, gårdar (på snökartor: rödrandigt = snöröjning; på skötselkartor: mörkgrå asfalt innanför den lila gränsen; på markplaneringsplaner: A1 körytor och A2 parkering). " +
     "\"hand\" = handskottning: gångar, trappor, plattytor och ytorna framför entréer (på markplaneringsplaner: A3 gångyta och BTG betongplattor). " +
