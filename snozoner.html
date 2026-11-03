@@ -78,6 +78,8 @@
       <div class="banner" id="admin-banner">Bara admin kan spara zoner. Logga in med din admin-länk.</div>
 
       <div>
+        <label for="f-omrade">Mitt område i genomgången</label>
+        <select id="f-omrade" onchange="setArea(this.value)" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:#0b1220;color:var(--text);font-size:15px;margin-bottom:8px;"></select>
         <label for="f-fastighet">Fastighet från Snöplanering</label>
         <input id="f-fastighet" list="fastighet-list" placeholder="🔍 Sök fastighet – visar kundens karta" onchange="chooseProperty(this.value)">
         <datalist id="fastighet-list"></datalist>
@@ -465,16 +467,71 @@
         if (res.status !== 'success') return;
         properties = res.properties || [];
         renderPropList();
+        setInterval(refreshProperties, 60000);
         const want = new URLSearchParams(location.search).get('fastighet');
         if (want) { const p = properties.find(x => x.id === want); if (p) { document.getElementById('f-fastighet').value = propLabel(p); chooseProperty(propLabel(p)); } }
       } catch (err) { /* utan nät: fastighetslistan saknas, resten fungerar */ }
     }
+    const me = snoCurrentUser();
+    const takenByOther = (p) => p.claimedBy && p.claimedBy !== me;
     const propLabel = (p) => p.address + (p.ort ? ', ' + p.ort : '') + (p.maps && p.maps.length ? ' 📄' : '') + (p.zoneStatus === 'klar' ? ' ✅' : p.zoneStatus === 'senare' ? ' ⏭' : '');
+    const areaOf = (p) => p.omrade || p.ort || 'Utan område';
+    // Flera hjälps åt: var och en väljer sitt område (sparas i den här webbläsaren)
+    let area = '';
+    try { area = localStorage.getItem('lpv_zon_omrade') || ''; } catch (e) { area = ''; }
+    const inArea = (p) => !area || areaOf(p) === area;
     // Genomgångens ordning: område, sedan adress
-    const propOrder = () => [...properties].sort((a, b) => (a.omrade || a.ort || '').localeCompare(b.omrade || b.ort || '', 'sv') || a.address.localeCompare(b.address, 'sv'));
+    const propOrder = () => properties.filter(inArea).sort((a, b) => areaOf(a).localeCompare(areaOf(b), 'sv') || a.address.localeCompare(b.address, 'sv'));
 
     function renderPropList() {
-      document.getElementById('fastighet-list').innerHTML = properties.map(p => `<option value="${snoEscape(propLabel(p))}">`).join('');
+      document.getElementById('fastighet-list').innerHTML = propOrder().map(p => `<option value="${snoEscape(propLabel(p))}">${takenByOther(p) ? '🔒 ' + snoEscape(p.claimedBy) : ''}</option>`).join('');
+      const areas = {};
+      properties.forEach(p => { const a = areas[areaOf(p)] || (areas[areaOf(p)] = { n: 0, done: 0 }); a.n++; if (p.zoneStatus === 'klar') a.done++; });
+      document.getElementById('f-omrade').innerHTML = `<option value="">Alla områden (${properties.length})</option>` +
+        Object.keys(areas).sort((a, b) => a.localeCompare(b, 'sv')).map(a => `<option value="${snoEscape(a)}" ${a === area ? 'selected' : ''}>${snoEscape(a)} – ${areas[a].done} av ${areas[a].n} klara</option>`).join('');
+    }
+
+    async function setArea(a) {
+      area = a;
+      try { localStorage.setItem('lpv_zon_omrade', a); } catch (e) { /* privat läge */ }
+      await refreshProperties(); // färska 🔒 innan första fastigheten väljs
+      renderPropList();
+      if (!currentProp || !inArea(currentProp)) { const first = nextProperty(null); if (first) openProperty(first); }
+      else renderKkCard();
+    }
+
+    // Nästa i mitt område: inte klar, inte upptagen av någon annan; de överhoppade kommer sist
+    function nextProperty(from) {
+      const list = propOrder(), i = from ? list.findIndex(x => x.id === from.id) : -1;
+      const after = list.slice(i + 1).concat(list.slice(0, i + 1)).filter(x => !from || x.id !== from.id);
+      return after.find(x => !x.zoneStatus && !takenByOther(x)) || after.find(x => x.zoneStatus === 'senare' && !takenByOther(x));
+    }
+
+    function openProperty(p) {
+      document.getElementById('f-fastighet').value = propLabel(p);
+      document.getElementById('f-slinga').value = '';
+      document.getElementById('f-note').value = '';
+      clearSuggestionLayers(); suggestions = []; document.getElementById('sugg-list').innerHTML = '';
+      chooseProperty(propLabel(p));
+    }
+
+    // 🔒 Den man öppnar markeras som upptagen i en halvtimme; den förra släpps
+    async function claim(p, force) {
+      try {
+        const res = await snoApi({ action: 'claimProperty', id: p.id, force: !!force });
+        if (res.status === 'success') p.claimedBy = res.claimedBy;
+      } catch (err) { /* utan nät: ingen markering */ }
+      renderKkCard(); renderPropList();
+    }
+
+    // Hämta de andras markeringar och framsteg varje minut
+    async function refreshProperties() {
+      try {
+        const res = await snoApi({ action: 'getProperties' });
+        if (res.status !== 'success') return;
+        res.properties.forEach(np => { const old = properties.find(x => x.id === np.id); if (old) { old.zoneStatus = np.zoneStatus; old.claimedBy = np.claimedBy; } else properties.push(np); });
+        renderPropList(); renderKkCard();
+      } catch (err) { /* nästa gång */ }
     }
 
     // ✅ Klar / ⏭ Senare -> nästa som inte är klar (de överhoppade kommer sist)
@@ -483,31 +540,34 @@
       try {
         const res = await snoApi({ action: 'setPropertyZoneStatus', id: p.id, zoneStatus: status });
         if (res.status !== 'success') throw new Error(res.message);
-        p.zoneStatus = status;
+        p.zoneStatus = status; p.claimedBy = '';
       } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'Kunde inte spara.')); return; }
-      renderPropList();
-      const list = propOrder(), i = list.findIndex(x => x.id === p.id);
-      const after = list.slice(i + 1).concat(list.slice(0, i + 1));
-      const next = after.find(x => !x.zoneStatus) || after.find(x => x.zoneStatus === 'senare' && x.id !== p.id);
-      if (!next) { setStatus('🎉 Alla fastigheter är klara!'); renderKkCard(); return; }
-      document.getElementById('f-fastighet').value = propLabel(next);
-      document.getElementById('f-slinga').value = '';
-      document.getElementById('f-note').value = '';
-      clearSuggestionLayers(); suggestions = []; document.getElementById('sugg-list').innerHTML = '';
-      chooseProperty(propLabel(next));
+      await refreshProperties(); // färska 🔒 från de andra innan nästa väljs
+      const next = nextProperty(p);
+      if (!next) { setStatus(area ? `🎉 Allt i ${snoEscape(area)} är klart (eller upptaget av någon annan)!` : '🎉 Alla fastigheter är klara!'); renderKkCard(); return; }
+      openProperty(next);
       setStatus(`${status === 'klar' ? '✅ ' + snoEscape(p.address) + ' klar.' : '⏭ ' + snoEscape(p.address) + ' tas senare.'} Nu: <b>${snoEscape(next.address)}</b>`);
     }
 
     function progressHtml() {
-      const done = properties.filter(x => x.zoneStatus === 'klar').length, later = properties.filter(x => x.zoneStatus === 'senare').length;
-      return `<div class="status" style="font-size:12px">Genomgång: <b>${done} av ${properties.length}</b> klara${later ? ` · ${later} senare` : ''}</div>
-        <div class="kk-row"><button class="ok" onclick="markAndNext('klar')">✅ Klar – nästa</button><button onclick="markAndNext('senare')">⏭ Senare – nästa</button></div>`;
+      const mine = properties.filter(inArea);
+      const done = mine.filter(x => x.zoneStatus === 'klar').length, later = mine.filter(x => x.zoneStatus === 'senare').length;
+      const busy = properties.filter(takenByOther).map(x => x.claimedBy);
+      return `${takenByOther(currentProp) ? `<div class="warn">🔒 ${snoEscape(currentProp.claimedBy)} jobbar med den här just nu. Välj en annan – eller <a href="#" onclick="claim(currentProp, true); return false;" style="color:var(--accent)">ta över</a>.</div>` : ''}
+        <div class="status" style="font-size:12px">${area ? snoEscape(area) : 'Genomgång'}: <b>${done} av ${mine.length}</b> klara${later ? ` · ${later} senare` : ''}${busy.length ? ` · 🔒 ${[...new Set(busy)].map(snoEscape).join(', ')} jobbar också` : ''}</div>
+        ${takenByOther(currentProp) ? `<div class="kk-row"><button onclick="const n = nextProperty(currentProp); if (n) openProperty(n)">⏭ Välj en annan</button></div>` :
+          `<div class="kk-row"><button class="ok" onclick="markAndNext('klar')">✅ Klar – nästa</button><button onclick="markAndNext('senare')">⏭ Senare – nästa</button></div>`}`;
     }
 
     function chooseProperty(label) {
       const p = properties.find(x => propLabel(x) === label);
       if (!p) return;
+      if (currentProp && currentProp.id !== p.id && currentProp.claimedBy === me) {
+        snoApi({ action: 'claimProperty', id: currentProp.id, release: true }).catch(() => {});
+        currentProp.claimedBy = '';
+      }
       currentProp = p;
+      if (!takenByOther(p)) claim(p);
       selectZone(null);
       document.getElementById('f-property').value = p.address;
       const sl = document.getElementById('f-slinga');

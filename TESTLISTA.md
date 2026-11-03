@@ -297,6 +297,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Malmaskolan och vårdcentralen: välj del 1 / del 2
 - [ ] **🚪 Entré** → tryck vid en dörr (även inne i en zon) → Spara → 3 × 3 m handskottning
 - [ ] Kör importen igen → inget dubbleras
+- [ ] **Flera hjälps åt:** välj **Mitt område** → nästa fastighet stannar i området; den som en annan har öppen visas med 🔒 och hoppas över (släpps efter 30 min eller vid Klar/Senare)
 - [ ] **✅ Klar – nästa** / **⏭ Senare – nästa** → hoppar till nästa fastighet; de överhoppade kommer sist; "x av 74 klara" stämmer
 
 ## 9. Snöjour – förarens vy (telefon)

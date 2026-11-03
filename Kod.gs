@@ -165,7 +165,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "sendSms", "importProperties",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
       "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
@@ -295,6 +295,7 @@ function doPost(e) {
     if (action === "addPropertyMap") return handleAddPropertyMap(data);
     if (action === "savePropertyMapPlace") return handleSavePropertyMapPlace(data);
     if (action === "setPropertyZoneStatus") return handleSetPropertyZoneStatus(data);
+    if (action === "claimProperty") return handleClaimProperty(data, auth);
     if (action === "analyzePropertyMap") return handleAnalyzePropertyMap(data);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
@@ -1023,7 +1024,8 @@ const SIZES = ["stor", "liten"];
 
 function getFleetSheet() { return getSheetOrCreate(getSS(), "Traktorer", FLEET_HEADERS); }
 // Kolumner efter de elva första: kunden, området (förslag på slinga) och kundens kartor (snöunderlaget)
-const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus"];
+const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus", "Pågår (namn|tid)"];
+const CLAIM_MINUTES = 30; // så länge en fastighet räknas som upptagen av den som öppnat den
 function getPropertySheet() {
   const sheet = getSheetOrCreate(getSS(), "Fastigheter", PROPERTY_HEADERS.concat(PROPERTY_EXTRA));
   const head = sheet.getRange(1, PROPERTY_HEADERS.length + 1, 1, PROPERTY_EXTRA.length).getValues()[0];
@@ -1181,8 +1183,15 @@ function propertyFromRow(row) {
     kund: String(row[11] || ""),
     omrade: String(row[12] || ""),
     maps: propertyMaps(row).map(m => ({ id: m.id, label: m.label || "", place: m.place || null, url: driveImageUrl(m.id, 2000) })),
-    zoneStatus: String(row[14] || "")
+    zoneStatus: String(row[14] || ""),
+    claimedBy: activeClaim(row[15])
   };
+}
+
+// "Daniel|1793716000000" -> "Daniel" om det är mindre än en halvtimme sedan, annars ingen
+function activeClaim(value) {
+  const parts = String(value || "").split("|");
+  return parts.length === 2 && Date.now() - Number(parts[1]) < CLAIM_MINUTES * 60000 ? parts[0] : "";
 }
 
 function propertyMaps(row) {
@@ -1277,7 +1286,7 @@ function handleImportProperties(rows) {
     ids.push(id);
     out.push([id, address, ort, lat, lng,
       SIZES.indexOf(r.size) !== -1 ? r.size : "", "FALSE", r.priority ? "TRUE" : "FALSE", "[]", sanitize(r.note).slice(0, 500), nowStamp(),
-      sanitize(r.kund).slice(0, 100), sanitize(r.omrade).slice(0, 60), "[]", ""]);
+      sanitize(r.kund).slice(0, 100), sanitize(r.omrade).slice(0, 60), "[]", "", ""]);
   });
   if (out.length) sheet.getRange(sheet.getLastRow() + 1, 1, out.length, out[0].length).setValues(out);
   return createJsonResponse({ status: "success", added: out.length, skipped: skipped, notFound: notFound, ids: ids });
@@ -1319,8 +1328,23 @@ function handleSetPropertyZoneStatus(data) {
   const hit = findRowById(sheet, data.id);
   if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
   const st = ["klar", "senare", ""].indexOf(data.zoneStatus) !== -1 ? data.zoneStatus : "";
-  sheet.getRange(hit.rowNumber, 15).setValue(st);
+  sheet.getRange(hit.rowNumber, 15, 1, 2).setValues([[st, ""]]); // klar/senare släpper också 🔒
   return createJsonResponse({ status: "success", zoneStatus: st });
+}
+
+// 🔒 Öppnar man en fastighet i Rita snözoner markeras den som upptagen, så att andra som hjälper till hoppar över den
+function handleClaimProperty(data, auth) {
+  const sheet = getPropertySheet();
+  const hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const other = activeClaim(hit.row[15]);
+  if (data.release) {
+    if (!other || other === auth.user) sheet.getRange(hit.rowNumber, 16).setValue("");
+    return createJsonResponse({ status: "success" });
+  }
+  if (other && other !== auth.user && !data.force) return createJsonResponse({ status: "success", claimedBy: other, mine: false });
+  sheet.getRange(hit.rowNumber, 16).setValue(auth.user + "|" + Date.now());
+  return createJsonResponse({ status: "success", claimedBy: auth.user, mine: true });
 }
 
 function handleSavePropertyMapPlace(data) {
