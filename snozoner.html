@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <link rel="stylesheet" href="theme.css">
   <script src="theme.js"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Snözoner – Rita</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
@@ -79,8 +79,12 @@
       html, body { overflow: hidden; overscroll-behavior: none; }
       body { position: fixed; inset: 0; }
       .layout { height: 100dvh; }
-      .panel { overscroll-behavior: contain; }
+      .panel { overscroll-behavior: contain; overflow-x: hidden; touch-action: pan-y; }
+      .layout { overflow: hidden; width: 100vw; }
     }
+    /* iPad zoomar in hela sidan när man trycker i ett fält med text under 16 px – då glider panelen i sidled */
+    input, textarea, select { font-size: 16px !important; }
+    button { touch-action: manipulation; } /* inget dubbeltryck-zoom */
     /* Kvittens på kartan när man ritar med pennan */
     .map-toast { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: 50%; transform: translateX(-50%); z-index: 700; max-width: calc(100% - 200px); padding: 10px 16px; border-radius: 12px; background: var(--t-overlay); border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.4); font-size: 14px; font-weight: 600; text-align: center; pointer-events: none; opacity: 0; transition: opacity .2s; }
     .map-toast.show { opacity: 1; }
@@ -1075,7 +1079,8 @@
       el.addEventListener('pointerup', end);
       el.addEventListener('pointercancel', end);
       // Safari: hindra att hela sidan zoomas när två fingrar vrider kundkartan
-      document.addEventListener('gesturestart', (e) => { if (kkGestureOn()) e.preventDefault(); }, { passive: false });
+      // Safari: hindra att hela sidan zoomas (nypning). Kartan zoomar ändå – Leaflet använder pekhändelser, inte gesture-händelser.
+      ['gesturestart', 'gesturechange'].forEach(ev => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
     }
 
     async function saveKkPlace() {
