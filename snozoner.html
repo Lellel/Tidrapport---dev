@@ -45,7 +45,10 @@
     .chip.on { background: var(--ok); border-color: var(--ok); color: #fff; }
     .warn { color: var(--t-warn); font-size: 12px; }
     .sugg { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px dashed var(--accent); border-radius: var(--t-r); font-size: 13px; }
-    .sugg span { flex: 1; }
+    .sugg span { flex: 1; cursor: pointer; }
+    .sugg-num { flex: none !important; width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+    .sugg-badge { pointer-events: none !important; }
+    .sugg-badge div { width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111; border: 2px solid #111; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
     .sugg small { color: var(--muted); }
     .sugg button { min-height: 36px; padding: 0 10px; }
     .kk-overlay { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; max-width: none !important; }
@@ -474,9 +477,12 @@
     }
 
     // ---------- FÖRSLAG FRÅN KARTAN (OpenStreetMap) ----------
-    let suggestions = [], suggLayers = [];
+    let suggestions = [], suggLayers = [], suggBadges = [];
 
-    function clearSuggestionLayers() { suggLayers.forEach(l => l && map.removeLayer(l)); suggLayers = []; }
+    function clearSuggestionLayers() {
+      suggLayers.forEach(l => l && map.removeLayer(l)); suggLayers = [];
+      suggBadges.forEach(b => map.removeLayer(b)); suggBadges = [];
+    }
 
     async function loadSuggestions() {
       if (map.getZoom() < 16) { setStatus('Zooma in på adressen först, så letar jag inom kartbilden.'); return; }
@@ -497,14 +503,34 @@
       btn.disabled = false;
     }
 
+    // Förslagen syns på kartan med nummer; samma nummer i listan. Tryck i listan = zooma dit och blinka.
+    const suggStyle = (sg, hi) => ({ color: SNO_TYPES[sg.type].color || '#fff', weight: hi ? 6 : 3, dashArray: hi ? null : '6 5', fillColor: SNO_TYPES[sg.type].color || '#f59e0b', fillOpacity: hi ? 0.6 : 0.35, interactive: false });
     function renderSuggestions() {
       clearSuggestionLayers();
       suggLayers = suggestions.map(sg => (sg.coords.length === 1
-        ? L.circleMarker(sg.coords[0], { radius: 9, color: '#fff', weight: 2, dashArray: '3 4', fillColor: '#f59e0b', fillOpacity: 0.5, interactive: false })
-        : L.polygon(sg.coords, { color: '#fff', weight: 2, dashArray: '4 6', fillColor: SNO_TYPES[sg.type].color, fillOpacity: 0.15, interactive: false })).addTo(map));
+        ? L.circleMarker(sg.coords[0], { radius: 10, ...suggStyle(sg), fillOpacity: 0.7 })
+        : L.polygon(sg.coords, suggStyle(sg))).addTo(map));
+      suggBadges = suggestions.map((sg, i) => L.marker(sg.coords.length === 1 ? sg.coords[0] : snoCenter(sg.coords), {
+        icon: L.divIcon({ className: 'sugg-badge', html: `<div>${i + 1}</div>`, iconSize: [24, 24], iconAnchor: sg.coords.length === 1 ? [12, 30] : [12, 12] }),
+        interactive: false, keyboard: false, zIndexOffset: 1500 }).addTo(map));
       document.getElementById('sugg-list').innerHTML = suggestions.map((sg, i) => `<div class="sugg">
-          <span>${sg.icon} ${snoEscape(sg.what)} <small>${sg.size ? sg.size + ' ' : ''}→ ${SNO_TYPES[sg.type].label}</small></span>
+          <span class="sugg-num">${i + 1}</span>
+          <span onclick="showSuggestion(${i})">${sg.icon} ${snoEscape(sg.what)} <small>${sg.size ? sg.size + ' ' : ''}→ ${SNO_TYPES[sg.type].label}</small></span>
           <button onclick="takeSuggestion(${i})">Ta med</button><button onclick="dropSuggestion(${i})" title="Inte aktuell">✕</button></div>`).join('');
+    }
+
+    function showSuggestion(i) {
+      const sg = suggestions[i], layer = suggLayers[i];
+      if (!sg || !layer) return;
+      if (sg.coords.length === 1) map.setView(sg.coords[0], Math.max(map.getZoom(), 19));
+      else map.fitBounds(L.latLngBounds(sg.coords), { maxZoom: 20, padding: [80, 80] });
+      let n = 0;
+      const blink = setInterval(() => {
+        if (!map.hasLayer(layer)) { clearInterval(blink); return; }
+        layer.setStyle(suggStyle(sg, n % 2 === 0));
+        if (++n >= 6) { clearInterval(blink); layer.setStyle(suggStyle(sg)); }
+      }, 300);
+      mapToast(`${i + 1}. ${sg.icon} ${snoEscape(sg.what)}${sg.size ? ' · ' + sg.size : ''}<br><small>Tryck <b>Ta med</b> i listan om den stämmer</small>`);
     }
 
     function takeSuggestion(i) {

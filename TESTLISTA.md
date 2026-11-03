@@ -308,6 +308,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] FKAB snökarta (t.ex. Floragatan 20–22): 🤖 föreslår bara ytor inom det rödrandiga – maskin + handskottning runt entréer
 - [ ] iPad: panelen till höger sitter fast (sidan glider inte); ringa in med pennan → ✏️ på kartan medan du ritar, ✅ med m² när du lyfter
 - [ ] Pennan medan kundkartan justeras → meddelande om att trycka 💾 Spara läge först
+- [ ] Förslag (🤖 och 💡) syns tydligt på kartan med nummer; tryck på raden i listan → kartan zoomar dit och förslaget blinkar
 - [ ] ⛶ Helskärm i Rita zoner döljer statusraden – prova både i hemskärmsappen och i Safari; ✕ Lämna helskärm
 - [ ] **🤖 Föreslå zoner** → förslagen hamnar på rätt ställen → Ta med → Spara zon
 - [ ] Malmaskolan och vårdcentralen: välj del 1 / del 2
