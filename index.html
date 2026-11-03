@@ -55,6 +55,27 @@
     </div>
   </nav>
 
+  <!-- FLIKRAD FÖR ADMIN I TELEFON (som iPhone-appar: högst fem flikar, resten under Mer) -->
+  <nav class="tab-bar" id="tabBar" aria-label="Admin">
+    <button class="tab-item is-active" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"><span class="tab-icon">🏠</span>Hem</button>
+    <button class="tab-item" onclick="location.href='radar.html'"><span class="tab-icon">🔭</span>Radarn</button>
+    <button class="tab-item" onclick="location.href='planering.html'"><span class="tab-icon">🚜</span>Snö</button>
+    <button class="tab-item" onclick="location.href='offerter.html'"><span class="tab-icon">📄</span>Offerter</button>
+    <button class="tab-item" onclick="document.getElementById('moreSheet').classList.add('active')"><span class="tab-icon">•••</span>Mer</button>
+  </nav>
+  <div class="sheet-backdrop" id="moreSheet" onclick="this.classList.remove('active')">
+    <div class="sheet-container" onclick="event.stopPropagation()">
+      <div class="sheet-header">
+        <div class="section-label" style="margin:0;">Mer</div>
+        <button class="sheet-close" onclick="document.getElementById('moreSheet').classList.remove('active')">Stäng</button>
+      </div>
+      <div class="sheet-item" onclick="document.getElementById('moreSheet').classList.remove('active'); openKabanossModalWithTab('kabanoss')">🌭&nbsp; Kabanossen</div>
+      <div class="sheet-item" onclick="document.getElementById('moreSheet').classList.remove('active'); openKabanossModalWithTab('crm')">💼&nbsp; CRM &amp; Kundbild</div>
+      <div class="sheet-item" onclick="location.href='snozoner.html'">❄️&nbsp; Rita snözoner</div>
+      <div class="sheet-item" onclick="location.href='ekonomi.html'">💰&nbsp; Ekonomi</div>
+    </div>
+  </div>
+
   <div class="app-layout-wrapper">
     <div class="app-container">
       

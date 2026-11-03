@@ -833,10 +833,7 @@ input[type="checkbox"] { min-height: 0; accent-color: var(--accent); }
 
 /* ---------- Smala telefoner ---------- */
 @media screen and (max-width: 520px) {
-  .app-container { padding: 0 2px 0 46px; }
-  .side-nav-drawer { width: 44px; }
-  .side-nav-drawer:hover, .side-nav-drawer:focus-within { width: 220px; }
-  .side-nav-item { padding: 0 10px; }
+  .app-container { padding: 0 2px; }
   .packing-card-glass, .ios-card, .dashboard-panel, .sheet-container { border-radius: 22px; }
   .app-header h1 { font-size: 28px; }
 }
@@ -845,11 +842,33 @@ input[type="checkbox"] { min-height: 0; accent-color: var(--accent); }
   * { transition: none !important; animation: none !important; }
 }
 
-/* Sidomenyn bara för admin. På telefon flyttas innehållet så att menyn inte täcker det. */
+/* Sidomenyn bara för admin, på iPad och dator. I telefon blir den en flikrad längst ner. */
 body:not(.has-side-nav) .side-nav-drawer { display: none; }
+.tab-bar { display: none; }
 @media screen and (max-width: 520px) {
-  body.has-side-nav .app-layout-wrapper { padding-left: 46px; box-sizing: border-box; }
   .header-badges { flex-wrap: wrap; }
+  body.has-side-nav .side-nav-drawer { display: none; }
+  body.has-side-nav .tab-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    padding: 6px 4px max(6px, env(safe-area-inset-bottom));
+    background: linear-gradient(var(--bar), var(--bar)), var(--bg-solid); /* täckande, inget lyser igenom */
+    border-top: 1px solid var(--border);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    z-index: 9000; /* under ark och rutor (9999+) */
+  }
+  body.has-side-nav { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+  .tab-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-height: 48px; padding: 2px 0; border: 0; border-radius: 10px;
+    background: transparent !important; color: var(--fg2) !important;
+    font-size: 11px !important; font-weight: var(--fw-medium); box-shadow: none !important;
+  }
+  .tab-item.is-active { color: var(--accent) !important; }
+  .tab-icon { font-size: 22px; line-height: 26px; }
 }
 
 /* Admin på Klaryta: LPV:s snöplanering och zoner döljs (servern nekar ändå) */
