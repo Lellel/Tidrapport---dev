@@ -7,6 +7,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#bfe0ff">
+  <script>
+    // Sätt läget innan sidan ritas, så att den inte blinkar i fel färg
+    (function () {
+      var t = "auto";
+      try { t = localStorage.getItem("lpv_theme") || "auto"; } catch (e) {}
+      if (t === "auto") t = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon.png">
@@ -49,37 +59,37 @@
     <div class="app-container">
       
       <!-- HEADER -->
-      <header style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h1 style="font-size:28px; font-weight:700;">Tidrapport</h1>
-        <div class="header-badges" style="display:flex; gap:8px;">
+      <header class="app-header">
+        <h1>Tidrapport</h1>
+        <div class="header-badges">
           <div class="user-pill" id="user-display" onclick="handleUserPillClick()">Daniel</div>
-          <div class="status-pill" style="display:flex; align-items:center; gap:6px;">
-            <div class="status-dot" style="width:6px; height:6px; border-radius:50%; background:#30D158;"></div>Ansluten <span id="app-version-tag" style="font-size:9px; opacity:0.75; margin-left:4px; border-left:1px solid rgba(255,255,255,0.3); padding-left:5px;">v4.7.1</span>
+          <div class="status-pill">
+            <div class="status-dot"></div>Ansluten <span id="app-version-tag">v4.7.1</span>
           </div> 
         </div>
       </header>
 
       <!-- KARUSELLEN HÖGST UPP -->
       <div id="outbox-section">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <span id="outbox-title" style="font-size:12px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase; letter-spacing:0.8px;">Dagens pass</span>
-          <button id="btnSubmitAll" class="submit-pill-btn" onclick="submitAll()" style="display:none; min-height:36px; padding:0 12px;">Skicka in</button>
+        <div class="outbox-head">
+          <span id="outbox-title">Dagens pass</span>
+          <button id="btnSubmitAll" class="submit-pill-btn" onclick="submitAll()" style="display:none;">Skicka in</button>
         </div>
         <div id="outbox-container" class="carousel-container"></div>
       </div>
 
       <!-- AVATAR & PACKLISTA -->
       <div class="packing-card-glass" id="packing-section">
-        <div class="postman-pat-bubble" onclick="openPostmanPatModal()" style="width:110px; height:110px; margin:0 auto 12px auto; border-radius:50%; overflow:hidden; border:3px solid rgba(255,255,255,0.8); box-shadow:0 8px 20px rgba(0,0,0,0.2); cursor:pointer; background:#e2e8f0; display:flex; align-items:center; justify-content:center;">
-          <img id="user-pat-avatar" src="icon.png" alt="Avatar" style="width:100%; height:100%; object-fit:cover; display:block;">
+        <div class="postman-pat-bubble" onclick="openPostmanPatModal()" role="button" aria-label="Byt avatar">
+          <img id="user-pat-avatar" src="icon.png" alt="Avatar">
         </div>
         
         <div style="text-align:center; margin-bottom:14px;">
-          <div style="font-size:11px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase;">Postis Per 3D Edition</div>
-          <div style="font-size:18px; font-weight:800; color:var(--text-main);" id="welcome-title">God dag!</div>
+          <div class="avatar-kicker">Postis Per 3D Edition</div>
+          <div class="welcome-title" id="welcome-title">God dag!</div>
         </div>
 
-        <div style="font-size:13px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">📦 Fordonscheck & Packlista</div>
+        <div class="section-label">📦 Fordonscheck & Packlista</div>
         
         <div class="checklist-item">
           <input type="checkbox" id="chk-1" onchange="checkPackProgress()">
@@ -104,7 +114,7 @@
 
       <!-- TRANSFORMERAD MENY & FORMULÄR -->
       <div class="field-tools-grid" id="field-tools-menu">
-        <div style="grid-column: 1 / -1; font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Uppdrag & Formulär</div>
+        <div class="section-label">Uppdrag & Formulär</div>
         
         <div class="ios-card" style="grid-column: 1 / -1;">
           <div class="type-control">
@@ -157,7 +167,18 @@
         </div>
 
         <button class="main-btn main-btn-blue" style="grid-column: 1 / -1;" onclick="saveToOutbox()">Spara pass lokalt</button>
-        <button class="main-btn" style="grid-column: 1 / -1; background: var(--input-bg); color: var(--accent-blue);" onclick="location.href='snojour.html'">❄️ Snöjour – karta &amp; GPS</button>
+        <button class="main-btn" style="grid-column: 1 / -1;" onclick="location.href='snojour.html'">❄️ Snöjour – karta &amp; GPS</button>
+      </div>
+
+      <!-- LÄGE: AUTO / LJUST / MÖRKT / NATT -->
+      <div class="theme-picker">
+        <div class="theme-picker-label">Läge</div>
+        <div class="seg" id="theme-picker" role="group" aria-label="Läge">
+          <button type="button" data-theme-val="auto">Auto</button>
+          <button type="button" data-theme-val="light">Ljust</button>
+          <button type="button" data-theme-val="dark">Mörkt</button>
+          <button type="button" data-theme-val="night">Natt</button>
+        </div>
       </div>
 
     </div>
@@ -165,8 +186,8 @@
     <!-- DASHBOARD PANEL -->
     <aside id="landscape-dashboard" class="dashboard-panel">
       <div class="dashboard-header">
-        <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Översikt & Tider</div>
-        <span id="dash-date-badge" class="duration-pill" style="font-size:12px; font-weight:700; color:var(--accent-darkblue); background:rgba(2,132,199,0.12); padding:2px 8px; border-radius:6px;">Idag</span>
+        <div class="section-label" style="margin:0;">Översikt & Tider</div>
+        <span id="dash-date-badge" class="duration-pill">Idag</span>
       </div>
       <div class="dash-stats-grid">
         <div class="stat-card">
@@ -178,14 +199,14 @@
           <div class="stat-lbl">Sparade pass</div>
         </div>
       </div>
-      <div style="font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin:10px 0 6px 0;">Dagens fördelning</div>
+      <div class="section-label" style="margin:14px 0 6px;">Dagens fördelning</div>
       <div id="dash-activity-list" class="dash-list">
         <div class="dash-empty">Inga registrerade pass än idag.</div>
       </div>
 
       <!-- ADMIN-SEKTION -->
       <div id="admin-tools-section" style="display: none; margin-top: 16px;">
-        <div style="font-size:12px; font-weight:800; color:var(--accent-darkblue); text-transform:uppercase; margin-bottom:6px;">Administratör: Behörigheter & Länkar</div>
+        <div class="admin-heading">Administratör: Behörigheter & Länkar</div>
         <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
           <div class="admin-input-row">
             <span class="admin-label">Mottagare</span>
@@ -225,10 +246,10 @@
             <div id="admin-qr-caption" style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Skanna för att logga in:</div>
             <div id="admin-qr-code" style="width: 176px; margin: 0 auto; padding: 8px; border-radius: 10px; background: #FFF;"></div>
           </div>
-          <button type="button" class="main-btn" style="width:100%; margin-top:10px; min-height:48px;" onclick="location.href='offerter.html'">📄 Offerter &amp; ÄTA</button>
-          <button type="button" class="main-btn" style="width:100%; margin-top:10px; min-height:48px;" onclick="location.href='planering.html'">❄️ Snöplanering – fastigheter &amp; traktorer</button>
-          <button type="button" class="main-btn" style="width:100%; margin-top:10px; min-height:48px;" onclick="location.href='ekonomi.html'">💰 Ekonomi – fakturaunderlag</button>
-          <button type="button" class="main-btn" style="width:100%; margin-top:10px; background:var(--orange); color:#FFF; min-height:48px;" onclick="openKabanossModal()">
+          <button type="button" class="main-btn admin-nav-btn" onclick="location.href='offerter.html'">📄 Offerter &amp; ÄTA</button>
+          <button type="button" class="main-btn admin-nav-btn" onclick="location.href='planering.html'">❄️ Snöplanering – fastigheter &amp; traktorer</button>
+          <button type="button" class="main-btn admin-nav-btn" onclick="location.href='ekonomi.html'">💰 Ekonomi – fakturaunderlag</button>
+          <button type="button" class="main-btn admin-nav-btn is-warn" onclick="openKabanossModal()">
             🌭 Öppna Flygledartornet
           </button>
         </div>
@@ -240,8 +261,8 @@
   <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()">
     <div class="sheet-container" onclick="event.stopPropagation()">
       <div class="sheet-header">
-        <div style="font-size:13px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Välj Aktivitet</div>
-        <button class="sheet-close" style="background:none; border:none; color:var(--accent-blue); font-size:15px; font-weight:700; cursor:pointer;" onclick="closeSheet()">Avbryt</button>
+        <div class="section-label" style="margin:0;">Välj Aktivitet</div>
+        <button class="sheet-close" onclick="closeSheet()">Avbryt</button>
       </div>
       <div class="sheet-item" onclick="selectActivity('Bandgrävare')">Bandgrävare</div>
       <div class="sheet-item" onclick="selectActivity('Stalltvätt')">Stalltvätt</div>
@@ -257,14 +278,14 @@
   <!-- FLYGLEDARTORNET / KABANOSS MODAL -->
   <div class="kabanoss-backdrop" id="kabanossModal" onclick="closeKabanossModal()">
     <div class="kabanoss-modal" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div style="display:flex; gap:8px;">
-          <button class="main-btn main-btn-blue" style="min-height:36px; padding:0 14px; font-size:13px;" onclick="switchAdminTab('kabanoss')">🌭 Kabanossen</button>
-          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('radar')">🔭 Radarn</button>
-          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('crm')">💼 CRM</button>
-          <button class="glove-btn" style="background:rgba(15,23,42,0.08); min-height:36px; padding:0 14px; font-size:13px; color:var(--text-main);" onclick="switchAdminTab('offert')">📄 Offert</button>
+      <div class="kabanoss-toolbar">
+        <div class="kabanoss-tabs">
+          <button class="main-btn main-btn-blue" onclick="switchAdminTab('kabanoss')">🌭 Kabanossen</button>
+          <button class="glove-btn" onclick="switchAdminTab('radar')">🔭 Radarn</button>
+          <button class="glove-btn" onclick="switchAdminTab('crm')">💼 CRM</button>
+          <button class="glove-btn" onclick="switchAdminTab('offert')">📄 Offert</button>
         </div>
-        <button style="background:none; border:none; font-size:16px; font-weight:700; color:var(--orange); cursor:pointer;" onclick="closeKabanossModal()">✕ Stäng</button>
+        <button class="kabanoss-close" onclick="closeKabanossModal()">✕ Stäng</button>
       </div>
       
       <!-- VY 1: KABANOSSEN -->
@@ -279,20 +300,20 @@
       </div>
 
       <!-- VY 2: RADARN -->
-      <div id="radar-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
-        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">🔭 Framtidsradarn (Gantt)</h3>
-        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">7-dagars tidslinje och resursbemanning.</p>
+      <div id="radar-view" class="view-pane" style="display:none;">
+        <h3>🔭 Framtidsradarn (Gantt)</h3>
+        <p>7-dagars tidslinje och resursbemanning.</p>
       </div>
 
       <!-- VY 3: CRM -->
-      <div id="crm-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
-        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">💼 360° Kundbild & CRM</h3>
+      <div id="crm-view" class="view-pane" style="display:none;">
+        <h3>💼 360° Kundbild & CRM</h3>
         <div class="kabanoss-item-card" style="margin-top:12px;">K-1001 Coop Sverige AB (Aktiv)</div>
       </div>
 
       <!-- VY 4: OFFERTMOTOR -->
-      <div id="offert-view" style="display:none; padding:16px; background:rgba(15,23,42,0.04); border-radius:16px;">
-        <h3 style="font-size:16px; font-weight:800; color:var(--accent-darkblue);">📄 Smart Offertmotor (ROT/RUT & Restid)</h3>
+      <div id="offert-view" class="view-pane" style="display:none;">
+        <h3>📄 Smart Offertmotor (ROT/RUT & Restid)</h3>
         <div class="ios-card" style="margin-top:12px; padding:12px;">
           <div class="ios-row">
             <span>Arbetstimmar (h)</span>
@@ -310,8 +331,8 @@
               <option value="rut">RUT (50%)</option>
             </select>
           </div>
-          <div style="margin-top:10px; padding:10px; background:rgba(255,255,255,0.6); border-radius:10px; font-size:13px;">
-            <div style="display:flex; justify-content:space-between;"><span>Totalt att betala:</span><strong id="offert-total-val" style="color:var(--accent-darkblue);">0 kr</strong></div>
+          <div class="offert-total">
+            <div style="display:flex; justify-content:space-between;"><span>Totalt att betala:</span><strong id="offert-total-val" style="color:var(--accent);">0 kr</strong></div>
           </div>
         </div>
       </div>
@@ -330,7 +351,7 @@
       const btn = document.getElementById('unlock-menu-btn');
       
       if (btn && c1 && c2 && c3) {
-        btn.style.background = "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)";
+        btn.classList.add('is-go');
         btn.innerText = "✅ Allt Packat – Öppna Verktyg";
       }
     }

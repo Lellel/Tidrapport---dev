@@ -98,6 +98,13 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
     localStorage.setItem('lpv_company', me.company);
     localStorage.setItem('lpv_is_super', me.isSuper ? 'true' : 'false');
     document.body.classList.toggle('not-super', !me.isSuper);
+    // Admin bestäms av servern (fliken Personal), inte av länken – annars blev man förare på en ny enhet
+    if (me.isAdmin !== isAdmin) {
+      isAdmin = !!me.isAdmin;
+      localStorage.setItem('lpv_is_admin', isAdmin ? 'true' : 'false');
+      document.body.classList.toggle('has-side-nav', isAdmin);
+      if (typeof updateAdminUI === 'function') updateAdminUI();
+    }
   } catch (e) { /* offline – senaste kända behörighet gäller */ }
 })();
 
@@ -571,7 +578,7 @@ function renderOutbox() {
         </div>
         <div class="card-meta" style="margin-top:6px;">
           ${badgeHtml}
-          <span style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;">${escJob(job.place)}</span>
+          <span style="color:var(--fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;">${escJob(job.place)}</span>
           ${job.start ? `<span class="dot">•</span><span>${escJob(job.start)}</span>` : ''}
         </div>
         ${job.description ? `<div class="card-note">${escJob(job.description)}</div>` : ''}
@@ -628,13 +635,13 @@ function renderOutbox() {
           ${ataBadge}
           <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${draft.place}</span>
           <span class="dot">•</span>
-          <span style="font-weight:400; color:#A1A1A6; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${draft.activity}</span>
+          <span class="card-activity">${draft.activity}</span>
         </div>
         <div class="card-meta">
           <span>${draft.date}</span>
           <span class="dot">•</span>
           <span>${timeDisplay}</span>
-          ${hoursDisplay ? `<span class="dot">•</span><span style="color:#FFF; font-weight:500;">${hoursDisplay}</span>` : ''}
+          ${hoursDisplay ? `<span class="dot">•</span><span class="hours">${hoursDisplay}</span>` : ''}
           ${photoIcon}
         </div>
         ${draft.notes ? `<div class="card-note">${draft.notes}</div>` : ''}
@@ -946,64 +953,63 @@ window.openKabanossModalWithTab = openKabanossModalWithTab;
 window.switchAdminTab = switchAdminTab;
 
 // ==========================================
-// DARK MODE / TEMA-HANTÉRING (v3.8)
+// LÄGE: AUTO / LJUST / MÖRKT / NATT (fältanpassat glas)
+// Auto följer telefonens ljust/mörkt. Natt = rött på svart för hytten.
+// Läget sätts på <html data-theme>; body.dark-mode finns kvar för äldre kod.
 // ==========================================
+const THEMES = ['auto', 'light', 'dark', 'night'];
+const THEME_COLORS = { light: '#bfe0ff', dark: '#0f172a', night: '#000000' };
+
+function getThemeSetting() {
+  let t = 'auto';
+  try { t = localStorage.getItem('lpv_theme') || 'auto'; } catch (e) { /* ingen lagring */ }
+  return THEMES.includes(t) ? t : 'auto';
+}
+
+function resolveTheme(setting) {
+  if (setting !== 'auto') return setting;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+
+function applyTheme(setting) {
+  const theme = resolveTheme(setting);
+  document.documentElement.setAttribute('data-theme', theme);
+  document.body.classList.toggle('dark-mode', theme !== 'light');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', THEME_COLORS[theme]);
+  document.querySelectorAll('#theme-picker [data-theme-val]').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.themeVal === setting));
+  });
+}
+
+function setTheme(setting) {
+  if (!THEMES.includes(setting)) setting = 'auto';
+  try { localStorage.setItem('lpv_theme', setting); } catch (e) { /* ingen lagring */ }
+  applyTheme(setting);
+}
+
+// Gamla knappen växlade bara ljust/mörkt – behålls för säkerhets skull
 function toggleDarkMode() {
-  const isDark = document.body.classList.toggle('dark-mode');
-  localStorage.setItem('lpv_theme', isDark ? 'dark' : 'light');
-  updateThemeIcon(isDark);
+  setTheme(resolveTheme(getThemeSetting()) === 'light' ? 'dark' : 'light');
 }
 
 function initTheme() {
-  const savedTheme = localStorage.getItem('lpv_theme');
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
-  if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-    document.body.classList.add('dark-mode');
-    updateThemeIcon(true);
-  } else {
-    document.body.classList.remove('dark-mode');
-    updateThemeIcon(false);
+  applyTheme(getThemeSetting());
+  const picker = document.getElementById('theme-picker');
+  if (picker) picker.addEventListener('click', e => {
+    const b = e.target.closest('[data-theme-val]');
+    if (b) setTheme(b.dataset.themeVal);
+  });
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => { if (getThemeSetting() === 'auto') applyTheme('auto'); };
+    if (mq.addEventListener) mq.addEventListener('change', onChange); else if (mq.addListener) mq.addListener(onChange);
   }
-}
-
-function updateThemeIcon(isDark) {
-  const btn = document.getElementById('theme-toggle-btn');
-  if (btn) btn.innerText = isDark ? '☀️' : '🌙';
 }
 
 document.addEventListener('DOMContentLoaded', initTheme);
 window.toggleDarkMode = toggleDarkMode;
-
-// ==========================================
-// DARK MODE / TEMA-HANTÉRING (v3.8)
-// ==========================================
-function toggleDarkMode() {
-  const isDark = document.body.classList.toggle('dark-mode');
-  localStorage.setItem('lpv_theme', isDark ? 'dark' : 'light');
-  updateThemeIcon(isDark);
-}
-
-function initTheme() {
-  const savedTheme = localStorage.getItem('lpv_theme');
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
-  if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-    document.body.classList.add('dark-mode');
-    updateThemeIcon(true);
-  } else {
-    document.body.classList.remove('dark-mode');
-    updateThemeIcon(false);
-  }
-}
-
-function updateThemeIcon(isDark) {
-  const btn = document.getElementById('theme-toggle-btn');
-  if (btn) btn.innerText = isDark ? '☀️' : '🌙';
-}
-
-document.addEventListener('DOMContentLoaded', initTheme);
-window.toggleDarkMode = toggleDarkMode;
+window.setTheme = setTheme;
 
 // AVATAR DIRECT TRIGGER (v3.9.1)
 function triggerAvatarUpload() {
