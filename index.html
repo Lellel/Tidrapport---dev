@@ -25,17 +25,13 @@
 
   <!-- GLIDANDE VÄNSTERMENY (SIDE-DRAWER FÖR ADMIN & VYER) -->
   <nav class="side-nav-drawer" id="sideNav">
-    <div class="side-nav-item" onclick="openKabanossModalWithTab('kabanoss')">
-      <span class="side-nav-icon">🌭</span>
-      <span class="side-nav-text">Kabanossen</span>
-    </div>
     <div class="side-nav-item" onclick="location.href='radar.html'">
       <span class="side-nav-icon">🔭</span>
       <span class="side-nav-text">Framtidsradarn</span>
     </div>
-    <div class="side-nav-item" onclick="openKabanossModalWithTab('crm')">
+    <div class="side-nav-item" onclick="location.href='offerter.html?view=customers'">
       <span class="side-nav-icon">💼</span>
-      <span class="side-nav-text">CRM & Kundbild</span>
+      <span class="side-nav-text">Kunder</span>
     </div>
     <div class="side-nav-item" onclick="location.href='offerter.html'">
       <span class="side-nav-icon">📄</span>
@@ -69,8 +65,7 @@
         <div class="section-label" style="margin:0;">Mer</div>
         <button class="sheet-close" onclick="document.getElementById('moreSheet').classList.remove('active')">Stäng</button>
       </div>
-      <div class="sheet-item" onclick="document.getElementById('moreSheet').classList.remove('active'); openKabanossModalWithTab('kabanoss')">🌭&nbsp; Kabanossen</div>
-      <div class="sheet-item" onclick="document.getElementById('moreSheet').classList.remove('active'); openKabanossModalWithTab('crm')">💼&nbsp; CRM &amp; Kundbild</div>
+      <div class="sheet-item" onclick="location.href='offerter.html?view=customers'">💼&nbsp; Kunder</div>
       <div class="sheet-item" onclick="location.href='snozoner.html'">❄️&nbsp; Rita snözoner</div>
       <div class="sheet-item" onclick="location.href='ekonomi.html'">💰&nbsp; Ekonomi</div>
     </div>
@@ -270,9 +265,6 @@
           <button type="button" class="main-btn admin-nav-btn" onclick="location.href='offerter.html'">📄 Offerter &amp; ÄTA</button>
           <button type="button" class="main-btn admin-nav-btn" onclick="location.href='planering.html'">❄️ Snöplanering – fastigheter &amp; traktorer</button>
           <button type="button" class="main-btn admin-nav-btn" onclick="location.href='ekonomi.html'">💰 Ekonomi – fakturaunderlag</button>
-          <button type="button" class="main-btn admin-nav-btn is-warn" onclick="openKabanossModal()">
-            🌭 Öppna Flygledartornet
-          </button>
         </div>
       </div>
     </aside>
@@ -293,71 +285,6 @@
       <div class="sheet-item" onclick="selectActivity('Linjemålning')">Linjemålning</div>
       <div class="sheet-item" onclick="selectActivity('Fasadmålning')">Fasadmålning</div>
       <div class="sheet-item" onclick="selectActivity('Offertbesök')">Offertbesök</div>
-    </div>
-  </div>
-
-  <!-- FLYGLEDARTORNET / KABANOSS MODAL -->
-  <div class="kabanoss-backdrop" id="kabanossModal" onclick="closeKabanossModal()">
-    <div class="kabanoss-modal" onclick="event.stopPropagation()">
-      <div class="kabanoss-toolbar">
-        <div class="kabanoss-tabs">
-          <button class="main-btn main-btn-blue" onclick="switchAdminTab('kabanoss')">🌭 Kabanossen</button>
-          <button class="glove-btn" onclick="location.href='radar.html'">🔭 Radarn</button>
-          <button class="glove-btn" onclick="switchAdminTab('crm')">💼 CRM</button>
-          <button class="glove-btn" onclick="switchAdminTab('offert')">📄 Offert</button>
-        </div>
-        <button class="kabanoss-close" onclick="closeKabanossModal()">✕ Stäng</button>
-      </div>
-      
-      <!-- VY 1: KABANOSSEN -->
-      <div id="kabanoss-view" class="kabanoss-grid">
-        <div class="kabanoss-col">
-          <div class="kabanoss-col-title">📌 Planerade</div>
-          <div class="kabanoss-item-card">Coop Kylflytt - Mån 08:00</div>
-        </div>
-        <div class="kabanoss-col"><div class="kabanoss-col-title">⏳ Vid Tillfälle</div></div>
-        <div class="kabanoss-col"><div class="kabanoss-col-title">⚡ Pågående / Klara</div></div>
-        <div class="kabanoss-col"><div class="kabanoss-col-title">💰 Klara för Faktura</div></div>
-      </div>
-
-      <!-- VY 2: RADARN -->
-      <div id="radar-view" class="view-pane" style="display:none;">
-        <h3>🔭 Framtidsradarn (Gantt)</h3>
-        <p>7-dagars tidslinje och resursbemanning.</p>
-      </div>
-
-      <!-- VY 3: CRM -->
-      <div id="crm-view" class="view-pane" style="display:none;">
-        <h3>💼 360° Kundbild & CRM</h3>
-        <div class="kabanoss-item-card" style="margin-top:12px;">K-1001 Coop Sverige AB (Aktiv)</div>
-      </div>
-
-      <!-- VY 4: OFFERTMOTOR -->
-      <div id="offert-view" class="view-pane" style="display:none;">
-        <h3>📄 Smart Offertmotor (ROT/RUT & Restid)</h3>
-        <div class="ios-card" style="margin-top:12px; padding:12px;">
-          <div class="ios-row">
-            <span>Arbetstimmar (h)</span>
-            <input type="number" id="offert-hours" placeholder="0" class="val-text" oninput="calculateOffert()" style="width:60px;">
-          </div>
-          <div class="ios-row">
-            <span>Körtid Garaget Tur/Retur (min)</span>
-            <input type="number" id="offert-travel" placeholder="0" class="val-text" oninput="calculateOffert()" style="width:60px;">
-          </div>
-          <div class="ios-row">
-            <span>Avdrag</span>
-            <select id="offert-avdrag" class="val-text" style="background:transparent; border:none;" onchange="calculateOffert()">
-              <option value="none">Inget</option>
-              <option value="rot">ROT (30%)</option>
-              <option value="rut">RUT (50%)</option>
-            </select>
-          </div>
-          <div class="offert-total">
-            <div style="display:flex; justify-content:space-between;"><span>Totalt att betala:</span><strong id="offert-total-val" style="color:var(--accent);">0 kr</strong></div>
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
 

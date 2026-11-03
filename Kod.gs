@@ -116,7 +116,7 @@ function doGet(e) {
 // Anrop som bara läser behöver inte köa bakom varandra. Bara det som skriver låses,
 // så att tio förare som skickar pass samtidigt kl 05 inte väntar på admin som läser kartan.
 // generateTractorAvatar låses inte heller: AI:n tar 10-30 s och skriver bara en cell på slutet.
-const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
+const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getRadarData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
   "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto"]; // getOfferForCustomer/respondOffer låser själva när de skriver
@@ -134,6 +134,9 @@ function doPost(e) {
     } catch (parseErr) {
       data = e.parameter || {};
     }
+
+    // Gamla namnet (Kabanossen) – en telefon med gammal radar.html i cachen frågar fortfarande så
+    if (data.action === "getKabanossData") data.action = "getRadarData";
 
     if (NO_LOCK_ACTIONS.indexOf(data.action) === -1) {
       lock = LockService.getScriptLock();
@@ -163,7 +166,7 @@ function doPost(e) {
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
-      "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getKabanossData", "saveKabanossJob", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
+      "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -199,7 +202,7 @@ function doPost(e) {
       const hit = findRowById(getOfferSheet(), data.id);
       if (hit && !inScope(auth, offerFromRow(hit.row).brand === "klaryta" ? "Klaryta" : "LPV")) return createJsonResponse({ status: "error", message: "Åtkomst nekad: offerten tillhör ett annat bolag." });
     }
-    if (action === "getKabanossData") return handleGetKabanossData(auth);
+    if (action === "getRadarData") return handleGetRadarData(auth);
     if (action === "getJobs") return handleGetJobs(data, auth);
     if (action === "radarSaveJob") return handleRadarSaveJob(data, auth);
     if (action === "radarDeleteJob") return handleRadarDeleteJob(data, auth);
@@ -234,13 +237,6 @@ function doPost(e) {
     if (action === "saveEk") return handleSaveEk(data.ek, auth.user);
     if (action === "addEkPhoto") return handleAddEkPhoto(data.imageBase64);
     if (action === "signEk") return handleSignEk(data, auth.user);
-    if (action === "saveKabanossJob") {
-      if (scopeOf(auth)) data.billingCompany = scopeOf(auth);
-      const gantt = getSS().getSheetByName("Gantt_Jobb");
-      const hit = gantt && data.id ? findRowById(gantt, data.id) : null;
-      if (hit && !inScope(auth, hit.row[2])) return createJsonResponse({ status: "error", message: "Åtkomst nekad: jobbet tillhör ett annat bolag." });
-      return handleSaveKabanossJob(data);
-    }
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
     if (action === "getUsers") return handleGetUsers(auth);
@@ -533,7 +529,7 @@ function parseMachineModel(text) {
 // ==========================================
 // 4. KABANOSS / GANTT API HANDLERS
 // ==========================================
-function handleGetKabanossData(auth) {
+function handleGetRadarData(auth) {
   const ss = getSS();
 
   // 1. Kunder
@@ -621,45 +617,6 @@ function handleGetKabanossData(auth) {
     resources: resources,
     jobs: jobs
   });
-}
-
-function handleSaveKabanossJob(data) {
-  const ss = getSS();
-  const sheet = ss.getSheetByName("Gantt_Jobb");
-  if (!sheet) return createJsonResponse({ status: "error", message: "Gantt_Jobb-blad saknas." });
-
-  const rows = sheet.getDataRange().getValues();
-  let foundIndex = -1;
-
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(data.id)) {
-      foundIndex = i + 1;
-      break;
-    }
-  }
-
-  const rowData = [
-    data.id || ("j_" + Date.now()),
-    sanitize(data.client),
-    sanitize(data.billingCompany) || "LPV",
-    sanitize(data.title),
-    sanitize(data.status) || "unscheduled",
-    data.dayIndex !== null && data.dayIndex !== undefined ? data.dayIndex : "",
-    data.hours || 8,
-    sanitize(data.shift) || "Dagpass",
-    sanitize(data.siteAddress) || "",
-    sanitize(data.siteContactName) || "",
-    sanitize(data.siteContactPhone) || "",
-    JSON.stringify(data.assigned || [])
-  ];
-
-  if (foundIndex > 0) {
-    sheet.getRange(foundIndex, 1, 1, rowData.length).setValues([rowData]);
-  } else {
-    sheet.appendRow(rowData);
-  }
-
-  return createJsonResponse({ status: "success" });
 }
 
 function handleSickReport(data) {

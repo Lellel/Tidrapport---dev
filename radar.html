@@ -227,7 +227,7 @@ function toast(t, ok) { const el = $('toast'); el.textContent = t; el.className 
 async function load() {
   setStatus('Hämtar…');
   try {
-    const res = await snoApi({ action: 'getKabanossData' });
+    const res = await snoApi({ action: 'getRadarData' });
     if (res.status !== 'success') throw new Error(res.message || 'Kunde inte hämta');
     resources = (res.resources || []).filter(r => r.name);
     resById = {}; resources.forEach(r => { resById[r.name] = r; });
