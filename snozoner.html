@@ -835,10 +835,18 @@
     }
 
     // 📍 Nål på adressen, att passa in kundkartan mot
-    let propPin = null;
+    let propPin = null, pinHidden = false;
+    try { pinHidden = localStorage.getItem('lpv_zon_nal') === 'dold'; } catch (e) { pinHidden = false; }
+    function togglePin() {
+      pinHidden = !pinHidden;
+      try { localStorage.setItem('lpv_zon_nal', pinHidden ? 'dold' : 'visas'); } catch (e) { /* privat läge */ }
+      setPropPin(currentProp); renderKkCard();
+    }
+    const pinBtn = () => currentProp && currentProp.lat !== null && currentProp.lat !== undefined
+      ? `<button class="kk-icon" style="${pinHidden ? 'opacity:.45' : ''}" title="${pinHidden ? 'Visa nålen på adressen' : 'Dölj nålen på adressen'}" onclick="togglePin()">📍</button>` : '';
     function setPropPin(p) {
       if (propPin) { map.removeLayer(propPin); propPin = null; }
-      if (!p || p.lat === null || p.lat === undefined || !map.dragging) return;
+      if (pinHidden || !p || p.lat === null || p.lat === undefined || !map.dragging) return;
       const html = `<svg width="30" height="40" viewBox="0 0 30 40"><path d="M15 39C15 39 2 23 2 14a13 13 0 0 1 26 0c0 9-13 25-13 25z" fill="#ef4444" stroke="#fff" stroke-width="2"/><circle cx="15" cy="14" r="5" fill="#fff"/></svg>`;
       propPin = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'prop-pin', html, iconSize: [30, 40], iconAnchor: [15, 39] }), interactive: false, keyboard: false, zIndexOffset: 2000 }).addTo(map);
     }
@@ -1066,17 +1074,17 @@
       const m = kkMap();
       if (!currentProp) { el.style.display = 'none'; return; }
       el.style.display = 'flex';
-      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${progressHtml()}`; return; }
+      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span><span>${pinBtn()}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${progressHtml()}`; return; }
       const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); kk.hidden=false; kk.layer && kk.layer.update()" onchange="renderKkCard()"></div>`;
       if (kk.adjusting) {
-        el.innerHTML = `<div class="slinga-card-head"><span>✋ Justera kundkartan</span><small>${snoEscape(m.label || '')}</small></div>
+        el.innerHTML = `<div class="slinga-card-head"><span>✋ Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Gesterna styr <b>${kk.gestures === 'kk' ? '🗺️ kundkartan' : '🛰️ satellitbilden'}</b> – byt med knappen till vänster på kartan.</div>
           ${opacity}
           <div class="kk-row"><button class="ok" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
         return;
       }
       el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta <small>· ${snoEscape(currentProp.kund || '')}</small></span>
-          <button class="kk-icon" title="${kk.hidden ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="kk.hidden=!kk.hidden; kk.layer && kk.layer.update(); renderKkCard()">${kk.hidden ? '🙈' : '👁'}</button></div>
+          <span>${pinBtn()}<button class="kk-icon" title="${kk.hidden ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="kk.hidden=!kk.hidden; kk.layer && kk.layer.update(); renderKkCard()">${kk.hidden ? '🙈' : '👁'}</button></span></div>
         ${currentProp.maps.length > 1 ? `<div class="chips">${currentProp.maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
         ${opacity}
         <button id="kk-ai" class="kk-main" onclick="analyzeKk()">🤖 Föreslå zoner från kundkartan</button>

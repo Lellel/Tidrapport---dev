@@ -304,6 +304,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Pensel med två skilda fläckar → Spara ger två handskottningszoner på samma adress
 - [ ] Pensel utan penna (telefon): fingret målar; två fingrar avbryter draget och zoomar
 - [ ] iPad: inga knappar i Rita zoner hamnar under klockan/batteriet
+- [ ] Rita zoner öppnar nästa fastighet som inte är klar direkt; 📍 på adressen, 📍-knappen i rutan döljer/visar (minns valet)
 - [ ] ⛶ Helskärm i Rita zoner döljer statusraden – prova både i hemskärmsappen och i Safari; ✕ Lämna helskärm
 - [ ] **🤖 Föreslå zoner** → förslagen hamnar på rätt ställen → Ta med → Spara zon
 - [ ] Malmaskolan och vårdcentralen: välj del 1 / del 2
