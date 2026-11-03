@@ -22,8 +22,10 @@ const SNO_TYPES = {
 
 const SNO_TILES = {
   sat: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  street: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+  // OpenStreetMap: ritar ut husen (Esris vägkarta saknar byggnader i Sverige)
+  street: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 };
+const SNO_ATTRIB = { sat: 'Bild: Esri, Maxar', street: '© OpenStreetMap-bidragsgivare' };
 const SNO_FLEN_CENTER = [59.0572, 16.5880];
 
 function snoCurrentUser() {
@@ -58,12 +60,12 @@ function snoCreateMap(elementId) {
     return { map: L, setTiles() {} };
   }
   const map = L.map(elementId, { zoomControl: false }).setView(SNO_FLEN_CENTER, 15);
-  let tiles = L.tileLayer(SNO_TILES.sat, { maxZoom: 19 }).addTo(map);
+  let tiles = L.tileLayer(SNO_TILES.sat, { maxZoom: 19, attribution: SNO_ATTRIB.sat }).addTo(map);
   return {
     map,
     setTiles(name) {
       map.removeLayer(tiles);
-      tiles = L.tileLayer(SNO_TILES[name], { maxZoom: 19 }).addTo(map);
+      tiles = L.tileLayer(SNO_TILES[name], { maxZoom: 19, attribution: SNO_ATTRIB[name] }).addTo(map);
     }
   };
 }

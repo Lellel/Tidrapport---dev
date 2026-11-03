@@ -1502,7 +1502,7 @@ async function showCustomerMap(layout) {
     if (typeof L === 'undefined') await loadAssetOnce('script', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
     if (typeof drawLineLayout === 'undefined') await loadAssetOnce('script', 'linjer.js');
     const map = L.map(box, { scrollWheelZoom: false, maxZoom: 21 });
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 21, maxNativeZoom: 19, attribution: 'Esri' }).addTo(map);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 19, attribution: '© OpenStreetMap-bidragsgivare' }).addTo(map);
     const group = drawLineLayout(map, layout, { weight: 3 });
     map.fitBounds(group.getBounds(), { padding: [24, 24], maxZoom: 20 });
   } catch (err) {

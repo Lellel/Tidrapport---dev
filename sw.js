@@ -2,7 +2,7 @@
 // Appens filer visas direkt från telefonen (snabb start, fungerar utan täckning).
 // Ny version: höj CACHE_NAME → telefonen hämtar allt nytt i bakgrunden och appen
 // visar "Ny version – tryck för att uppdatera". Deploy-workflowen höjer den automatiskt i prod.
-const CACHE_NAME = 'lpv-dev-v4.7.1-b39';
+const CACHE_NAME = 'lpv-dev-v4.7.1-b40';
 const RUNTIME_CACHE = 'lpv-runtime';   // CDN-bibliotek och Drive-bilder
 const TILE_CACHE = 'lpv-tiles';        // kartbitar för Snöjour
 const MAX_TILES = 1500;
@@ -110,7 +110,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Kartbitar: sparas så att kartan fungerar utan täckning
-  if (url.hostname === 'server.arcgisonline.com') {
+  if (url.hostname === 'server.arcgisonline.com' || url.hostname === 'tile.openstreetmap.org') {
     event.respondWith(cacheFirst(request, TILE_CACHE, MAX_TILES).catch(() => new Response('', { status: 504 })));
     return;
   }
