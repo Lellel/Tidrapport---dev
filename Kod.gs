@@ -64,6 +64,60 @@ function godkannBehorigheter() {
 
 // Felsökning av Googles bild-AI: kör testaGemini i Apps Script-redigeraren och läs loggen.
 // Visar bara de sista 4 tecknen av nyckeln.
+// Diagnos: vilka vägväderstationer och väglagskameror från Trafikverket ligger närmast våra områden?
+// Kör i Apps Script (välj funktionen och tryck Kör). Kräver TRAFIKVERKET_API_KEY i Skriptegenskaper. Nyckeln loggas aldrig.
+const SNO_OMRADEN = { "Flen": [59.0576, 16.5880], "Malmköping": [59.1335, 16.7330], "Hälleforsnäs": [59.1600, 16.5040], "Mellösa": [59.1060, 16.5470], "Bettna": [58.9270, 16.6270] };
+
+function trafikverketQuery(objecttype, schema, filterXml, limit) {
+  const key = PropertiesService.getScriptProperties().getProperty("TRAFIKVERKET_API_KEY");
+  if (!key) throw new Error("TRAFIKVERKET_API_KEY saknas i Skriptegenskaper.");
+  const body = '<REQUEST><LOGIN authenticationkey="' + key + '"/><QUERY objecttype="' + objecttype + '" schemaversion="' + schema + '"' + (limit ? ' limit="' + limit + '"' : '') + '>' +
+    '<FILTER>' + filterXml + '</FILTER></QUERY></REQUEST>';
+  const res = UrlFetchApp.fetch("https://api.trafikinfo.trafikverket.se/v2/data.json", { method: "post", contentType: "text/xml", payload: body, muteHttpExceptions: true });
+  const text = res.getContentText();
+  let json = {};
+  try { json = JSON.parse(text); } catch (e) { json = {}; }
+  const err = json.RESPONSE && json.RESPONSE.RESULT && json.RESPONSE.RESULT[0] && json.RESPONSE.RESULT[0].ERROR;
+  if (res.getResponseCode() !== 200 || err) throw new Error("HTTP " + res.getResponseCode() + ": " + (err ? JSON.stringify(err) : text.slice(0, 200)));
+  return (json.RESPONSE.RESULT[0] || {})[objecttype] || [];
+}
+
+function wgsPoint(item) {
+  const m = String((item.Geometry && (item.Geometry.WGS84 || item.Geometry.Point && item.Geometry.Point.WGS84)) || "").match(/POINT \(([\d.]+) ([\d.]+)/);
+  return m ? [Number(m[2]), Number(m[1])] : null;
+}
+
+function kmBetween(a, b) {
+  const R = 6371, r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)) * 10) / 10;
+}
+
+function testaTrafikverket() {
+  const rad = (t) => Logger.log(t);
+  Object.keys(SNO_OMRADEN).forEach(namn => {
+    const p = SNO_OMRADEN[namn];
+    const near = '<NEAR name="Geometry.WGS84" value="' + p[1] + ' ' + p[0] + '" maxdistance="25000m"/>';
+    rad("=== " + namn + " ===");
+    ["2.1", "2", "1"].some(v => {
+      try {
+        const st = trafikverketQuery("WeatherMeasurepoint", v, near, 5);
+        rad("Vägväderstationer (schema " + v + "): " + st.length);
+        st.forEach(s => {
+          const pt = wgsPoint(s);
+          rad("  🌡️ " + s.Name + " (id " + s.Id + ") " + (pt ? kmBetween(p, pt) + " km" : "") + " | " + JSON.stringify(s.Observation || {}).slice(0, 260));
+        });
+        return true;
+      } catch (err) { rad("  stationer schema " + v + ": " + err.message); return false; }
+    });
+    try {
+      const cams = trafikverketQuery("Camera", "1", near, 6);
+      rad("Kameror: " + cams.length);
+      cams.forEach(c => { const pt = wgsPoint(c); rad("  📷 " + c.Name + " | " + (c.Type || "") + " | " + (pt ? kmBetween(p, pt) + " km" : "") + " | senaste bild " + (c.PhotoTime || "?") + (c.Active === false ? " | INAKTIV" : "")); });
+    } catch (err) { rad("  kameror: " + err.message); }
+  });
+}
+
 function testaGemini() {
   const key = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "";
   if (!key) { Logger.log("❌ GEMINI_API_KEY saknas i Skriptegenskaper."); return; }
