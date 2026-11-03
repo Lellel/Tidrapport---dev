@@ -77,6 +77,18 @@ function testaGemini() {
     Logger.log((code === 200 ? "✅ " : "❌ ") + label + " (" + model + "): HTTP " + code + " – " + msg.slice(0, 600));
   };
   call("Bild", "gemini-2.5-flash-image", { contents: [{ parts: [{ text: "En enkel röd cirkel på vit bakgrund." }] }] });
+  // Samma förfrågan som avatarknappen (utan foto) – visar om det är innehållet som stoppas
+  const res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + key, {
+    method: "post", contentType: "application/json", muteHttpExceptions: true,
+    payload: JSON.stringify({ contents: [{ parts: [{ text: "A friendly, vibrant 3D animated cartoon character portrait of a cheerful builder in the iconic style of Bob the Builder, yellow hard hat, solid blue background." }] }] }) });
+  let info = "";
+  try {
+    const j = JSON.parse(res.getContentText());
+    const c = (j.candidates || [])[0] || {};
+    const hasImage = ((c.content || {}).parts || []).some(p => p.inlineData);
+    info = j.error ? j.error.status + ": " + j.error.message : "bild: " + (hasImage ? "ja" : "NEJ") + ", finishReason: " + (c.finishReason || "–") + (j.promptFeedback ? ", blockReason: " + j.promptFeedback.blockReason : "");
+  } catch (e) { info = res.getContentText().slice(0, 300); }
+  Logger.log((res.getResponseCode() === 200 && /bild: ja/.test(info) ? "✅ " : "❌ ") + "Avatar-förfrågan: HTTP " + res.getResponseCode() + " – " + info.slice(0, 600));
   Logger.log("Klart. Kopiera raderna ovan (de innehåller inte nyckeln).");
 }
 
