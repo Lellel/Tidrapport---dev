@@ -65,6 +65,10 @@ a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding:
 .day.hol, .col.hol { background: var(--holiday); }
 .day .hol-name { color: #fca5a5; font-size: 10px; }
 .day.today b { color: var(--today); }
+.day.m { padding: 3px 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.day.m .wk { font-size: 9px; font-weight: 800; color: var(--accent); height: 11px; line-height: 11px; text-transform: uppercase; }
+.day.m b { font-size: 12px; line-height: 15px; }
+.day.m .wd { font-size: 9px; color: var(--muted); line-height: 11px; }
 .hours { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; display: flex; font-size: 9px; color: var(--muted); }
 .hours span { flex: 1; border-left: 1px solid var(--line); padding-left: 2px; }
 .rows { position: relative; }
@@ -303,7 +307,11 @@ function rowsFor() {
 
 function renderTimeline() {
   const days = visibleDays(), dw = dayWidth(), todayIso = iso(new Date());
+  const isoWeek = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7)); return Math.ceil(((t - new Date(Date.UTC(t.getUTCFullYear(), 0, 1))) / 864e5 + 1) / 7); };
   const head = days.map(d => { const h = holidayName(d), we = d.getDay() === 0 || d.getDay() === 6;
+    // Månadsvyn: smala dagar – datum i siffror, veckodagens bokstav, veckonummer på måndagar, månad den 1:a
+    if (zoom === 3) return `<div class="day m ${we ? 'we' : ''} ${h ? 'hol' : ''} ${iso(d) === todayIso ? 'today' : ''}" style="width:${dw}px" title="${DAYN[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}${h ? ' – ' + esc(h) : ''}">
+      <span class="wk">${d.getDate() === 1 ? MON[d.getMonth()] : d.getDay() === 1 ? 'v' + isoWeek(d) : ''}</span><b>${d.getDate()}</b><span class="wd">${'SMTOTFL'[d.getDay()]}</span></div>`;
     return `<div class="day ${we ? 'we' : ''} ${h ? 'hol' : ''} ${iso(d) === todayIso ? 'today' : ''}" style="width:${dw}px"><b>${DAYN[d.getDay()]} ${d.getDate()}${zoom === 3 ? '' : ' ' + MON[d.getMonth()]}</b>${h ? `<span class="hol-name">${esc(h)}</span>` : ''}
       ${zoom === 0 ? `<div class="hours">${Array.from({ length: WORK_HOURS }, (_, i) => `<span>${pad(WORK_START + i)}</span>`).join('')}</div>` : ''}</div>`; }).join('');
   const colsHtml = days.map(d => { const we = d.getDay() === 0 || d.getDay() === 6; return `<div class="col ${we ? 'we' : ''} ${holidayName(d) ? 'hol' : ''}" style="width:${dw}px"></div>`; }).join('');
