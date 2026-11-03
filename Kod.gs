@@ -76,7 +76,6 @@ function testaGemini() {
     try { const j = JSON.parse(res.getContentText()); msg = j.error ? (j.error.status + ": " + j.error.message) : "OK"; } catch (e) { msg = res.getContentText().slice(0, 300); }
     Logger.log((code === 200 ? "✅ " : "❌ ") + label + " (" + model + "): HTTP " + code + " – " + msg.slice(0, 600));
   };
-  call("Text", "gemini-2.5-flash", { contents: [{ parts: [{ text: "Svara bara: ok" }] }] });
   call("Bild", "gemini-2.5-flash-image", { contents: [{ parts: [{ text: "En enkel röd cirkel på vit bakgrund." }] }] });
   Logger.log("Klart. Kopiera raderna ovan (de innehåller inte nyckeln).");
 }
