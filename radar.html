@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Radarn – planering</title>
 <style>
@@ -15,7 +15,8 @@
   --rowh: 58px; --labelw: 170px; --headh: 46px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden;
+  touch-action: pan-x pan-y; /* nyp ska zooma tidslinjen, inte hela sidan */ }
 button { font: inherit; color: inherit; cursor: pointer; }
 .app { display: grid; grid-template-rows: auto auto 1fr; height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 /* Toppraden */
@@ -520,11 +521,22 @@ const fsEl = document.documentElement;
 if (fsEl.requestFullscreen || fsEl.webkitRequestFullscreen) { $('fs').hidden = false; $('fs').onclick = () => {
   if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
   else (fsEl.requestFullscreen || fsEl.webkitRequestFullscreen).call(fsEl); }; }
-// Nyp för att zooma
+// Nyp för att zooma tidslinjen (inte sidan). Safari skickar gesture-händelser med skala; andra webbläsare två fingrar.
+function zoomBy(dir) { const nz = Math.max(0, Math.min(3, zoom + dir)); if (nz === zoom) return false; zoom = nz;
+  if (zoom <= 1) { const t = new Date(); rangeStart = new Date(t.getFullYear(), t.getMonth(), t.getDate()); } else rangeStart = mondayOf(rangeStart);
+  renderTimeline.jump = true; render(); return true; }
+let gestureBase = 1;
+document.addEventListener('gesturestart', (e) => { e.preventDefault(); gestureBase = 1; }, { passive: false });
+document.addEventListener('gesturechange', (e) => { e.preventDefault();
+  if (e.scale / gestureBase > 1.35) { if (zoomBy(-1)) gestureBase = e.scale; else gestureBase = e.scale; }   // isär = mer detalj (timmar)
+  else if (e.scale / gestureBase < 0.74) { if (zoomBy(1)) gestureBase = e.scale; else gestureBase = e.scale; } // ihop = längre tid (månad)
+}, { passive: false });
+document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
 let pinch = null;
-$('tl').addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = { d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY), z: zoom }; }, { passive: true });
+const isSafariGestures = 'ongesturestart' in window;
+$('tl').addEventListener('touchstart', (e) => { if (!isSafariGestures && e.touches.length === 2) pinch = { d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY) }; }, { passive: true });
 $('tl').addEventListener('touchmove', (e) => { if (!pinch || e.touches.length !== 2) return; const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-  const nz = Math.max(0, Math.min(3, pinch.z + (d < pinch.d * 0.7 ? 1 : d > pinch.d * 1.4 ? -1 : 0))); if (nz !== zoom) { zoom = nz; pinch = { d, z: nz }; renderTimeline.jump = true; render(); } }, { passive: true });
+  if (d > pinch.d * 1.35) { zoomBy(-1); pinch.d = d; } else if (d < pinch.d * 0.74) { zoomBy(1); pinch.d = d; } }, { passive: true });
 $('tl').addEventListener('touchend', () => { pinch = null; });
 load();
 </script>
