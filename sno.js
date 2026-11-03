@@ -178,10 +178,22 @@ function snoBufferLine(coords, widthM) {
 async function snoOsmSuggestions(bounds) {
   const bbox = [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()].map(n => n.toFixed(6)).join(',');
   const q = `[out:json][timeout:20];(way["amenity"="parking"](${bbox});way["highway"~"^(footway|steps|pedestrian|path)$"](${bbox});node["entrance"](${bbox}););out geom;`;
-  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q),
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-  if (!res.ok) throw new Error('Kartdatan svarade inte (HTTP ' + res.status + ').');
-  const json = await res.json();
+  // Den publika Overpass-servern är ofta överbelastad (502/504/429) – prova reservservrar i tur och ordning
+  const servers = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter'];
+  let json = null, lastErr = '';
+  for (const url of servers) {
+    try {
+      const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 25000);
+      const res = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      clearTimeout(timer);
+      if (!res.ok) { lastErr = 'HTTP ' + res.status; continue; }
+      json = await res.json();
+      break;
+    } catch (e) { lastErr = e.name === 'AbortError' ? 'tog för lång tid' : 'nätverksfel'; }
+  }
+  if (!json) throw new Error('Kartdatan svarade inte (' + lastErr + '). Kartservrarna är tillfälligt överbelastade – försök igen om en stund.');
   const out = [];
   (json.elements || []).forEach(el => {
     // Entré (OSM-nod): handskottningsyta på 3 × 3 m runt dörren
