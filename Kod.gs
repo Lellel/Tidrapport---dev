@@ -62,6 +62,25 @@ function godkannBehorigheter() {
   Logger.log("Klart. Ladda upp ny kod med ./ladda-upp-kod.sh – den skapar även ny version av webbappen.");
 }
 
+// Felsökning av Googles bild-AI: kör testaGemini i Apps Script-redigeraren och läs loggen.
+// Visar bara de sista 4 tecknen av nyckeln.
+function testaGemini() {
+  const key = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "";
+  if (!key) { Logger.log("❌ GEMINI_API_KEY saknas i Skriptegenskaper."); return; }
+  Logger.log("Nyckel som används slutar på: …" + key.slice(-4));
+  const call = (label, model, body) => {
+    const res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key, {
+      method: "post", contentType: "application/json", muteHttpExceptions: true, payload: JSON.stringify(body) });
+    const code = res.getResponseCode();
+    let msg = "";
+    try { const j = JSON.parse(res.getContentText()); msg = j.error ? (j.error.status + ": " + j.error.message) : "OK"; } catch (e) { msg = res.getContentText().slice(0, 300); }
+    Logger.log((code === 200 ? "✅ " : "❌ ") + label + " (" + model + "): HTTP " + code + " – " + msg.slice(0, 600));
+  };
+  call("Text", "gemini-2.5-flash", { contents: [{ parts: [{ text: "Svara bara: ok" }] }] });
+  call("Bild", "gemini-2.5-flash-image", { contents: [{ parts: [{ text: "En enkel röd cirkel på vit bakgrund." }] }] });
+  Logger.log("Klart. Kopiera raderna ovan (de innehåller inte nyckeln).");
+}
+
 // ==========================================
 // 2. MAIN GET & POST HANDLERS (WEBAPP ROUTER)
 // ==========================================
