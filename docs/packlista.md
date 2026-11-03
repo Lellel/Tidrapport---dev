@@ -24,9 +24,13 @@ Jobbtypen kommer från offerten (fasad, linje …) eller väljs i radarns detalj
 | Snöröjning | Varselväst, halkskydd/broddar | Plogblad kontrollerat, sand och salt, spade, isskrapa, extra bränsle |
 | Stalltvätt | Skyddsglasögon/visir, hörselskydd, andningsskydd, regnställ, stövlar | Högtrycksaggregat, slangar, rengöringsmedel, roboten (om bokad) |
 | Mark och grävning | Hjälm, varselkläder, hörselskydd | Ledningsanvisning utskriven, avspärrning, spade, laser |
-| Platsbesök | – | Fuktmätare, måttband, kamera, fasadverktyget i appen |
+| Platsbesök | – | iPad/telefon laddad (fasadverktyget och kulörförslagen i appen), fuktmätare, laseravståndsmätare, måttband, kniv/skrapa för provskrapning, stege, ficklampa, Alcros kulörkarta och NCS-fläkt, kulörprover, visitkort |
 
 (Ingen LPV-väst – används inte.)
+
+## Platsbesöket i fasadflödet
+- När kontoret bokar platsbesök (efter kostnadsuppskattningen, se fasadflode.md) blir det ett jobb i radarn med jobbtypen **Platsbesök**, kopplat till förfrågan.
+- Den som åker får påminnelsen dagen innan och packlistan för platsbesök, så att mätning, foton och kulörval kan göras på plats och uppskattningen blir ett offertutkast.
 
 ## Ansvar
 - Varje jobb har **en ansvarig** (väljs i radarn). Den ansvarige får resurserna och materialet på sin lista; övriga får skyddsutrustning och basutrustning.

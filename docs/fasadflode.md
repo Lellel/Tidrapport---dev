@@ -11,7 +11,7 @@ Bestämt med Daniel 2026-11-03. Inget av detta är byggt än.
 1. **Förfrågan (kunden, via länk från t.ex. fasadmalarna.se)**: adress, antal våningar, nuvarande kulör, önskad kulör (eller samma), om fönster/dörrar ska målas, foton, kontaktuppgifter. Kunden får "Tack, vi återkommer". Ingen siffra visas direkt.
 2. **Uppskattning (appen, automatiskt)**: hamnar på kontoret som **Att granska**.
 3. **Granskning av uppskattningen (kontoret)**: kontrollerar husets kontur på kartan, justerar och skickar uppskattningen med ett klick.
-4. **Platsbesök**: mätning med fasadverktyget (huskroppar och väggar), foton. Uppskattningen blir ett **offertutkast**.
+4. **Platsbesök**: bokas som ett jobb i radarn (jobbtyp Platsbesök, med packlista och påminnelse dagen innan – se packlista.md). Mätning med fasadverktyget (huskroppar och väggar), foton, kulörval. Uppskattningen blir ett **offertutkast**.
 5. **Granskning av offerten (kontoret)**: lägga till/ta bort rader, korrigera timmar utifrån bilder, restid med mera.
 6. **Offert till kunden**: bindande, som i dag (PDF, länk, godkänn/avböj, HubSpot).
 7. **Uppföljning**: kalkyl mot utfall i tid (tidrapporter på jobbet) och kostnad (inköp).
