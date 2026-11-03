@@ -71,7 +71,18 @@
     input[type=range] { padding: 0; }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
+    /* iPad/dator: sidan står still – bara panelen scrollar (inget gummibandsglid när man ritar) */
+    @media (min-width: 801px) {
+      html, body { overflow: hidden; overscroll-behavior: none; }
+      body { position: fixed; inset: 0; }
+      .layout { height: 100dvh; }
+      .panel { overscroll-behavior: contain; }
+    }
+    /* Kvittens på kartan när man ritar med pennan */
+    .map-toast { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: 50%; transform: translateX(-50%); z-index: 700; max-width: calc(100% - 200px); padding: 10px 16px; border-radius: 12px; background: var(--t-overlay); border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.4); font-size: 14px; font-weight: 600; text-align: center; pointer-events: none; opacity: 0; transition: opacity .2s; }
+    .map-toast.show { opacity: 1; }
     @media (max-width: 800px) {
+      .map-toast { max-width: calc(100% - 24px); }
       .layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
       .panel { border-left: none; border-top: 1px solid var(--line); padding-top: 14px; }
     }
@@ -88,6 +99,7 @@
       </div>
       <div class="sno-legend" id="sno-legend"></div>
       <div class="kk-fab" id="kk-fab"></div>
+      <div class="map-toast" id="map-toast"></div>
     </div>
 
     <aside class="panel">
@@ -533,9 +545,17 @@
     let penSeen = false, stroke = null, strokeLayer = null, clickBlockUntil = 0;
     let brushStrokes = [], brushPolys = [], brushLayers = [];
 
+    let toastTimer = null;
+    function mapToast(html, ms) {
+      const t = document.getElementById('map-toast');
+      t.innerHTML = html; t.classList.add('show');
+      clearTimeout(toastTimer);
+      if (ms !== 0) toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3500);
+    }
+
     function penMode() {
       if (currentTool === 'pensel') return 'brush';
-      if (currentTool === 'entre' || selectedZone) return null;
+      if (currentTool === 'entre') return null;
       const k = toolDef().kind;
       return k === 'polygon' ? 'lasso' : k === 'line' ? 'line' : null;
     }
@@ -638,6 +658,7 @@
       brushLayers = brushPolys.map(p => L.polygon(p.coords, { color: c, fillColor: c, fillOpacity: 0.4, weight: 2, dashArray: '6 6', interactive: false }).addTo(map));
       if (clearOnly) return;
       const total = brushPolys.reduce((s, p) => s + p.area, 0);
+      if (brushStrokes.length) mapToast(`🖌️ <b>${Math.round(total).toLocaleString('sv-SE')} m²</b>${brushPolys.length > 1 ? ` i ${brushPolys.length} ytor` : ''}<br><small>Måla mer – eller tryck <b>💾 Spara zon</b></small>`, 5000);
       setStatus(brushStrokes.length ? `🖌️ ${brushStrokes.length} drag · <b>${Math.round(total).toLocaleString('sv-SE')} m²</b>${brushPolys.length > 1 ? ` i ${brushPolys.length} ytor` : ''} – måla mer eller tryck <b>Spara zon</b>.` : 'Måla gångytorna med pennan.');
     }
 
@@ -649,7 +670,7 @@
       const lls = stroke.pts.map(p => map.containerPointToLatLng(p));
       strokeLayer = stroke.mode === 'brush'
         ? L.polyline(lls, { color: SNO_TYPES.hand.color, opacity: 0.6, weight: Math.max(3, metersToPx(brushW)), lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map)
-        : L.polyline(lls, { color: toolDef().color || '#fff', weight: 3, dashArray: '4 6', interactive: false }).addTo(map);
+        : L.polyline(lls, { color: toolDef().color || '#fff', weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map);
     }
 
     function endStroke(save) {
@@ -664,13 +685,16 @@
         updateBrush();
         return;
       }
-      if (!st.moved) return; // ett tryck: kartans vanliga klick lägger punkten
+      if (!st.moved) { document.getElementById('map-toast').classList.remove('show'); return; } // ett tryck: kartans vanliga klick lägger punkten
       clickBlockUntil = Date.now() + 400;
       const pts = simplifyLL(lls, 0.3, st.mode === 'lasso');
-      if (st.mode === 'lasso' && pts.length < 3) return;
+      if (st.mode === 'lasso' && pts.length < 3) { mapToast('⚠️ För liten – ringa in hela ytan och lyft pennan.'); return; }
       selectZone(null);
       drawingPoints = pts;
       drawPreview();
+      mapToast(st.mode === 'lasso'
+        ? `✅ ${toolDef().label} inringad · <b>${Math.round(snoGeodesicArea(pts)).toLocaleString('sv-SE')} m²</b><br><small>Tryck <b>💾 Spara zon</b> – eller ringa in igen</small>`
+        : `✅ Sträcka · <b>${snoFormatDistance(snoLineLength(pts))}</b><br><small>Tryck <b>💾 Spara zon</b></small>`, 6000);
     }
 
     function setupPen() {
@@ -680,15 +704,19 @@
       el.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'pen') penSeen = true;
         if (stroke) { if (e.pointerType === 'touch' && stroke.type === 'touch') endStroke(false); return; } // två fingrar = zooma
-        if (kk.adjusting || e.target.closest('.leaflet-control')) return;
+        if (e.target.closest('.leaflet-control')) return;
+        // Medan kundkartan justeras flyttar pennan kundkartan – säg det, så att det inte ser ut som att ritningen tappades
+        if (kk.adjusting) { if (e.pointerType === 'pen' && penMode()) mapToast('✋ Du justerar kundkartan.<br><small>Tryck <b>💾 Spara läge</b> (eller ✕ Avbryt) för att börja rita.</small>', 4000); return; }
         const mode = penMode();
         if (!mode) return;
         const draws = e.pointerType === 'pen' || (mode === 'brush' && (e.pointerType === 'mouse' || !penSeen));
         if (!draws) return;
         map.dragging.disable(); map.touchZoom.disable(); // handflatan mot skärmen ska inte zooma
+        if (selectedZone) selectZone(null); // en vald zon ska inte hindra att man ritar en ny
         stroke = { id: e.pointerId, type: e.pointerType, mode, moved: false, pts: [map.mouseEventToContainerPoint(e)] };
         try { el.setPointerCapture(e.pointerId); } catch (err) { /* äldre webbläsare */ }
         if (mode === 'brush') drawStroke();
+        else if (e.pointerType === 'pen') mapToast(mode === 'lasso' ? `✏️ Ringa in ${toolDef().label.toLowerCase()} – lyft pennan när du är runt` : '✏️ Dra sträckan – lyft pennan när du är klar', 0);
       }, true);
       el.addEventListener('pointermove', (e) => {
         if (!stroke || e.pointerId !== stroke.id) return;
