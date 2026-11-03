@@ -10,11 +10,11 @@
   <style>
     :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--t-font); }
     body { display: flex; flex-direction: column; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: calc(env(safe-area-inset-top) + 10px) 14px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
-    header a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
-    h1 { font-size: 16px; margin: 0; white-space: nowrap; }
+    header a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
+    h1 { font-size: var(--t-fs-title); margin: 0; white-space: nowrap; }
     .mode { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
     .mode button { min-height: 32px; border: none; border-radius: 0; padding: 0 10px; font-size: 12px; background: transparent; }
     .mode button.on { background: var(--accent); color: var(--t-on-accent); }
@@ -31,30 +31,30 @@
     .steps div.now { border-color: var(--accent); color: var(--text); font-weight: 700; }
     h2 { font-size: 18px; margin: 0; }
     p.help { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
-    button { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 15px; cursor: pointer; }
+    button { min-height: 48px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 15px; cursor: pointer; }
     button:disabled { opacity: .45; cursor: default; }
     button.primary { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 17px; min-height: 56px; }
     button.link { background: transparent; border: none; color: var(--accent); min-height: 36px; font-size: 14px; }
     .wide { width: 100%; }
-    input, textarea { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
+    input, textarea { width: 100%; padding: 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
     textarea { resize: vertical; min-height: 60px; }
     label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
     .list { display: flex; flex-direction: column; gap: 6px; }
-    .item { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); cursor: pointer; text-align: left; font-weight: 400; min-height: 56px; }
+    .item { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: var(--t-r); background: var(--panel); cursor: pointer; text-align: left; font-weight: 400; min-height: 56px; }
     .item b { display: block; font-size: 15px; }
     .item small { color: var(--muted); font-size: 12px; }
     .item .grow { flex: 1; min-width: 0; }
     .types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .types button { font-size: 15px; min-height: 56px; }
     .types button.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
-    .gps { padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 15px; }
+    .gps { padding: 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--panel); font-size: 15px; }
     .gps.good { border-color: var(--ok); }
     .gps.mid { border-color: var(--warn); }
     .gps.bad { border-color: var(--danger); }
     .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 8px; }
     .bar div { height: 100%; background: var(--accent); width: 0; transition: width .3s linear; }
-    .photo { width: 100%; max-height: 150px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
-    .note { padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4; }
+    .photo { width: 100%; max-height: 150px; object-fit: cover; border-radius: var(--t-r); border: 1px solid var(--line); }
+    .note { padding: 10px 12px; border-radius: var(--t-r); font-size: 14px; line-height: 1.4; }
     .note.ai { background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.4); }
     .note.warn { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.5); }
     .note.err { background: rgba(239,68,68,.1); border: 1px solid var(--danger); color: var(--t-danger); }
@@ -68,7 +68,7 @@
     /* Dator och iPad: kartan till vänster, stegen i en panel till höger */
     @media (max-width: 420px) {
       header { padding-left: 10px; padding-right: 10px; }
-      h1 { font-size: 15px; }
+      h1 { font-size: var(--t-fs-title); }
       .mode button { padding: 0 8px; }
     }
     @media (min-width: 800px) {
@@ -82,7 +82,7 @@
 </head>
 <body>
   <header>
-    <a href="snojour.html" id="back">← Tillbaka</a>
+    <a href="snojour.html" id="back">←</a>
     <h1>⚠️ Hinder</h1>
     <span data-theme-slot></span>
     <div class="mode" title="Hur hindret placeras">

@@ -10,31 +10,31 @@
   <style>
     :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--t-font); }
     body { display: flex; flex-direction: column; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: calc(env(safe-area-inset-top) + 10px) 14px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
-    header a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
-    h1 { font-size: 16px; margin: 0; }
+    header a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
+    h1 { font-size: var(--t-fs-title); margin: 0; }
     .map-wrap { position: relative; height: 50vh; flex-shrink: 0; }
     #map { height: 100%; width: 100%; }
     .map-buttons { position: absolute; right: 10px; bottom: 10px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
     .map-buttons button { min-height: 40px; padding: 0 12px; background: var(--t-overlay); }
     .map-buttons button.active { background: var(--accent); color: var(--t-on-accent); }
     .sheet { flex: 1; overflow-y: auto; padding: 12px 14px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 12px; }
-    select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
-    button { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
+    select { width: 100%; padding: 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
+    button { min-height: 48px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
     .btn-start { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 16px; }
     .btn-stop { background: var(--danger); border-color: var(--danger); color: #fff; font-size: 16px; }
     .timer { text-align: center; font-size: 13px; color: var(--muted); }
     .timer b { color: var(--text); font-size: 22px; font-variant-numeric: tabular-nums; display: block; }
     .gps-status { font-size: 12px; color: var(--muted); }
-    .obj { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+    .obj { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--t-r); background: var(--panel); }
     .obj-num { width: 28px; height: 28px; border-radius: 50%; background: var(--t-btn); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
     .obj-body { flex: 1; min-width: 0; }
     .obj-title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .obj-meta { font-size: 12px; color: var(--muted); }
     .obj-note { font-size: 12px; color: var(--warn); margin-top: 2px; }
-    .obj a { color: var(--accent); font-size: 12px; font-weight: 700; text-decoration: none; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; white-space: nowrap; }
+    .obj a { color: var(--accent); font-size: 12px; font-weight: 700; text-decoration: none; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--t-r); white-space: nowrap; }
     .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px 0; }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
@@ -42,7 +42,7 @@
 </head>
 <body>
   <header>
-    <a href="index.html">← Tidrapport</a>
+    <a href="index.html">← Hem</a>
     <h1>❄️ Snöjour</h1>
     <span style="display:flex;gap:8px;align-items:center;"><span data-theme-slot></span><a href="snozoner.html" id="link-draw" style="visibility:hidden;">Rita ✏️</a></span>
   </header>

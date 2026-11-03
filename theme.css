@@ -5,6 +5,15 @@
    Sidorna pekar sina egna färgnamn hit, t.ex. --panel: var(--t-panel).
    ========================================================== */
 :root {
+  /* Mått som är lika i alla lägen – samma familj som startsidan */
+  --t-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, "Segoe UI", Roboto, sans-serif;
+  --t-r: 12px;            /* knappar, fält */
+  --t-r-card: 18px;       /* kort och paneler */
+  --t-fs: 15px;
+  --t-fs-small: 13px;
+  --t-fs-link: 14px;
+  --t-fs-title: 19px;
+  --t-fs-input: 16px;     /* 16 px: iPhone zoomar inte in när man trycker i fältet */
   color-scheme: light;
   --t-bg: #e6eff9;        /* sidans bakgrund */
   --t-panel: #ffffff;     /* paneler och sidhuvud */
@@ -72,3 +81,26 @@
 .theme-btn { min-height: 36px; min-width: 36px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--t-line); background: var(--t-btn); color: var(--t-text); font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
 @media (max-width: 520px) { .theme-btn:not(.floating) .tl { display: none; } }
 .theme-btn.floating { position: fixed; z-index: 2000; left: calc(env(safe-area-inset-left) + 10px); bottom: calc(env(safe-area-inset-bottom) + 10px); box-shadow: var(--t-shadow); }
+
+/* Gemensam grund för undersidorna */
+@media (max-width: 420px) { :root { --t-fs-title: 17px; } }
+header a, .topbar a, .mode button { white-space: nowrap; }
+body { font-family: var(--t-font); -webkit-font-smoothing: antialiased; }
+h1 { font-weight: 800; letter-spacing: -0.01em; }
+
+/* Flikraden för admin i telefon (samma som startsidan) – läggs till av theme.js */
+.lpv-tabbar { display: none; }
+@media (max-width: 520px) {
+  body.lpv-has-tabbar { padding-bottom: calc(66px + env(safe-area-inset-bottom)) !important; }
+  .lpv-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 3000;
+    padding: 6px 4px max(6px, env(safe-area-inset-bottom)); background: var(--t-panel); border-top: 1px solid var(--t-line); }
+  .lpv-tabbar a, .lpv-tabbar button { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 48px; border: 0; background: transparent;
+    color: var(--t-muted); font: 600 11px var(--t-font); text-decoration: none; cursor: pointer; padding: 2px 0; }
+  .lpv-tabbar .on { color: var(--t-accent); }
+  .lpv-tabbar span { font-size: 22px; line-height: 26px; }
+}
+.lpv-more { position: fixed; inset: 0; z-index: 3100; background: rgba(0,0,0,.45); display: none; align-items: flex-end; }
+.lpv-more.open { display: flex; }
+.lpv-more > div { width: 100%; background: var(--t-panel); border-radius: var(--t-r-card) var(--t-r-card) 0 0; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); }
+.lpv-more a { display: block; padding: 14px 4px; border-bottom: 1px solid var(--t-line); color: var(--t-text); text-decoration: none; font: 600 17px var(--t-font); }
+.lpv-more a:last-child { border-bottom: 0; }

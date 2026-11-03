@@ -9,30 +9,30 @@
   <style>
     :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); --snow: #7dd3fc; --rain: #34d399; }
     * { box-sizing: border-box; }
-    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--t-font); }
     header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
-    header a { color: var(--accent); text-decoration: none; font-weight: 700; font-size: 14px; }
-    h1 { font-size: 18px; margin: 0; }
+    header a { color: var(--accent); text-decoration: none; font-weight: 700; font-size: var(--t-fs-link); }
+    h1 { font-size: var(--t-fs-title); margin: 0; }
     .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .tools label { font-size: 13px; color: var(--muted); }
-    .tools input { width: 70px; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 15px; }
-    button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
+    .tools input { width: 70px; padding: 8px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: var(--t-fs-input); }
+    button { min-height: 40px; padding: 0 14px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
     button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
     main { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; max-width: 1500px; margin: 0 auto; }
-    .msg { grid-column: 1 / -1; padding: 10px 14px; border-radius: 12px; background: rgba(245,158,11,.12); border: 1px solid var(--warn); font-size: 14px; }
-    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .msg { grid-column: 1 / -1; padding: 10px 14px; border-radius: var(--t-r); background: rgba(245,158,11,.12); border: 1px solid var(--warn); font-size: 14px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
     .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
     .card-head h2 { font-size: 20px; margin: 0; }
     .card-head small { color: var(--muted); font-size: 12px; text-align: right; }
-    .notice { font-size: 13px; padding: 8px 10px; border-radius: 10px; background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.35); }
+    .notice { font-size: 13px; padding: 8px 10px; border-radius: var(--t-r); background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.35); }
     .nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .num { background: var(--bg); border-radius: 12px; padding: 8px; text-align: center; }
+    .num { background: var(--bg); border-radius: var(--t-r); padding: 8px; text-align: center; }
     .num b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
     .num span { font-size: 11px; color: var(--muted); }
     .chart svg { width: 100%; height: auto; display: block; }
     .legend { display: flex; gap: 12px; font-size: 11px; color: var(--muted); }
     .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-    .cam img { width: 100%; border-radius: 12px; display: block; background: var(--bg); min-height: 120px; }
+    .cam img { width: 100%; border-radius: var(--t-r); display: block; background: var(--bg); min-height: 120px; }
     .cam div { font-size: 12px; color: var(--muted); margin-top: 4px; }
     .stations { font-size: 12px; color: var(--muted); line-height: 1.5; }
     .vx-meter { background: var(--bg); }
@@ -40,7 +40,7 @@
 </head>
 <body>
   <header>
-    <a href="index.html">← Tidrapport</a>
+    <a href="index.html">← Hem</a>
     <h1>🌨️ Väder & Plogometern</h1>
     <div class="tools"><span data-theme-slot></span>
       <label for="thr">Plogas från</label><input id="thr" type="number" min="0.5" max="20" step="0.5" inputmode="decimal"><label>cm</label>
