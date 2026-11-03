@@ -24,7 +24,7 @@ Jobbtypen kommer från offerten (fasad, linje …) eller väljs i radarns detalj
 | Snöröjning | Varselväst, halkskydd/broddar | Plogblad kontrollerat, sand och salt, spade, isskrapa, extra bränsle |
 | Stalltvätt | Skyddsglasögon/visir, hörselskydd, andningsskydd, regnställ, stövlar | Högtrycksaggregat, slangar, rengöringsmedel, roboten (om bokad) |
 | Mark och grävning | Hjälm, varselkläder, hörselskydd | Ledningsanvisning utskriven, avspärrning, spade, laser |
-| Platsbesök | – | iPad/telefon laddad (fasadverktyget och kulörförslagen i appen), fuktmätare, laseravståndsmätare, måttband, kniv/skrapa för provskrapning, stege, ficklampa, Alcros kulörkarta och NCS-fläkt, NCS-scanner (mäter nuvarande kulör), kulörprover, visitkort |
+| Platsbesök | – | iPad/telefon laddad (fasadverktyget och kulörförslagen i appen), fuktmätare, laseravståndsmätare, måttband, kniv/skrapa för provskrapning, stege, ficklampa, Alcros kulörkarta och NCS-fläkt, NCS-scanner (Datacolor ColorReader, mäter nuvarande kulör), kulörprover, visitkort |
 
 (Ingen LPV-väst – används inte.)
 

@@ -39,6 +39,18 @@ Bestämt med Daniel 2026-11-03. Inget av detta är byggt än.
 - Tre fält: **Fasad**, **Detaljer** (knutar, vindskivor), **Fönster och dörrfoder**.
 - Kopplas till kulörförslagen (AI-bilderna).
 
+## Kulöravläsning med NCS-scanner (platsbesök)
+- Scannern är Datacolor ColorReader; appen visar två skärmar. Ta en skärmdump av båda.
+- I offertutkastet: **Nuvarande kulör → 📷 Lägg in skärmdumpar**. AI läser av och fyller i, användaren bekräftar:
+  - från "Färgläsningsdata": **hex**, **LRV**, **Lab** (L, a, b)
+  - från "Färgmatchningar": **NCS-kod + ΔE**, **Alcro-namn/kod + kollektion + ΔE** (även RAL om det finns)
+- ΔE över 2 → "osäker matchning – kontrollera mot kulörkartan".
+- Hex används som husets färg på skärmen (kulörförslag, offert). Lab sparas så att vi senare kan matcha mot appens egen Alcro-lista utan AI.
+- Lågt LRV (mörk kulör) vid kulörbyte → påminnelse om att kontrollera Alcros rekommendation för mörka kulörer på trä.
+- Skärmdumparna sparas med offerten och egenkontrollen som underlag (kulören före jobbet).
+- Samma sätt för **önskad kulör** och **detaljer** (fönster, knutar, dörrfoder).
+- Tips: i ColorReader → Färgkollektioner, välj NCS och Alcros utomhuskulörer (inte inredningskollektionen).
+
 ## Texter på offerten
 - "Fönster, dörrar och metalldetaljer ingår inte i det offererade jobbet." – alltid med, **tas bort när fönstermålning ingår**.
 
