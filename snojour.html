@@ -55,6 +55,7 @@
   </div>
 
   <div class="sheet">
+    <div id="vader-box"></div>
     <select id="slinga-select" onchange="selectSlinga(this.value)"></select>
     <div id="time-box"></div>
     <div class="gps-status" id="gps-status">GPS startar…</div>
@@ -64,6 +65,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="config.js"></script>
   <script src="sno.js"></script>
+  <script src="vader.js"></script>
   <script>
     let mapCtl, map;
     let zones = [];
@@ -257,6 +259,18 @@
       }
     }
 
+    // ---------- VÄDER: Plogometern och Sandometern för mina områden ----------
+    async function loadWeather() {
+      const box = document.getElementById('vader-box');
+      let res;
+      try { res = await snoApi({ action: 'getWeather' }); } catch (e) { return; }
+      if (!res || res.status !== 'success') return;
+      const names = (res.mine && res.mine.length ? res.mine : Object.keys(res.areas || {})).filter(n => res.areas[n]);
+      if (!names.length) { box.innerHTML = ''; return; }
+      box.innerHTML = names.map(n => `<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;"><b style="color:var(--text);font-size:13px;">${snoEscape(n)}</b><span>${vxAge(res.at)}${res.areas[n].stale ? ' · ⚠️ gammal prognos' : ''}</span></div>${vxMeters(res.areas[n])}</div>`).join('') +
+        (snoIsAdmin() ? '<a href="vader.html" style="display:block;text-align:center;font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px;">🌨️ Hela vädervyn →</a>' : '');
+    }
+
     // ---------- GPS ----------
     function toggleFollow() {
       following = !following;
@@ -303,6 +317,8 @@
     if (snoIsAdmin()) document.getElementById('link-draw').style.visibility = 'visible';
     loadZones();
     startGps();
+    loadWeather();
+    setInterval(loadWeather, 10 * 60000);
   </script>
 </body>
 </html>

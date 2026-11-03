@@ -41,6 +41,10 @@
       <span class="side-nav-icon">🚜</span>
       <span class="side-nav-text">Snöplanering</span>
     </div>
+    <div class="side-nav-item" onclick="location.href='vader.html'">
+      <span class="side-nav-icon">🌨️</span>
+      <span class="side-nav-text">Väder</span>
+    </div>
     <div class="side-nav-item" onclick="location.href='snozoner.html'">
       <span class="side-nav-icon">❄️</span>
       <span class="side-nav-text">Rita snözoner</span>
@@ -66,6 +70,7 @@
         <button class="sheet-close" onclick="document.getElementById('moreSheet').classList.remove('active')">Stäng</button>
       </div>
       <div class="sheet-item" onclick="location.href='offerter.html?view=customers'">💼&nbsp; Kunder</div>
+      <div class="sheet-item" onclick="location.href='vader.html'">🌨️&nbsp; Väder – Plogometern</div>
       <div class="sheet-item" onclick="location.href='snozoner.html'">❄️&nbsp; Rita snözoner</div>
       <div class="sheet-item" onclick="location.href='ekonomi.html'">💰&nbsp; Ekonomi</div>
     </div>
@@ -292,6 +297,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="config.js"></script>
+  <script src="vader.js"></script>
   <script src="app.js"></script>
   <script>
     function checkPackProgress() {

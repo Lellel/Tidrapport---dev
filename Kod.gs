@@ -66,7 +66,15 @@ function godkannBehorigheter() {
 // Visar bara de sista 4 tecknen av nyckeln.
 // Diagnos: vilka vägväderstationer och väglagskameror från Trafikverket ligger närmast våra områden?
 // Kör i Apps Script (välj funktionen och tryck Kör). Kräver TRAFIKVERKET_API_KEY i Skriptegenskaper. Nyckeln loggas aldrig.
-const SNO_OMRADEN = { "Flen": [59.0576, 16.5880], "Malmköping": [59.1335, 16.7330], "Hälleforsnäs": [59.1600, 16.5040], "Mellösa": [59.1060, 16.5470], "Bettna": [58.9270, 16.6270] };
+// Områdena för vädret: punkt för SMHI:s prognos, närmaste vägväderstationer och väglagskamera (Trafikverket).
+// Stationerna valda 2026-11-03 med testaTrafikverket(). Malmköping: Sparreholm (+ fjärrytan) och Björndammen.
+const VADER_OMRADEN = {
+  "Flen": { pos: [59.0576, 16.5880], stations: ["411"], camera: "Lidaviken" },
+  "Malmköping": { pos: [59.1335, 16.7330], stations: ["410", "410100", "420"], camera: "Sparreholm" },
+  "Hälleforsnäs": { pos: [59.1600, 16.5040], stations: ["417", "417100"], camera: "Slytan" },
+  "Mellösa": { pos: [59.1060, 16.5470], stations: ["411"], camera: "Lidaviken" },
+  "Bettna": { pos: [58.9270, 16.6270], stations: ["412"], camera: "Hål" }
+};
 
 function trafikverketQuery(objecttype, schema, filterXml, limit) {
   const key = PropertiesService.getScriptProperties().getProperty("TRAFIKVERKET_API_KEY");
@@ -95,8 +103,8 @@ function kmBetween(a, b) {
 
 function testaTrafikverket() {
   const rad = (t) => Logger.log(t);
-  Object.keys(SNO_OMRADEN).forEach(namn => {
-    const p = SNO_OMRADEN[namn];
+  Object.keys(VADER_OMRADEN).forEach(namn => {
+    const p = VADER_OMRADEN[namn].pos;
     const near = '<NEAR name="Geometry.WGS84" value="' + p[1] + ' ' + p[0] + '" maxdistance="25000m"/>';
     rad("=== " + namn + " ===");
     ["2.1", "2", "1"].some(v => {
@@ -173,7 +181,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getRadarData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "getWeather"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -219,7 +227,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "sendSms", "importProperties",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
       "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
@@ -350,6 +358,8 @@ function doPost(e) {
     if (action === "savePropertyMapPlace") return handleSavePropertyMapPlace(data);
     if (action === "setPropertyZoneStatus") return handleSetPropertyZoneStatus(data);
     if (action === "claimProperty") return handleClaimProperty(data, auth);
+    if (action === "getWeather") return handleGetWeather(data, auth);
+    if (action === "setPlowThreshold") return handleSetPlowThreshold(data);
     if (action === "analyzePropertyMap") return handleAnalyzePropertyMap(data);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
@@ -2264,6 +2274,226 @@ function handleMarkNoticesRead(data, auth) {
     if (ids.indexOf(String(rows[i][0])) !== -1 && String(rows[i][2]).trim() === String(auth.user).trim()) sheet.getRange(i + 1, 6).setValue(nowStamp());
   }
   return createJsonResponse({ status: "success" });
+}
+
+// ==========================================
+// 4d. VÄDER: Plogometern och Sandometern (se docs/vader.md)
+// SMHI:s punktprognos (snow1g) + Trafikverkets vägväderstationer -> sannolikhet för plogning och sandning per område.
+// Körs var 15:e minut av en tidsutlösare (installeraVaderKoll), men räknar bara om en gång i timmen –
+// tätare när något område ligger på 50 % eller mer. Förarna får en notis i appen när läget ändras.
+// ==========================================
+const VADER_LOGG_HEADERS = ["Tid", "Område", "Plog %", "Sand %", "Snö 12 h (cm)", "Regn 12 h (mm)", "Vägyta (°C)", "Vägyta lägsta i natt (°C, uppskattad)", "Luft (°C)", "Daggpunkt (°C)", "Nivå"];
+
+function vaderPlogGrans() {
+  const rows = getSettingsSheet().getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) if (String(rows[i][0]) === "Snö.plogGräns" && Number(rows[i][1]) > 0) return Number(rows[i][1]);
+  return 3; // cm tills avtalen är klara
+}
+
+function handleSetPlowThreshold(data) {
+  const cm = Number(data.cm);
+  if (!(cm >= 0.5 && cm <= 20)) return createJsonResponse({ status: "error", message: "Ange en gräns mellan 0,5 och 20 cm." });
+  const sheet = getSettingsSheet();
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) if (String(rows[i][0]) === "Snö.plogGräns") { sheet.getRange(i + 1, 2).setValue(cm); return createJsonResponse({ status: "success", cm: cm }); }
+  sheet.appendRow(["Snö.plogGräns", cm, "Snödjup (cm) som räknas som plogning i Plogometern"]);
+  return createJsonResponse({ status: "success", cm: cm });
+}
+
+// SMHI: timprognos för en punkt, 24 timmar framåt
+function fetchSmhiHours(pos) {
+  const url = "https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/" + pos[1].toFixed(4) + "/lat/" + pos[0].toFixed(4) + "/data.json";
+  const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error("SMHI svarade HTTP " + res.getResponseCode());
+  const now = Date.now();
+  return (JSON.parse(res.getContentText()).timeSeries || []).map(t => {
+    const d = t.data || {};
+    const fp = Number(d.precipitation_frozen_part);
+    return { t: new Date(t.time).getTime(), temp: Number(d.air_temperature), rh: Number(d.relative_humidity), p: Math.max(0, Number(d.precipitation_amount_mean) || 0),
+      fr: fp >= 0 && fp <= 100 ? fp / 100 : (Number(d.probability_of_frozen_precipitation) || 0), pop: Number(d.probability_of_precipitation) || 0 };
+  }).filter(h => h.t > now - 3600000 && h.t <= now + 24 * 3600000);
+}
+
+// Trafikverket: senaste mätningen från stationerna (vägyta, luft, daggpunkt, nederbörd)
+function fetchRoadStations(ids) {
+  if (!PropertiesService.getScriptProperties().getProperty("TRAFIKVERKET_API_KEY")) return {};
+  const filter = "<OR>" + ids.map(id => '<EQ name="Id" value="' + id + '"/>').join("") + "</OR>";
+  const out = {};
+  trafikverketQuery("WeatherMeasurepoint", "2.1", filter).forEach(s => {
+    const o = s.Observation || {};
+    const val = (x) => x && isFinite(x.Value) ? Number(x.Value) : null;
+    out[String(s.Id)] = { name: String(s.Name), surface: val(o.Surface && o.Surface.Temperature), air: val(o.Air && o.Air.Temperature),
+      dew: val(o.Air && o.Air.Dewpoint), precip: !!(o.Weather && o.Weather.Precipitation && o.Weather.Precipitation !== "no"), sample: o.Sample || "" };
+  });
+  return out;
+}
+
+function fetchRoadCameras(names) {
+  if (!PropertiesService.getScriptProperties().getProperty("TRAFIKVERKET_API_KEY")) return {};
+  const filter = "<OR>" + names.map(n => '<EQ name="Name" value="' + n + '"/>').join("") + "</OR>";
+  const out = {};
+  trafikverketQuery("Camera", "1", filter).forEach(c => {
+    if (out[c.Name] || (c.Type && c.Type !== "Väglagskamera") || !c.PhotoUrl) return;
+    out[c.Name] = { url: String(c.PhotoUrl), time: String(c.PhotoTime || "") };
+  });
+  return out;
+}
+
+const hhmm = (ms) => Utilities.formatDate(new Date(ms), Session.getScriptTimeZone() || "Europe/Stockholm", "HH");
+
+// Själva bedömningen för ett område. Ren funktion – testas i Node.
+function vaderBedom(hours, stations, thr, now) {
+  now = now || Date.now();
+  const next = hours.filter(h => h.t >= now - 1800000 && h.t <= now + 12 * 3600000);
+  const sum = (f) => next.reduce((a, h) => a + f(h), 0);
+  const snowCm = Math.round(sum(h => h.p * h.fr) * 10) / 10;             // ca 1 cm snö per mm vatten
+  const rainMm = Math.round(sum(h => h.p * (1 - h.fr)) * 10) / 10;
+  const snowHours = next.filter(h => h.p * h.fr >= 0.2);
+  const airNow = next.length ? next[0].temp : null;
+  const airMin = next.length ? Math.min.apply(null, next.map(h => h.temp)) : null;
+  const airMax = next.length ? Math.max.apply(null, next.map(h => h.temp)) : null;
+  const rhMax = next.length ? Math.max.apply(null, next.map(h => h.rh)) : 0;
+  const st = Object.keys(stations || {}).map(k => stations[k]);
+  const surf = st.map(x => x.surface).filter(v => v !== null);
+  const roadNow = surf.length ? Math.min.apply(null, surf) : null;          // kallaste givaren – där halkan kommer först
+  const dewList = st.map(x => x.dew).filter(v => v !== null);
+  const dew = dewList.length ? Math.max.apply(null, dewList) : null;
+  const stPrecip = st.some(x => x.precip);
+  // Vägytan i natt: dagens vägyta följer luftens väg enligt prognosen
+  const base = roadNow !== null ? roadNow : airNow;
+  const roadAt = (h) => base === null || airNow === null ? null : base + (h.temp - airNow);
+  const roadMin = base === null ? null : Math.round((base + Math.min(0, airMin - airNow)) * 10) / 10;
+
+  const plog = snowCm < 0.5 ? 0 : Math.round(100 / (1 + Math.exp(-(snowCm - thr) * 1.4)));
+  const cold = roadMin === null ? 0 : roadMin <= 0 ? Math.min(1, 0.6 + (-roadMin) / 5) : Math.max(0, 1 - roadMin / 1.5) * 0.6;
+  const wet = Math.max(stPrecip ? 70 : 0, rainMm >= 0.3 ? Math.min(100, 50 + rainMm * 15) : 0, snowCm >= 0.5 && airMax > 0 ? 50 : 0, rhMax >= 95 ? 35 : 0);
+  const freeze = Math.round(cold * wet * 0.95);
+  const frost = roadMin !== null && roadMin <= 0.5 && dew !== null && dew >= roadMin - 0.5 ? Math.round(Math.min(85, 45 + (dew - roadMin) * 12) * Math.min(1, cold + 0.3)) : 0;
+  const frzRain = next.some(h => h.p * (1 - h.fr) >= 0.1 && (roadAt(h) !== null ? roadAt(h) <= 0 : h.temp <= 0)) ? 95 : 0;
+  const sand = Math.min(100, Math.max(freeze, frost, frzRain));
+
+  const cold0 = next.find(h => roadAt(h) !== null && roadAt(h) <= 0);
+  const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+  return {
+    plog: plog, sand: sand, snowCm: snowCm, rainMm: rainMm, roadNow: roadNow, roadMin: roadMin, airNow: airNow, dew: dew, thr: thr,
+    plogWhy: snowCm >= 0.5 ? r1(snowCm) + " cm snö väntas" : "Ingen snö i prognosen",
+    plogWhen: snowHours.length ? "Troligast " + hhmm(snowHours[0].t) + "–" + hhmm(snowHours[snowHours.length - 1].t + 3600000) : "",
+    sandWhy: frzRain ? "Regn mot frusen vägbana – blixthalka" : freeze >= 30 && freeze >= frost ? "Väta fryser när vägytan går ned mot " + r1(roadMin) + " °C"
+      : frost >= 30 ? "Fuktig natt – rimfrost på vägytan" : "Ingen halkrisk i sikte",
+    sandWhen: sand >= 50 && cold0 ? "Troligast från " + hhmm(cold0.t) : ""
+  };
+}
+
+function vaderNiva(score, prev) {
+  if (score >= 90) return 2;
+  if (score >= 70) return 1;
+  if (score >= 50 && prev >= 1) return 1; // håll kvar – inga notiser fram och tillbaka runt 70
+  return 0;
+}
+
+function vaderNotis(area, a) {
+  const sand = a.sand > a.plog;
+  if (a.level === 0) return "😴 Avblåst – " + area + ": läget har lugnat sig.";
+  const what = sand ? a.sandWhy.toLowerCase() + (a.sandWhen ? ", " + a.sandWhen.toLowerCase() : "") : a.plogWhy + (a.plogWhen ? ", " + a.plogWhen.toLowerCase() : "");
+  if (a.level === 2) return (sand ? "🪣 Ut och sanda! " : "☕🔥 Starta kaffebryggaren! ") + area + ": " + what + ".";
+  return (sand ? "🪣 Fyll sandspridaren – " : "☕ Ladda kaffebryggaren – ") + area + ": " + what + ".";
+}
+
+function readVaderLage() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("VADER_LAGE") || "null"); } catch (e) { return null; }
+}
+
+// force = räkna om direkt (admin trycker Uppdatera). Annars en gång i timmen, var 15:e minut vid 50 % eller mer.
+function vaderKoll(force) {
+  const props = PropertiesService.getScriptProperties();
+  const old = readVaderLage();
+  const busy = old && Object.keys(old.areas || {}).some(k => Math.max(old.areas[k].plog, old.areas[k].sand) >= 50);
+  if (force !== true && old && Date.now() - old.at < (busy ? 14 : 55) * 60000) return old;
+  const thr = vaderPlogGrans();
+  const allStations = [], cams = [];
+  Object.keys(VADER_OMRADEN).forEach(k => { VADER_OMRADEN[k].stations.forEach(s => { if (allStations.indexOf(s) === -1) allStations.push(s); }); if (cams.indexOf(VADER_OMRADEN[k].camera) === -1) cams.push(VADER_OMRADEN[k].camera); });
+  let stations = {}, cameras = {}, tvError = "";
+  try { stations = fetchRoadStations(allStations); } catch (err) { tvError = err.message; }
+  try { cameras = fetchRoadCameras(cams); } catch (err) { tvError = tvError || err.message; }
+  const state = { at: Date.now(), thr: thr, tvError: tvError, areas: {} };
+  const logRows = [];
+  Object.keys(VADER_OMRADEN).forEach(name => {
+    const cfg = VADER_OMRADEN[name], prev = old && old.areas && old.areas[name];
+    let hours;
+    try { hours = fetchSmhiHours(cfg.pos); }
+    catch (err) { if (prev) { state.areas[name] = Object.assign({}, prev, { stale: true }); } return; }
+    const st = {};
+    cfg.stations.forEach(id => { if (stations[id]) st[id] = stations[id]; });
+    const a = vaderBedom(hours, st, thr);
+    const prevLevel = prev ? prev.level : 0;
+    a.level = vaderNiva(Math.max(a.plog, a.sand), prevLevel);
+    a.changeId = prev ? prev.changeId : 0;
+    a.notice = prev ? prev.notice : "";
+    if (a.level > prevLevel || (a.level === 0 && prevLevel > 0)) { a.changeId = (a.changeId || 0) + 1; a.notice = vaderNotis(name, a); a.changedAt = Date.now(); }
+    else a.changedAt = prev ? prev.changedAt : 0;
+    a.stations = Object.keys(st).map(id => ({ id: id, name: st[id].name, surface: st[id].surface, air: st[id].air, dew: st[id].dew, precip: st[id].precip, sample: st[id].sample }));
+    a.camera = cameras[cfg.camera] ? { name: cfg.camera, url: cameras[cfg.camera].url, time: cameras[cfg.camera].time } : null;
+    state.areas[name] = a;
+    // Timprognosen sparas för sig (Skriptegenskaper tar högst 9 kB per värde)
+    props.setProperty("VADER_TIM_" + name, JSON.stringify(hours.slice(0, 24).map(h => [h.t, Math.round(h.temp * 10) / 10, Math.round(h.p * 10) / 10, Math.round(h.fr * 100)])));
+    logRows.push([nowStamp(), name, a.plog, a.sand, a.snowCm, a.rainMm, a.roadNow === null ? "" : a.roadNow, a.roadMin === null ? "" : a.roadMin, a.airNow === null ? "" : a.airNow, a.dew === null ? "" : a.dew, a.level]);
+  });
+  props.setProperty("VADER_LAGE", JSON.stringify(state));
+  if (logRows.length) { const sh = getSheetOrCreate(getSS(), "Väderlogg", VADER_LOGG_HEADERS); sh.getRange(sh.getLastRow() + 1, 1, logRows.length, logRows[0].length).setValues(logRows); }
+  return state;
+}
+
+function vaderKollTrigger() { vaderKoll(false); }
+
+// Kör en gång i Apps Script: startar mätningen var 15:e minut (dygnet runt)
+function installeraVaderKoll() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === "vaderKollTrigger").forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger("vaderKollTrigger").timeBased().everyMinutes(15).create();
+  vaderKoll(true);
+  Logger.log("✅ Vädret mäts nu var 15:e minut. Läget: " + JSON.stringify(Object.keys(readVaderLage().areas).map(k => k + " plog " + readVaderLage().areas[k].plog + "% sand " + readVaderLage().areas[k].sand + "%")));
+}
+
+// Vilka väderområden en förare har: slingorna -> fastigheterna -> ort/område (Flen Norra -> Flen)
+function vaderOmradeFor(text) {
+  const t = String(text || "").toLowerCase();
+  return Object.keys(VADER_OMRADEN).find(k => t.indexOf(k.toLowerCase()) !== -1) || "";
+}
+
+function myWeatherAreas(user) {
+  const assignments = readSlingaAssignments();
+  const mine = Object.keys(assignments).filter(s => assignments[s].indexOf(user) !== -1);
+  if (!mine.length) return [];
+  const orter = {};
+  getPropertySheet().getDataRange().getValues().slice(1).forEach(r => { if (r[1]) orter[String(r[1]).trim().toLowerCase()] = String(r[12] || r[2] || ""); });
+  const out = {};
+  mine.forEach(s => { const a = vaderOmradeFor(s); if (a) out[a] = true; });
+  getSnowSheet().getDataRange().getValues().slice(1).forEach(r => {
+    if (mine.indexOf(String(r[1])) === -1) return;
+    const a = vaderOmradeFor(orter[String(r[3]).trim().toLowerCase()] || r[3]);
+    if (a) out[a] = true;
+  });
+  return Object.keys(out);
+}
+
+function handleGetWeather(data, auth) {
+  let state = readVaderLage();
+  if (auth.isAdmin && (data.refresh || !state)) state = vaderKoll(true);
+  if (!state) return createJsonResponse({ status: "success", areas: {}, at: 0, message: "Vädret har inte mätts än." });
+  const pick = (a, full) => {
+    const o = { plog: a.plog, sand: a.sand, plogWhy: a.plogWhy, plogWhen: a.plogWhen, sandWhy: a.sandWhy, sandWhen: a.sandWhen, level: a.level, changeId: a.changeId, notice: a.notice, changedAt: a.changedAt, stale: !!a.stale };
+    return full ? Object.assign({}, a) : o;
+  };
+  const areas = {};
+  if (auth.isAdmin) {
+    const props = PropertiesService.getScriptProperties();
+    Object.keys(state.areas).forEach(k => {
+      areas[k] = pick(state.areas[k], true);
+      try { areas[k].hours = JSON.parse(props.getProperty("VADER_TIM_" + k) || "[]"); } catch (e) { areas[k].hours = []; }
+    });
+    return createJsonResponse({ status: "success", at: state.at, thr: state.thr, tvError: state.tvError || "", areas: areas, mine: myWeatherAreas(auth.user) });
+  }
+  myWeatherAreas(auth.user).forEach(k => { if (state.areas[k]) areas[k] = pick(state.areas[k], false); });
+  return createJsonResponse({ status: "success", at: state.at, areas: areas });
 }
 
 // ==========================================

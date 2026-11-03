@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Väder – Plogometern</title>
+  <style>
+    :root { --bg: #0b1220; --panel: #111a2e; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; --snow: #7dd3fc; --rain: #34d399; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    header a { color: var(--accent); text-decoration: none; font-weight: 700; font-size: 14px; }
+    h1 { font-size: 18px; margin: 0; }
+    .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .tools label { font-size: 13px; color: var(--muted); }
+    .tools input { width: 70px; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 15px; }
+    button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
+    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+    main { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; max-width: 1500px; margin: 0 auto; }
+    .msg { grid-column: 1 / -1; padding: 10px 14px; border-radius: 12px; background: rgba(245,158,11,.12); border: 1px solid var(--warn); font-size: 14px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .card-head h2 { font-size: 20px; margin: 0; }
+    .card-head small { color: var(--muted); font-size: 12px; text-align: right; }
+    .notice { font-size: 13px; padding: 8px 10px; border-radius: 10px; background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.35); }
+    .nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .num { background: var(--bg); border-radius: 12px; padding: 8px; text-align: center; }
+    .num b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+    .num span { font-size: 11px; color: var(--muted); }
+    .chart svg { width: 100%; height: auto; display: block; }
+    .legend { display: flex; gap: 12px; font-size: 11px; color: var(--muted); }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+    .cam img { width: 100%; border-radius: 12px; display: block; background: var(--bg); min-height: 120px; }
+    .cam div { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stations { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .vx-meter { background: var(--bg); }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="index.html">← Tidrapport</a>
+    <h1>🌨️ Väder & Plogometern</h1>
+    <div class="tools">
+      <label for="thr">Plogas från</label><input id="thr" type="number" min="0.5" max="20" step="0.5" inputmode="decimal"><label>cm</label>
+      <button onclick="saveThr()">Spara</button>
+      <button class="ok" id="refresh" onclick="load(true)">🔄 Mät nu</button>
+    </div>
+  </header>
+  <main id="main"><div class="msg">Hämtar vädret…</div></main>
+
+  <script src="config.js"></script>
+  <script src="sno.js"></script>
+  <script src="vader.js"></script>
+  <script>
+    const fmt = (v, d = 1) => v === null || v === undefined || v === '' ? '–' : (Math.round(v * Math.pow(10, d)) / Math.pow(10, d)).toLocaleString('sv-SE');
+    const hh = (ms) => new Date(ms).toLocaleTimeString('sv-SE', { hour: '2-digit' });
+
+    // 24 timmar: staplar = nederbörd (blått snö, grönt regn), linje = lufttemperatur, streck = 0 °C
+    function chart(hours) {
+      if (!hours || !hours.length) return '<div class="stations">Ingen timprognos sparad.</div>';
+      const W = 320, H = 130, L = 26, B = 18, T = 8, n = hours.length, bw = (W - L - 4) / n;
+      const temps = hours.map(h => h[1]), tMin = Math.min(-2, ...temps) - 1, tMax = Math.max(2, ...temps) + 1;
+      const pMax = Math.max(1, ...hours.map(h => h[2]));
+      const y = (t) => T + (tMax - t) / (tMax - tMin) * (H - T - B);
+      const bars = hours.map((h, i) => {
+        const ph = h[2] / pMax * (H - T - B) * 0.9, x = L + i * bw;
+        const snow = ph * h[3] / 100;
+        return `<rect x="${x + 1}" y="${H - B - ph}" width="${bw - 2}" height="${ph - snow}" fill="var(--rain)"/><rect x="${x + 1}" y="${H - B - snow}" width="${bw - 2}" height="${snow}" fill="var(--snow)"/>`;
+      }).join('');
+      const line = hours.map((h, i) => `${i ? 'L' : 'M'}${(L + i * bw + bw / 2).toFixed(1)} ${y(h[1]).toFixed(1)}`).join(' ');
+      const ticks = hours.map((h, i) => i % 4 === 0 ? `<text x="${L + i * bw + bw / 2}" y="${H - 4}" font-size="9" fill="var(--muted)" text-anchor="middle">${hh(h[0])}</text>` : '').join('');
+      return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Timprognos 24 timmar">
+        <line x1="${L}" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)" stroke-dasharray="3 3" stroke-width="1"/>
+        <text x="${L - 4}" y="${y(0) + 3}" font-size="9" fill="var(--muted)" text-anchor="end">0°</text>
+        <text x="${L - 4}" y="${y(tMax - 1) + 3}" font-size="9" fill="var(--muted)" text-anchor="end">${Math.round(tMax - 1)}°</text>
+        <text x="${L - 4}" y="${y(tMin + 1) + 3}" font-size="9" fill="var(--muted)" text-anchor="end">${Math.round(tMin + 1)}°</text>
+        ${bars}<path d="${line}" fill="none" stroke="var(--warn)" stroke-width="2"/>${ticks}
+      </svg><div class="legend"><span><i style="background:var(--snow)"></i>snö</span><span><i style="background:var(--rain)"></i>regn</span><span><i style="background:var(--warn)"></i>lufttemp</span><span>högsta stapel ${fmt(pMax)} mm/h</span></div>`;
+    }
+
+    function card(name, a, at) {
+      const st = (a.stations || []).map(s => `${snoEscape(s.name)}: vägyta ${fmt(s.surface)} °C · luft ${fmt(s.air)} °C · dagg ${fmt(s.dew)} °C${s.precip ? ' · 🌧️ nederbörd' : ''}`).join('<br>');
+      return `<section class="card">
+        <div class="card-head"><h2>${snoEscape(name)}</h2><small>${vxAge(at)}${a.stale ? '<br>⚠️ SMHI svarade inte – gammal prognos' : ''}</small></div>
+        ${vxMeters(a)}
+        ${a.notice ? `<div class="notice">Senaste notis: ${snoEscape(a.notice)}</div>` : ''}
+        <div class="nums">
+          <div class="num"><b>${fmt(a.snowCm)} cm</b><span>snö 12 h</span></div>
+          <div class="num"><b>${fmt(a.rainMm)} mm</b><span>regn 12 h</span></div>
+          <div class="num"><b>${fmt(a.roadNow)} °C</b><span>vägytan nu</span></div>
+          <div class="num"><b>${fmt(a.roadMin)} °C</b><span>vägytan i natt (uppsk.)</span></div>
+          <div class="num"><b>${fmt(a.airNow)} °C</b><span>luft</span></div>
+          <div class="num"><b>${fmt(a.dew)} °C</b><span>daggpunkt</span></div>
+        </div>
+        <div class="chart">${chart(a.hours)}</div>
+        ${a.camera ? `<div class="cam"><a href="${snoEscape(a.camera.url)}" target="_blank" rel="noopener"><img src="${snoEscape(a.camera.url)}" alt="Väglagskamera ${snoEscape(a.camera.name)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'Kamerabilden kunde inte visas – öppna länken.'}))"></a><div>📷 ${snoEscape(a.camera.name)} · ${a.camera.time ? new Date(a.camera.time).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) : ''}</div></div>` : ''}
+        ${st ? `<div class="stations">🌡️ ${st}</div>` : ''}
+      </section>`;
+    }
+
+    async function load(refresh) {
+      const btn = document.getElementById('refresh');
+      btn.disabled = true; btn.textContent = refresh ? '⏳ Mäter…' : '🔄 Mät nu';
+      try {
+        const res = await snoApi({ action: 'getWeather', refresh: !!refresh });
+        if (res.status !== 'success') throw new Error(res.message);
+        document.getElementById('thr').value = res.thr || 3;
+        const names = Object.keys(res.areas || {});
+        document.getElementById('main').innerHTML =
+          (res.tvError ? `<div class="msg">⚠️ Trafikverket svarade inte (${snoEscape(res.tvError)}). Mätarna räknar på SMHI:s prognos.</div>` : '') +
+          (names.length ? names.map(n => card(n, res.areas[n], res.at)).join('') : `<div class="msg">${snoEscape(res.message || 'Inget väder ännu.')} Tryck <b>🔄 Mät nu</b>, och kör <b>installeraVaderKoll</b> en gång i Apps Script så mäts det dygnet runt.</div>`);
+      } catch (err) {
+        document.getElementById('main').innerHTML = `<div class="msg">❌ ${snoEscape(err.message || 'Ingen kontakt med servern.')}</div>`;
+      }
+      btn.disabled = false; btn.textContent = '🔄 Mät nu';
+    }
+
+    async function saveThr() {
+      const cm = Number(String(document.getElementById('thr').value).replace(',', '.'));
+      const res = await snoApi({ action: 'setPlowThreshold', cm }).catch(() => ({ status: 'error', message: 'Ingen kontakt.' }));
+      if (res.status !== 'success') { alert('❌ ' + res.message); return; }
+      load(true);
+    }
+
+    if (!snoIsAdmin()) document.getElementById('main').innerHTML = '<div class="msg">Vädervyn är för admin. Förarna ser Plogometern i Snöjour.</div>';
+    else { load(false); setInterval(() => load(false), 5 * 60000); }
+  </script>
+</body>
+</html>

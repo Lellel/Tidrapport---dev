@@ -167,6 +167,38 @@ async function checkPlanningNotices() {
 document.addEventListener('DOMContentLoaded', checkPlanningNotices);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkPlanningNotices(); });
 
+// Vädernotis: när Plogometern/Sandometern byter läge i förarens område ("Ladda kaffebryggaren" 70 %,
+// "Starta kaffebryggaren" 90 %, "Avblåst"). Visas en gång per ändring, när appen öppnas.
+async function checkWeatherNotice() {
+  if (!navigator.onLine || !localStorage.getItem('lpv_key') || typeof vxBrewer !== 'function') return;
+  let res;
+  try { res = await apiPost({ action: 'getWeather' }); } catch (e) { return; }
+  if (!res || res.status !== 'success') return;
+  let seen = {};
+  try { seen = JSON.parse(localStorage.getItem('lpv_vader_sett') || '{}'); } catch (e) { seen = {}; }
+  const names = res.mine || Object.keys(res.areas || {});
+  const fresh = names.filter(n => res.areas[n] && res.areas[n].changeId && seen[n] !== res.areas[n].changeId && Date.now() - (res.areas[n].changedAt || 0) < 18 * 3600000);
+  document.getElementById('vader-notice')?.remove();
+  if (!fresh.length) return;
+  const top = fresh.map(n => res.areas[n]).sort((a, b) => b.level - a.level)[0];
+  const box = document.createElement('div');
+  box.id = 'vader-notice';
+  box.style.cssText = 'margin:0 0 12px;padding:14px;border-radius:18px;background:#0f1d33;color:#e7eef7;box-shadow:0 8px 24px rgba(15,29,51,.35);';
+  const title = top.level >= 2 ? (top.sand > top.plog ? 'Ut och sanda!' : 'Starta kaffebryggaren!') : top.level === 1 ? (top.sand > top.plog ? 'Fyll sandspridaren' : 'Ladda kaffebryggaren') : 'Avblåst – sov vidare';
+  box.innerHTML = vxBrewer(top.level, title, fresh.map(n => String(res.areas[n].notice || '').replace(/^[^:]*?(–|!)\s*/, '')).join(' ')) +
+    `<div style="display:flex;gap:8px;margin-top:10px;"><button type="button" id="vader-ok" style="flex:1;min-height:44px;border:0;border-radius:12px;background:#fff;color:#0f1d33;font-weight:800;font-size:15px;">👍 Uppfattat</button>` +
+    `<button type="button" onclick="location.href='snojour.html'" style="flex:1;min-height:44px;border:1px solid rgba(255,255,255,.35);border-radius:12px;background:transparent;color:#fff;font-weight:700;font-size:15px;">🚜 Visa mätarna</button></div>`;
+  const c = document.querySelector('.app-container') || document.body;
+  c.insertBefore(box, c.firstChild);
+  document.getElementById('vader-ok').onclick = () => {
+    fresh.forEach(n => { seen[n] = res.areas[n].changeId; });
+    try { localStorage.setItem('lpv_vader_sett', JSON.stringify(seen)); } catch (e) { /* privat läge */ }
+    box.remove();
+  };
+}
+document.addEventListener('DOMContentLoaded', checkWeatherNotice);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkWeatherNotice(); });
+
 // Alla anrop till backend går härigenom: skickar med användare + personlig nyckel.
 // Gamla gemensamma nyckeln (CONFIG.API_TOKEN) skickas bara om den finns kvar i config.js.
 function getAuthFields() {
