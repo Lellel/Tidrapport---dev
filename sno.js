@@ -17,7 +17,8 @@ const SNO_TYPES = {
   stracka:  { label: 'Sträcka',       color: '#a78bfa', kind: 'line' },
   kantsten: { label: 'Kantsten',      icon: '⚠️', kind: 'marker' },
   lucka:    { label: 'Brunnslock',    icon: '🛑', kind: 'marker' },
-  trappa:   { label: 'Trappa',        icon: '🪜', kind: 'marker' }
+  trappa:   { label: 'Trappa',        icon: '🪜', kind: 'marker' },
+  hinder:   { label: 'Övrigt hinder', icon: '❗', kind: 'marker' }
 };
 
 const SNO_TILES = {
@@ -116,7 +117,8 @@ function snoRenderZone(map, zone, onClick) {
   const title = `<b>${snoEscape(zone.property || 'Utan adress')}</b><br>${def.label}` +
     (zone.areaM2 ? ` · ${Math.round(zone.areaM2).toLocaleString('sv-SE')} m²` : '') +
     (zone.slinga ? `<br>Slinga: ${snoEscape(zone.slinga)}` : '') +
-    (zone.note ? `<br><i>${snoEscape(zone.note)}</i>` : '');
+    (zone.note ? `<br><i>${snoEscape(zone.note)}</i>` : '') +
+    (zone.photoUrl ? `<br><img src="${snoEscape(zone.photoUrl)}" alt="Foto" style="width:180px;max-width:100%;border-radius:8px;margin-top:6px;">` : '');
   layer.bindPopup(title);
   if (onClick) layer.on('click', (e) => onClick(zone, layer, e));
   return layer.addTo(map);

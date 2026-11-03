@@ -119,7 +119,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -290,6 +290,8 @@ function doPost(e) {
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
+    if (action === "saveSnowHazard") return handleSaveSnowHazard(data, auth);
+    if (action === "analyzeSnowPhoto") return handleAnalyzeSnowPhoto(data, auth);
     if (action === "getInvoiceBasis") return handleGetInvoiceBasis(auth);
     if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user, auth);
     if (action === "invoicePdf") return handleInvoicePdf(data.draft, auth);
@@ -679,10 +681,16 @@ function handleSickReport(data) {
 // Fliken "Snözoner" skapas automatiskt. Geometri sparas som JSON [[lat,lng],...].
 // ==========================================
 const SNOW_HEADERS = ["Zon-ID", "Slinga", "Ordning", "Fastighet/Adress", "Typ", "Geometri (JSON)", "Yta (m2)", "Anteckning", "Uppdaterad av", "Uppdaterad"];
-const SNOW_TYPES = ["maskin", "hand", "stracka", "kantsten", "lucka", "trappa"];
+const SNOW_TYPES = ["maskin", "hand", "stracka", "kantsten", "lucka", "trappa", "hinder"];
+const SNOW_MARKERS = ["kantsten", "lucka", "trappa", "hinder"];
+// Kolumner efter de tio första: fotot på hindret och hur säker GPS:en var när det lades ut
+const SNOW_EXTRA = ["Foto (Drive-ID)", "GPS-noggrannhet (m)"];
 
 function getSnowSheet() {
-  return getSheetOrCreate(getSS(), "Snözoner", SNOW_HEADERS);
+  const sheet = getSheetOrCreate(getSS(), "Snözoner", SNOW_HEADERS.concat(SNOW_EXTRA));
+  const head = sheet.getRange(1, SNOW_HEADERS.length + 1, 1, SNOW_EXTRA.length).getValues()[0];
+  if (head.some((h, i) => h !== SNOW_EXTRA[i])) sheet.getRange(1, SNOW_HEADERS.length + 1, 1, SNOW_EXTRA.length).setValues([SNOW_EXTRA]);
+  return sheet;
 }
 
 // Fliken "Slingor": vilka förare som är tilldelade varje slinga (admin bestämmer)
@@ -738,7 +746,9 @@ function handleGetSnowZones(auth) {
       type: String(rows[i][4] || "maskin"),
       coords: coords,
       areaM2: Number(rows[i][6] || 0),
-      note: String(rows[i][7] || "")
+      note: String(rows[i][7] || ""),
+      photoUrl: driveImageUrl(String(rows[i][10] || "")),
+      accuracy: rows[i][11] === "" || rows[i][11] === undefined ? null : Number(rows[i][11])
     });
   }
   if (auth.isAdmin) {
@@ -757,6 +767,13 @@ function handleSaveSnowZone(zone, savedBy) {
 
   const sheet = getSnowSheet();
   const id = zone.id ? String(zone.id) : ("Z-" + Utilities.getUuid().slice(0, 8));
+  const rows = sheet.getDataRange().getValues();
+  let existing = null;
+  for (let i = 1; i < rows.length; i++) if (String(rows[i][0]) === id) existing = { rowNumber: i + 1, row: rows[i] };
+  // Foto och noggrannhet följer med bara från hinderguiden – annars behålls det som finns
+  const photoId = zone.photoId !== undefined ? sanitize(zone.photoId).replace(/[^\w-]/g, "") : (existing ? existing.row[10] || "" : "");
+  const accuracy = zone.accuracy !== undefined ? (isFinite(zone.accuracy) && zone.accuracy !== null && zone.accuracy !== "" ? Math.round(Number(zone.accuracy)) : "")
+    : (existing ? existing.row[11] : "");
   const rowData = [
     id,
     sanitize(zone.slinga),
@@ -767,18 +784,77 @@ function handleSaveSnowZone(zone, savedBy) {
     Math.round(Number(zone.areaM2) || 0),
     sanitize(zone.note),
     sanitize(savedBy),
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm")
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm"),
+    photoId,
+    accuracy === undefined ? "" : accuracy
   ];
 
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === id) {
-      sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
-      return createJsonResponse({ status: "success", id: id });
-    }
+  if (existing) {
+    sheet.getRange(existing.rowNumber, 1, 1, rowData.length).setValues([rowData]);
+    return createJsonResponse({ status: "success", id: id });
   }
   sheet.appendRow(rowData);
   return createJsonResponse({ status: "success", id: id });
+}
+
+// Hinderguiden (snohinder.html): förare får lägga ut nya hinder på sina egna slingor, admin överallt
+function handleSaveSnowHazard(data, auth) {
+  const zone = data.zone || {};
+  if (SNOW_MARKERS.indexOf(zone.type) === -1) return createJsonResponse({ status: "error", message: "Välj vilket sorts hinder det är." });
+  if (!Array.isArray(zone.coords) || zone.coords.length !== 1) return createJsonResponse({ status: "error", message: "Hindret saknar position." });
+  if (!sanitize(zone.property)) return createJsonResponse({ status: "error", message: "Välj adress först." });
+  if (!auth.isAdmin) {
+    const assignments = readSlingaAssignments();
+    const mine = Object.keys(assignments).filter(s => assignments[s].indexOf(auth.user) !== -1);
+    if (mine.indexOf(String(zone.slinga || "")) === -1) return createJsonResponse({ status: "error", message: "Du kan bara lägga ut hinder på dina egna slingor." });
+    delete zone.id; // förare lägger till nya, ändrar inte befintliga
+  }
+  return handleSaveSnowZone(zone, auth.user);
+}
+
+// Foto på ett hinder: sparas i Drive och AI:n föreslår vad det är (och om fler hinder syns)
+function handleAnalyzeSnowPhoto(data, auth) {
+  const raw = String(data.image || "").replace(/^data:image\/\w+;base64,/, "");
+  if (!raw) return createJsonResponse({ status: "error", message: "Ingen bild skickades." });
+  if (raw.length > 4000000) return createJsonResponse({ status: "error", message: "Bilden är för stor." });
+  const property = sanitize(data.property).replace(/[^\wåäöÅÄÖ -]/g, "").slice(0, 40) || "hinder";
+  let photoId = "";
+  try {
+    photoId = saveImageToDrive(raw, "Snö-hinder", property + "_" + Date.now() + ".jpg");
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: "Kunde inte spara fotot: " + err.message });
+  }
+  const out = { status: "success", photoId: photoId, photoUrl: driveImageUrl(photoId), main: null, others: [] };
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) { out.aiError = "AI:n är inte inställd (GEMINI_API_KEY saknas)."; return createJsonResponse(out); }
+  const prompt = "Du hjälper en snöröjare. Bilden är tagen på en gård, gata eller parkering som ska plogas. " +
+    "Fotografen står vid eller pekar mot ett hinder som ska märkas ut på kartan, så att plogbladet inte skadas när allt ligger under snö. " +
+    "Hindertyper: \"lucka\" = brunnslock, dagvattenbrunn, rännstensbrunn; \"kantsten\" = kantsten, trottoarkant, asfaltskant; " +
+    "\"trappa\" = trappa, trappsteg; \"hinder\" = allt annat som plogen kan köra på (pollare, stolpe, låg grind, refug, sten, farthinder, cykelställ, rabattkant). " +
+    "Svara ENDAST med JSON: {\"huvud\":{\"typ\":\"lucka|kantsten|trappa|hinder|inget\",\"beskrivning\":\"...\"},\"ovriga\":[{\"typ\":\"...\",\"beskrivning\":\"...\",\"var\":\"...\"}]}. " +
+    "\"huvud\" är hindret mitt i bilden eller närmast fotografen. \"ovriga\" är andra tydliga hinder i bilden (högst 5), \"var\" säger kort var i bilden (t.ex. till vänster vid husväggen). " +
+    "Beskrivningar på svenska, högst 12 ord. Ta bara med det du ser tydligt – gissa inte. Syns inget hinder: typ \"inget\".";
+  try {
+    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey, {
+      method: "post", contentType: "application/json", muteHttpExceptions: true,
+      payload: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: raw } }, { text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.2 } }) });
+    const code = response.getResponseCode();
+    if (code !== 200) { out.aiError = /quota|RESOURCE_EXHAUSTED|exceeded/i.test(response.getContentText()) || code === 429 ? geminiErrorText(code, response.getContentText()) : "AI:n svarade inte (HTTP " + code + "). Välj typ själv."; return createJsonResponse(out); }
+    const json = JSON.parse(response.getContentText());
+    const text = ((json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || []).map(p => p.text || "").join("");
+    const ai = JSON.parse(text.replace(/^```(json)?|```$/g, "").trim());
+    const clean = (h) => {
+      const typ = String(h && h.typ || "").toLowerCase();
+      if (SNOW_MARKERS.indexOf(typ) === -1) return null;
+      return { type: typ, note: String(h.beskrivning || "").slice(0, 120), where: String(h.var || "").slice(0, 80) };
+    };
+    out.main = clean(ai.huvud);
+    out.others = (Array.isArray(ai.ovriga) ? ai.ovriga : []).map(clean).filter(Boolean).slice(0, 5);
+  } catch (err) {
+    out.aiError = "AI:n kunde inte tolka bilden. Välj typ själv.";
+  }
+  return createJsonResponse(out);
 }
 
 function handleDeleteSnowZone(zoneId) {

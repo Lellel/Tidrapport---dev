@@ -287,6 +287,25 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Starta en slinga när ett annat pass pågår → frågar om det andra ska stämplas ut
 - [ ] Flygplansläge → öppna Snöjour → senast hämtade zoner visas ändå
 
+## 9b. Lägg ut hinder steg för steg (kräver ny Kod.gs)
+
+Öppnas via **⚠️ Lägg ut hinder** på kartan i Snöjour, eller **📷 Hinder steg för steg** i Rita snözoner.
+
+**Telefon, på plats (förare med tilldelad slinga):**
+- [ ] Adresserna på dina slingor visas, med den närmaste först
+- [ ] Välj adress → GPS-rutan visar ±meter (grön ≤ 5 m, gul ≤ 10 m, röd över)
+- [ ] Ställ dig på ett brunnslock → **📍 Jag står på hindret** → mäter i 10 s
+- [ ] **📷 Ta foto** → AI:n föreslår typ och anteckning (tar några sekunder)
+- [ ] Markeringen syns på kartan och går att dra; byt typ om AI:n tog fel → **✅ Spara hindret**
+- [ ] Såg AI:n fler hinder: **Lägg ut** → peka på kartan → spara
+- [ ] Hindret syns i Snöjour; tryck på det → fotot visas i rutan
+- [ ] I kalkylarket (Snözoner) står Foto (Drive-ID) och GPS-noggrannhet ifyllda
+
+**iPad/dator (admin, från kartan):**
+- [ ] Läget **🗺️ Karta** är förvalt; välj adress → tryck på kartan → Nästa
+- [ ] Välj ett foto från datorn → AI-förslag → spara
+- [ ] **➕ Ny adress** finns bara för admin
+
 ## 10. Snöplanering – fastigheter & traktorer (admin)
 
 Öppnas via admin-panelen → **❄️ Snöplanering** (eller sidomenyn).

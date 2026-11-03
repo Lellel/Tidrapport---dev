@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lägg ut hinder</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root { --bg: #0b1220; --panel: #111a2e; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { display: flex; flex-direction: column; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: calc(env(safe-area-inset-top) + 10px) 14px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    header a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
+    h1 { font-size: 16px; margin: 0; white-space: nowrap; }
+    .mode { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+    .mode button { min-height: 32px; border: none; border-radius: 0; padding: 0 10px; font-size: 12px; background: transparent; }
+    .mode button.on { background: var(--accent); color: #0b1220; }
+    .layout { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .map-wrap { position: relative; height: 40vh; flex-shrink: 0; transition: height .2s; }
+    body.big-map .map-wrap { height: 55vh; }
+    #map { height: 100%; width: 100%; }
+    .map-buttons { position: absolute; right: 10px; bottom: 10px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
+    .map-buttons button { min-height: 40px; padding: 0 12px; background: rgba(17,26,46,.92); }
+    .panel { flex: 1; overflow-y: auto; padding: 12px 14px calc(env(safe-area-inset-bottom) + 20px); display: flex; flex-direction: column; gap: 12px; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .steps div { font-size: 11px; color: var(--muted); text-align: center; padding-top: 6px; border-top: 4px solid var(--line); }
+    .steps div.done { border-color: var(--ok); color: var(--text); }
+    .steps div.now { border-color: var(--accent); color: var(--text); font-weight: 700; }
+    h2 { font-size: 18px; margin: 0; }
+    p.help { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+    button { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 15px; cursor: pointer; }
+    button:disabled { opacity: .45; cursor: default; }
+    button.primary { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 17px; min-height: 56px; }
+    button.link { background: transparent; border: none; color: var(--accent); min-height: 36px; font-size: 14px; }
+    .wide { width: 100%; }
+    input, textarea { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
+    textarea { resize: vertical; min-height: 60px; }
+    label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
+    .list { display: flex; flex-direction: column; gap: 6px; }
+    .item { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); cursor: pointer; text-align: left; font-weight: 400; min-height: 56px; }
+    .item b { display: block; font-size: 15px; }
+    .item small { color: var(--muted); font-size: 12px; }
+    .item .grow { flex: 1; min-width: 0; }
+    .types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .types button { font-size: 15px; min-height: 56px; }
+    .types button.on { background: var(--accent); border-color: var(--accent); color: #0b1220; }
+    .gps { padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 15px; }
+    .gps.good { border-color: var(--ok); }
+    .gps.mid { border-color: var(--warn); }
+    .gps.bad { border-color: var(--danger); }
+    .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 8px; }
+    .bar div { height: 100%; background: var(--accent); width: 0; transition: width .3s linear; }
+    .photo { width: 100%; max-height: 150px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
+    .note { padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4; }
+    .note.ai { background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.4); }
+    .note.warn { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.5); }
+    .note.err { background: rgba(239,68,68,.1); border: 1px solid var(--danger); color: #fecaca; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
+    .new-hazard { font-size: 30px; text-align: center; line-height: 40px; filter: drop-shadow(0 0 6px #38bdf8); }
+    .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
+    .spin { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Dator och iPad: kartan till vänster, stegen i en panel till höger */
+    @media (max-width: 420px) {
+      header { padding-left: 10px; padding-right: 10px; }
+      h1 { font-size: 15px; }
+      .mode button { padding: 0 8px; }
+    }
+    @media (min-width: 800px) {
+      .photo { max-height: 240px; }
+      .layout { flex-direction: row; }
+      .map-wrap, body.big-map .map-wrap { height: auto; flex: 1; }
+      .panel { flex: 0 0 400px; border-left: 1px solid var(--line); background: var(--panel); }
+      .item, .gps, input, textarea { background: var(--bg); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="snojour.html" id="back">← Tillbaka</a>
+    <h1>⚠️ Hinder</h1>
+    <div class="mode" title="Hur hindret placeras">
+      <button id="mode-gps" onclick="setMode('gps')">📍 På plats</button>
+      <button id="mode-map" onclick="setMode('map')">🗺️ Karta</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-buttons">
+        <button id="tiles-btn" onclick="toggleTiles()">🗺️ Vägkarta</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="steps" id="steps"></div>
+      <div id="step" style="display:flex; flex-direction:column; gap:12px;"></div>
+    </div>
+  </div>
+
+  <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none" onchange="photoChosen(this)">
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="config.js"></script>
+  <script src="sno.js"></script>
+  <script>
+    const HAZARDS = ['lucka', 'kantsten', 'trappa', 'hinder'];
+    const STEP_NAMES = { adress: 'Adress', plats: 'Plats', foto: 'Foto', kontroll: 'Kontroll' };
+    const MEASURE_MS = 10000;
+
+    let mapCtl, map, tilesSat = true;
+    let zones = [], mySlingor = [];
+    let mode = localStorage.getItem('lpv_hinder_mode') || (matchMedia('(max-width: 799px)').matches ? 'gps' : 'map');
+    let step = 'adress';
+    let addr = null;            // { property, slinga }
+    let hz = null;              // hindret som läggs ut just nu
+    let suggestions = [];       // fler hinder som AI:n såg på adressen
+    let lastSaved = null;
+    let myPos = null, myAcc = null, gpsWatch = null, gpsError = '';
+    let meMarker = null, accCircle = null, hzMarker = null, hzCircle = null;
+    let addrLayers = [];
+    let measuring = null;       // { samples, started, timer }
+    let busy = false, errorText = '';
+    let search = '';
+
+    const esc = snoEscape;
+    const def = (t) => SNO_TYPES[t] || SNO_TYPES.hinder;
+
+    // ---------- ADRESSER ----------
+    function addresses() {
+      const by = {};
+      zones.forEach(z => {
+        if (!z.property) return;
+        const a = by[z.property] || (by[z.property] = { property: z.property, slinga: z.slinga, coords: [], hazards: 0 });
+        a.coords.push(...z.coords);
+        if (def(z.type).kind === 'marker' && SNO_TYPES[z.type]) a.hazards++;
+        if (!a.slinga && z.slinga) a.slinga = z.slinga;
+      });
+      const list = Object.values(by).map(a => ({ ...a, center: snoCenter(a.coords) }));
+      if (myPos) list.forEach(a => { a.dist = snoDistance(myPos, a.center); });
+      return list.sort((a, b) => myPos ? a.dist - b.dist : a.property.localeCompare(b.property, 'sv'));
+    }
+
+    function chooseAddress(i) {
+      const a = addresses().filter(matchSearch)[i];
+      if (!a) return;
+      addr = { property: a.property, slinga: a.slinga };
+      suggestions = [];
+      showAddress();
+      startHazard();
+    }
+
+    function chooseNewAddress() {
+      const property = document.getElementById('new-prop').value.trim();
+      const slinga = document.getElementById('new-slinga').value.trim();
+      if (!property) { errorText = 'Skriv adressen.'; render(); return; }
+      addr = { property, slinga };
+      suggestions = [];
+      showAddress();
+      startHazard();
+    }
+
+    function matchSearch(a) {
+      return !search || a.property.toLowerCase().includes(search.toLowerCase());
+    }
+
+    // Visar adressens zoner och hinder på kartan
+    function showAddress() {
+      addrLayers.forEach(l => map.removeLayer(l));
+      if (!addr) { addrLayers = []; return; }
+      const mine = zones.filter(z => z.property === addr.property);
+      // Hindren ligger oftast inne i zonen: tryck på zonen räknas då som tryck på kartan
+      addrLayers = mine.map(z => snoRenderZone(map, z, (zone, layer, e) => {
+        if (hz && (step === 'kontroll' || (step === 'plats' && mode === 'map'))) { layer.closePopup(); onMapClick(e); }
+      }));
+      const pts = mine.flatMap(z => z.coords);
+      if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 19 });
+      else if (myPos) map.setView(myPos, 19);
+    }
+
+    // ---------- ETT HINDER, STEG FÖR STEG ----------
+    function startHazard(preset) {
+      clearHazardMarker();
+      hz = { pos: null, accuracy: null, moved: false, type: preset ? preset.type : '', note: preset ? preset.note : '',
+        where: preset ? preset.where : '', photoId: '', photoUrl: '', aiNote: '', aiError: '', fromSuggestion: !!preset };
+      errorText = '';
+      go('plats');
+    }
+
+    function go(next) {
+      step = next;
+      document.body.classList.toggle('big-map', (step === 'plats' && mode === 'map') || step === 'kontroll');
+      setTimeout(() => map.invalidateSize(), 220);
+      if (step === 'kontroll' && hz.pos) map.setView(hz.pos, 19);
+      render();
+    }
+
+    function setHazardPos(pos, accuracy, moved) {
+      hz.pos = pos;
+      if (accuracy !== undefined) hz.accuracy = accuracy;
+      if (moved) { hz.moved = true; hz.accuracy = null; }
+      if (!hzMarker) {
+        hzMarker = L.marker(pos, { draggable: true, zIndexOffset: 2000,
+          icon: L.divIcon({ className: 'new-hazard', html: def(hz.type).icon || '📍', iconSize: [40, 40] }) }).addTo(map);
+        hzMarker.on('dragend', () => { const p = hzMarker.getLatLng(); setHazardPos([p.lat, p.lng], undefined, true); render(); });
+      } else {
+        hzMarker.setLatLng(pos);
+      }
+      if (hzCircle) { map.removeLayer(hzCircle); hzCircle = null; }
+      if (hz.accuracy) hzCircle = L.circle(pos, { radius: hz.accuracy, color: '#38bdf8', weight: 1, fillOpacity: 0.08 }).addTo(map);
+    }
+
+    function refreshHazardIcon() {
+      if (hzMarker) hzMarker.setIcon(L.divIcon({ className: 'new-hazard', html: def(hz.type).icon || '📍', iconSize: [40, 40] }));
+    }
+
+    function clearHazardMarker() {
+      if (hzMarker) map.removeLayer(hzMarker);
+      if (hzCircle) map.removeLayer(hzCircle);
+      hzMarker = hzCircle = null;
+    }
+
+    function onMapClick(e) {
+      if (!hz || (step !== 'plats' && step !== 'kontroll')) return;
+      if (step === 'plats' && mode === 'gps') return; // på plats mäter GPS:en – byt till Karta för att peka
+      setHazardPos([e.latlng.lat, e.latlng.lng], null, step === 'kontroll');
+      render();
+    }
+
+    // ---------- GPS: medelvärde under tio sekunder ----------
+    function startGps() {
+      if (gpsWatch !== null || !('geolocation' in navigator)) {
+        if (!('geolocation' in navigator)) gpsError = 'Telefonen ger ingen GPS här. Använd Karta i stället.';
+        return;
+      }
+      gpsWatch = navigator.geolocation.watchPosition((pos) => {
+        myPos = [pos.coords.latitude, pos.coords.longitude];
+        myAcc = Math.round(pos.coords.accuracy);
+        gpsError = '';
+        if (!meMarker) {
+          meMarker = L.marker(myPos, { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18] }), zIndexOffset: 1000 }).addTo(map);
+          accCircle = L.circle(myPos, { radius: myAcc, color: '#3b82f6', weight: 1, fillOpacity: 0.1 }).addTo(map);
+          if (!addr) map.setView(myPos, 18);
+        } else {
+          meMarker.setLatLng(myPos);
+          accCircle.setLatLng(myPos).setRadius(myAcc);
+        }
+        if (measuring) measuring.samples.push({ pos: myPos, acc: Math.max(1, pos.coords.accuracy) });
+        if (step === 'plats' || (step === 'adress' && !search)) renderSoft();
+      }, (err) => {
+        gpsError = err.code === 1 ? 'GPS nekad. Tillåt plats för sidan i telefonens inställningar – eller använd Karta.' : 'Hittar ingen GPS-position just nu.';
+        renderSoft();
+      }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    }
+
+    function gpsClass(acc) { return acc == null ? '' : acc <= 5 ? 'good' : acc <= 10 ? 'mid' : 'bad'; }
+
+    function startMeasure() {
+      if (!myPos) return;
+      measuring = { samples: [{ pos: myPos, acc: Math.max(1, myAcc || 10) }], started: Date.now() };
+      measuring.timer = setInterval(() => {
+        const elapsed = Date.now() - measuring.started;
+        // Minst tio sekunder och tre mätpunkter (högst 20 s)
+        if ((elapsed >= MEASURE_MS && measuring.samples.length >= 3) || elapsed >= 2 * MEASURE_MS) finishMeasure();
+        else renderSoft();
+      }, 250);
+      render();
+    }
+
+    function finishMeasure() {
+      clearInterval(measuring.timer);
+      const s = measuring.samples;
+      measuring = null;
+      // Vägt medelvärde: säkrare mätpunkter väger mer
+      let w = 0, lat = 0, lng = 0;
+      s.forEach(x => { const k = 1 / (x.acc * x.acc); w += k; lat += x.pos[0] * k; lng += x.pos[1] * k; });
+      const accs = s.map(x => x.acc).sort((a, b) => a - b);
+      const acc = Math.round(accs[Math.floor(accs.length / 2)]);
+      setHazardPos([lat / w, lng / w], acc);
+      go('foto');
+    }
+
+    function cancelMeasure() {
+      if (measuring) clearInterval(measuring.timer);
+      measuring = null;
+      render();
+    }
+
+    // ---------- FOTO + AI ----------
+    function takePhoto() { document.getElementById('photo-input').click(); }
+
+    async function shrinkPhoto(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = new Image();
+        await new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; img.src = url; });
+        const k = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k);
+        c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        return c.toDataURL('image/jpeg', 0.8);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    async function photoChosen(input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      busy = true; errorText = ''; hz.preview = '';
+      render();
+      try {
+        hz.preview = await shrinkPhoto(file);
+        render();
+        const res = await snoApi({ action: 'analyzeSnowPhoto', image: hz.preview, property: addr.property });
+        if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara fotot.');
+        hz.photoId = res.photoId;
+        hz.photoUrl = res.photoUrl;
+        hz.aiError = res.aiError || '';
+        if (res.main) {
+          if (!hz.fromSuggestion || !hz.type) hz.type = res.main.type;
+          hz.aiNote = res.main.note;
+          hz.aiType = res.main.type;
+          if (!hz.note) hz.note = res.main.note;
+        } else if (!res.aiError) {
+          hz.aiError = 'AI:n såg inget tydligt hinder på bilden. Välj typ själv.';
+        }
+        (res.others || []).forEach(o => {
+          if (!suggestions.some(s => s.type === o.type && s.note === o.note)) suggestions.push(o);
+        });
+        refreshHazardIcon();
+        busy = false;
+        go('kontroll');
+      } catch (err) {
+        busy = false;
+        errorText = /fetch|network|load/i.test(err.message) ? 'Ingen kontakt med servern. Försök igen eller hoppa över fotot.' : err.message;
+        render();
+      }
+    }
+
+    // ---------- SPARA ----------
+    function setType(t) { hz.type = t; refreshHazardIcon(); render(); }
+
+    async function saveHazard() {
+      const noteEl = document.getElementById('hz-note');
+      if (noteEl) hz.note = noteEl.value.trim();
+      if (!hz.type) { errorText = 'Välj vilket sorts hinder det är.'; render(); return; }
+      if (!hz.pos) { errorText = 'Hindret saknar position.'; render(); return; }
+      busy = true; errorText = ''; render();
+      const zone = { type: hz.type, coords: [hz.pos], property: addr.property, slinga: addr.slinga || '', order: 0, note: hz.note,
+        photoId: hz.photoId, accuracy: mode === 'gps' && !hz.moved ? hz.accuracy : null };
+      try {
+        const res = await snoApi({ action: 'saveSnowHazard', zone });
+        busy = false;
+        if (res.status !== 'success') { errorText = res.message || 'Kunde inte spara.'; render(); return; }
+        if (hz.fromSuggestion) suggestions = suggestions.filter(s => !(s.type === hz.fromType && s.note === hz.fromNote));
+        zones.push({ ...zone, id: res.id, photoUrl: hz.photoUrl, areaM2: 0 });
+        lastSaved = { type: hz.type, property: addr.property };
+        clearHazardMarker();
+        hz = null;
+        showAddress();
+        go('klar');
+        loadZones(true);
+      } catch (err) {
+        busy = false;
+        errorText = 'Ingen kontakt med servern. Tryck Spara igen när du har täckning.';
+        render();
+      }
+    }
+
+    function placeSuggestion(i) {
+      const s = suggestions[i];
+      if (!s) return;
+      startHazard(s);
+      hz.fromType = s.type; hz.fromNote = s.note;
+    }
+
+    function changeAddress() {
+      clearHazardMarker();
+      hz = null; addr = null; suggestions = [];
+      showAddress();
+      go('adress');
+    }
+
+    function setMode(m) {
+      if (measuring) cancelMeasure();
+      mode = m;
+      try { localStorage.setItem('lpv_hinder_mode', m); } catch (e) { /* privat läge */ }
+      if (m === 'gps') startGps();
+      if (step === 'plats') go('plats'); else render();
+    }
+
+    function toggleTiles() {
+      tilesSat = !tilesSat;
+      mapCtl.setTiles(tilesSat ? 'sat' : 'street');
+      document.getElementById('tiles-btn').innerText = tilesSat ? '🗺️ Vägkarta' : '🛰️ Satellit';
+    }
+
+    // ---------- VY ----------
+    function renderSteps() {
+      const order = ['adress', 'plats', 'foto', 'kontroll'];
+      const now = step === 'klar' ? 4 : order.indexOf(step);
+      document.getElementById('steps').innerHTML = order.map((s, i) =>
+        `<div class="${i < now ? 'done' : i === now ? 'now' : ''}">${i + 1}. ${STEP_NAMES[s]}</div>`).join('');
+      document.getElementById('mode-gps').classList.toggle('on', mode === 'gps');
+      document.getElementById('mode-map').classList.toggle('on', mode === 'map');
+    }
+
+    function errHtml() { return errorText ? `<div class="note err">${esc(errorText)}</div>` : ''; }
+
+    function viewAdress() {
+      const list = addresses().filter(matchSearch);
+      const admin = snoIsAdmin();
+      const items = list.map((a, i) => `<button class="item" onclick="chooseAddress(${i})">
+          <span class="grow"><b>${esc(a.property)}</b><small>${esc(a.slinga || 'Ingen slinga')}${a.hazards ? ` · ${a.hazards} hinder` : ''}</small></span>
+          <small>${a.dist !== undefined ? snoFormatDistance(a.dist) : ''}</small></button>`).join('');
+      const empty = admin ? 'Inga adresser ännu – lägg till en ny nedan.' : 'Du har inga slingor tilldelade ännu. Arbetsledaren lägger upp dem.';
+      return `<h2>Vilken adress?</h2>
+        <p class="help">${mode === 'gps' ? 'Närmast dig visas först.' : 'Välj adressen där hindret finns.'}</p>
+        <input id="search" placeholder="🔍 Sök adress" value="${esc(search)}" oninput="search=this.value; renderList()">
+        <div class="list" id="addr-list">${items || `<p class="help">${empty}</p>`}</div>
+        ${admin ? `<details><summary style="cursor:pointer; color:var(--accent); font-weight:700; padding:8px 0;">➕ Ny adress</summary>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+            <div><label for="new-prop">Adress</label><input id="new-prop" placeholder="T.ex. Drottninggatan 4"></div>
+            <div><label for="new-slinga">Slinga</label><input id="new-slinga" list="slinga-list" placeholder="T.ex. Centrum 1"></div>
+            <datalist id="slinga-list">${snoSlingor(zones).map(s => `<option value="${esc(s)}">`).join('')}</datalist>
+            <button onclick="chooseNewAddress()">Fortsätt →</button>
+          </div></details>` : ''}
+        ${errHtml()}`;
+    }
+
+    function presetHtml() {
+      return hz && hz.fromSuggestion ? `<div class="note ai">${def(hz.type).icon} <b>${def(hz.type).label}</b>: ${esc(hz.note)}${hz.where ? `<br><small>På bilden: ${esc(hz.where)}</small>` : ''}</div>` : '';
+    }
+
+    function viewPlats() {
+      const head = `<h2>Var ligger hindret?</h2><p class="help">${esc(addr.property)}</p>${presetHtml()}`;
+      if (mode === 'map') {
+        return `${head}
+          <p class="help">Tryck på kartan där hindret ligger. Zooma in på satellitbilden – du kan flytta markeringen efteråt.</p>
+          <button class="primary" ${hz.pos ? '' : 'disabled'} onclick="go('foto')">Nästa →</button>
+          <button class="link" onclick="changeAddress()">← Byt adress</button>${errHtml()}`;
+      }
+      if (measuring) {
+        const pct = Math.min(100, (Date.now() - measuring.started) / MEASURE_MS * 100);
+        const left = Math.max(0, Math.ceil((MEASURE_MS - (Date.now() - measuring.started)) / 1000));
+        return `${head}
+          <div class="gps ${gpsClass(myAcc)}">📡 <b>Mäter… stå still.</b> ${left ? left + ' s kvar' : 'snart klart'}
+            <div class="bar"><div style="width:${pct}%"></div></div>
+            <small style="color:var(--muted)">${measuring.samples.length} mätpunkter · just nu ±${myAcc ?? '?'} m</small></div>
+          <button onclick="cancelMeasure()">Avbryt</button>`;
+      }
+      const acc = myPos ? `<div class="gps ${gpsClass(myAcc)}">📍 GPS: <b>±${myAcc} m</b> ${myAcc <= 5 ? '✅ Bra' : myAcc <= 10 ? '– Okej, vänta gärna en stund' : '⚠️ Osäker – vänta eller använd Karta'}</div>`
+        : `<div class="gps bad">${gpsError ? esc(gpsError) : '<span class="spin">⏳</span> Väntar på GPS…'}</div>`;
+      return `${head}
+        <p class="help"><b>1.</b> Gå fram och ställ dig rakt på hindret (eller precis bredvid).<br><b>2.</b> Håll telefonen still och tryck på knappen. Appen mäter i tio sekunder.</p>
+        ${acc}
+        <button class="primary" ${myPos ? '' : 'disabled'} onclick="startMeasure()">📍 Jag står på hindret</button>
+        <button class="link" onclick="setMode('map')">Går det inte? Peka ut det på kartan i stället</button>
+        <button class="link" onclick="changeAddress()">← Byt adress</button>${errHtml()}`;
+    }
+
+    function viewFoto() {
+      if (busy) {
+        return `<h2>Fota hindret</h2>
+          ${hz.preview ? `<img class="photo" src="${hz.preview}" alt="">` : ''}
+          <div class="note ai"><span class="spin">🤖</span> AI:n tittar på bilden… det tar några sekunder.</div>`;
+      }
+      return `<h2>Fota hindret</h2>
+        <p class="help">Ta en bild där hindret syns tydligt – gärna med lite omgivning, så att föraren känner igen platsen i mörker. AI:n föreslår vad det är.</p>
+        ${presetHtml()}
+        <button class="primary" onclick="takePhoto()">📷 ${mode === 'gps' ? 'Ta foto' : 'Välj eller ta foto'}</button>
+        <button onclick="hz.photoId=''; go('kontroll')">Hoppa över fotot</button>
+        <button class="link" onclick="go('plats')">← Tillbaka</button>${errHtml()}`;
+    }
+
+    function viewKontroll() {
+      const accTxt = hz.moved ? '✋ Flyttad för hand.' : hz.accuracy ? `📍 GPS ±${hz.accuracy} m${hz.accuracy > 8 ? ' – <b>osäker</b>, dra markeringen rätt om du kan.' : '.'}` : '';
+      return `<h2>Stämmer det?</h2>
+        ${hz.photoUrl || hz.preview ? `<img class="photo" src="${hz.preview || esc(hz.photoUrl)}" alt="">` : ''}
+        ${hz.aiNote ? `<div class="note ai">🤖 AI:n tror: <b>${def(hz.aiType).label}</b> – ${esc(hz.aiNote)}</div>` : ''}
+        ${hz.aiError ? `<div class="note warn">${esc(hz.aiError)}</div>` : ''}
+        <div><label>Vad är det?</label><div class="types">${HAZARDS.map(t =>
+          `<button class="${hz.type === t ? 'on' : ''}" onclick="setType('${t}')">${def(t).icon} ${def(t).label}</button>`).join('')}</div></div>
+        <p class="help">Markeringen ${def(hz.type).icon || '📍'} på kartan: dra den eller tryck på kartan om den hamnat fel. ${accTxt}</p>
+        <div><label for="hz-note">Anteckning till förarna</label><textarea id="hz-note" placeholder="T.ex. Brunnslock sticker upp 3 cm" oninput="hz.note=this.value">${esc(hz.note)}</textarea></div>
+        <button class="primary" ${busy ? 'disabled' : ''} onclick="saveHazard()">${busy ? '<span class="spin">⏳</span> Sparar…' : '✅ Spara hindret'}</button>
+        <button class="link" onclick="go('foto')">← Tillbaka</button>${errHtml()}`;
+    }
+
+    function viewKlar() {
+      const sugg = suggestions.map((s, i) => `<div class="item" style="cursor:default">
+          <span style="font-size:22px">${def(s.type).icon}</span>
+          <span class="grow"><b>${def(s.type).label}</b><small>${esc(s.note)}${s.where ? ' · ' + esc(s.where) : ''}</small></span>
+          <button style="min-height:40px; padding:0 12px;" onclick="placeSuggestion(${i})">Lägg ut</button>
+          <button style="min-height:40px; padding:0 10px;" title="Stämmer inte" onclick="suggestions.splice(${i},1); render()">✕</button></div>`).join('');
+      return `<h2>✅ Sparat!</h2>
+        <p class="help">${def(lastSaved.type).icon} ${def(lastSaved.type).label} vid <b>${esc(lastSaved.property)}</b> syns nu för förarna på slingan.</p>
+        ${sugg ? `<div><label>AI:n såg fler hinder på bilderna</label><div class="list">${sugg}</div></div>` : ''}
+        <button class="primary" onclick="startHazard()">➕ Nästa hinder på samma adress</button>
+        <button onclick="changeAddress()">🏠 Byt adress</button>
+        <button class="link" onclick="location.href=document.getElementById('back').href">Klar</button>`;
+    }
+
+    function render() {
+      renderSteps();
+      const views = { adress: viewAdress, plats: viewPlats, foto: viewFoto, kontroll: viewKontroll, klar: viewKlar };
+      const focused = document.activeElement && document.activeElement.id;
+      document.getElementById('step').innerHTML = views[step]();
+      if (focused === 'search') { const el = document.getElementById('search'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }
+
+    // GPS-uppdateringar ritar inte om när man skriver
+    function renderSoft() {
+      if (step === 'adress') renderList();
+      else if (step === 'plats') render();
+    }
+
+    function renderList() {
+      const el = document.getElementById('addr-list');
+      if (!el) return;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = viewAdress();
+      el.innerHTML = tmp.querySelector('#addr-list').innerHTML;
+    }
+
+    // ---------- START ----------
+    async function loadZones(quiet) {
+      try {
+        const res = await snoApi({ action: 'getSnowZones' });
+        if (res.status !== 'success') { if (!quiet) { errorText = res.message || 'Kunde inte hämta adresserna.'; render(); } return; }
+        zones = res.zones || [];
+        mySlingor = res.mySlingor || [];
+        if (!snoIsAdmin()) zones = zones.filter(z => mySlingor.includes(z.slinga));
+        if (step === 'adress') render();
+      } catch (err) {
+        if (!quiet) {
+          try { const c = JSON.parse(localStorage.getItem('lpv_sno_cache') || '{}'); zones = c.zones || []; mySlingor = c.mySlingor || []; } catch (e) { zones = []; }
+          errorText = 'Ingen kontakt med servern – visar senast sparade adresser. Hindren sparas när du har täckning.';
+          render();
+        }
+      }
+    }
+
+    mapCtl = snoCreateMap('map');
+    map = mapCtl.map;
+    map.on('click', onMapClick);
+    if (snoIsAdmin() && document.referrer.includes('snozoner')) document.getElementById('back').href = 'snozoner.html';
+    if (mode === 'gps') startGps();
+    render();
+    loadZones();
+  </script>
+</body>
+</html>
