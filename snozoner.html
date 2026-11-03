@@ -64,6 +64,9 @@
     .kk-fab button { width: 76px; min-height: 64px; border: none; border-radius: 0; background: var(--t-overlay); font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
     .kk-fab button span { font-size: 22px; }
     .kk-fab button.on { background: var(--accent); color: var(--t-on-accent); }
+    /* 📍 Adressens nål – tar inte emot tryck, så ritning och gester går igenom */
+    .prop-pin { pointer-events: none !important; }
+    .prop-pin svg { filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
     .kk-progress { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
     input[type=range] { padding: 0; }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
@@ -826,8 +829,18 @@
       if (!sl.value) sl.value = p.omrade || p.ort || '';
       if (p.note && !document.getElementById('f-note').value) document.getElementById('f-note').placeholder = p.note;
       if (p.lat !== null) map.setView([p.lat, p.lng], 18);
+      setPropPin(p);
       kk.idx = 0;
       showCustomerMap();
+    }
+
+    // 📍 Nål på adressen, att passa in kundkartan mot
+    let propPin = null;
+    function setPropPin(p) {
+      if (propPin) { map.removeLayer(propPin); propPin = null; }
+      if (!p || p.lat === null || p.lat === undefined || !map.dragging) return;
+      const html = `<svg width="30" height="40" viewBox="0 0 30 40"><path d="M15 39C15 39 2 23 2 14a13 13 0 0 1 26 0c0 9-13 25-13 25z" fill="#ef4444" stroke="#fff" stroke-width="2"/><circle cx="15" cy="14" r="5" fill="#fff"/></svg>`;
+      propPin = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'prop-pin', html, iconSize: [30, 40], iconAnchor: [15, 39] }), interactive: false, keyboard: false, zIndexOffset: 2000 }).addTo(map);
     }
 
     const kkMap = () => currentProp && currentProp.maps && currentProp.maps[kk.idx];
