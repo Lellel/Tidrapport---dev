@@ -130,7 +130,8 @@ function testaGemini() {
   const key = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "";
   if (!key) { Logger.log("❌ GEMINI_API_KEY saknas i Skriptegenskaper."); return; }
   Logger.log("Nyckel som används slutar på: …" + key.slice(-4));
-  const call = (label, model, body) => {
+  const call = (label, kind, body) => {
+    const model = geminiModel(kind, key, true);
     const res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key, {
       method: "post", contentType: "application/json", muteHttpExceptions: true, payload: JSON.stringify(body) });
     const code = res.getResponseCode();
@@ -138,9 +139,10 @@ function testaGemini() {
     try { const j = JSON.parse(res.getContentText()); msg = j.error ? (j.error.status + ": " + j.error.message) : "OK"; } catch (e) { msg = res.getContentText().slice(0, 300); }
     Logger.log((code === 200 ? "✅ " : "❌ ") + label + " (" + model + "): HTTP " + code + " – " + msg.slice(0, 600));
   };
-  call("Bild", "gemini-2.5-flash-image", { contents: [{ parts: [{ text: "En enkel röd cirkel på vit bakgrund." }] }] });
+  call("Text", "text", { contents: [{ parts: [{ text: "Svara bara: ok" }] }] });
+  call("Bild", "image", { contents: [{ parts: [{ text: "En enkel röd cirkel på vit bakgrund." }] }] });
   // Samma förfrågan som avatarknappen (utan foto) – visar om det är innehållet som stoppas
-  const res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + key, {
+  const res = geminiFetch("image", key, {
     method: "post", contentType: "application/json", muteHttpExceptions: true,
     payload: JSON.stringify({ contents: [{ parts: [{ text: "A friendly, vibrant 3D animated cartoon character portrait of a cheerful builder in the iconic style of Bob the Builder, yellow hard hat, solid blue background." }] }] }) });
   let info = "";
@@ -1046,7 +1048,7 @@ function handleAnalyzeSnowPhoto(data, auth) {
     "\"huvud\" är hindret mitt i bilden eller närmast fotografen. \"ovriga\" är andra tydliga hinder i bilden (högst 5), \"var\" säger kort var i bilden (t.ex. till vänster vid husväggen). " +
     "Beskrivningar på svenska, högst 12 ord. Ta bara med det du ser tydligt – gissa inte. Syns inget hinder: typ \"inget\".";
   try {
-    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey, {
+    const response = geminiFetch("text", apiKey, {
       method: "post", contentType: "application/json", muteHttpExceptions: true,
       payload: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: raw } }, { text: prompt }] }],
         generationConfig: { responseMimeType: "application/json", temperature: 0.2 } }) });
@@ -1144,6 +1146,41 @@ function driveImageUrl(fileId, width) {
   return fileId ? "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w" + (width || 600) : "";
 }
 
+// ---------- GEMINI-MODELL ----------
+// Google stänger av gamla modeller (2.5 stängdes okt 2026 → HTTP 404). I stället för hårdkodade namn
+// frågar vi vilka modeller nyckeln har och tar nyaste stabila Flash. Sparas i 6 h; vid 404 slås det upp på nytt.
+function geminiModel(kind, apiKey, fresh) {
+  const cache = CacheService.getScriptCache(), ck = "GEMINI_MODEL_" + kind;
+  if (!fresh) { const hit = cache.get(ck); if (hit) return hit; }
+  const fallback = kind === "image" ? "gemini-2.5-flash-image" : "gemini-2.5-flash";
+  try {
+    const res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + apiKey, { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return fallback;
+    const models = (JSON.parse(res.getContentText()).models || [])
+      .filter(m => (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0)
+      .map(m => String(m.name).replace(/^models\//, ""))
+      .filter(n => /^gemini-[\d.]+-flash/.test(n) && !/lite|tts|live|audio|embedding|thinking|exp|\d{3,}$/.test(n))
+      .filter(n => kind === "image" ? /image/.test(n) : !/image/.test(n));
+    const ver = n => parseFloat((n.match(/^gemini-([\d.]+)/) || [])[1]) || 0;
+    // Stabil före preview (preview stängs fortare), sedan nyaste version
+    models.sort((a, b) => (/preview/.test(a) - /preview/.test(b)) || (ver(b) - ver(a)) || (a.length - b.length));
+    const pick = models[0] || fallback;
+    cache.put(ck, pick, 21600);
+    return pick;
+  } catch (e) { return fallback; }
+}
+
+function geminiUrl(kind, apiKey, fresh) {
+  return "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel(kind, apiKey, fresh) + ":generateContent?key=" + apiKey;
+}
+
+// Som UrlFetchApp.fetch, men väljer modell själv och provar en gång till med nyuppslagen modell vid 404
+function geminiFetch(kind, apiKey, options) {
+  const res = UrlFetchApp.fetch(geminiUrl(kind, apiKey), options);
+  if (res.getResponseCode() !== 404) return res;
+  return UrlFetchApp.fetch(geminiUrl(kind, apiKey, true), options);
+}
+
 // Begripligt fel från Googles bild-AI (Gemini). 429 = kvoten är slut (gratisnivån har ett litet dagligt tak).
 function geminiErrorText(code, bodyText) {
   const body = String(bodyText || "");
@@ -1210,7 +1247,7 @@ function handleGenerateTractorAvatar(id) {
     "snowflakes around, solid deep navy blue background, square image, no text, no logos.";
 
   try {
-    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + apiKey, {
+    const response = geminiFetch("image", apiKey, {
       method: "post", contentType: "application/json", muteHttpExceptions: true,
       payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
     });
@@ -1466,7 +1503,7 @@ function handleAnalyzePropertyMap(data) {
     "Koordinater som [y, x] normaliserade 0–1000 i bilden (0,0 = övre vänstra hörnet). " +
     "Svara ENDAST med JSON: {\"ytor\":[{\"typ\":\"maskin|hand\",\"polygon\":[[y,x],...],\"namn\":\"kort beskrivning\"}],\"punkter\":[{\"typ\":\"upplag|lucka\",\"punkt\":[y,x]}]}. Högst 25 ytor och 30 punkter. Gissa inte.";
   try {
-    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey, {
+    const response = geminiFetch("text", apiKey, {
       method: "post", contentType: "application/json", muteHttpExceptions: true,
       payload: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: b64 } }, { text: prompt }] }],
         generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }) });
@@ -2672,7 +2709,7 @@ function handleRadarResourceAvatar(data, auth) {
     "glossy smooth plastic textures, recognisable shape of the real product. Brand colors: " + getBrandColorPrompt(what) + ". " +
     "The character sits centered inside a shiny transparent glass sphere (a marble), soft studio lighting, solid deep navy blue background, square image, no text, no logos.";
   try {
-    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + apiKey, {
+    const response = geminiFetch("image", apiKey, {
       method: "post", contentType: "application/json", muteHttpExceptions: true, payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
     let json = {};
     try { json = JSON.parse(response.getContentText()); } catch (e) { json = {}; }
@@ -3158,7 +3195,7 @@ function handleRecolorHouse(data) {
     "Keep everything else exactly the same: window glass, roof, foundation, plants, ground, sky, camera angle, perspective and lighting. " +
     "The result must look like a realistic photo of the same house freshly painted, with natural shadows and wood texture. No text, no logos.";
   try {
-    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + apiKey, {
+    const response = geminiFetch("image", apiKey, {
       method: "post", contentType: "application/json", muteHttpExceptions: true,
       payload: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: rawPhoto } }, { text: prompt }] }] })
     });
@@ -3935,11 +3972,8 @@ function handleClayTransformation(eData) {
   }
   parts.push({ "text": promptText });
 
-  var modelName = "gemini-2.5-flash-image";
-  var apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent?key=" + apiKey;
-
   try {
-    var response = UrlFetchApp.fetch(apiUrl, {
+    var response = geminiFetch("image", apiKey, {
       "method": "post",
       "contentType": "application/json",
       "payload": JSON.stringify({ "contents": [{ "parts": parts }] }),
