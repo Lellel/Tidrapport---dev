@@ -1125,7 +1125,17 @@
         const toLL = ([y, x]) => [c.tl[0] + (c.tr[0] - c.tl[0]) * x / 1000 + (c.bl[0] - c.tl[0]) * y / 1000,
                                    c.tl[1] + (c.tr[1] - c.tl[1]) * x / 1000 + (c.bl[1] - c.tl[1]) * y / 1000];
         const found = [];
-        res.areas.forEach(a => { const coords = a.polygon.map(toLL); found.push({ type: a.type, coords, icon: a.type === 'hand' ? '🚶' : '🚜', what: a.name || (a.type === 'hand' ? 'Gångyta' : 'Köryta'), size: Math.round(snoGeodesicArea(coords)).toLocaleString('sv-SE') + ' m²', areaM2: snoGeodesicArea(coords) }); });
+        res.areas.forEach(a => {
+          let coords = a.polygon.map(toLL);
+          // AI:n ritar ibland en gångväg som en streckad linje utan bredd (t.ex. "5 m²") – gör den 2 m bred
+          const perim = snoLineLength(coords.concat([coords[0]]));
+          if (a.type === 'hand' && perim > 10 && snoGeodesicArea(coords) / (perim / 2) < 1) {
+            let far = 0;
+            coords.forEach((c, i) => { if (snoLineLength([coords[0], c]) > snoLineLength([coords[0], coords[far]])) far = i; });
+            coords = snoBufferLine(coords.slice(0, far + 1), 2);
+          }
+          found.push({ type: a.type, coords, icon: a.type === 'hand' ? '🚶' : '🚜', what: a.name || (a.type === 'hand' ? 'Gångyta' : 'Köryta'), size: Math.round(snoGeodesicArea(coords)).toLocaleString('sv-SE') + ' m²', areaM2: snoGeodesicArea(coords) });
+        });
         res.points.forEach(p => found.push({ type: p.type, coords: [toLL(p.point)], icon: SNO_TYPES[p.type].icon, what: SNO_TYPES[p.type].label, size: '' }));
         found.forEach(sg => { sg.source = 'ai'; });
         suggestions = found.concat(suggestions.filter(sg => sg.source !== 'ai'));

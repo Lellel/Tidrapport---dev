@@ -75,12 +75,15 @@ function snoCreateMap(elementId) {
     return { map: L, setTiles() {} };
   }
   const map = L.map(elementId, { zoomControl: false }).setView(SNO_FLEN_CENTER, 15);
-  let tiles = L.tileLayer(SNO_TILES.sat, { maxZoom: 19, attribution: SNO_ATTRIB.sat }).addTo(map);
+  // Esri har inga riktiga satellitbilder på nivå 19 kring Flen ("Map data not yet available") –
+  // använd nivå 18 och förstora den när man zoomar in mer (upp till 21 för noggrann ritning)
+  const layer = (name) => L.tileLayer(SNO_TILES[name], { maxZoom: 21, maxNativeZoom: name === 'sat' ? 18 : 19, attribution: SNO_ATTRIB[name] });
+  let tiles = layer('sat').addTo(map);
   return {
     map,
     setTiles(name) {
       map.removeLayer(tiles);
-      tiles = L.tileLayer(SNO_TILES[name], { maxZoom: 19, attribution: SNO_ATTRIB[name] }).addTo(map);
+      tiles = layer(name).addTo(map);
     }
   };
 }
