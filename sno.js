@@ -163,13 +163,20 @@ function snoBufferLine(coords, widthM) {
 // Förslag från OpenStreetMap inom kartutsnittet: parkeringar → plogzon, gångvägar och trappor → handskottning
 async function snoOsmSuggestions(bounds) {
   const bbox = [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()].map(n => n.toFixed(6)).join(',');
-  const q = `[out:json][timeout:20];(way["amenity"="parking"](${bbox});way["highway"~"^(footway|steps|pedestrian|path)$"](${bbox}););out geom;`;
+  const q = `[out:json][timeout:20];(way["amenity"="parking"](${bbox});way["highway"~"^(footway|steps|pedestrian|path)$"](${bbox});node["entrance"](${bbox}););out geom;`;
   const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q),
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
   if (!res.ok) throw new Error('Kartdatan svarade inte (HTTP ' + res.status + ').');
   const json = await res.json();
   const out = [];
   (json.elements || []).forEach(el => {
+    // Entré (OSM-nod): handskottningsyta på 3 × 3 m runt dörren
+    if (el.type === 'node' && el.tags && el.tags.entrance) {
+      const d = 1.5 / 111320, e = 1.5 / (111320 * Math.cos(el.lat * Math.PI / 180));
+      const sq = [[el.lat + d, el.lon - e], [el.lat + d, el.lon + e], [el.lat - d, el.lon + e], [el.lat - d, el.lon - e]];
+      out.push({ type: 'hand', coords: sq, icon: '🚪', what: 'Entré', size: '9 m²', areaM2: 9 });
+      return;
+    }
     const line = (el.geometry || []).map(g => [g.lat, g.lon]);
     if (line.length < 2) return;
     const t = el.tags || {};

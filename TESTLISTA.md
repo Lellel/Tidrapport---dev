@@ -288,6 +288,16 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] I telefonen: välj Maskinzon → gå till varje hörn → **📍 Punkt där jag står** (5 s) → Spara
 - [ ] **🏔️ Snöupplag**: ställ dig där snön ska ligga → Punkt där jag står → anteckning → Spara; syns i Snöjour
 
+### 8c. Snöunderlag från kunderna (kräver ny Kod.gs)
+- [ ] Snöplanering → 📥 Importera → välj **Skrivbordet/Snöadresser/snöunderlag.json** → granskningslistan visar 74 fastigheter och 76 kartor
+- [ ] Importera → klart, "utan position" listar Smedjan, Salsta Gärde, Kvarteret Pokalen m.fl. → peka ut dem
+- [ ] Fastighetskortet visar kund, område och kundkartor → **❄️ Rita zoner från kundkartan**
+- [ ] Kundkartan ligger ovanpå satellitbilden → ✥ flytta, ⟳ vrid/skala tills husen passar → 💾 Spara läge
+- [ ] **🤖 Föreslå zoner** → förslagen hamnar på rätt ställen → Ta med → Spara zon
+- [ ] Malmaskolan och vårdcentralen: välj del 1 / del 2
+- [ ] **🚪 Entré** → tryck vid en dörr (även inne i en zon) → Spara → 3 × 3 m handskottning
+- [ ] Kör importen igen → inget dubbleras
+
 ## 9. Snöjour – förarens vy (telefon)
 
 Öppnas via knappen **❄️ Snöjour – karta & GPS** under formuläret.

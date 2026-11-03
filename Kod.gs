@@ -119,7 +119,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getRadarData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -165,7 +165,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
       "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
@@ -292,6 +292,9 @@ function doPost(e) {
     if (action === "blacksta_addMed") return handleBlackstaAddMed(data.entry, auth.user);
     if (action === "blacksta_getMed") return handleBlackstaGetMed(data);
     if (action === "addPropertyPhoto") return handleAddPropertyPhoto(data.id, data.imageBase64);
+    if (action === "addPropertyMap") return handleAddPropertyMap(data);
+    if (action === "savePropertyMapPlace") return handleSavePropertyMapPlace(data);
+    if (action === "analyzePropertyMap") return handleAnalyzePropertyMap(data);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
@@ -1018,7 +1021,14 @@ const PROPERTY_HEADERS = ["Fastighets-ID", "Adress", "Ort", "Lat", "Lng", "Storl
 const SIZES = ["stor", "liten"];
 
 function getFleetSheet() { return getSheetOrCreate(getSS(), "Traktorer", FLEET_HEADERS); }
-function getPropertySheet() { return getSheetOrCreate(getSS(), "Fastigheter", PROPERTY_HEADERS); }
+// Kolumner efter de elva första: kunden, området (förslag på slinga) och kundens kartor (snöunderlaget)
+const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)"];
+function getPropertySheet() {
+  const sheet = getSheetOrCreate(getSS(), "Fastigheter", PROPERTY_HEADERS.concat(PROPERTY_EXTRA));
+  const head = sheet.getRange(1, PROPERTY_HEADERS.length + 1, 1, PROPERTY_EXTRA.length).getValues()[0];
+  if (head.some((h, i) => h !== PROPERTY_EXTRA[i])) sheet.getRange(1, PROPERTY_HEADERS.length + 1, 1, PROPERTY_EXTRA.length).setValues([PROPERTY_EXTRA]);
+  return sheet;
+}
 
 function nowStamp() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm");
@@ -1060,8 +1070,8 @@ function saveImageToDrive(base64, folderName, fileName) {
   return file.getId();
 }
 
-function driveImageUrl(fileId) {
-  return fileId ? "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w600" : "";
+function driveImageUrl(fileId, width) {
+  return fileId ? "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w" + (width || 600) : "";
 }
 
 // Begripligt fel från Googles bild-AI (Gemini). 429 = kvoten är slut (gratisnivån har ett litet dagligt tak).
@@ -1166,8 +1176,15 @@ function propertyFromRow(row) {
     forced: isTrue(row[6]),
     priority: isTrue(row[7]),
     photos: photos.map(pid => ({ id: pid, url: driveImageUrl(pid) })),
-    note: String(row[9] || "")
+    note: String(row[9] || ""),
+    kund: String(row[11] || ""),
+    omrade: String(row[12] || ""),
+    maps: propertyMaps(row).map(m => ({ id: m.id, label: m.label || "", place: m.place || null, url: driveImageUrl(m.id, 2000) }))
   };
+}
+
+function propertyMaps(row) {
+  try { const m = JSON.parse(row[13] || "[]"); return Array.isArray(m) ? m : []; } catch (e) { return []; }
 }
 
 function handleGetProperties() {
@@ -1236,27 +1253,32 @@ function handleImportProperties(rows) {
   const sheet = getPropertySheet();
   const existing = sheet.getDataRange().getValues();
   const seen = {};
-  for (let i = 1; i < existing.length; i++) if (existing[i][0]) seen[normalizeAddress(existing[i][1], existing[i][2])] = true;
+  for (let i = 1; i < existing.length; i++) if (existing[i][0]) seen[normalizeAddress(existing[i][1], existing[i][2])] = String(existing[i][0]);
 
-  const out = [], skipped = [], notFound = [];
+  const out = [], skipped = [], notFound = [], ids = [];
   rows.forEach(r => {
     const address = sanitize(r.address).slice(0, 200);
-    if (!address) return;
+    if (!address) { ids.push(null); return; }
     let ort = sanitize(r.ort).slice(0, 80);
     const key = normalizeAddress(address, ort);
-    if (seen[key]) { skipped.push(address); return; }
-    seen[key] = true;
+    if (seen[key]) { skipped.push(address); ids.push(seen[key] === true ? null : seen[key]); return; }
     let lat = "", lng = "";
+    // geo = sökadress när namnet inte är en gatuadress ("Drottningg 2-4-6 innergård" -> "Drottninggatan 4"); tom = peka ut själv
+    const query = r.geo !== undefined ? sanitize(r.geo).slice(0, 200) : address;
     try {
-      const geo = geocodeAddress(address, ort);
+      const geo = query ? geocodeAddress(query, ort) : null;
       if (geo) { lat = Number(geo.lat.toFixed(7)); lng = Number(geo.lng.toFixed(7)); if (!ort) ort = geo.ort; }
       else notFound.push(address);
     } catch (err) { notFound.push(address); }
-    out.push(["F-" + Utilities.getUuid().slice(0, 8), address, ort, lat, lng,
-      SIZES.indexOf(r.size) !== -1 ? r.size : "", "FALSE", r.priority ? "TRUE" : "FALSE", "[]", sanitize(r.note).slice(0, 500), nowStamp()]);
+    const id = "F-" + Utilities.getUuid().slice(0, 8);
+    seen[key] = id;
+    ids.push(id);
+    out.push([id, address, ort, lat, lng,
+      SIZES.indexOf(r.size) !== -1 ? r.size : "", "FALSE", r.priority ? "TRUE" : "FALSE", "[]", sanitize(r.note).slice(0, 500), nowStamp(),
+      sanitize(r.kund).slice(0, 100), sanitize(r.omrade).slice(0, 60), "[]"]);
   });
   if (out.length) sheet.getRange(sheet.getLastRow() + 1, 1, out.length, out[0].length).setValues(out);
-  return createJsonResponse({ status: "success", added: out.length, skipped: skipped, notFound: notFound });
+  return createJsonResponse({ status: "success", added: out.length, skipped: skipped, notFound: notFound, ids: ids });
 }
 
 function handleAddPropertyPhoto(id, imageBase64) {
@@ -1269,6 +1291,82 @@ function handleAddPropertyPhoto(id, imageBase64) {
   const photos = propertyFromRow(fresh.row).photos.map(ph => ph.id).concat([fileId]);
   sheet.getRange(fresh.rowNumber, 9).setValue(JSON.stringify(photos));
   return createJsonResponse({ status: "success", photo: { id: fileId, url: driveImageUrl(fileId) } });
+}
+
+// ---------- KUNDKARTOR (snöunderlaget) ----------
+// Kundens karta (PDF-bild) sparas på fastigheten. "place" = var den ligger på satellitbilden:
+// {c:[lat,lng], w: bredd i meter, rot: vridning i radianer, tl/tr/bl: hörnen} – sätts i Rita snözoner.
+function handleAddPropertyMap(data) {
+  const sheet = getPropertySheet();
+  const hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  if (!data.imageBase64 || String(data.imageBase64).length > 8000000) return createJsonResponse({ status: "error", message: "Bilden saknas eller är för stor." });
+  const maps = propertyMaps(hit.row);
+  const label = sanitize(data.label).slice(0, 60);
+  if (data.skipIfExists && maps.some(m => m.label === label)) return createJsonResponse({ status: "success", skipped: true });
+  const fileId = saveImageToDrive(data.imageBase64, "Kundkartor", hit.row[0] + "_" + Date.now() + ".jpg");
+  const fresh = findRowById(sheet, data.id);
+  const list = propertyMaps(fresh.row).concat([{ id: fileId, label: label, place: null }]);
+  sheet.getRange(fresh.rowNumber, 14).setValue(JSON.stringify(list));
+  return createJsonResponse({ status: "success", map: { id: fileId, label: label, place: null, url: driveImageUrl(fileId, 2000) } });
+}
+
+function handleSavePropertyMapPlace(data) {
+  const sheet = getPropertySheet();
+  const hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const pl = data.place || {};
+  const pt = (p) => Array.isArray(p) && p.length === 2 && isFinite(p[0]) && isFinite(p[1]) ? [Number(Number(p[0]).toFixed(7)), Number(Number(p[1]).toFixed(7))] : null;
+  const place = { c: pt(pl.c), w: Number(pl.w), rot: Number(pl.rot) || 0, tl: pt(pl.tl), tr: pt(pl.tr), bl: pt(pl.bl) };
+  if (!place.c || !place.tl || !place.tr || !place.bl || !(place.w > 1 && place.w < 5000)) return createJsonResponse({ status: "error", message: "Ogiltigt läge." });
+  const maps = propertyMaps(hit.row);
+  const m = maps.find(x => x.id === data.mapId);
+  if (!m) return createJsonResponse({ status: "error", message: "Kartan hittades inte." });
+  m.place = place;
+  sheet.getRange(hit.rowNumber, 14).setValue(JSON.stringify(maps));
+  return createJsonResponse({ status: "success", place: place });
+}
+
+// AI läser kundens karta och föreslår zoner. Koordinater 0–1000 i bilden; appen räknar om dem
+// till kartan med hjälp av hörnen (kartan måste vara utlagd först).
+function handleAnalyzePropertyMap(data) {
+  const hit = findRowById(getPropertySheet(), data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const m = propertyMaps(hit.row).find(x => x.id === data.mapId);
+  if (!m) return createJsonResponse({ status: "error", message: "Kartan hittades inte." });
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
+  let b64;
+  try { b64 = Utilities.base64Encode(DriveApp.getFileById(m.id).getBlob().getBytes()); }
+  catch (err) { return createJsonResponse({ status: "error", message: "Kunde inte läsa kartbilden: " + err.message }); }
+  const prompt = "Bilden är en kunds karta över en fastighet som ska snöröjas (" + String(m.label || "karta") + "). " +
+    "Hitta ytorna och markera dem som polygoner. Typer: " +
+    "\"maskin\" = ytor som plogas med maskin: körytor, parkeringar, asfaltytor, gårdar (på snökartor: rödrandigt = snöröjning; på skötselkartor: mörkgrå asfalt innanför den lila gränsen; på markplaneringsplaner: A1 körytor och A2 parkering). " +
+    "\"hand\" = handskottning: gångar, trappor, plattytor och ytorna framför entréer (på markplaneringsplaner: A3 gångyta och BTG betongplattor). " +
+    "\"upplag\" = snöupplag (markerat med S på snökartor) – ange som punkt. " +
+    "\"lucka\" = dagvattenbrunnar om de syns tydligt – ange som punkt. " +
+    "Ta bara med ytor inom fastigheten/området. Ignorera gräs, träd, buskar, byggnader, teckenförklaring, rubriker och omgivningen. " +
+    "Koordinater som [y, x] normaliserade 0–1000 i bilden (0,0 = övre vänstra hörnet). " +
+    "Svara ENDAST med JSON: {\"ytor\":[{\"typ\":\"maskin|hand\",\"polygon\":[[y,x],...],\"namn\":\"kort beskrivning\"}],\"punkter\":[{\"typ\":\"upplag|lucka\",\"punkt\":[y,x]}]}. Högst 25 ytor och 30 punkter. Gissa inte.";
+  try {
+    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey, {
+      method: "post", contentType: "application/json", muteHttpExceptions: true,
+      payload: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: b64 } }, { text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }) });
+    const code = response.getResponseCode();
+    if (code !== 200) return createJsonResponse({ status: "error", message: code === 429 ? geminiErrorText(code, response.getContentText()) : "AI:n svarade inte (HTTP " + code + ")." });
+    const json = JSON.parse(response.getContentText());
+    const text = ((json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || []).map(p => p.text || "").join("");
+    const ai = JSON.parse(text.replace(/^```(json)?|```$/g, "").trim());
+    const okPt = (p) => Array.isArray(p) && p.length === 2 && p.every(n => isFinite(n) && n >= 0 && n <= 1000);
+    const areas = (Array.isArray(ai.ytor) ? ai.ytor : []).filter(a => ["maskin", "hand"].indexOf(a.typ) !== -1 && Array.isArray(a.polygon) && a.polygon.length >= 3 && a.polygon.length <= 200 && a.polygon.every(okPt))
+      .slice(0, 25).map(a => ({ type: a.typ, polygon: a.polygon.map(p => [Number(p[0]), Number(p[1])]), name: String(a.namn || "").slice(0, 60) }));
+    const points = (Array.isArray(ai.punkter) ? ai.punkter : []).filter(p => ["upplag", "lucka"].indexOf(p.typ) !== -1 && okPt(p.punkt))
+      .slice(0, 30).map(p => ({ type: p.typ, point: [Number(p.punkt[0]), Number(p.punkt[1])] }));
+    return createJsonResponse({ status: "success", areas: areas, points: points });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: "AI:n kunde inte tolka kartan: " + err.message });
+  }
 }
 
 function handleRemovePropertyPhoto(id, photoId) {

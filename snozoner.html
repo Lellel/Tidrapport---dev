@@ -45,6 +45,11 @@
     .sugg span { flex: 1; }
     .sugg small { color: var(--muted); }
     .sugg button { min-height: 36px; padding: 0 10px; }
+    .kk-overlay { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; max-width: none !important; }
+    .kk-handle { width: 34px; height: 34px; border-radius: 50%; background: #38bdf8; color: #0b1220; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,.5); border: 2px solid #fff; }
+    .kk-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .kk-row button { flex: 1; min-height: 40px; padding: 0 8px; }
+    input[type=range] { padding: 0; }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
     @media (max-width: 800px) {
@@ -71,6 +76,13 @@
       </div>
       <h1>❄️ Rita snözoner</h1>
       <div class="banner" id="admin-banner">Bara admin kan spara zoner. Logga in med din admin-länk.</div>
+
+      <div>
+        <label for="f-fastighet">Fastighet från Snöplanering</label>
+        <input id="f-fastighet" list="fastighet-list" placeholder="🔍 Sök fastighet – visar kundens karta" onchange="chooseProperty(this.value)">
+        <datalist id="fastighet-list"></datalist>
+      </div>
+      <div class="slinga-card" id="kk-card" style="display:none"></div>
 
       <div>
         <label for="f-slinga">Slinga</label>
@@ -143,18 +155,28 @@
 
     function setStatus(html) { document.getElementById('status').innerHTML = html; }
 
+    // 🚪 Entré = en handskottningsyta på 3 × 3 m med ett tryck (sparas som Handskottning)
+    const ENTRE_SIZE = 3;
+    const toolType = () => currentTool === 'entre' ? 'hand' : currentTool;
+    const toolDef = () => SNO_TYPES[toolType()];
+    function squareAround(pt, sizeM) {
+      const dLat = sizeM / 2 / 111320, dLng = sizeM / 2 / (111320 * Math.cos(pt[0] * Math.PI / 180));
+      return [[pt[0] + dLat, pt[1] - dLng], [pt[0] + dLat, pt[1] + dLng], [pt[0] - dLat, pt[1] + dLng], [pt[0] - dLat, pt[1] - dLng]];
+    }
+
     function renderTools() {
       document.getElementById('tools').innerHTML = Object.entries(SNO_TYPES).map(([key, def]) =>
         `<button class="${key === currentTool ? 'active' : ''}" onclick="setTool('${key}')">${def.icon || '■'} ${def.label}</button>`
-      ).join('');
+      ).join('') + `<button class="${currentTool === 'entre' ? 'active' : ''}" onclick="setTool('entre')">🚪 Entré</button>`;
     }
 
     function setTool(tool) {
       currentTool = tool;
       cancelDrawing();
       renderTools();
-      const kind = SNO_TYPES[tool].kind;
-      setStatus(kind === 'marker' ? 'Tryck på kartan där markören ska sitta.' :
+      const kind = toolDef().kind;
+      setStatus(tool === 'entre' ? `Tryck vid entrén – en handskottningsyta på ${ENTRE_SIZE} × ${ENTRE_SIZE} m läggs ut. Spara, och fortsätt med nästa entré.` :
+        kind === 'marker' ? 'Tryck på kartan där markören ska sitta.' :
         kind === 'line' ? 'Tryck ut sträckan punkt för punkt, spara när du är klar.' :
         'Tryck ut hörnen runt ytan, spara när du är klar.');
     }
@@ -162,7 +184,7 @@
     function drawPreview() {
       if (previewLayer) map.removeLayer(previewLayer);
       previewLayer = null;
-      const def = SNO_TYPES[currentTool];
+      const def = toolDef();
       if (drawingPoints.length === 0) return;
       if (def.kind === 'polygon' && drawingPoints.length >= 3) {
         previewLayer = L.polygon(drawingPoints, { color: def.color, fillOpacity: 0.25, dashArray: '6 6' }).addTo(map);
@@ -177,9 +199,11 @@
     }
 
     function onMapClick(e) {
+      if (kk.adjusting) return; // kundkartan justeras – tryck på kartan ritar inget
       selectZone(null);
       const point = [e.latlng.lat, e.latlng.lng];
-      if (SNO_TYPES[currentTool].kind === 'marker') drawingPoints = [point];
+      if (currentTool === 'entre') drawingPoints = squareAround(point, ENTRE_SIZE);
+      else if (toolDef().kind === 'marker') drawingPoints = [point];
       else drawingPoints.push(point);
       drawPreview();
     }
@@ -207,10 +231,11 @@
       if (selectedZone) {
         zone = { ...selectedZone, ...form };
       } else {
-        const kind = SNO_TYPES[currentTool].kind;
+        const kind = toolDef().kind;
         const minPoints = kind === 'polygon' ? 3 : kind === 'line' ? 2 : 1;
         if (drawingPoints.length < minPoints) { setStatus(`Rita minst ${minPoints} punkter först.`); return; }
-        zone = { ...form, type: currentTool, coords: drawingPoints, areaM2: kind === 'polygon' ? snoGeodesicArea(drawingPoints) : 0 };
+        zone = { ...form, type: toolType(), coords: drawingPoints, areaM2: kind === 'polygon' ? snoGeodesicArea(drawingPoints) : 0 };
+        if (currentTool === 'entre' && !zone.note) zone.note = 'Entré';
       }
       if (!zone.property) { setStatus('Fyll i Fastighet / Adress.'); document.getElementById('f-property').focus(); return; }
 
@@ -220,7 +245,8 @@
         if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return; }
         cancelDrawing();
         selectZone(null);
-        document.getElementById('f-property').value = '';
+        // Vald fastighet ligger kvar, så att nästa zon på samma adress går fort
+        document.getElementById('f-property').value = currentProp ? currentProp.address : '';
         document.getElementById('f-note').value = '';
         const orderInput = document.getElementById('f-order');
         if (orderInput.value) orderInput.value = Number(orderInput.value) + 1;
@@ -283,7 +309,8 @@
         zoneLayers.forEach(l => map.removeLayer(l));
         // Mitt i en ritning blir tryck på en befintlig zon en ny punkt, annars väljs zonen
         zoneLayers = zones.map(z => snoRenderZone(map, z, (zone, layer, e) => {
-          if (drawingPoints.length > 0) { layer.closePopup(); onMapClick(e); }
+          // Entréer och markörer läggs ofta inne i en zon: då räknas trycket som ett tryck på kartan
+          if (drawingPoints.length > 0 || currentTool === 'entre' || toolDef().kind === 'marker') { layer.closePopup(); onMapClick(e); }
           else selectZone(zone);
         }));
         renderZoneList();
@@ -372,12 +399,13 @@
       samples.forEach(x => { const k = 1 / (x.acc * x.acc); w += k; lat += x.pos[0] * k; lng += x.pos[1] * k; });
       const point = [lat / w, lng / w];
       const acc = Math.round(samples.map(x => x.acc).sort((a, b) => a - b)[Math.floor(samples.length / 2)]);
-      if (SNO_TYPES[currentTool].kind === 'marker') drawingPoints = [point];
+      if (currentTool === 'entre') drawingPoints = squareAround(point, ENTRE_SIZE);
+      else if (toolDef().kind === 'marker') drawingPoints = [point];
       else drawingPoints.push(point);
       setStatus('');
       drawPreview();
       map.setView(point, Math.max(map.getZoom(), 18));
-      setStatus((document.getElementById('status').innerHTML || `${drawingPoints.length} punkter`) + ` · senaste ±${acc} m${SNO_TYPES[currentTool].kind === 'marker' ? '' : ' – gå till nästa hörn'}`);
+      setStatus((document.getElementById('status').innerHTML || `${drawingPoints.length} punkter`) + ` · senaste ±${acc} m${toolDef().kind === 'marker' || currentTool === 'entre' ? '' : ' – gå till nästa hörn'}`);
     }
 
     // ---------- FÖRSLAG FRÅN KARTAN (OpenStreetMap) ----------
@@ -393,9 +421,11 @@
       try {
         const found = await snoOsmSuggestions(map.getBounds());
         // Det som redan är ritat (mitten av förslaget ligger i en zon av samma typ) visas inte
-        suggestions = found.filter(sg => !zones.some(z => z.type === sg.type && z.coords.length >= 3 && snoPointInPolygon(snoCenter(sg.coords), z.coords)));
+        const fresh = found.filter(sg => !zones.some(z => z.type === sg.type && z.coords.length >= 3 && snoPointInPolygon(snoCenter(sg.coords), z.coords)));
+        // Kartförslagen ersätter tidigare kartförslag; AI-förslagen från kundkartan ligger kvar
+        suggestions = suggestions.filter(sg => sg.source === 'ai').concat(fresh);
         renderSuggestions();
-        setStatus(suggestions.length ? `💡 ${suggestions.length} förslag. Tryck <b>Ta med</b>, fyll i adressen och spara.` : 'Inga nya förslag här – rita själv.');
+        setStatus(fresh.length ? `💡 ${fresh.length} förslag. Tryck <b>Ta med</b>, fyll i adressen och spara.` : 'Inga nya förslag här – rita själv.');
       } catch (err) {
         setStatus('❌ ' + snoEscape(err.message || 'Kunde inte hämta förslag.'));
       }
@@ -404,9 +434,11 @@
 
     function renderSuggestions() {
       clearSuggestionLayers();
-      suggLayers = suggestions.map(sg => L.polygon(sg.coords, { color: '#fff', weight: 2, dashArray: '4 6', fillColor: SNO_TYPES[sg.type].color, fillOpacity: 0.15, interactive: false }).addTo(map));
+      suggLayers = suggestions.map(sg => (sg.coords.length === 1
+        ? L.circleMarker(sg.coords[0], { radius: 9, color: '#fff', weight: 2, dashArray: '3 4', fillColor: '#f59e0b', fillOpacity: 0.5, interactive: false })
+        : L.polygon(sg.coords, { color: '#fff', weight: 2, dashArray: '4 6', fillColor: SNO_TYPES[sg.type].color, fillOpacity: 0.15, interactive: false })).addTo(map));
       document.getElementById('sugg-list').innerHTML = suggestions.map((sg, i) => `<div class="sugg">
-          <span>${sg.icon} ${snoEscape(sg.what)} <small>${sg.size} → ${SNO_TYPES[sg.type].label}</small></span>
+          <span>${sg.icon} ${snoEscape(sg.what)} <small>${sg.size ? sg.size + ' ' : ''}→ ${SNO_TYPES[sg.type].label}</small></span>
           <button onclick="takeSuggestion(${i})">Ta med</button><button onclick="dropSuggestion(${i})" title="Inte aktuell">✕</button></div>`).join('');
     }
 
@@ -421,6 +453,175 @@
       if (!document.getElementById('f-property').value) document.getElementById('f-property').focus();
     }
 
+    // ---------- FASTIGHETER OCH KUNDENS KARTA ----------
+    // Kundens karta (från PDF:en) läggs halvgenomskinlig ovanpå satellitbilden. Två handtag:
+    // ✥ flyttar, ⟳ vrider och skalar (sidförhållandet behålls). Läget sparas på fastigheten.
+    let properties = [], currentProp = null;
+    const kk = { idx: 0, layer: null, place: null, W: 0, H: 0, opacity: 0.6, adjusting: false, dirty: false, hidden: false, handles: [] };
+
+    async function loadProperties() {
+      try {
+        const res = await snoApi({ action: 'getProperties' });
+        if (res.status !== 'success') return;
+        properties = res.properties || [];
+        document.getElementById('fastighet-list').innerHTML = properties.map(p => `<option value="${snoEscape(propLabel(p))}">`).join('');
+        const want = new URLSearchParams(location.search).get('fastighet');
+        if (want) { const p = properties.find(x => x.id === want); if (p) { document.getElementById('f-fastighet').value = propLabel(p); chooseProperty(propLabel(p)); } }
+      } catch (err) { /* utan nät: fastighetslistan saknas, resten fungerar */ }
+    }
+    const propLabel = (p) => p.address + (p.ort ? ', ' + p.ort : '') + (p.maps && p.maps.length ? ' 📄' : '');
+
+    function chooseProperty(label) {
+      const p = properties.find(x => propLabel(x) === label);
+      if (!p) return;
+      currentProp = p;
+      selectZone(null);
+      document.getElementById('f-property').value = p.address;
+      const sl = document.getElementById('f-slinga');
+      if (!sl.value) sl.value = p.omrade || p.ort || '';
+      if (p.note && !document.getElementById('f-note').value) document.getElementById('f-note').placeholder = p.note;
+      if (p.lat !== null) map.setView([p.lat, p.lng], 18);
+      kk.idx = 0;
+      showCustomerMap();
+    }
+
+    const kkMap = () => currentProp && currentProp.maps && currentProp.maps[kk.idx];
+
+    function removeCustomerMap() {
+      if (kk.layer) map.removeLayer(kk.layer);
+      kk.handles.forEach(h => map.removeLayer(h));
+      kk.layer = null; kk.handles = []; kk.adjusting = false; kk.dirty = false;
+    }
+
+    function showCustomerMap() {
+      removeCustomerMap();
+      const m = kkMap();
+      if (!m) { renderKkCard(); return; }
+      const img = new Image();
+      img.onload = () => {
+        kk.W = img.naturalWidth; kk.H = img.naturalHeight;
+        // Första gången: mitt på fastigheten, ca 150 m bred (LandInfo-kartorna visar mer omgivning)
+        kk.place = m.place ? { ...m.place } : { c: currentProp.lat !== null ? [currentProp.lat, currentProp.lng] : [map.getCenter().lat, map.getCenter().lng], w: /LandInfo/.test(m.label) ? 140 : 160, rot: 0 };
+        kk.layer = new KundOverlay(m.url).addTo(map);
+        if (!m.place) startAdjust();
+        renderKkCard();
+      };
+      img.onerror = () => { setStatus('❌ Kundkartan kunde inte laddas.'); renderKkCard(); };
+      img.src = m.url;
+    }
+
+    // Hörnen i kartprojektionen (meter gånger 1/cos(lat) i Web Mercator)
+    function kkCorners(place) {
+      const crs = L.CRS.EPSG3857;
+      const c = crs.project(L.latLng(place.c[0], place.c[1]));
+      const k = 1 / Math.cos(place.c[0] * Math.PI / 180);
+      const hw = place.w / 2 * k, hh = hw * kk.H / kk.W;
+      const ex = [Math.cos(place.rot), Math.sin(place.rot)], ey = [-Math.sin(place.rot), Math.cos(place.rot)];
+      const at = (sx, sy) => { const ll = crs.unproject(L.point(c.x + sx * hw * ex[0] + sy * hh * ey[0], c.y + sx * hw * ex[1] + sy * hh * ey[1])); return [ll.lat, ll.lng]; };
+      return { tl: at(-1, 1), tr: at(1, 1), bl: at(-1, -1), br: at(1, -1) };
+    }
+
+    const KundOverlay = L.Layer.extend({
+      initialize(url) { this._url = url; },
+      onAdd(m) {
+        if (!m.getPane('kundkarta')) { m.createPane('kundkarta'); m.getPane('kundkarta').style.zIndex = 350; }
+        this._img = L.DomUtil.create('img', 'kk-overlay', m.getPane('kundkarta'));
+        this._img.src = this._url;
+        this._img.style.width = kk.W + 'px'; this._img.style.height = kk.H + 'px';
+        m.on('zoomend viewreset', this.update, this);
+        m.on('zoomstart', this._hide, this);
+        this.update();
+      },
+      onRemove(m) { L.DomUtil.remove(this._img); m.off('zoomend viewreset', this.update, this); m.off('zoomstart', this._hide, this); },
+      _hide() { this._img.style.visibility = 'hidden'; },
+      update() {
+        if (!this._map || !kk.place) return;
+        const c = kkCorners(kk.place);
+        const p = (ll) => this._map.latLngToLayerPoint(ll);
+        const tl = p(c.tl), tr = p(c.tr), bl = p(c.bl);
+        this._img.style.transform = `matrix(${(tr.x - tl.x) / kk.W},${(tr.y - tl.y) / kk.W},${(bl.x - tl.x) / kk.H},${(bl.y - tl.y) / kk.H},${tl.x},${tl.y})`;
+        this._img.style.opacity = kk.hidden ? 0 : kk.opacity;
+        this._img.style.visibility = 'visible';
+      }
+    });
+
+    function placeHandles() {
+      kk.handles.forEach(h => map.removeLayer(h));
+      kk.handles = [];
+      if (!kk.adjusting) return;
+      const icon = (t) => L.divIcon({ className: '', html: `<div class="kk-handle">${t}</div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
+      const mv = L.marker(kk.place.c, { draggable: true, icon: icon('✥'), zIndexOffset: 3000 }).addTo(map);
+      const rt = L.marker(kkCorners(kk.place).tr, { draggable: true, icon: icon('⟳'), zIndexOffset: 3000 }).addTo(map);
+      mv.on('drag', () => { const ll = mv.getLatLng(); kk.place.c = [ll.lat, ll.lng]; rt.setLatLng(kkCorners(kk.place).tr); kk.dirty = true; kk.layer.update(); });
+      rt.on('drag', () => {
+        const crs = L.CRS.EPSG3857;
+        const c = crs.project(L.latLng(kk.place.c[0], kk.place.c[1])), q = crs.project(rt.getLatLng());
+        const k = 1 / Math.cos(kk.place.c[0] * Math.PI / 180);
+        const ratio = kk.H / kk.W, dx = q.x - c.x, dy = q.y - c.y;
+        kk.place.rot = Math.atan2(dy, dx) - Math.atan2(ratio, 1);
+        kk.place.w = Math.max(10, 2 * Math.hypot(dx, dy) / Math.sqrt(1 + ratio * ratio) / k);
+        kk.dirty = true; kk.layer.update();
+      });
+      [mv, rt].forEach(h => h.on('dragend', renderKkCard));
+      kk.handles = [mv, rt];
+    }
+
+    function startAdjust() { kk.adjusting = true; cancelDrawing(); placeHandles(); renderKkCard(); setStatus('Dra <b>✥</b> för att flytta kundkartan och <b>⟳</b> för att vrida och ändra storlek, tills husen ligger rätt. Tryck sedan <b>Spara läge</b>.'); }
+
+    async function saveKkPlace() {
+      const m = kkMap();
+      const place = { ...kk.place, ...(() => { const c = kkCorners(kk.place); return { tl: c.tl, tr: c.tr, bl: c.bl }; })() };
+      try {
+        const res = await snoApi({ action: 'savePropertyMapPlace', id: currentProp.id, mapId: m.id, place });
+        if (res.status !== 'success') throw new Error(res.message);
+        m.place = res.place; kk.place = { ...res.place }; kk.dirty = false; kk.adjusting = false;
+        placeHandles(); renderKkCard();
+        setStatus('✅ Kundkartans läge sparat. Rita av zonerna, eller tryck <b>🤖 Föreslå zoner</b>.');
+        return true;
+      } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'Kunde inte spara läget.')); return false; }
+    }
+
+    // AI läser kundkartan; punkterna (0–1000 i bilden) räknas om till kartan via hörnen
+    async function analyzeKk() {
+      const m = kkMap();
+      if (kk.dirty || !m.place) { if (!(await saveKkPlace())) return; }
+      const btn = document.getElementById('kk-ai');
+      if (btn) btn.disabled = true;
+      setStatus('🤖 AI:n läser kundens karta… (10–30 sekunder)');
+      try {
+        const res = await snoApi({ action: 'analyzePropertyMap', id: currentProp.id, mapId: m.id });
+        if (res.status !== 'success') throw new Error(res.message);
+        const c = m.place;
+        const toLL = ([y, x]) => [c.tl[0] + (c.tr[0] - c.tl[0]) * x / 1000 + (c.bl[0] - c.tl[0]) * y / 1000,
+                                   c.tl[1] + (c.tr[1] - c.tl[1]) * x / 1000 + (c.bl[1] - c.tl[1]) * y / 1000];
+        const found = [];
+        res.areas.forEach(a => { const coords = a.polygon.map(toLL); found.push({ type: a.type, coords, icon: a.type === 'hand' ? '🚶' : '🚜', what: a.name || (a.type === 'hand' ? 'Gångyta' : 'Köryta'), size: Math.round(snoGeodesicArea(coords)).toLocaleString('sv-SE') + ' m²', areaM2: snoGeodesicArea(coords) }); });
+        res.points.forEach(p => found.push({ type: p.type, coords: [toLL(p.point)], icon: SNO_TYPES[p.type].icon, what: SNO_TYPES[p.type].label, size: '' }));
+        found.forEach(sg => { sg.source = 'ai'; });
+        suggestions = found.concat(suggestions.filter(sg => sg.source !== 'ai'));
+        renderSuggestions();
+        setStatus(found.length ? `🤖 ${found.length} förslag från kundkartan. Kontrollera mot kartan – <b>Ta med</b> det som stämmer.` : 'AI:n hittade inga ytor på kartan. Rita av den själv.');
+      } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'AI:n svarade inte.')); }
+      if (btn) btn.disabled = false;
+    }
+
+    function renderKkCard() {
+      const el = document.getElementById('kk-card');
+      const m = kkMap();
+      if (!currentProp) { el.style.display = 'none'; return; }
+      el.style.display = 'flex';
+      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>`; return; }
+      el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta</span><small>${snoEscape(currentProp.kund || '')}</small></div>
+        ${currentProp.maps.length > 1 ? `<div class="chips">${currentProp.maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
+        <div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); kk.hidden=false; kk.layer && kk.layer.update()"></div>
+        <div class="kk-row">
+          ${kk.adjusting ? `<button class="ok" onclick="saveKkPlace()">💾 Spara läge</button>` : `<button onclick="startAdjust()">✋ Justera läge</button>`}
+          <button onclick="kk.hidden=!kk.hidden; kk.layer && kk.layer.update(); renderKkCard()">${kk.hidden ? '👁 Visa' : '🙈 Dölj'}</button>
+        </div>
+        <button id="kk-ai" onclick="analyzeKk()" ${kk.adjusting && !kk.dirty && !m.place ? 'disabled' : ''}>🤖 Föreslå zoner från kundkartan</button>
+        ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}`;
+    }
+
     function dropSuggestion(i) { suggestions.splice(i, 1); renderSuggestions(); }
 
     mapCtl = snoCreateMap('map');
@@ -429,7 +630,7 @@
     if (!snoIsAdmin()) document.getElementById('admin-banner').style.display = 'block';
     renderTools();
     loadZones();
-    if (snoIsAdmin()) loadStaff();
+    if (snoIsAdmin()) { loadStaff(); loadProperties(); }
   </script>
 </body>
 </html>

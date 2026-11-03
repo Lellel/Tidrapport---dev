@@ -270,6 +270,12 @@
           <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="addPhoto(event)">
           <button style="width:100%; margin-top:6px;" onclick="document.getElementById('photo-input').click()">📷 Lägg till foto</button>
         </div>
+        ${(p.maps || []).length || p.kund ? `<div>
+          <label>Kund och kundkartor</label>
+          <div class="muted">${snoEscape(p.kund || '')}${p.omrade ? ' · ' + snoEscape(p.omrade) : ''}</div>
+          <div class="photos">${(p.maps || []).map(m => `<div class="photo"><a href="${snoEscape(m.url)}" target="_blank" rel="noopener"><img src="${snoEscape(m.url)}" alt="${snoEscape(m.label)}" loading="lazy"></a></div>`).join('')}</div>
+          ${(p.maps || []).length ? `<button style="width:100%; margin-top:6px;" onclick="location.href='snozoner.html?fastighet=${encodeURIComponent(p.id)}'">❄️ Rita zoner från kundkartan</button>` : ''}
+        </div>` : ''}
         <div class="row">
           <button onclick="startPlacing()">📍 Flytta på kartan</button>
           <button onclick="editAddress()">✏️ Ändra adress</button>
@@ -603,7 +609,9 @@
           <div class="muted"><b>1.</b> Öppna arket, markera cellerna (gärna med rubrikraden), kopiera (Cmd+C) och klistra in här (Cmd+V).</div>
           <textarea id="imp-text" placeholder="Klistra in här…" oninput="importTable = parseTable(this.value); guessMapping(); if (importTable.length) renderImport()"></textarea>
           <div class="muted">…eller välj en fil (CSV – i Google Kalkylark: Arkiv → Ladda ned → CSV):</div>
-          <input type="file" accept=".csv,.txt,.tsv,text/csv" onchange="readImportFile(event)">`
+          <input type="file" accept=".csv,.txt,.tsv,text/csv" onchange="readImportFile(event)">
+          <div class="muted" style="margin-top:14px;">…eller <b>snöunderlag från kunderna</b> (filen snöunderlag.json med adresser och kundkartor):</div>
+          <input type="file" accept=".json,application/json" onchange="readSnoBundle(event)">`
         : `
           <div class="row"><span class="muted"><b>${rows.length}</b> rader · ${cols} kolumner</span>
             <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;font-size:13px;"><input type="checkbox" ${importHeader ? 'checked' : ''} onchange="importHeader=this.checked; guessMapping(); renderImport()" style="width:20px;height:20px;"> Första raden är rubriker</label>
@@ -634,6 +642,89 @@
       const reader = new FileReader();
       reader.onload = () => { importTable = parseTable(reader.result); guessMapping(); renderImport(); };
       reader.readAsText(file, 'utf-8');
+    }
+
+    // ---------- SNÖUNDERLAG: kundernas PDF:er, utlästa till adresser + kartbilder ----------
+    let snoBundle = null;
+
+    function readSnoBundle(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (data.typ !== 'snöunderlag' || !Array.isArray(data.fastigheter)) throw new Error('fel fil');
+          snoBundle = data.fastigheter;
+          renderSnoBundle();
+        } catch (err) { renderImport(`<div class="detail-head"><h2>📥 Snöunderlag</h2><button onclick="closeImport()">✕</button></div><div class="msg">❌ Filen är inte ett snöunderlag.</div><button onclick="renderImport()">↺ Börja om</button>`); }
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    function renderSnoBundle() {
+      const existing = new Set(properties.map(p => (p.address + '|' + p.ort).toLowerCase().replace(/\s+/g, ' ')));
+      const isDupe = (r) => existing.has((r.address + '|' + r.ort).toLowerCase().replace(/\s+/g, ' '));
+      const fresh = snoBundle.filter(r => !isDupe(r)).length;
+      const maps = snoBundle.reduce((n, r) => n + r.maps.length, 0);
+      const noGeo = snoBundle.filter(r => !r.geo).length;
+      const byKund = {};
+      snoBundle.forEach(r => { byKund[r.kund] = (byKund[r.kund] || 0) + 1; });
+      renderImport(`<div class="detail-head"><h2>📥 Snöunderlag</h2><button onclick="closeImport()">✕</button></div>
+        <div class="stats"><div class="stat"><b>${fresh}</b>nya</div><div class="stat"><b>${maps}</b>kundkartor</div><div class="stat"><b style="color:${noGeo ? 'var(--warn)' : 'var(--ok)'}">${noGeo}</b>pekas ut själv</div></div>
+        <div class="muted">${Object.entries(byKund).map(([k, n]) => `${snoEscape(k)}: ${n}`).join(' · ')}</div>
+        <div class="muted"><b>Granska listan.</b> "Söks som" är adressen kartan letar efter. Saknas den pekar du ut fastigheten på kartan efteråt. Adresser som redan finns hoppas över – deras kartor läggs till om de saknas.</div>
+        <div style="overflow-x:auto;max-height:46vh;overflow-y:auto"><table class="imp-table"><tr><th>Adress</th><th>Söks som</th><th>Område</th><th>Kund</th><th>Hårdgjort</th><th>Brunnar</th><th>Kartor</th></tr>
+          ${snoBundle.map(r => `<tr style="${isDupe(r) ? 'opacity:.5' : ''}"><td>${snoEscape(r.address)}</td><td>${r.geo ? snoEscape(r.geo) : '<span style="color:var(--warn)">📍 peka ut</span>'}</td><td>${snoEscape(r.omrade)}</td>
+            <td>${snoEscape(r.kund)}</td><td>${r.hardyta ? r.hardyta.toLocaleString('sv-SE') + ' m²' : '–'}</td><td>${r.brunnar || ''}</td><td>${r.maps.length}</td></tr>`).join('')}</table></div>
+        <div class="bar" id="imp-bar" style="display:none"><div></div></div>
+        <div class="msg" id="imp-msg"></div>
+        <div class="row"><button onclick="snoBundle=null; renderImport()">↺ Börja om</button>
+          <button class="ok" id="imp-go" onclick="runSnoImport()">📥 Importera ${snoBundle.length} fastigheter och ${maps} kartor</button></div>`);
+    }
+
+    async function runSnoImport() {
+      importBusy = true;
+      document.getElementById('imp-go').disabled = true;
+      const bar = document.getElementById('imp-bar'); bar.style.display = 'block';
+      const msg = document.getElementById('imp-msg');
+      const total = snoBundle.length + snoBundle.reduce((n, r) => n + r.maps.length, 0);
+      let done = 0, added = 0, mapsAdded = 0, notFound = [], failed = [];
+      const step = () => { done++; bar.firstElementChild.style.width = Math.round(done / total * 100) + '%'; };
+      const ids = [];
+      for (let i = 0; i < snoBundle.length; i += 10) {
+        const chunk = snoBundle.slice(i, i + 10);
+        msg.innerText = `Lägger in fastigheter och hittar dem på kartan… ${Math.min(i + 10, snoBundle.length)} av ${snoBundle.length}`;
+        try {
+          const res = await snoApi({ action: 'importProperties', rows: chunk.map(r => ({ address: r.address, geo: r.geo, ort: r.ort, omrade: r.omrade, kund: r.kund, note: r.note })) });
+          if (res.status !== 'success') throw new Error(res.message);
+          added += res.added; notFound = notFound.concat(res.notFound);
+          chunk.forEach((r, j) => { ids[i + j] = res.ids[j]; step(); });
+        } catch (err) { chunk.forEach(r => { failed.push(r.address); step(); }); }
+      }
+      for (let i = 0; i < snoBundle.length; i++) {
+        const r = snoBundle[i];
+        for (const m of r.maps) {
+          msg.innerText = `Laddar upp kundkartor… ${r.address}`;
+          if (ids[i]) {
+            try {
+              const res = await snoApi({ action: 'addPropertyMap', id: ids[i], imageBase64: m.image, label: m.label, skipIfExists: true });
+              if (res.status === 'success' && !res.skipped) mapsAdded++;
+              else if (res.status !== 'success') failed.push(r.address + ' (karta)');
+            } catch (err) { failed.push(r.address + ' (karta)'); }
+          }
+          step();
+        }
+      }
+      importBusy = false;
+      snoBundle = null;
+      await loadAll();
+      renderImport(`<div class="detail-head"><h2>✅ Snöunderlaget är inlagt</h2><button onclick="closeImport()">✕</button></div>
+        <div class="stats"><div class="stat"><b style="color:var(--ok)">${added}</b>fastigheter</div><div class="stat"><b style="color:var(--ok)">${mapsAdded}</b>kundkartor</div><div class="stat"><b style="color:${notFound.length ? 'var(--warn)' : 'var(--ok)'}">${notFound.length}</b>utan position</div></div>
+        ${notFound.length ? `<div class="muted">Peka ut de här på kartan (filtret "📍 Utan position"):<br>${notFound.map(snoEscape).join(', ')}</div>` : ''}
+        ${failed.length ? `<div class="muted" style="color:var(--danger)">Gick inte att skicka: ${failed.map(snoEscape).join(', ')}. Kör importen igen – det som redan finns hoppas över.</div>` : ''}
+        <div class="muted"><b>Nästa steg:</b> Rita snözoner → välj fastighet → lägg kundkartan på plats → 🤖 Föreslå zoner.</div>
+        <button class="ok" onclick="location.href='snozoner.html'">❄️ Till Rita snözoner</button>`);
     }
 
     async function runImport() {
