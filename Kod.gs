@@ -1491,8 +1491,10 @@ function handleAnalyzePropertyMap(data) {
     "\"upplag\" = snöupplag (markerat med S) – ange som punkt. " +
     "\"lucka\" = dagvattenbrunnar inom det randade om de syns tydligt – ange som punkt. " +
     "Ignorera teckenförklaring, rubriker, byggnader och omgivningen. " +
+    "GRÄS: Gräsytor, gräsmattor, planteringar, rabatter och träd/buskar ska ALDRIG med – de snöröjs inte. Gräs syns oftast som grönt eller ljusgrönt (ibland med små prickar/streck), eller markerat Gräs/G i teckenförklaringen. " +
+    "Gränsar en hårdgjord yta mot gräs: följ kanten mellan dem, och dela hellre upp i flera mindre polygoner än att en polygon täcker gräs. " +
     "Koordinater som [y, x] normaliserade 0–1000 i bilden (0,0 = övre vänstra hörnet). " +
-    "Svara ENDAST med JSON: {\"ytor\":[{\"typ\":\"maskin|hand\",\"polygon\":[[y,x],...],\"namn\":\"kort beskrivning\"}],\"punkter\":[{\"typ\":\"upplag|lucka\",\"punkt\":[y,x]}]}. Högst 25 ytor och 30 punkter. Gissa inte." :
+    "Svara ENDAST med JSON: {\"ytor\":[{\"typ\":\"maskin|hand\",\"underlag\":\"asfalt|plattor|grus|betong|gräs|plantering\",\"polygon\":[[y,x],...],\"namn\":\"kort beskrivning\"}],\"punkter\":[{\"typ\":\"upplag|lucka\",\"punkt\":[y,x]}]}. Högst 25 ytor och 30 punkter. Gissa inte." :
     "Bilden är en kunds karta över en fastighet som ska snöröjas (" + String(m.label || "karta") + "). " +
     "Hitta ytorna och markera dem som polygoner. Typer: " +
     "\"maskin\" = ytor som plogas med maskin: körytor, parkeringar, asfaltytor, gårdar (på snökartor: rödrandigt = snöröjning; på skötselkartor: mörkgrå asfalt innanför den lila gränsen; på markplaneringsplaner: A1 körytor och A2 parkering). " +
@@ -1500,8 +1502,10 @@ function handleAnalyzePropertyMap(data) {
     "\"upplag\" = snöupplag (markerat med S på snökartor) – ange som punkt. " +
     "\"lucka\" = dagvattenbrunnar om de syns tydligt – ange som punkt. " +
     "Ta bara med ytor inom fastigheten/området. Ignorera gräs, träd, buskar, byggnader, teckenförklaring, rubriker och omgivningen. " +
+    "GRÄS: Gräsytor, gräsmattor, planteringar, rabatter och träd/buskar ska ALDRIG med – de snöröjs inte. Gräs syns oftast som grönt eller ljusgrönt (ibland med små prickar/streck), eller markerat Gräs/G i teckenförklaringen. " +
+    "Gränsar en hårdgjord yta mot gräs: följ kanten mellan dem, och dela hellre upp i flera mindre polygoner än att en polygon täcker gräs. " +
     "Koordinater som [y, x] normaliserade 0–1000 i bilden (0,0 = övre vänstra hörnet). " +
-    "Svara ENDAST med JSON: {\"ytor\":[{\"typ\":\"maskin|hand\",\"polygon\":[[y,x],...],\"namn\":\"kort beskrivning\"}],\"punkter\":[{\"typ\":\"upplag|lucka\",\"punkt\":[y,x]}]}. Högst 25 ytor och 30 punkter. Gissa inte.";
+    "Svara ENDAST med JSON: {\"ytor\":[{\"typ\":\"maskin|hand\",\"underlag\":\"asfalt|plattor|grus|betong|gräs|plantering\",\"polygon\":[[y,x],...],\"namn\":\"kort beskrivning\"}],\"punkter\":[{\"typ\":\"upplag|lucka\",\"punkt\":[y,x]}]}. Högst 25 ytor och 30 punkter. Gissa inte.";
   try {
     const response = geminiFetch("text", apiKey, {
       method: "post", contentType: "application/json", muteHttpExceptions: true,
@@ -1514,6 +1518,8 @@ function handleAnalyzePropertyMap(data) {
     const ai = JSON.parse(text.replace(/^```(json)?|```$/g, "").trim());
     const okPt = (p) => Array.isArray(p) && p.length === 2 && p.every(n => isFinite(n) && n >= 0 && n <= 1000);
     const areas = (Array.isArray(ai.ytor) ? ai.ytor : []).filter(a => ["maskin", "hand"].indexOf(a.typ) !== -1 && Array.isArray(a.polygon) && a.polygon.length >= 3 && a.polygon.length <= 200 && a.polygon.every(okPt))
+      // AI:n anger underlag för varje yta – gräs och planteringar snöröjs inte
+      .filter(a => !/gräs|gras|plantering|rabatt|grön/i.test(String(a.underlag || "") + " " + String(a.namn || "")))
       .slice(0, 25).map(a => ({ type: a.typ, polygon: a.polygon.map(p => [Number(p[0]), Number(p[1])]), name: String(a.namn || "").slice(0, 60) }));
     const points = (Array.isArray(ai.punkter) ? ai.punkter : []).filter(p => ["upplag", "lucka"].indexOf(p.typ) !== -1 && okPt(p.punkt))
       .slice(0, 30).map(p => ({ type: p.typ, point: [Number(p.punkt[0]), Number(p.punkt[1])] }));
