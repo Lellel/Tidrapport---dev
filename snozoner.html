@@ -41,6 +41,11 @@
     .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: transparent; }
     .chip.on { background: var(--ok); border-color: var(--ok); color: #fff; }
     .warn { color: #fbbf24; font-size: 12px; }
+    .sugg { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px dashed var(--accent); border-radius: 10px; font-size: 13px; }
+    .sugg span { flex: 1; }
+    .sugg small { color: var(--muted); }
+    .sugg button { min-height: 36px; padding: 0 10px; }
+    .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
     @media (max-width: 800px) {
       .layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
@@ -90,6 +95,15 @@
       <div>
         <label>Verktyg</label>
         <div class="tools" id="tools"></div>
+      </div>
+
+      <div>
+        <label>På plats och förslag</label>
+        <div class="actions">
+          <button id="btn-gps" onclick="addGpsPoint()">📍 Punkt där jag står</button>
+          <button id="btn-sugg" onclick="loadSuggestions()">💡 Förslag från kartan</button>
+        </div>
+        <div class="zone-list" id="sugg-list" style="margin-top:6px;"></div>
       </div>
 
       <div class="status" id="status">Välj ett verktyg och tryck på kartan.</div>
@@ -320,6 +334,94 @@
         setStatus('❌ Kunde inte spara tilldelningen. ' + snoEscape(err.message || ''));
       }
     }
+
+    // ---------- PÅ PLATS: punkt där jag står (GPS-medelvärde i fem sekunder) ----------
+    let gpsWatch = null, myFix = null, meMarker = null, gpsSamples = null;
+
+    function startGps() {
+      if (gpsWatch !== null) return;
+      if (!('geolocation' in navigator)) { setStatus('Ingen GPS i den här webbläsaren.'); return; }
+      gpsWatch = navigator.geolocation.watchPosition((pos) => {
+        myFix = { pos: [pos.coords.latitude, pos.coords.longitude], acc: Math.max(1, pos.coords.accuracy) };
+        if (!meMarker) meMarker = L.marker(myFix.pos, { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18] }), zIndexOffset: 1000, interactive: false }).addTo(map);
+        else meMarker.setLatLng(myFix.pos);
+        if (gpsSamples) gpsSamples.push(myFix);
+      }, (err) => {
+        setStatus(err.code === 1 ? 'GPS nekad. Tillåt plats för sidan i inställningarna.' : 'Hittar ingen GPS-position just nu.');
+      }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    }
+
+    async function addGpsPoint() {
+      if (gpsSamples) return;
+      selectZone(null);
+      startGps();
+      const btn = document.getElementById('btn-gps');
+      btn.disabled = true;
+      gpsSamples = [];
+      const started = Date.now();
+      // Fem sekunder; telefonen skickar sällan nya positioner när man står still – då gäller den senaste
+      while (Date.now() - started < 5000 || (!gpsSamples.length && !myFix && Date.now() - started < 15000)) {
+        setStatus(`📡 Mäter… stå still (${Math.max(0, Math.ceil((5000 - (Date.now() - started)) / 1000))} s)`);
+        await new Promise(r => setTimeout(r, 250));
+      }
+      const samples = gpsSamples.length ? gpsSamples : (myFix ? [myFix] : []);
+      gpsSamples = null;
+      btn.disabled = false;
+      if (!samples.length) { setStatus('Fick ingen GPS-position. Försök igen eller tryck på kartan.'); return; }
+      let w = 0, lat = 0, lng = 0;
+      samples.forEach(x => { const k = 1 / (x.acc * x.acc); w += k; lat += x.pos[0] * k; lng += x.pos[1] * k; });
+      const point = [lat / w, lng / w];
+      const acc = Math.round(samples.map(x => x.acc).sort((a, b) => a - b)[Math.floor(samples.length / 2)]);
+      if (SNO_TYPES[currentTool].kind === 'marker') drawingPoints = [point];
+      else drawingPoints.push(point);
+      setStatus('');
+      drawPreview();
+      map.setView(point, Math.max(map.getZoom(), 18));
+      setStatus((document.getElementById('status').innerHTML || `${drawingPoints.length} punkter`) + ` · senaste ±${acc} m${SNO_TYPES[currentTool].kind === 'marker' ? '' : ' – gå till nästa hörn'}`);
+    }
+
+    // ---------- FÖRSLAG FRÅN KARTAN (OpenStreetMap) ----------
+    let suggestions = [], suggLayers = [];
+
+    function clearSuggestionLayers() { suggLayers.forEach(l => l && map.removeLayer(l)); suggLayers = []; }
+
+    async function loadSuggestions() {
+      if (map.getZoom() < 16) { setStatus('Zooma in på adressen först, så letar jag inom kartbilden.'); return; }
+      const btn = document.getElementById('btn-sugg');
+      btn.disabled = true;
+      setStatus('💡 Letar efter parkeringar och gångvägar…');
+      try {
+        const found = await snoOsmSuggestions(map.getBounds());
+        // Det som redan är ritat (mitten av förslaget ligger i en zon av samma typ) visas inte
+        suggestions = found.filter(sg => !zones.some(z => z.type === sg.type && z.coords.length >= 3 && snoPointInPolygon(snoCenter(sg.coords), z.coords)));
+        renderSuggestions();
+        setStatus(suggestions.length ? `💡 ${suggestions.length} förslag. Tryck <b>Ta med</b>, fyll i adressen och spara.` : 'Inga nya förslag här – rita själv.');
+      } catch (err) {
+        setStatus('❌ ' + snoEscape(err.message || 'Kunde inte hämta förslag.'));
+      }
+      btn.disabled = false;
+    }
+
+    function renderSuggestions() {
+      clearSuggestionLayers();
+      suggLayers = suggestions.map(sg => L.polygon(sg.coords, { color: '#fff', weight: 2, dashArray: '4 6', fillColor: SNO_TYPES[sg.type].color, fillOpacity: 0.15, interactive: false }).addTo(map));
+      document.getElementById('sugg-list').innerHTML = suggestions.map((sg, i) => `<div class="sugg">
+          <span>${sg.icon} ${snoEscape(sg.what)} <small>${sg.size} → ${SNO_TYPES[sg.type].label}</small></span>
+          <button onclick="takeSuggestion(${i})">Ta med</button><button onclick="dropSuggestion(${i})" title="Inte aktuell">✕</button></div>`).join('');
+    }
+
+    function takeSuggestion(i) {
+      const sg = suggestions[i];
+      selectZone(null);
+      setTool(sg.type);
+      drawingPoints = sg.coords.slice();
+      drawPreview();
+      dropSuggestion(i);
+      setStatus(`${sg.icon} ${snoEscape(sg.what)} inlagd som ${SNO_TYPES[sg.type].label.toLowerCase()}. Fyll i adress och tryck <b>Spara zon</b>.`);
+      if (!document.getElementById('f-property').value) document.getElementById('f-property').focus();
+    }
+
+    function dropSuggestion(i) { suggestions.splice(i, 1); renderSuggestions(); }
 
     mapCtl = snoCreateMap('map');
     map = mapCtl.map;

@@ -268,6 +268,13 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Rutan **Förare per slinga**: tryck på ett namn → blir grönt och fliken **Slingor** i arket uppdateras
 - [ ] Slinga utan förare visar "⚠️ Ingen förare tilldelad"
 
+### 8b. På plats och förslag från kartan (admin)
+- [ ] Zooma in på en adress → **💡 Förslag från kartan** → parkeringar (→ Maskinzon) och gångvägar/trappor (→ Handskottning) visas streckade
+- [ ] Det som redan är ritat föreslås inte igen
+- [ ] **Ta med** → fyll i adress → Spara zon. **✕** tar bort förslaget
+- [ ] I telefonen: välj Maskinzon → gå till varje hörn → **📍 Punkt där jag står** (5 s) → Spara
+- [ ] **🏔️ Snöupplag**: ställ dig där snön ska ligga → Punkt där jag står → anteckning → Spara; syns i Snöjour
+
 ## 9. Snöjour – förarens vy (telefon)
 
 Öppnas via knappen **❄️ Snöjour – karta & GPS** under formuläret.

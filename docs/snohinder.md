@@ -18,3 +18,9 @@ Bestämt med Daniel 2026-11-03. Byggt i `snohinder.html`.
 - Förare får lägga till nya hinder på sina egna slingor, men inte ändra eller ta bort. Admin ändrar och tar bort i Rita snözoner.
 - Hindertyper: Brunnslock, Kantsten, Trappa, Övrigt hinder (pollare, stolpe, låg grind, refug, sten …).
 - Fotot sparas i Drive (mappen Snö-hinder) och visas för förarna när de trycker på hindret.
+
+## Zoner (bara admin, i Rita snözoner)
+- **📍 Punkt där jag står**: GPS-medelvärde i 5 s, läggs till som nästa hörn (eller som punkt för markörer). Gå runt ytan hörn för hörn.
+- **💡 Förslag från kartan** (OpenStreetMap inom kartbilden): parkeringar → Maskinzon, gångvägar och trappor → Handskottning (2 m resp. 1,5 m breda). Redan ritade ytor föreslås inte igen. Admin tar med eller avvisar.
+- **🏔️ Snöupplag**: punkt med anteckning, där förarna får lägga snön.
+- Inte cm-vetenskap: förarna får tänka själva på plats.

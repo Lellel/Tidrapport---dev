@@ -681,7 +681,7 @@ function handleSickReport(data) {
 // Fliken "Snözoner" skapas automatiskt. Geometri sparas som JSON [[lat,lng],...].
 // ==========================================
 const SNOW_HEADERS = ["Zon-ID", "Slinga", "Ordning", "Fastighet/Adress", "Typ", "Geometri (JSON)", "Yta (m2)", "Anteckning", "Uppdaterad av", "Uppdaterad"];
-const SNOW_TYPES = ["maskin", "hand", "stracka", "kantsten", "lucka", "trappa", "hinder"];
+const SNOW_TYPES = ["maskin", "hand", "stracka", "kantsten", "lucka", "trappa", "hinder", "upplag"];
 const SNOW_MARKERS = ["kantsten", "lucka", "trappa", "hinder"];
 // Kolumner efter de tio första: fotot på hindret och hur säker GPS:en var när det lades ut
 const SNOW_EXTRA = ["Foto (Drive-ID)", "GPS-noggrannhet (m)"];

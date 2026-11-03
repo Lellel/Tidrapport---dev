@@ -18,7 +18,8 @@ const SNO_TYPES = {
   kantsten: { label: 'Kantsten',      icon: '⚠️', kind: 'marker' },
   lucka:    { label: 'Brunnslock',    icon: '🛑', kind: 'marker' },
   trappa:   { label: 'Trappa',        icon: '🪜', kind: 'marker' },
-  hinder:   { label: 'Övrigt hinder', icon: '❗', kind: 'marker' }
+  hinder:   { label: 'Övrigt hinder', icon: '❗', kind: 'marker' },
+  upplag:   { label: 'Snöupplag',     icon: '🏔️', kind: 'marker' }
 };
 
 const SNO_TILES = {
@@ -126,4 +127,63 @@ function snoRenderZone(map, zone, onClick) {
 
 function snoSlingor(zones) {
   return [...new Set(zones.map(z => z.slinga).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'sv'));
+}
+
+function snoLineLength(coords) {
+  let m = 0;
+  for (let i = 1; i < coords.length; i++) m += snoDistance(coords[i - 1], coords[i]);
+  return m;
+}
+
+function snoPointInPolygon(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [yi, xi] = poly[i], [yj, xj] = poly[j];
+    if ((yi > pt[0]) !== (yj > pt[0]) && pt[1] < (xj - xi) * (pt[0] - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+// Gör en gångväg (linje) till en smal yta, widthM bred – för handskottning
+function snoBufferLine(coords, widthM) {
+  const lat0 = coords[0][0] * Math.PI / 180;
+  const mLat = 111320, mLng = 111320 * Math.cos(lat0);
+  const xy = coords.map(c => [c[1] * mLng, c[0] * mLat]);
+  const half = widthM / 2, left = [], right = [];
+  xy.forEach((p, i) => {
+    const a = xy[Math.max(0, i - 1)], b = xy[Math.min(xy.length - 1, i + 1)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len * half, ny = dx / len * half;
+    left.push([(p[1] + ny) / mLat, (p[0] + nx) / mLng]);
+    right.push([(p[1] - ny) / mLat, (p[0] - nx) / mLng]);
+  });
+  return left.concat(right.reverse());
+}
+
+// Förslag från OpenStreetMap inom kartutsnittet: parkeringar → plogzon, gångvägar och trappor → handskottning
+async function snoOsmSuggestions(bounds) {
+  const bbox = [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()].map(n => n.toFixed(6)).join(',');
+  const q = `[out:json][timeout:20];(way["amenity"="parking"](${bbox});way["highway"~"^(footway|steps|pedestrian|path)$"](${bbox}););out geom;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  if (!res.ok) throw new Error('Kartdatan svarade inte (HTTP ' + res.status + ').');
+  const json = await res.json();
+  const out = [];
+  (json.elements || []).forEach(el => {
+    const line = (el.geometry || []).map(g => [g.lat, g.lon]);
+    if (line.length < 2) return;
+    const t = el.tags || {};
+    if (t.amenity === 'parking') {
+      const poly = line.slice(0, line[0][0] === line[line.length - 1][0] && line[0][1] === line[line.length - 1][1] ? -1 : undefined);
+      if (poly.length < 3) return;
+      out.push({ type: 'maskin', coords: poly, icon: '🅿️', what: t.name ? 'Parkering ' + t.name : 'Parkering',
+        size: Math.round(snoGeodesicArea(poly)).toLocaleString('sv-SE') + ' m²', areaM2: snoGeodesicArea(poly) });
+    } else {
+      const steps = t.highway === 'steps';
+      const poly = snoBufferLine(line, steps ? 1.5 : 2);
+      out.push({ type: 'hand', coords: poly, icon: steps ? '🪜' : '🚶', what: steps ? 'Trappa' : 'Gångväg',
+        size: Math.round(snoLineLength(line)) + ' m', areaM2: snoGeodesicArea(poly) });
+    }
+  });
+  return out;
 }
