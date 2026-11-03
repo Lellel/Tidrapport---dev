@@ -49,6 +49,8 @@ a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding:
 .orbwrap { width: 54px; display: flex; flex-direction: column; align-items: center; gap: 3px; touch-action: none; user-select: none; }
 .orb { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff; position: relative;
   background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.55), rgba(255,255,255,0) 42%), var(--c, #0284c7); box-shadow: inset 0 -4px 8px rgba(0,0,0,.25), 0 3px 8px rgba(0,0,0,.35); }
+.orb.av { background-size: cover; background-position: center; box-shadow: 0 0 0 2px var(--c, #0284c7), 0 3px 8px rgba(0,0,0,.35); }
+.bar .mini i.av { background-size: cover; background-position: center; box-shadow: 0 0 0 1px rgba(255,255,255,.7); }
 .orb.part::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--busy); border-right-color: var(--busy); }
 .orbwrap small { font-size: 10px; color: var(--muted); max-width: 54px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .busylist { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
@@ -190,7 +192,7 @@ const spanText = (job) => { const s = segments(job); if (!s.length) return 'ej i
   return s[0].date === s[s.length - 1].date ? f(s[0]) + ' ' + hh(s[0].from) + '–' + hh(s[0].to) : f(s[0]) + ' ' + hh(s[0].from) + ' – ' + f(s[s.length - 1]) + ' ' + hh(s[s.length - 1].to); };
 
 // ===== Data =====
-let resources = [], resById = {}, jobs = [];
+let resources = [], resById = {}, jobs = [], avatars = {};
 let view = 'person', zoom = 2;
 let rangeStart = mondayOf(new Date());
 const ZOOMS = [ { days: 2, label: 'Timmar' }, { days: 4, label: 'Dag' }, { days: 7, label: 'Vecka' }, { days: 35, label: 'Månad' } ];
@@ -200,6 +202,18 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<'
 const initials = (n) => String(n || '?').split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
 const colorOf = (r) => r?.kind === 'equipment' ? '#a16207' : r?.kind === 'machine' ? '#b45309' : (String(r?.ownerCompany || '').includes('kla') ? '#16a34a' : '#0284c7');
 const orbIcon = (r) => r?.kind === 'equipment' ? '🛠️' : r?.kind === 'machine' ? '🚜' : initials(r?.name);
+// Kula: avataren om personen har en, annars initialer/ikon på färg
+const cssUrl = (u) => "url('" + String(u).replace(/['"\\\n<>]/g, '') + "')"; // enkla citattecken – står i ett style="…"-attribut
+function orbHtml(r, cls = '') {
+  const name = r?.name || '';
+  const av = r?.kind === 'person' || !r ? avatars[name] : '';
+  return av ? `<div class="orb av ${cls}" style="--c:${colorOf(r)};background-image:${cssUrl(av)}" aria-label="${esc(name)}"></div>`
+            : `<div class="orb ${cls}" style="--c:${colorOf(r)}">${esc(orbIcon(r || { name }))}</div>`;
+}
+function miniHtml(p) {
+  const r = resById[p], av = (!r || r.kind === 'person') ? avatars[p] : '';
+  return av ? `<i class="av" title="${esc(p)}" style="background-image:${cssUrl(av)}"></i>` : `<i title="${esc(p)}">${esc(r?.kind === 'person' || !r ? initials(p) : orbIcon(r))}</i>`;
+}
 
 function setStatus(t, err) { const s = $('status'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
 let toastT;
@@ -215,6 +229,8 @@ async function load() {
     jobs = (res.jobs || []).map(j => ({ ...j, assigned: (j.assigned || []).map(String) }));
     setStatus('');
     render();
+    // Avatarerna hämtas efteråt – kulorna visar initialer tills de kommer
+    snoApi({ action: 'getAvatars' }).then(a => { if (a.status === 'success') { avatars = a.avatars || {}; render(); } }).catch(() => {});
   } catch (e) {
     $('tlin').innerHTML = `<div class="msg">❌ ${esc(e.message)}<br><br>Radarn kräver att du är inloggad som admin.</div>`;
     setStatus('Fel', true);
@@ -328,7 +344,7 @@ function renderTimeline() {
       all.forEach(sg => { if (idx[sg.date] === undefined) return; const last = runs[runs.length - 1];
         if (last && idx[sg.date] === idx[last.endDate] + 1 && last.to >= WORK_START + WORK_HOURS - 0.01 && sg.from <= WORK_START + 0.01) { last.endDate = sg.date; last.to = sg.to; }
         else runs.push({ date: sg.date, endDate: sg.date, from: sg.from, to: sg.to }); });
-      const crew = j.assigned.map(p => `<i title="${esc(p)}">${esc(resById[p]?.kind === 'person' || !resById[p] ? initials(p) : orbIcon(resById[p]))}</i>`).join('');
+      const crew = j.assigned.map(miniHtml).join('');
       runs.forEach(run => {
         const left = xOf(run.date, run.from), width = Math.max(14, xOf(run.endDate, run.to) - left - 2);
         const first = all[0] && all[0].date === run.date, lastSeg = all[all.length - 1] && all[all.length - 1].date === run.endDate;
@@ -337,7 +353,7 @@ function renderTimeline() {
       });
     });
     const r = row.res;
-    return `<div class="row" data-row="${esc(row.key)}"><div class="rlabel">${row.person !== undefined && r ? `<div class="orb" style="--c:${colorOf(r)}">${esc(orbIcon(r))}</div>` : ''}
+    return `<div class="row" data-row="${esc(row.key)}"><div class="rlabel">${row.person !== undefined && r ? orbHtml(r) : ''}
       <span>${esc(row.label)}${row.sub ? `<em>${esc(row.sub)}</em>` : ''}</span></div><div class="cols">${colsHtml}${bars.join('')}</div></div>`;
   }).join('') || `<div class="msg">Inga inplanerade jobb här ännu. Dra ett jobb från orderboken till tidslinjen.</div>`;
   const now = new Date(), nowH = now.getHours() + now.getMinutes() / 60;
@@ -359,7 +375,7 @@ function renderSide() {
     if (!list.length) return '';
     const orbs = list.map(r => { const a = availability(r.name, dates, bm);
       if (a.state === 'busy') { busy.push(`${r.name} – ${a.why}`); return ''; }
-      return `<div class="orbwrap" data-res="${esc(r.name)}" title="${a.state === 'part' ? 'Delvis upptagen' : 'Ledig'}"><div class="orb ${a.state === 'part' ? 'part' : ''}" style="--c:${colorOf(r)}">${esc(orbIcon(r))}</div><small>${esc(r.name)}</small></div>`; }).join('');
+      return `<div class="orbwrap" data-res="${esc(r.name)}" title="${a.state === 'part' ? 'Delvis upptagen' : 'Ledig'}">${orbHtml(r, a.state === 'part' ? 'part' : '')}<small>${esc(r.name)}</small></div>`; }).join('');
     return `<div><h3>${title}</h3><div class="orbs">${orbs || '<small style="color:var(--muted)">Alla upptagna</small>'}</div></div>`;
   }).join('');
   const span = dates.length ? (() => { const a = parseIso(dates[0]), b = parseIso(dates[dates.length - 1]); return `${a.getDate()}/${a.getMonth() + 1}–${b.getDate()}/${b.getMonth() + 1}`; })() : '';
@@ -489,7 +505,7 @@ function drawSheet() {
     <div class="f"><label for="fDate">Startdatum (tomt = orderboken)</label><input id="fDate" type="date" value="${esc(j.startDate)}"></div>
     <label style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><input type="checkbox" id="fWeekend" ${j.weekendWork ? 'checked' : ''} style="width:22px;height:22px"> Helgarbete (räkna även helger och röda dagar)</label>
     <div class="calc">${n} ${n === 1 ? 'person' : 'personer'} · ${segs.length ? `<b>${segs.length} ${segs.length === 1 ? 'arbetsdag' : 'arbetsdagar'}</b> · ${esc(spanText(j))}` : 'i orderboken'}</div>
-    <div class="f"><label>Bemanning – dra in kulor från kulpåsen på jobbet</label><div class="crew">${j.assigned.map(p => `<div class="orbwrap"><div class="orb" style="--c:${colorOf(resById[p])}">${esc(orbIcon(resById[p] || { name: p }))}</div><small>${esc(p)}</small><button data-rm="${esc(p)}">ta bort</button></div>`).join('') || '<small style="color:var(--muted)">Ingen än</small>'}</div></div>
+    <div class="f"><label>Bemanning – dra in kulor från kulpåsen på jobbet</label><div class="crew">${j.assigned.map(p => `<div class="orbwrap">${orbHtml(resById[p] || { name: p, kind: 'person' })}<small>${esc(p)}</small><button data-rm="${esc(p)}">ta bort</button></div>`).join('') || '<small style="color:var(--muted)">Ingen än</small>'}</div></div>
     <div class="actions"><button class="btn primary" id="sSave">Spara</button><button class="btn" id="sCancel">Stäng</button>
       ${j.id && j.startDate ? '<button class="btn" id="sOrder">Till orderboken</button>' : ''}${j.id ? '<button class="btn" id="sDel" style="color:var(--bad)">Ta bort jobbet</button>' : ''}</div>
     <div id="sMsg" style="margin-top:10px;color:var(--bad);font-size:13px"></div>`;

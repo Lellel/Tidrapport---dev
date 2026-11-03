@@ -119,7 +119,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -163,7 +163,7 @@ function doPost(e) {
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
-      "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getKabanossData", "saveKabanossJob"];
+      "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getKabanossData", "saveKabanossJob", "getAvatars"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -204,6 +204,16 @@ function doPost(e) {
     if (action === "radarSaveJob") return handleRadarSaveJob(data, auth);
     if (action === "radarDeleteJob") return handleRadarDeleteJob(data, auth);
     if (action === "getNotices") return handleGetNotices(auth);
+    if (action === "getAvatars") {
+      // Små avatarer (kolumn F i Personal) för radarns kulor. Hämtas separat så att planeringen laddar snabbt.
+      const out = {};
+      const st = getStaffSheet();
+      if (st) st.getDataRange().getValues().slice(1).forEach(r => {
+        const v = String(r[5] || "");
+        if (r[0] && inScope(auth, r[6]) && (/^data:image\/(jpeg|png);base64,/.test(v) && v.length < 60000 || /^https:\/\//.test(v))) out[String(r[0]).trim()] = v;
+      });
+      return createJsonResponse({ status: "success", avatars: out });
+    }
     if (action === "saveMyAvatar") {
       const img = String(data.imageBase64 || "");
       if (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+\/=]+$/.test(img) || img.length > 50000) return createJsonResponse({ status: "error", message: "Bilden är för stor eller ogiltig." });
