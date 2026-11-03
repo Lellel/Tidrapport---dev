@@ -464,12 +464,45 @@
         const res = await snoApi({ action: 'getProperties' });
         if (res.status !== 'success') return;
         properties = res.properties || [];
-        document.getElementById('fastighet-list').innerHTML = properties.map(p => `<option value="${snoEscape(propLabel(p))}">`).join('');
+        renderPropList();
         const want = new URLSearchParams(location.search).get('fastighet');
         if (want) { const p = properties.find(x => x.id === want); if (p) { document.getElementById('f-fastighet').value = propLabel(p); chooseProperty(propLabel(p)); } }
       } catch (err) { /* utan nät: fastighetslistan saknas, resten fungerar */ }
     }
-    const propLabel = (p) => p.address + (p.ort ? ', ' + p.ort : '') + (p.maps && p.maps.length ? ' 📄' : '');
+    const propLabel = (p) => p.address + (p.ort ? ', ' + p.ort : '') + (p.maps && p.maps.length ? ' 📄' : '') + (p.zoneStatus === 'klar' ? ' ✅' : p.zoneStatus === 'senare' ? ' ⏭' : '');
+    // Genomgångens ordning: område, sedan adress
+    const propOrder = () => [...properties].sort((a, b) => (a.omrade || a.ort || '').localeCompare(b.omrade || b.ort || '', 'sv') || a.address.localeCompare(b.address, 'sv'));
+
+    function renderPropList() {
+      document.getElementById('fastighet-list').innerHTML = properties.map(p => `<option value="${snoEscape(propLabel(p))}">`).join('');
+    }
+
+    // ✅ Klar / ⏭ Senare -> nästa som inte är klar (de överhoppade kommer sist)
+    async function markAndNext(status) {
+      const p = currentProp;
+      try {
+        const res = await snoApi({ action: 'setPropertyZoneStatus', id: p.id, zoneStatus: status });
+        if (res.status !== 'success') throw new Error(res.message);
+        p.zoneStatus = status;
+      } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'Kunde inte spara.')); return; }
+      renderPropList();
+      const list = propOrder(), i = list.findIndex(x => x.id === p.id);
+      const after = list.slice(i + 1).concat(list.slice(0, i + 1));
+      const next = after.find(x => !x.zoneStatus) || after.find(x => x.zoneStatus === 'senare' && x.id !== p.id);
+      if (!next) { setStatus('🎉 Alla fastigheter är klara!'); renderKkCard(); return; }
+      document.getElementById('f-fastighet').value = propLabel(next);
+      document.getElementById('f-slinga').value = '';
+      document.getElementById('f-note').value = '';
+      clearSuggestionLayers(); suggestions = []; document.getElementById('sugg-list').innerHTML = '';
+      chooseProperty(propLabel(next));
+      setStatus(`${status === 'klar' ? '✅ ' + snoEscape(p.address) + ' klar.' : '⏭ ' + snoEscape(p.address) + ' tas senare.'} Nu: <b>${snoEscape(next.address)}</b>`);
+    }
+
+    function progressHtml() {
+      const done = properties.filter(x => x.zoneStatus === 'klar').length, later = properties.filter(x => x.zoneStatus === 'senare').length;
+      return `<div class="status" style="font-size:12px">Genomgång: <b>${done} av ${properties.length}</b> klara${later ? ` · ${later} senare` : ''}</div>
+        <div class="kk-row"><button class="ok" onclick="markAndNext('klar')">✅ Klar – nästa</button><button onclick="markAndNext('senare')">⏭ Senare – nästa</button></div>`;
+    }
 
     function chooseProperty(label) {
       const p = properties.find(x => propLabel(x) === label);
@@ -610,7 +643,7 @@
       const m = kkMap();
       if (!currentProp) { el.style.display = 'none'; return; }
       el.style.display = 'flex';
-      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>`; return; }
+      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${progressHtml()}`; return; }
       el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta</span><small>${snoEscape(currentProp.kund || '')}</small></div>
         ${currentProp.maps.length > 1 ? `<div class="chips">${currentProp.maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
         <div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); kk.hidden=false; kk.layer && kk.layer.update()"></div>
@@ -619,7 +652,8 @@
           <button onclick="kk.hidden=!kk.hidden; kk.layer && kk.layer.update(); renderKkCard()">${kk.hidden ? '👁 Visa' : '🙈 Dölj'}</button>
         </div>
         <button id="kk-ai" onclick="analyzeKk()" ${kk.adjusting && !kk.dirty && !m.place ? 'disabled' : ''}>🤖 Föreslå zoner från kundkartan</button>
-        ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}`;
+        ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}
+        ${progressHtml()}`;
     }
 
     function dropSuggestion(i) { suggestions.splice(i, 1); renderSuggestions(); }

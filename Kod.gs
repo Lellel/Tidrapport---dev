@@ -165,7 +165,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "sendSms", "importProperties",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
       "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
@@ -294,6 +294,7 @@ function doPost(e) {
     if (action === "addPropertyPhoto") return handleAddPropertyPhoto(data.id, data.imageBase64);
     if (action === "addPropertyMap") return handleAddPropertyMap(data);
     if (action === "savePropertyMapPlace") return handleSavePropertyMapPlace(data);
+    if (action === "setPropertyZoneStatus") return handleSetPropertyZoneStatus(data);
     if (action === "analyzePropertyMap") return handleAnalyzePropertyMap(data);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
@@ -1022,7 +1023,7 @@ const SIZES = ["stor", "liten"];
 
 function getFleetSheet() { return getSheetOrCreate(getSS(), "Traktorer", FLEET_HEADERS); }
 // Kolumner efter de elva första: kunden, området (förslag på slinga) och kundens kartor (snöunderlaget)
-const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)"];
+const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus"];
 function getPropertySheet() {
   const sheet = getSheetOrCreate(getSS(), "Fastigheter", PROPERTY_HEADERS.concat(PROPERTY_EXTRA));
   const head = sheet.getRange(1, PROPERTY_HEADERS.length + 1, 1, PROPERTY_EXTRA.length).getValues()[0];
@@ -1179,7 +1180,8 @@ function propertyFromRow(row) {
     note: String(row[9] || ""),
     kund: String(row[11] || ""),
     omrade: String(row[12] || ""),
-    maps: propertyMaps(row).map(m => ({ id: m.id, label: m.label || "", place: m.place || null, url: driveImageUrl(m.id, 2000) }))
+    maps: propertyMaps(row).map(m => ({ id: m.id, label: m.label || "", place: m.place || null, url: driveImageUrl(m.id, 2000) })),
+    zoneStatus: String(row[14] || "")
   };
 }
 
@@ -1275,7 +1277,7 @@ function handleImportProperties(rows) {
     ids.push(id);
     out.push([id, address, ort, lat, lng,
       SIZES.indexOf(r.size) !== -1 ? r.size : "", "FALSE", r.priority ? "TRUE" : "FALSE", "[]", sanitize(r.note).slice(0, 500), nowStamp(),
-      sanitize(r.kund).slice(0, 100), sanitize(r.omrade).slice(0, 60), "[]"]);
+      sanitize(r.kund).slice(0, 100), sanitize(r.omrade).slice(0, 60), "[]", ""]);
   });
   if (out.length) sheet.getRange(sheet.getLastRow() + 1, 1, out.length, out[0].length).setValues(out);
   return createJsonResponse({ status: "success", added: out.length, skipped: skipped, notFound: notFound, ids: ids });
@@ -1309,6 +1311,16 @@ function handleAddPropertyMap(data) {
   const list = propertyMaps(fresh.row).concat([{ id: fileId, label: label, place: null }]);
   sheet.getRange(fresh.rowNumber, 14).setValue(JSON.stringify(list));
   return createJsonResponse({ status: "success", map: { id: fileId, label: label, place: null, url: driveImageUrl(fileId, 2000) } });
+}
+
+// Genomgången i Rita snözoner: "klar" eller "senare" (hoppa över och ta senare)
+function handleSetPropertyZoneStatus(data) {
+  const sheet = getPropertySheet();
+  const hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const st = ["klar", "senare", ""].indexOf(data.zoneStatus) !== -1 ? data.zoneStatus : "";
+  sheet.getRange(hit.rowNumber, 15).setValue(st);
+  return createJsonResponse({ status: "success", zoneStatus: st });
 }
 
 function handleSavePropertyMapPlace(data) {
