@@ -148,6 +148,19 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Ekonom på Klaryta ser bara Klarytas pass/offerter/kunder i Ekonomi – och tvärtom för ekonom på LPV
 - [ ] Bara admin på LPV kan ge admin- och ekonombehörighet (även i Klaryta)
 
+## 1c. Välkomstpaket (kräver ny Kod.gs)
+- [ ] Lägg till en testperson som **Admin** med din mobil och e-post → **💾 Lägg till & skicka välkomstpaket**
+- [ ] SMS: inloggningslänk + hemskärmstips + "mejl kommer" (avsändare LPV/Klaryta efter bolag)
+- [ ] Mejl: logga, knappen **💻 Logga in på den här datorn** och länkar till kontorsdelarna
+- [ ] Öppna knappen på datorn → "Inloggad som …" → Radarn/Offerter fungerar direkt
+- [ ] Öppna samma knapp igen → "Länken har redan använts"
+- [ ] **Ekonom**: mejlet nämner bara Ekonomi. **UE**: bara SMS med tre steg, inget mejl
+- [ ] Klaryta-admin: mejlet saknar Inställningar och HubSpot
+- [ ] Logga in som UE i telefonen → **ÄTA-knappen syns inte**
+- [ ] I telefonen: **💻 Logga in på en dator** → mejl till din egen adress → fungerar en gång
+- [ ] Fliken **SMS-logg**: nyckeln syns som `key=•••`
+- [ ] Fliken **Datorlänkar**: bara hash, ingen läsbar kod
+
 ## 2. Spärra en person
 
 - [ ] Välj en testperson → **🔑 Spärra & skapa ny länk** → bekräfta

@@ -154,6 +154,7 @@ function doPost(e) {
     }
     // Kundens offert/ÄTA: skyddas av en signerad kod i länken i stället för nyckel
     if (action === "getOfferForCustomer") return handleGetOfferForCustomer(data);
+    if (action === "redeemPcLink") return handleRedeemPcLink(data);
     if (action === "respondOffer") return handleRespondOffer(data);
 
     // --- INLOGGNING: personlig nyckel (eller gamla gemensamma nyckeln under övergången) ---
@@ -161,7 +162,7 @@ function doPost(e) {
     if (!auth) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
     }
-    const adminOnly = ["getUsers", "getUserKey", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
+    const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
@@ -196,7 +197,7 @@ function doPost(e) {
     if (data.site) rememberSiteUrl(data.site);
 
     // --- ROUTER ---
-    if (action === "me") return createJsonResponse({ status: "success", user: auth.user, company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist });
+    if (action === "me") return createJsonResponse({ status: "success", user: auth.user, role: auth.role || "", company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist });
     // Offerter: Klaryta-admin får bara röra Klarytas offerter
     if ((action === "sendOffer" || action === "cancelOffer") && !auth.isSuper) {
       const hit = findRowById(getOfferSheet(), data.id);
@@ -240,6 +241,14 @@ function doPost(e) {
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
     if (action === "getUsers") return handleGetUsers(auth);
+    if (action === "sendWelcomeKit") {
+      if (!auth.isSuper) {
+        const st = findStaffRow(getStaffSheet(), data.targetUser);
+        if (!st || !inScope(auth, st.row[6]) || isAdminRow(st.row) || isEconomistRow(st.row)) return createJsonResponse({ status: "error", message: "Åtkomst nekad: bara admin på LPV kan skicka till den personen." });
+      }
+      return handleSendWelcomeKit(data, auth);
+    }
+    if (action === "sendPcLink") return handleSendPcLink(data, auth);
     if (action === "getUserKey") {
       if (!auth.isSuper) {
         const st = findStaffRow(getStaffSheet(), data.targetUser);
@@ -365,6 +374,7 @@ function readStaffAuth(name) {
     key: String(hit.row[KEY_COLUMN - 1] || ""),
     isAdmin: isAdminRow(hit.row),
     isEconomist: isEconomistRow(hit.row),
+    role: String(hit.row[3] || "").trim(),
     company: companyOf(hit.row[6]),
     quarantined: String(hit.row[7] || "").toLowerCase() === "karantän"
   };
@@ -390,7 +400,7 @@ function authenticate(data) {
     const info = readStaffAuth(data.user);
     if (info && info.key && info.key === String(data.key) && !info.quarantined) {
       const company = info.company || "LPV";
-      return { user: info.user, isAdmin: info.isAdmin, isEconomist: !!info.isEconomist, company: company, isSuper: info.isAdmin && company === "LPV", legacy: false };
+      return { user: info.user, isAdmin: info.isAdmin, isEconomist: !!info.isEconomist, role: info.role || "", company: company, isSuper: info.isAdmin && company === "LPV", legacy: false };
     }
     return null;
   }
@@ -437,6 +447,178 @@ function handleAddStaff(data) {
   sheet.appendRow(row);
   clearStaffAuthCache(name);
   return createJsonResponse({ status: "success", user: name, key: key, role: role });
+}
+
+// ==========================================
+// VÄLKOMSTPAKET & ENGÅNGSLÄNK FÖR DATORN (se docs/onboarding.md)
+// SMS: personlig inloggningslänk (telefon och iPad). Mejl: engångslänk för datorn + kontorsdelarna.
+// Engångslänken gäller en gång i 7 dagar; bara en hash av koden sparas i fliken Datorlänkar.
+// ==========================================
+const PC_LINK_HEADERS = ["Skapad", "Användare", "Kod (hash)", "Går ut", "Använd", "Skapad av"];
+const PC_LINK_DAYS = 7;
+
+function pcLinkHash(token) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8));
+}
+
+function siteUrlFor(data) {
+  const url = String((data && data.site) || "");
+  if (/^https:\/\/[a-z0-9-]+\.github\.io\/[A-Za-z0-9._-]+\/$/.test(url)) return url;
+  return PropertiesService.getScriptProperties().getProperty("SITE_URL") || DEFAULT_SITE_URL;
+}
+
+// Kalkylarket gör om "2026-11-10 14:00" till ett datum – jämför alltid i millisekunder
+function stampMs(v) {
+  if (v instanceof Date) return v.getTime();
+  const t = Date.parse(String(v || "").replace(" ", "T"));
+  return isNaN(t) ? 0 : t;
+}
+
+function createPcLink(user, createdBy, site) {
+  const token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "").slice(0, 16);
+  const expires = new Date(Date.now() + PC_LINK_DAYS * 86400000);
+  getSheetOrCreate(getSS(), "Datorlänkar", PC_LINK_HEADERS).appendRow([nowStamp(), sanitize(user), pcLinkHash(token),
+    Utilities.formatDate(expires, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm"), "", sanitize(createdBy)]);
+  return site + "index.html?dator=" + token;
+}
+
+// Öppen åtgärd: datorn byter engångskoden mot personens inloggning
+function handleRedeemPcLink(data) {
+  const token = String(data.token || "").replace(/[^A-Za-z0-9]/g, "");
+  const fail = { status: "error", message: "Länken har redan använts eller gått ut. Öppna appen i telefonen och tryck 💻 Logga in på en dator – eller be admin om ett nytt välkomstpaket." };
+  if (token.length < 30) return createJsonResponse(fail);
+  const sheet = getSS().getSheetByName("Datorlänkar");
+  if (!sheet) return createJsonResponse(fail);
+  const hash = pcLinkHash(token);
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][2]) !== hash) continue;
+    if (rows[i][4] || stampMs(rows[i][3]) < Date.now()) return createJsonResponse(fail);
+    const info = readStaffAuth(rows[i][1]);
+    if (!info || !info.key || info.quarantined) return createJsonResponse({ status: "error", message: "Inloggningen är spärrad. Kontakta admin." });
+    sheet.getRange(i + 1, 5).setValue(nowStamp());
+    return createJsonResponse({ status: "success", user: info.user, key: info.key, isAdmin: info.isAdmin, company: info.company });
+  }
+  return createJsonResponse(fail);
+}
+
+function maskEmail(email) {
+  const m = String(email).match(/^(.)[^@]*(@.+)$/);
+  return m ? m[1] + "•••" + m[2] : "";
+}
+
+// Personen skickar själv en ny engångslänk till sin egen mejl (från telefonen)
+function handleSendPcLink(data, auth) {
+  const hit = findStaffRow(getStaffSheet(), auth.user);
+  const email = hit ? String(hit.row[1] || "").trim() : "";
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return createJsonResponse({ status: "error", message: "Det finns ingen e-post registrerad på dig. Be admin lägga in den i Personal." });
+  const sheet = getSheetOrCreate(getSS(), "Datorlänkar", PC_LINK_HEADERS);
+  const recent = sheet.getDataRange().getValues().slice(1).filter(r => String(r[1]) === auth.user && stampMs(r[0]) > Date.now() - 86400000).length;
+  if (recent >= 5) return createJsonResponse({ status: "error", message: "Du har redan fått fem länkar senaste dygnet. Försök igen i morgon." });
+  const brand = companyOf(hit.row[6]) === "Klaryta" ? "klaryta" : "lpv";
+  const link = createPcLink(auth.user, auth.user, siteUrlFor(data));
+  MailApp.sendEmail({ to: email, subject: "💻 Logga in på datorn", name: brandDisplayName(brand),
+    htmlBody: welcomeMailFrame(brand, "Hej " + firstName(auth.user) + "!",
+      "<p>Här är din länk för att logga in på en dator. Den fungerar <b>en gång</b> och i <b>" + PC_LINK_DAYS + " dagar</b>.</p>" +
+      pcButtonHtml(link) + safariTipHtml() + "<p style=\"color:#64748b;font-size:13px\">Bad du inte om länken? Då kan du strunta i det här mejlet.</p>") });
+  return createJsonResponse({ status: "success", sentTo: maskEmail(email) });
+}
+
+function firstName(name) { return String(name || "").trim().split(/\s+/)[0] || "kollega"; }
+function brandDisplayName(brand) { return brand === "klaryta" ? "Klaryta" : "LPV"; }
+function escHtml(t) { return String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+function pcButtonHtml(link) {
+  return '<p style="margin:22px 0"><a href="' + escHtml(link) + '" style="background:#0a6fe0;color:#fff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;display:inline-block">💻 Logga in på den här datorn</a></p>';
+}
+
+function safariTipHtml() {
+  return '<p style="color:#64748b;font-size:13px">Tips för Mac: Safari loggar ut webbplatser man inte besökt på en vecka. Lägg appen i Dock (<b>Arkiv → Lägg till i Dock</b>) eller använd Chrome, så förblir du inloggad.</p>';
+}
+
+function welcomeMailFrame(brand, heading, inner) {
+  return '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;color:#0f172a;line-height:1.5">' + brandLogoHtml(brand, 48) +
+    '<h2 style="margin:8px 0 12px">' + escHtml(heading) + '</h2>' + inner + '</div>';
+}
+
+// Kontorsdelarna per roll. LPV-admin når allt; Klaryta-admin bara sina delar.
+function welcomeSections(roles, isSuper, site) {
+  const items = [];
+  const add = (icon, title, page, text) => items.push('<tr><td style="padding:8px 10px 8px 0;font-size:22px;vertical-align:top">' + icon + '</td><td style="padding:8px 0">' +
+    '<a href="' + escHtml(site + page) + '" style="font-weight:700;color:#0a6fe0;text-decoration:none">' + title + '</a><br><span style="color:#475569;font-size:14px">' + text + '</span></td></tr>');
+  if (roles.indexOf("admin") !== -1) {
+    add("🔭", "Radarn", "radar.html", "Planera jobben: dra in personal, maskiner och verktyg på tidslinjen. Personalen får notis när något ändras.");
+    add("📄", "Offerter &amp; ÄTA", "offerter.html", "Skapa och skicka offerter. Kunden godkänner med en länk.");
+    add("💼", "Kunder", "offerter.html?view=customers", "Kundregistret, med import från Fortnox" + (isSuper ? " och HubSpot." : "."));
+    add("🚜", "Snöplanering", "planering.html", "Fastigheter och traktorer.");
+    add("❄️", "Rita snözoner", "snozoner.html", "Plogzoner, handskottning och snöupplag – med förslag från kartan. Förarna lägger ut hinder i Snöjour.");
+    add("💰", "Ekonomi", "ekonomi.html", "Fakturaunderlag per kund och period, markera fakturerat, PDF.");
+    add("👥", "Personal", "index.html", "Lägg till personer och skicka välkomstpaket: startsidan → Administratör.");
+    if (isSuper) add("⚙️", "Inställningar", "offerter.html", "Priser, texter och företagsuppgifter: Offerter → Inställningar.");
+  } else if (roles.indexOf("ekonom") !== -1) {
+    add("💰", "Ekonomi", "ekonomi.html", "Fakturaunderlaget: alla rapporterade timmar per kund och period. Markera fakturerat och ta ut PDF.");
+  }
+  return items.length ? '<table style="border-collapse:collapse;margin:8px 0 16px">' + items.join("") + "</table>" : "";
+}
+
+function staffRoles(row) {
+  const roles = [];
+  const roleText = String(row[3] || "").trim().toLowerCase();
+  if (isAdminRow(row)) roles.push("admin");
+  if (isEconomistRow(row) || roleText === "ekonom") roles.push("ekonom");
+  if (roleText === "ue") roles.push("ue");
+  if (!roles.length) roles.push("forare");
+  return roles;
+}
+
+function handleSendWelcomeKit(data, auth) {
+  const sheet = getStaffSheet();
+  const hit = findStaffRow(sheet, data.targetUser);
+  if (!hit) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
+  const row = hit.row, name = String(row[0]), roles = staffRoles(row);
+  const company = companyOf(row[6]), brand = company === "Klaryta" ? "klaryta" : "lpv";
+  const isSuper = roles.indexOf("admin") !== -1 && company === "LPV";
+  const office = roles.indexOf("admin") !== -1 || roles.indexOf("ekonom") !== -1;
+  const site = siteUrlFor(data);
+  let key = String(row[KEY_COLUMN - 1] || "");
+  if (!key) { key = Utilities.getUuid().replace(/-/g, ""); sheet.getRange(hit.rowNumber, KEY_COLUMN).setValue(key); clearStaffAuthCache(name); }
+  const loginUrl = site + "index.html?user=" + encodeURIComponent(name) + "&key=" + key + (roles.indexOf("admin") !== -1 ? "&admin=true" : "");
+  const phone = String(row[2] || "").trim(), email = String(row[1] || "").trim();
+  const result = { status: "success", user: name, roles: roles, sms: "", mail: "" };
+
+  // --- SMS ---
+  let sms = "Hej " + firstName(name) + "! Välkommen till " + brandDisplayName(brand) + "s app. Din personliga inloggning (dela den inte): " + loginUrl +
+    "\nLägg den på hemskärmen: öppna länken i Safari → Dela → Lägg till på hemskärmen. Samma länk fungerar på iPad.";
+  if (roles.indexOf("ue") !== -1) sms += "\nSå jobbar du: 1) Dina jobb syns under Planerade. 2) Logga tiden på jobbet. 3) Gör egenkontrollen och fota.";
+  if (office) sms += "\nInloggning för datorn och kontorsdelarna kommer i ett mejl.";
+  result.smsText = sms;
+  if (!phone) result.sms = "saknar mobilnummer";
+  else {
+    const r = sendSmsViaElks(phone, sms, company, "välkomstpaket", auth.user);
+    result.sms = r.ok ? "skickat" : (r.code === "not_configured" ? "not_configured" : "fel: " + r.message);
+  }
+
+  // --- Mejl (admin och ekonom) ---
+  if (!office) result.mail = "behövs inte";
+  else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) result.mail = "saknar e-post";
+  else {
+    try {
+      const link = createPcLink(name, auth.user, site);
+      const intro = roles.indexOf("admin") !== -1
+        ? "<p>Du är nu <b>admin</b>" + (isSuper ? "" : " för " + escHtml(company)) + " i appen. Inloggningen till telefonen och iPaden har du fått i ett SMS. Här är inloggningen för datorn och en snabb rundtur.</p>"
+        : "<p>Du har nu tillgång till <b>ekonomin</b> i appen. Inloggningen till telefonen har du fått i ett SMS. Här är inloggningen för datorn.</p>";
+      MailApp.sendEmail({ to: email, subject: "Välkommen – så kommer du igång", name: brandDisplayName(brand),
+        htmlBody: welcomeMailFrame(brand, "Välkommen, " + firstName(name) + "!", intro +
+          "<p><b>1. Logga in på datorn</b> – länken fungerar en gång och i " + PC_LINK_DAYS + " dagar:</p>" + pcButtonHtml(link) +
+          "<p><b>2. Det här når du</b> (öppna länkarna på samma dator efter steg 1):</p>" + welcomeSections(roles, isSuper, site) +
+          '<p style="font-size:14px">Mer hjälp finns i <a href="' + escHtml(site + "guide.html") + '" style="color:#0a6fe0">guiden</a>. Behöver du logga in på en annan dator senare: tryck <b>💻 Logga in på en dator</b> i appen på telefonen.</p>' +
+          safariTipHtml()) });
+      result.mail = "skickat";
+    } catch (err) {
+      result.mail = "fel: " + err.message;
+    }
+  }
+  return createJsonResponse(result);
 }
 
 function getDocSecret() {
@@ -3565,7 +3747,7 @@ function sendSmsViaElks(to, message, company, type, sentBy) {
   }
 
   getSheetOrCreate(getSS(), "SMS-logg", SMS_LOG_HEADERS).appendRow([nowStamp(), number, sender, sanitize(company) || sender, sanitize(type),
-    sanitize(text), result.ok ? result.status : "FEL: " + result.message, result.parts || "", result.cost, sanitize(sentBy), result.id || ""]);
+    sanitize(text).replace(/([?&]key=)[A-Za-z0-9]+/g, "$1•••"), result.ok ? result.status : "FEL: " + result.message, result.parts || "", result.cost, sanitize(sentBy), result.id || ""]);
   return result;
 }
 

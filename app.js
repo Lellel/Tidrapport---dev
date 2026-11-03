@@ -62,6 +62,27 @@ let isSubmitting = false;
 let adminUserList = [];
 let hasFetchedUsers = false;
 
+// Engångslänk för datorn (?dator=KOD från välkomstmejlet): byts mot personens inloggning, sedan laddas sidan om
+(function redeemPcLink() {
+  const token = new URLSearchParams(window.location.search).get('dator');
+  if (!token) return;
+  history.replaceState(null, '', window.location.pathname);
+  document.documentElement.style.visibility = 'hidden';
+  fetch(CONFIG.API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
+    body: JSON.stringify({ action: 'redeemPcLink', token }) })
+    .then(r => r.json())
+    .then(res => {
+      if (res.status !== 'success') throw new Error(res.message || 'Länken fungerade inte.');
+      localStorage.setItem('lpv_user', res.user);
+      localStorage.setItem('lpv_user_name', res.user);
+      localStorage.setItem('lpv_key', res.key);
+      localStorage.setItem('lpv_is_admin', res.isAdmin ? 'true' : 'false');
+      alert(`✅ Inloggad som ${res.user} på den här datorn.`);
+    })
+    .catch(err => alert('❌ ' + (/fetch|network|load/i.test(err.message) ? 'Ingen kontakt med servern. Försök igen.' : err.message)))
+    .finally(() => location.reload());
+})();
+
 // Läs användare och Admin-status från URL / localStorage
 const appUrlParams = new URLSearchParams(window.location.search);
 if (appUrlParams.has('user')) {
@@ -86,6 +107,14 @@ if (appUrlParams.has('key')) {
 window.currentUser = appUrlParams.get('user') || localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || 'Daniel';
 var currentUser = window.currentUser;
 let isAdmin = localStorage.getItem('lpv_is_admin') === 'true';
+// UE lägger inte till ÄTA (de är oftast lösningen på ÄTA) – knappen döljs
+function applyRoleUI() {
+  const ue = (localStorage.getItem('lpv_role') || '').toUpperCase() === 'UE';
+  const ataBtn = document.getElementById('btn-type-ata');
+  if (ataBtn) ataBtn.style.display = ue ? 'none' : '';
+  if (ue && typeof currentJobType !== 'undefined' && currentJobType === 'ata' && typeof setJobType === 'function') setJobType('nya');
+}
+document.addEventListener('DOMContentLoaded', applyRoleUI);
 // Sidomenyn leder bara till admin-sidor: dölj den för förare
 document.body.classList.toggle('has-side-nav', isAdmin);
 // Bolag och behörighet från servern: admin på Klaryta ser inte LPV:s snöplanering m.m.
@@ -96,6 +125,8 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
     const me = await apiPost({ action: 'me' });
     if (me.status !== 'success') return;
     localStorage.setItem('lpv_company', me.company);
+    localStorage.setItem('lpv_role', me.role || '');
+    applyRoleUI();
     localStorage.setItem('lpv_is_super', me.isSuper ? 'true' : 'false');
     document.body.classList.toggle('not-super', !me.isSuper);
     // Admin bestäms av servern (fliken Personal), inte av länken – annars blev man förare på en ny enhet
@@ -806,8 +837,8 @@ async function saveNewPerson() {
   ['new-person-name', 'new-person-phone', 'new-person-email'].forEach(id => { document.getElementById(id).value = ''; });
   msg.textContent = `✅ ${data.user} är tillagd som ${data.role}.`;
   document.getElementById('admin-new-person').style.display = 'none';
-  if (person.phone) adminSendSMS();
-  else alert(`✅ ${data.user} är tillagd. Inget mobilnummer – skicka länken med Mail eller QR.`);
+  if (person.phone || person.email) adminSendWelcomeKit();
+  else alert(`✅ ${data.user} är tillagd. Inget mobilnummer eller e-post – skicka länken med QR.`);
 }
 
 function onAdminUserSelect() {
@@ -892,6 +923,35 @@ async function adminSendSMS() {
   if (res.status === 'success') { alert(`✅ SMS skickat till ${targetUser} från ${res.sender}.`); return; }
   if (res.code === 'not_configured' || confirm('❌ ' + (res.message || 'SMS kunde inte skickas.') + '\n\nÖppna Meddelanden i stället?')) openMessages();
 }
+
+// Välkomstpaket: SMS med inloggningen + mejl med engångslänk för datorn och kontorsdelarna (admin/ekonom)
+async function adminSendWelcomeKit() {
+  const targetUser = document.getElementById('admin-target-user')?.value.trim();
+  if (!targetUser) { alert('Välj en person först.'); return; }
+  let res;
+  try { res = await apiPost({ action: 'sendWelcomeKit', targetUser }); }
+  catch (err) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+  if (res.status !== 'success') { alert('❌ ' + (res.message || 'Kunde inte skicka.')); return; }
+  const roleNames = { admin: 'admin', ekonom: 'ekonom', ue: 'UE', forare: 'förare' };
+  const smsLine = res.sms === 'skickat' ? '📱 SMS: skickat' : res.sms === 'not_configured' ? '📱 SMS: öppnar Meddelanden' : '📱 SMS: ' + res.sms;
+  const mailLine = res.mail === 'behövs inte' ? '' : '\n✉️ Mejl: ' + res.mail;
+  alert(`📦 Välkomstpaket till ${res.user} (${res.roles.map(r => roleNames[r] || r).join(' + ')})\n\n${smsLine}${mailLine}`);
+  if (res.sms === 'not_configured') {
+    const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
+    window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(res.smsText)}`;
+  }
+}
+window.adminSendWelcomeKit = adminSendWelcomeKit;
+
+// Personen skickar själv en engångslänk för datorn till sin egen mejl
+async function sendPcLinkToMe() {
+  if (!confirm('Skicka en inloggningslänk för datorn till din e-post?\n\nLänken fungerar en gång och i 7 dagar.')) return;
+  let res;
+  try { res = await apiPost({ action: 'sendPcLink' }); }
+  catch (err) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+  alert(res.status === 'success' ? `✅ Skickat till ${res.sentTo}. Öppna mejlet på datorn och tryck på knappen.` : '❌ ' + (res.message || 'Kunde inte skicka.'));
+}
+window.sendPcLinkToMe = sendPcLinkToMe;
 
 async function adminSendEmail() {
   const targetUrl = await getAdminTargetUrl();

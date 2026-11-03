@@ -196,6 +196,7 @@
           <button type="button" data-theme-val="night">Natt</button>
         </div>
       </div>
+      <button type="button" class="main-btn" style="grid-column: 1 / -1; margin-top: 10px;" onclick="sendPcLinkToMe()">💻 Logga in på en dator</button>
 
     </div>
 
@@ -241,7 +242,7 @@
               </select></div>
             <div class="admin-input-row"><span class="admin-label">Bolag</span><input id="new-person-company" class="admin-val-input" list="new-person-companies" value="LPV" placeholder="LPV, Klaryta eller UE-firma"></div>
             <datalist id="new-person-companies"><option value="LPV"><option value="Klaryta"></datalist>
-            <button type="button" class="admin-btn" style="width:100%; margin-top:6px;" onclick="saveNewPerson()">💾 Lägg till &amp; skicka länk</button>
+            <button type="button" class="admin-btn" style="width:100%; margin-top:6px;" onclick="saveNewPerson()">💾 Lägg till &amp; skicka välkomstpaket</button>
             <div id="new-person-msg" style="font-size:12px; margin-top:6px; color:var(--text-muted);"></div>
           </div>
           <div class="admin-input-row">
@@ -252,6 +253,7 @@
             <span class="admin-label">Öppna i admin-läge</span>
             <input type="checkbox" id="admin-target-is-admin" onchange="updateAdminTargetLink()">
           </div>
+          <button type="button" class="admin-btn" style="width:100%; margin:4px 0 8px;" onclick="adminSendWelcomeKit()">📦 Skicka välkomstpaket</button>
           <div class="admin-actions-grid">
             <button type="button" class="admin-btn" onclick="adminSendSMS()">💬 SMS</button>
             <button type="button" class="admin-btn" onclick="adminSendEmail()">✉️ Mail</button>

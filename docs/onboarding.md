@@ -1,6 +1,6 @@
 # Välkomstpaket för nya användare
 
-Bestämt med Daniel 2026-11-03. Inte byggt än.
+Bestämt med Daniel 2026-11-03. Byggt (Kod.gs: handleSendWelcomeKit, handleRedeemPcLink, handleSendPcLink).
 
 ## Knappen
 **📦 Skicka välkomstpaket** när en person läggs till eller får en ny roll. Rollen och bolaget avgör vad som skickas. Har personen flera roller får hen allt i samma SMS och mejl.
@@ -35,3 +35,9 @@ Bestämt med Daniel 2026-11-03. Inte byggt än.
 ## Kräver
 - Mobilnummer (SMS) och e-post (mejl) i Personal.
 - 46elks för SMS (finns), e-post via Google (finns).
+
+## Säkerhet
+- Nyckeln maskeras (`key=•••`) i fliken SMS-logg.
+- Fliken Datorlänkar sparar bara en hash av engångskoden.
+- Klaryta-admin kan bara skicka till personal i Klaryta (inte till admin eller ekonom).
+- Själv-länken: högst fem per dygn.
