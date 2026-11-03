@@ -92,6 +92,21 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Signerad tillbudsrapport → mejl till arbetsledningen med PDF
 - [ ] Öppna en kontroll och stäng utan att ändra → ingen tom kontroll skapas
 
+## 0f. Radarn (paddan, kräver ny Kod.gs)
+
+- [ ] Öppna radarn från sidomenyn (🔭) – helst från hemskärmsappen för helskärm
+- [ ] Växla 👷 Personer / 🏠 Kunder; zooma Timmar/Dag/Vecka/Månad (knappar eller nyp); ‹ › och Idag
+- [ ] Helger och röda dagar är gråmarkerade/rödtonade med namn (t.ex. Juldagen)
+- [ ] Dra ett jobb från orderboken till en persons rad → inplanerat från den dagen; kortet räcker timmar ÷ antal personer
+- [ ] Dra in fler personkulor på kortet → kortare; ta bort i detaljrutan → längre. Utrustning (ställning, färgspruta) ändrar inte längden
+- [ ] Kulpåsen: den som är upptagen hela den synliga tiden plockas ner till "Upptagna"; delvis upptagen har halvring
+- [ ] Dubbelbokning nekas med förklaring (både när man drar in en kula och när man flyttar ett jobb)
+- [ ] Flytta ett jobb i personvyn till en annan person → personen byts
+- [ ] Dra ett jobb till orderboken → avplanerat
+- [ ] Tryck på ett jobb → detaljruta: timmar, starttid, datum, helgarbete, bemanning; Spara / Till orderboken / Ta bort
+- [ ] Personen som planerades in ser "Ändringar i din planering" i sin app och jobbet som blått kort; 👍 Uppfattat tar bort notisen
+- [ ] Ladda om radarn → allt ligger kvar
+
 ## 1. Inloggning med personlig länk
 
 - [ ] Tryck 3 gånger snabbt på namnet uppe till höger → "Admin-läge aktiverat"

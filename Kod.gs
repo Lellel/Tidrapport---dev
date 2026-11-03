@@ -89,7 +89,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getKabanossData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -133,7 +133,7 @@ function doPost(e) {
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
-      "saveStall", "addStallPhoto", "robotAlarm"];
+      "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getKabanossData", "saveKabanossJob"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -171,6 +171,10 @@ function doPost(e) {
     }
     if (action === "getKabanossData") return handleGetKabanossData(auth);
     if (action === "getJobs") return handleGetJobs(data, auth);
+    if (action === "radarSaveJob") return handleRadarSaveJob(data, auth);
+    if (action === "radarDeleteJob") return handleRadarDeleteJob(data, auth);
+    if (action === "getNotices") return handleGetNotices(auth);
+    if (action === "markNoticesRead") return handleMarkNoticesRead(data, auth);
     if (action === "getStalls") return handleGetStalls();
     if (action === "saveStall") return handleSaveStall(data.stall, auth.user);
     if (action === "addStallPhoto") return handleAddStallPhoto(data.imageBase64);
@@ -541,9 +545,10 @@ function handleGetKabanossData(auth) {
         id: id,
         name: name,
         type: type,
+        kind: resourceKind(rollTyp, name),
         sizeClass: sizeClass,
         icon: icon,
-        avatarBase64: avatarLank,
+        hasAvatar: !!avatarLank, // bilden skickas inte – radarn visar initialer
         ownerCompany: agare,
         color: color,
         isSick: isSick
@@ -551,35 +556,8 @@ function handleGetKabanossData(auth) {
     }
   }
 
-  // 3. Gantt_Jobb
-  const jobbSheet = ss.getSheetByName("Gantt_Jobb");
-  const jobbRows = jobbSheet ? jobbSheet.getDataRange().getValues() : [];
-  const jobs = [];
-  for (let i = 1; i < jobbRows.length; i++) {
-    if (jobbRows[i][0] && inScope(auth, jobbRows[i][2] || "LPV")) {
-      let assignedArr = [];
-      try {
-        assignedArr = JSON.parse(jobbRows[i][11] || "[]");
-      } catch (err) {
-        assignedArr = String(jobbRows[i][11] || "").split(",").map(s => s.trim()).filter(Boolean);
-      }
-
-      jobs.push({
-        id: jobbRows[i][0],
-        client: jobbRows[i][1],
-        billingCompany: jobbRows[i][2] || "LPV",
-        title: jobbRows[i][3],
-        status: jobbRows[i][4] || "unscheduled",
-        dayIndex: jobbRows[i][5] !== "" ? Number(jobbRows[i][5]) : null,
-        hours: Number(jobbRows[i][6] || 8),
-        shift: jobbRows[i][7] || "Dagpass",
-        siteAddress: jobbRows[i][8] || "",
-        siteContactName: jobbRows[i][9] || "",
-        siteContactPhone: jobbRows[i][10] || "",
-        assigned: assignedArr
-      });
-    }
-  }
+  // 3. Jobben (radarn): riktiga datum, längd efter antal tilldelade, helger och röda dagar
+  const jobs = handleRadarJobs(auth);
 
   return createJsonResponse({
     status: "success",
@@ -1038,7 +1016,7 @@ function stripHtml(text) {
 }
 
 function handleGetJobs(data, auth) {
-  if (!auth || !auth.isAdmin) return createJsonResponse({ status: "success", events: [] });
+  if (!auth) return createJsonResponse({ status: "success", events: [] });
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   const dateText = /^\d{4}-\d{2}-\d{2}$/.test(String(data.date || "")) ? String(data.date) : Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
   const [y, m, d] = dateText.split("-").map(Number);
@@ -1065,26 +1043,21 @@ function handleGetJobs(data, auth) {
     } catch (err) { notes.push("Kalendern: " + err.message); }
   }
 
-  // 2. Radarn: jobb inplanerade den här dagen + oplanerade "vid tillfälle"
-  const sheet = getSS().getSheetByName("Gantt_Jobb");
-  if (sheet) {
-    const [by, bm, bd] = RADAR_START_DATE.split("-").map(Number);
-    const dayIndex = Math.round((day - new Date(by, bm - 1, bd)) / 86400000);
-    const rows = sheet.getDataRange().getValues();
-    for (let i = 1; i < rows.length; i++) {
-      const r = rows[i];
-      if (!r[0] || String(r[4]) === "done" || String(r[4]) === "klar" || !inScope(auth, r[2] || "LPV")) continue;
-      const scheduled = r[5] !== "" && r[5] !== null;
-      if (scheduled && Number(r[5]) !== dayIndex) continue;
-      events.push({
-        id: "radar:" + r[0],
-        title: String(r[3] || r[1] || "Jobb"),
-        place: String(r[8] || r[1] || ""),
-        description: [r[1], r[9], r[10]].filter(Boolean).join(" · "),
-        start: "", source: "radar", isBuffer: !scheduled
-      });
-    }
-  }
+  // 2. Radarn: jobb som ligger på den här dagen (längd och helger räknade). Personal ser bara sina egna;
+  // admin ser alla, plus oplanerade jobb "vid tillfälle".
+  handleRadarJobs(auth).forEach(j => {
+    const seg = j.segments.filter(sg => sg.date === dateText)[0];
+    const mine = j.assigned.indexOf(auth.user) !== -1;
+    if (!auth.isAdmin && !mine) return;
+    if (!j.startDate && !auth.isAdmin) return;
+    if (j.startDate && !seg) return;
+    const hh = (h) => String(Math.floor(h)).padStart(2, "0") + ":" + String(Math.round((h % 1) * 60)).padStart(2, "0");
+    events.push({
+      id: "radar:" + j.id, title: j.title || j.client || "Jobb", place: j.siteAddress || j.client || "",
+      description: [j.client, j.siteContactName, j.siteContactPhone].filter(Boolean).join(" · "),
+      start: seg ? hh(seg.from) : "", source: "radar", isBuffer: !j.startDate
+    });
+  });
 
   events.sort((a, b) => (a.isBuffer - b.isBuffer) || String(a.start || "99").localeCompare(String(b.start || "99")));
   return createJsonResponse({ status: "success", date: dateText, events: events, notes: notes });
@@ -1571,6 +1544,258 @@ function buildEkPdf(e, tpl, check) {
   const existing = root.getFoldersByName("Egenkontroller");
   const folder = existing.hasNext() ? existing.next() : root.createFolder("Egenkontroller");
   return folder.createFile(pdf);
+}
+
+// ==========================================
+// 4c5. RADARN (planering på paddan, docs/radar.md)
+// Jobben ligger i Gantt_Jobb. Nya kolumner (Startdatum, Starttid, Helgarbete …) hittas på rubrik.
+// Ett jobb har en totaltid i timmar; längden i kalendern = timmar ÷ antal tilldelade, fördelat på
+// arbetsdagar 07–15. Helger och röda dagar hoppas över om jobbet inte är markerat helgarbete.
+// Ändringar som gäller en person blir en notis i personens app (fliken Planeringsnotiser).
+// ==========================================
+const GANTT_HEADERS = ["Projekt-ID", "Kundnamn", "Fakturerande Bolag", "Titel", "Status", "Startdag-Index", "Timmar", "Skift",
+  "Sitelokalization", "Site-Kontakt", "Site-Telefon", "Bemannade Resurs-IDn"];
+const GANTT_EXTRA = ["Startdatum", "Starttid", "Helgarbete", "Uppdaterad", "Uppdaterad av"];
+const WORK_START = 7, WORK_HOURS = 8;
+
+// Generisk flik i minnet med fasta kolumner + extra kolumner som hittas på rubrik (samma idé som kundregistret)
+function loadSheetTable(name, base, extra) {
+  const sheet = getSheetOrCreate(getSS(), name, base.concat(extra));
+  const rows = sheet.getDataRange().getValues();
+  if (!rows.length) rows.push(base.concat(extra));
+  const head = rows[0];
+  base.forEach((h, i) => { if (head[i] === "" || head[i] === undefined) head[i] = h; });
+  const col = {};
+  extra.forEach(h => { let i = head.indexOf(h); if (i === -1) { i = Math.max(head.length, base.length); head[i] = h; } col[h] = i; });
+  const width = () => Math.max.apply(null, rows.map(r => r.length).concat([head.length]));
+  return { rows: rows, col: col, blank: () => new Array(width()).fill(""),
+    save: () => { const w = width(); sheet.getRange(1, 1, rows.length, w).setValues(rows.map(r => { const x = r.slice(); while (x.length < w) x.push(""); return x; })); } };
+}
+
+// Svenska röda dagar (+ midsommar-, jul- och nyårsafton som är lediga i praktiken)
+function easterSunday(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(y, month - 1, day);
+}
+const _holidayCache = {};
+function swedishHolidays(y) {
+  if (_holidayCache[y]) return _holidayCache[y];
+  const iso = (d) => Utilities.formatDate(d, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd");
+  const add = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const firstWeekday = (m, from, wd) => { for (let d = from; d < from + 7; d++) { const x = new Date(y, m, d); if (x.getDay() === wd) return x; } };
+  const e = easterSunday(y);
+  const list = {};
+  [[new Date(y, 0, 1), "Nyårsdagen"], [new Date(y, 0, 6), "Trettondedag jul"], [add(e, -2), "Långfredagen"], [e, "Påskdagen"], [add(e, 1), "Annandag påsk"],
+   [new Date(y, 4, 1), "Första maj"], [add(e, 39), "Kristi himmelsfärd"], [new Date(y, 5, 6), "Nationaldagen"],
+   [add(firstWeekday(5, 20, 6), -1), "Midsommarafton"], [firstWeekday(5, 20, 6), "Midsommardagen"],
+   [firstWeekday(9, 31, 6) || firstWeekday(10, 1, 6), "Alla helgons dag"],
+   [new Date(y, 11, 24), "Julafton"], [new Date(y, 11, 25), "Juldagen"], [new Date(y, 11, 26), "Annandag jul"], [new Date(y, 11, 31), "Nyårsafton"]
+  ].forEach(([d, n]) => { list[iso(d)] = n; });
+  _holidayCache[y] = list;
+  return list;
+}
+function isWorkday(d, weekendWork) {
+  if (weekendWork) return true;
+  if (d.getDay() === 0 || d.getDay() === 6) return false;
+  return !swedishHolidays(d.getFullYear())[Utilities.formatDate(d, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd")];
+}
+
+// Vilken sorts resurs varje rad i Personal är. Bara personer kortar ett jobb – maskiner och
+// utrustning (ställning, färgspruta …) följer med men arbetar inte timmarna.
+let _resourceKinds = null;
+function resourceKind(roll, name) {
+  const r = String(roll || "").toLowerCase();
+  if (/verktyg|ställning|vagn|spruta|utrustning|kärra|släp/.test(r)) return "equipment";
+  if (parseMachineModel(String(name || "")) || parseMachineModel(String(roll || ""))) return "machine";
+  return "person";
+}
+function resourceKinds() {
+  if (_resourceKinds) return _resourceKinds;
+  _resourceKinds = {};
+  const sheet = getStaffSheet();
+  if (sheet) sheet.getDataRange().getValues().slice(1).forEach(r => { if (r[0]) _resourceKinds[String(r[0]).trim()] = resourceKind(r[3], r[0]); });
+  return _resourceKinds;
+}
+
+// Dagarna ett jobb ligger på: [{ date: "yyyy-MM-dd", from: timme, to: timme }]
+function jobSegments(job) {
+  if (!job.startDate) return [];
+  const kinds = resourceKinds();
+  const n = Math.max(1, job.assigned.filter(p => (kinds[p] || "person") === "person").length);
+  let left = Math.max(0.25, Number(job.hours) || 8) / n;
+  const [y, m, d] = job.startDate.split("-").map(Number);
+  const [sh, sm] = String(job.startTime || "07:00").split(":").map(Number);
+  let day = new Date(y, m - 1, d), from = Math.max(WORK_START, Math.min(WORK_START + WORK_HOURS - 0.25, sh + (sm || 0) / 60));
+  const out = [];
+  for (let guard = 0; left > 0.001 && guard < 400; guard++) {
+    if (isWorkday(day, job.weekendWork)) {
+      const take = Math.min(left, WORK_START + WORK_HOURS - from);
+      out.push({ date: Utilities.formatDate(day, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd"), from: from, to: from + take });
+      left -= take;
+    }
+    day.setDate(day.getDate() + 1); from = WORK_START;
+  }
+  return out;
+}
+
+function ganttJobFromRow(r, col) {
+  let assigned = [];
+  try { assigned = JSON.parse(r[11] || "[]"); } catch (e) { assigned = String(r[11] || "").split(",").map(s => s.trim()).filter(Boolean); }
+  let startDate = r[col["Startdatum"]] instanceof Date ? Utilities.formatDate(r[col["Startdatum"]], Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd") : String(r[col["Startdatum"]] || "");
+  // Äldre rader: dag-index räknat från radarns gamla fasta startdatum
+  if (!startDate && r[5] !== "" && r[5] !== null && !isNaN(Number(r[5]))) {
+    const [by, bm, bd] = RADAR_START_DATE.split("-").map(Number);
+    startDate = Utilities.formatDate(new Date(by, bm - 1, bd + Number(r[5])), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd");
+  }
+  const st = r[col["Starttid"]];
+  return { id: String(r[0]), client: String(r[1] || ""), billingCompany: String(r[2] || "LPV"), title: String(r[3] || ""), status: String(r[4] || ""),
+    startDate: startDate, startTime: st instanceof Date ? Utilities.formatDate(st, Session.getScriptTimeZone() || "Europe/Stockholm", "HH:mm") : (String(st || "") || "07:00"),
+    hours: Number(r[6]) || 8, siteAddress: String(r[8] || ""), siteContactName: String(r[9] || ""), siteContactPhone: String(r[10] || ""),
+    assigned: assigned.map(String), weekendWork: String(r[col["Helgarbete"]]).toLowerCase() === "ja",
+    updated: String(r[col["Uppdaterad"]] || ""), updatedBy: String(r[col["Uppdaterad av"]] || "") };
+}
+
+function loadGantt() { return loadSheetTable("Gantt_Jobb", GANTT_HEADERS, GANTT_EXTRA); }
+
+function handleRadarJobs(auth) {
+  const t = loadGantt();
+  const jobs = [];
+  for (let i = 1; i < t.rows.length; i++) {
+    if (!t.rows[i][0] || !inScope(auth, t.rows[i][2] || "LPV")) continue;
+    const j = ganttJobFromRow(t.rows[i], t.col);
+    if (j.status === "done" || j.status === "klar") continue;
+    j.segments = jobSegments(j);
+    jobs.push(j);
+  }
+  return jobs;
+}
+
+function radarSpanText(job) {
+  const seg = jobSegments(job);
+  if (!seg.length) return "ej inplanerat";
+  const day = (s) => { const [y, m, d] = s.split("-").map(Number); return ["sön", "mån", "tis", "ons", "tor", "fre", "lör"][new Date(y, m - 1, d).getDay()] + " " + d + "/" + m; };
+  const hh = (h) => String(Math.floor(h)).padStart(2, "0") + ":" + String(Math.round((h % 1) * 60)).padStart(2, "0");
+  const a = seg[0], b = seg[seg.length - 1];
+  return a.date === b.date ? day(a.date) + " " + hh(a.from) + "–" + hh(b.to) : day(a.date) + " " + hh(a.from) + " – " + day(b.date) + " " + hh(b.to);
+}
+
+function addPlanningNotice(person, job, text) {
+  getSheetOrCreate(getSS(), "Planeringsnotiser", ["Notis-ID", "Tid", "Person", "Jobb-ID", "Text", "Läst"])
+    .appendRow(["N" + Date.now() + Math.floor(Math.random() * 1000), nowStamp(), sanitize(person), sanitize(job.id), sanitize(text).slice(0, 300), ""]);
+}
+
+// Sparar ett jobb från radarn. data.job: { id?, title, client, hours, startDate ("" = orderboken), startTime, assigned[], weekendWork, siteAddress }
+function handleRadarSaveJob(data, auth) {
+  const input = data.job || {};
+  const t = loadGantt();
+  const C = t.col;
+  let i = -1;
+  for (let k = 1; k < t.rows.length; k++) if (input.id && String(t.rows[k][0]) === String(input.id)) { i = k; break; }
+  const old = i > 0 ? ganttJobFromRow(t.rows[i], C) : null;
+  if (old && !inScope(auth, t.rows[i][2] || "LPV")) return createJsonResponse({ status: "error", message: "Åtkomst nekad: jobbet tillhör ett annat bolag." });
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(input.startDate || "")) ? String(input.startDate) : "";
+  const time = /^\d{1,2}:\d{2}$/.test(String(input.startTime || "")) ? String(input.startTime) : "07:00";
+  const job = {
+    // Unikt även om två jobb skapas samma sekund
+    id: old ? old.id : "R-" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36),
+    client: input.client !== undefined ? sanitize(input.client).slice(0, 100) : (old ? old.client : ""),
+    title: input.title !== undefined ? sanitize(input.title).slice(0, 150) : (old ? old.title : ""),
+    hours: Math.min(5000, Math.max(0.25, Number(input.hours) || (old ? old.hours : 8))),
+    startDate: date, startTime: time,
+    assigned: (Array.isArray(input.assigned) ? input.assigned : []).map(a => sanitize(a).slice(0, 60)).filter(Boolean).slice(0, 30),
+    weekendWork: input.weekendWork === true,
+    siteAddress: input.siteAddress !== undefined ? sanitize(input.siteAddress).slice(0, 200) : (old ? old.siteAddress : "")
+  };
+  if (!job.title && !job.client) return createJsonResponse({ status: "error", message: "Ange jobbets namn eller kund." });
+  // Ingen dubbelbokning: en resurs får inte ligga på två jobb samma tid
+  const conflicts = radarConflicts(t, job);
+  if (conflicts.length) return createJsonResponse({ status: "conflict", message: conflicts[0].text, conflicts: conflicts });
+  let r;
+  if (i < 0) { r = t.blank(); t.rows.push(r); i = t.rows.length - 1; r[2] = scopeOf(auth) || "LPV"; r[7] = "Dagpass"; }
+  else r = t.rows[i];
+  r[0] = job.id; r[1] = job.client; r[3] = job.title; r[4] = job.startDate ? "scheduled" : "unscheduled"; r[5] = "";
+  r[6] = job.hours; r[8] = job.siteAddress; r[11] = JSON.stringify(job.assigned);
+  r[C["Startdatum"]] = job.startDate; r[C["Starttid"]] = job.startTime; r[C["Helgarbete"]] = job.weekendWork ? "ja" : "";
+  r[C["Uppdaterad"]] = nowStamp(); r[C["Uppdaterad av"]] = sanitize(auth.user);
+  t.save();
+
+  // Notiser till dem som påverkas
+  const label = (j) => (j.title || "Jobb") + (j.client && j.client !== j.title ? " (" + j.client + ")" : "");
+  const wasPlanned = old && old.startDate, isPlanned = !!job.startDate;
+  const before = old ? radarSpanText(old) : "", after = radarSpanText(job);
+  const people = {};
+  (old ? old.assigned : []).concat(job.assigned).forEach(p => { people[p] = true; });
+  Object.keys(people).forEach(p => {
+    const had = wasPlanned && old.assigned.indexOf(p) !== -1, has = isPlanned && job.assigned.indexOf(p) !== -1;
+    if (has && !had) addPlanningNotice(p, job, "📅 Inplanerad: " + label(job) + ", " + after);
+    else if (had && !has) addPlanningNotice(p, job, "🗑️ Borttagen: " + label(job) + " (" + before + ")");
+    else if (has && had && before !== after) addPlanningNotice(p, job, "📅 Ändrat: " + label(job) + " – nu " + after);
+  });
+  job.segments = jobSegments(job);
+  return createJsonResponse({ status: "success", job: Object.assign(job, { billingCompany: r[2] }) });
+}
+
+// Krockar för jobbets bemanning mot alla andra inplanerade jobb (alla bolag – en resurs kan bara vara på ett ställe)
+function radarConflicts(t, job) {
+  const mine = jobSegments(job);
+  if (!mine.length || !job.assigned.length) return [];
+  const hh = (h) => String(Math.floor(h)).padStart(2, "0") + ":" + String(Math.round((h % 1) * 60)).padStart(2, "0");
+  const day = (s) => { const [y, m, d] = s.split("-").map(Number); return ["sön", "mån", "tis", "ons", "tor", "fre", "lör"][new Date(y, m - 1, d).getDay()] + " " + d + "/" + m; };
+  const out = [];
+  for (let k = 1; k < t.rows.length; k++) {
+    if (!t.rows[k][0] || String(t.rows[k][0]) === job.id) continue;
+    const other = ganttJobFromRow(t.rows[k], t.col);
+    if (!other.startDate || other.status === "done" || other.status === "klar") continue;
+    const both = job.assigned.filter(p => other.assigned.indexOf(p) !== -1);
+    if (!both.length) continue;
+    const segs = jobSegments(other);
+    mine.forEach(a => segs.forEach(b => {
+      if (a.date === b.date && a.from < b.to - 0.001 && b.from < a.to - 0.001) both.forEach(p => {
+        if (!out.some(c => c.person === p && c.jobId === other.id)) out.push({ person: p, jobId: other.id, date: b.date,
+          text: p + " är upptagen " + day(b.date) + " " + hh(b.from) + "–" + hh(b.to) + " (" + (other.title || other.client) + ")." });
+      });
+    }));
+  }
+  return out;
+}
+
+function handleRadarDeleteJob(data, auth) {
+  const t = loadGantt();
+  for (let k = 1; k < t.rows.length; k++) {
+    if (String(t.rows[k][0]) !== String(data.id)) continue;
+    if (!inScope(auth, t.rows[k][2] || "LPV")) return createJsonResponse({ status: "error", message: "Åtkomst nekad." });
+    const job = ganttJobFromRow(t.rows[k], t.col);
+    if (job.startDate) job.assigned.forEach(p => addPlanningNotice(p, job, "🗑️ Borttagen: " + (job.title || "Jobb") + " (" + radarSpanText(job) + ")"));
+    t.rows.splice(k, 1);
+    t.save();
+    getSS().getSheetByName("Gantt_Jobb").deleteRow(t.rows.length + 1); // sista raden blev över efter splice
+    return createJsonResponse({ status: "success" });
+  }
+  return createJsonResponse({ status: "error", message: "Jobbet hittades inte." });
+}
+
+function handleGetNotices(auth) {
+  const sheet = getSS().getSheetByName("Planeringsnotiser");
+  if (!sheet) return createJsonResponse({ status: "success", notices: [] });
+  const rows = sheet.getDataRange().getValues();
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][2]).trim() === String(auth.user).trim() && !rows[i][5]) out.push({ id: String(rows[i][0]), at: String(rows[i][1]), jobId: String(rows[i][3]), text: String(rows[i][4]) });
+  }
+  return createJsonResponse({ status: "success", notices: out.slice(-20).reverse() });
+}
+
+function handleMarkNoticesRead(data, auth) {
+  const sheet = getSS().getSheetByName("Planeringsnotiser");
+  if (!sheet) return createJsonResponse({ status: "success" });
+  const ids = (Array.isArray(data.ids) ? data.ids : []).map(String);
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (ids.indexOf(String(rows[i][0])) !== -1 && String(rows[i][2]).trim() === String(auth.user).trim()) sheet.getRange(i + 1, 6).setValue(nowStamp());
+  }
+  return createJsonResponse({ status: "success" });
 }
 
 // ==========================================

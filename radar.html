@@ -1,410 +1,532 @@
 <!DOCTYPE html>
-<html lang="sv" class="dark">
+<html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LPV & Klaryta - Framtidsradarn (Gantt Live)</title>
-    <!-- Tailwind CSS med Dark Mode-stöd -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        ice: { 50: '#f0f9ff', 100: '#e0f2fe', 900: '#0c4a6e', 950: '#082f49' }
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden;
-            transition: background-color 0.5s ease, color 0.5s ease;
-        }
-
-        /* ICE-BLUE GLASSMORPHISM - LIGHT MODE */
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.45);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 8px 32px rgba(34, 211, 238, 0.15);
-            transition: all 0.3s ease;
-        }
-        /* ICE-BLUE GLASSMORPHISM - DARK MODE */
-        .dark .glass-panel {
-            background: rgba(8, 25, 45, 0.55);
-            border: 1px solid rgba(56, 189, 248, 0.2);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-        }
-
-        .glass-panel-lpv { border: 1px solid rgba(56, 189, 248, 0.4); }
-        .glass-panel-kla { border: 1px solid rgba(16, 185, 129, 0.4); }
-
-        .orb-kulpase-liten { width: 44px; height: 44px; font-size: 1.25rem; }
-        .orb-kulpase-medium { width: 54px; height: 54px; font-size: 1.5rem; }
-        .orb-kulpase-stor { width: 64px; height: 64px; font-size: 2rem; }
-        .orb-gantt-liten { width: 32px; height: 32px; font-size: 0.875rem; z-index: 10; }
-
-        .glass-orb {
-            background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%);
-            box-shadow: inset 0 2px 4px rgba(255,255,255,0.6), 0 4px 10px rgba(0,0,0,0.1);
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            position: relative; cursor: grab; transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .dark .glass-orb {
-            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
-            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 6px 12px rgba(0,0,0,0.5);
-        }
-        .glass-orb:active { cursor: grabbing; transform: scale(1.05); }
-
-        .sick-orb {
-            filter: grayscale(0.4) opacity(0.9);
-            border: 2px solid #ef4444 !important;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
-        }
-
-        .owner-badge {
-            position: absolute; bottom: -2px; right: -4px; font-size: 8px; font-weight: 900; 
-            padding: 2px 4px; border-radius: 4px; z-index: 20; border: 1px solid rgba(255,255,255,0.6);
-            pointer-events: none; line-height: 1; color: white;
-        }
-        .bg-lpv { background-color: #0284c7; }
-        .bg-klaryta { background-color: #16a34a; }
-        .bg-ue { background-color: #d97706; }
-
-        .gantt-job-card {
-            border-radius: 12px; display: flex; align-items: center; padding: 0 12px; gap: 12px;
-            position: relative; cursor: grab; transition: all 0.2s ease;
-        }
-        .gantt-job-card.lpv {
-            background: linear-gradient(145deg, rgba(2, 132, 199, 0.7) 0%, rgba(3, 105, 161, 0.9) 100%);
-            border: 1px solid rgba(125, 211, 252, 0.8); backdrop-filter: blur(8px);
-        }
-        .dark .gantt-job-card.lpv {
-            background: linear-gradient(145deg, rgba(2, 105, 164, 0.85) 0%, rgba(7, 89, 133, 0.95) 100%);
-            border: 1px solid rgba(56, 189, 248, 0.5);
-        }
-        
-        .gantt-job-card.kla {
-            background: linear-gradient(145deg, rgba(16, 185, 129, 0.7) 0%, rgba(5, 150, 105, 0.9) 100%);
-            border: 1px solid rgba(110, 231, 183, 0.8); backdrop-filter: blur(8px);
-        }
-        .dark .gantt-job-card.kla {
-            background: linear-gradient(145deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%);
-            border: 1px solid rgba(16, 185, 129, 0.5);
-        }
-
-        .bg-helg {
-            background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(225, 29, 72, 0.05) 10px, rgba(225, 29, 72, 0.05) 20px);
-        }
-
-        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(14, 165, 233, 0.1); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.8); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Radarn – planering</title>
+<style>
+/* Radarn: helskärm på paddan. Kulpåse till vänster, orderbok överst, tidslinje med personer eller kunder som rader.
+   Dra och släpp med egen pekarhantering (fungerar med finger och mus). Se docs/radar.md. */
+:root {
+  --bg: #0b1220; --panel: #111a2c; --panel2: #17233a; --line: #24324d; --fg: #e8eef7; --muted: #8fa2bf;
+  --accent: #38bdf8; --job: #1d4ed8; --job2: #2563eb; --klaryta: #16a34a; --busy: #f59e0b; --bad: #ef4444;
+  --weekend: rgba(148, 163, 184, .07); --holiday: rgba(239, 68, 68, .09); --today: #f43f5e;
+  --rowh: 58px; --labelw: 170px; --headh: 46px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.app { display: grid; grid-template-rows: auto auto 1fr; height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+/* Toppraden */
+.top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.top h1 { font-size: 17px; margin: 0 8px 0 2px; white-space: nowrap; }
+.seg { display: inline-flex; background: var(--panel2); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; padding: 7px 11px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); min-height: 36px; }
+.seg button.on { background: var(--accent); color: #04121f; }
+.btn { border: 1px solid var(--line); background: var(--panel2); border-radius: 10px; padding: 7px 12px; font-weight: 600; font-size: 13px; min-height: 38px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #04121f; }
+.period { font-weight: 700; font-size: 14px; min-width: 150px; text-align: center; }
+.status { font-size: 12px; color: var(--muted); margin-left: auto; min-width: 70px; text-align: right; }
+.status.err { color: var(--bad); }
+a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding: 6px 4px; }
+/* Orderboken */
+.order { display: flex; gap: 8px; align-items: stretch; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; min-height: 76px; }
+.order.hidden { display: none; }
+.order .title { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.ocard { flex: 0 0 190px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; touch-action: none; user-select: none; }
+.ocard b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ocard span { font-size: 12px; color: var(--muted); }
+.order .empty { color: var(--muted); font-size: 13px; align-self: center; }
+.order.drop-ok { outline: 2px dashed var(--accent); outline-offset: -4px; }
+/* Huvudytan */
+.main { display: grid; grid-template-columns: auto 1fr; min-height: 0; }
+.side { width: 200px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
+.side.hidden { display: none; }
+.side h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 6px; }
+.orbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.orbwrap { width: 54px; display: flex; flex-direction: column; align-items: center; gap: 3px; touch-action: none; user-select: none; }
+.orb { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff; position: relative;
+  background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.55), rgba(255,255,255,0) 42%), var(--c, #0284c7); box-shadow: inset 0 -4px 8px rgba(0,0,0,.25), 0 3px 8px rgba(0,0,0,.35); }
+.orb.part::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--busy); border-right-color: var(--busy); }
+.orbwrap small { font-size: 10px; color: var(--muted); max-width: 54px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.busylist { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.busylist summary { cursor: pointer; font-weight: 700; color: var(--fg); }
+.busylist div { padding-left: 4px; }
+/* Tidslinjen */
+.tl { overflow: auto; position: relative; overscroll-behavior: contain; }
+.tlin { position: relative; }
+.head { position: sticky; top: 0; z-index: 5; height: var(--headh); display: flex; background: var(--panel); border-bottom: 1px solid var(--line); }
+.corner { position: sticky; left: 0; z-index: 6; width: var(--labelw); flex: none; background: var(--panel); border-right: 1px solid var(--line); display: flex; align-items: center; padding: 0 10px; font-size: 12px; color: var(--muted); }
+.day { flex: none; border-right: 1px solid var(--line); padding: 4px 6px; font-size: 12px; overflow: hidden; white-space: nowrap; position: relative; }
+.day b { display: block; font-size: 13px; }
+.day.we, .col.we { background: var(--weekend); }
+.day.hol, .col.hol { background: var(--holiday); }
+.day .hol-name { color: #fca5a5; font-size: 10px; }
+.day.today b { color: var(--today); }
+.hours { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; display: flex; font-size: 9px; color: var(--muted); }
+.hours span { flex: 1; border-left: 1px solid var(--line); padding-left: 2px; }
+.rows { position: relative; }
+.row { display: flex; height: var(--rowh); border-bottom: 1px solid var(--line); position: relative; }
+.rlabel { position: sticky; left: 0; z-index: 3; width: var(--labelw); flex: none; background: var(--panel); border-right: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; }
+.rlabel .orb { width: 30px; height: 30px; font-size: 11px; }
+.rlabel span { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rlabel em { display: block; font-style: normal; font-size: 11px; color: var(--muted); font-weight: 400; }
+.cols { position: relative; display: flex; }
+.col { flex: none; height: var(--rowh); border-right: 1px solid rgba(36,50,77,.6); }
+.row.drop-ok .cols { background: rgba(56, 189, 248, .08); }
+.bar { position: absolute; top: 7px; height: calc(var(--rowh) - 14px); border-radius: 9px; background: linear-gradient(180deg, var(--job2), var(--job)); color: #fff;
+  padding: 4px 8px; overflow: hidden; touch-action: none; user-select: none; box-shadow: 0 2px 6px rgba(0,0,0,.35); z-index: 2; border: 1px solid rgba(255,255,255,.18); }
+.bar.cont { border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
+.bar.more { border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
+.bar.kla { background: linear-gradient(180deg, #22c55e, var(--klaryta)); }
+.bar.none { background: repeating-linear-gradient(135deg, #334155 0 8px, #3b4a63 8px 16px); }
+.bar b { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .mini { display: flex; gap: 2px; margin-top: 2px; }
+.bar .mini i { width: 16px; height: 16px; border-radius: 50%; font-size: 8px; font-style: normal; font-weight: 800; display: grid; place-items: center; background: rgba(255,255,255,.25); }
+.bar.drop-ok { outline: 3px solid var(--accent); }
+.bar.drop-bad { outline: 3px solid var(--bad); }
+.nowline { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--today); z-index: 4; pointer-events: none; }
+.ghost { position: fixed; z-index: 100; pointer-events: none; opacity: .9; transform: translate(-50%, -60%) scale(1.05); }
+/* Detaljrutan */
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: none; }
+.sheet-bg.open { display: block; }
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); background: var(--panel); border-left: 1px solid var(--line); z-index: 51; padding: 16px; overflow-y: auto;
+  transform: translateX(100%); transition: transform .2s; padding-top: max(16px, env(safe-area-inset-top)); }
+.sheet.open { transform: none; }
+.sheet h2 { margin: 0 0 12px; font-size: 18px; }
+.f { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.f label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+.f input { background: var(--bg); border: 1px solid var(--line); color: var(--fg); border-radius: 10px; padding: 10px; font-size: 16px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.crew { display: flex; flex-wrap: wrap; gap: 8px; }
+.crew .orbwrap button { border: 0; background: var(--bad); color: #fff; border-radius: 99px; font-size: 10px; padding: 1px 6px; }
+.calc { background: var(--bg); border-radius: 10px; padding: 10px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.calc b { color: var(--fg); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #7f1d1d; color: #fff; padding: 12px 16px; border-radius: 12px; z-index: 120; font-weight: 600; max-width: 92vw; box-shadow: 0 8px 24px rgba(0,0,0,.4); display: none; }
+.toast.ok { background: #065f46; }
+.msg { padding: 40px; text-align: center; color: var(--muted); }
+@media (max-width: 800px) { :root { --labelw: 120px; } .side { width: 150px; } }
+@media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+</style>
 </head>
-<body class="h-screen w-screen flex flex-col bg-gradient-to-br from-sky-50 to-cyan-100 dark:from-[#030f1c] dark:to-[#082f49] text-slate-800 dark:text-slate-100 overflow-hidden">
+<body>
+<div class="app">
+  <div class="top">
+    <a class="back" href="index.html">←</a>
+    <h1>📡 Radarn</h1>
+    <div class="seg" id="viewseg"><button data-v="person" class="on">👷 Personer</button><button data-v="client">🏠 Kunder</button></div>
+    <div class="seg" id="zoomseg"><button data-z="0">Timmar</button><button data-z="1">Dag</button><button data-z="2" class="on">Vecka</button><button data-z="3">Månad</button></div>
+    <button class="btn" id="prev" aria-label="Föregående">‹</button><span class="period" id="period"></span><button class="btn" id="next" aria-label="Nästa">›</button>
+    <button class="btn" id="today">Idag</button>
+    <button class="btn" id="tglSide">Kulpåse</button>
+    <button class="btn" id="tglOrder">Orderbok</button>
+    <button class="btn" id="fs" hidden>⛶</button>
+    <span class="status" id="status"></span>
+  </div>
+  <div class="order" id="order"></div>
+  <div class="main">
+    <aside class="side" id="side"></aside>
+    <div class="tl" id="tl"><div class="tlin" id="tlin"></div></div>
+  </div>
+</div>
+<div class="sheet-bg" id="sheetBg"></div>
+<aside class="sheet" id="sheet" aria-label="Jobbdetaljer"></aside>
+<div class="toast" id="toast" role="status"></div>
 
-    <!-- HEADER -->
-    <header class="glass-panel h-16 flex items-center justify-between px-6 shrink-0 z-50">
-        <div class="flex items-center gap-4">
-            <h1 class="text-xl font-bold text-sky-700 dark:text-sky-300 flex items-center gap-2 drop-shadow-md">
-                🔭 Framtidsradarn <span class="text-sky-600/70 dark:text-slate-400 font-normal text-xs">(DEV v4.8 - Ice Glass)</span>
-            </h1>
-        </div>
-        <div class="flex items-center gap-3">
-            <button onclick="toggleTheme()" class="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-lg hover:scale-110 transition shadow-lg border border-sky-200 dark:border-sky-800/50" title="Växla Ljust/Mörkt Tema">
-                <span id="theme-icon">❄️</span>
-            </button>
-            <button onclick="reloadLiveData()" class="px-4 py-2 bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700 text-xs text-sky-800 dark:text-slate-200 border border-white/60 dark:border-slate-700 rounded-xl transition shadow-sm">
-                🔄 Ladda Om
-            </button>
-            <button onclick="publishChanges()" id="btn-publish" class="px-5 py-2 bg-sky-500 hover:bg-sky-400 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl font-bold text-xs transition shadow-lg shadow-sky-500/30">
-                Spara & Publicera
-            </button>
-        </div>
-    </header>
+<script src="config.js"></script>
+<script src="sno.js"></script>
+<script>
+// ===== Tid: arbetsdagar, röda dagar (samma regler som Kod.gs) =====
+const WORK_START = 7, WORK_HOURS = 8;
+const pad = (n) => String(n).padStart(2, '0');
+const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const parseIso = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const DAYN = ['sön', 'mån', 'tis', 'ons', 'tor', 'fre', 'lör'];
+const MON = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+const hh = (h) => pad(Math.floor(h)) + ':' + pad(Math.round((h % 1) * 60));
+function easter(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  return new Date(y, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+}
+const holCache = {};
+function holidays(y) {
+  if (holCache[y]) return holCache[y];
+  const sat = (m, from) => { for (let d = from; d < from + 7; d++) { const x = new Date(y, m, d); if (x.getDay() === 6) return x; } };
+  const e = easter(y), out = {};
+  [[new Date(y, 0, 1), 'Nyårsdagen'], [new Date(y, 0, 6), 'Trettondedag jul'], [addDays(e, -2), 'Långfredagen'], [e, 'Påskdagen'], [addDays(e, 1), 'Annandag påsk'],
+   [new Date(y, 4, 1), 'Första maj'], [addDays(e, 39), 'Kristi himmelsfärd'], [new Date(y, 5, 6), 'Nationaldagen'], [addDays(sat(5, 20), -1), 'Midsommarafton'],
+   [sat(5, 20), 'Midsommardagen'], [sat(9, 31), 'Alla helgons dag'], [new Date(y, 11, 24), 'Julafton'], [new Date(y, 11, 25), 'Juldagen'],
+   [new Date(y, 11, 26), 'Annandag jul'], [new Date(y, 11, 31), 'Nyårsafton']].forEach(([d, n]) => { out[iso(d)] = n; });
+  return holCache[y] = out;
+}
+const holidayName = (d) => holidays(d.getFullYear())[iso(d)] || '';
+const isWorkday = (d, weekend) => weekend || (d.getDay() !== 0 && d.getDay() !== 6 && !holidayName(d));
 
-    <!-- MAIN APP LAYOUT -->
-    <div class="flex flex-1 overflow-hidden relative">
-        <!-- KULPÅSE / RESURSDEPÅ -->
-        <aside id="resource-panel" class="w-[320px] flex flex-col border-r border-white/30 dark:border-sky-900/40 bg-white/20 dark:bg-slate-900/40 shrink-0 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-            <h2 class="text-xs font-bold text-sky-800 dark:text-sky-200 uppercase tracking-wider">🎒 Kulpåsen & Resursdepå</h2>
+// Bara personer kortar ett jobb – maskiner och utrustning följer med
+const workers = (job) => Math.max(1, job.assigned.filter(p => (resById[p]?.kind || 'person') === 'person').length);
+function segments(job) {
+  if (!job.startDate) return [];
+  let left = Math.max(0.25, Number(job.hours) || 8) / workers(job);
+  const [sh, sm] = String(job.startTime || '07:00').split(':').map(Number);
+  let day = parseIso(job.startDate), from = Math.max(WORK_START, Math.min(WORK_START + WORK_HOURS - 0.25, sh + (sm || 0) / 60));
+  const out = [];
+  for (let g = 0; left > 0.001 && g < 400; g++) {
+    if (isWorkday(day, job.weekendWork)) { const take = Math.min(left, WORK_START + WORK_HOURS - from); out.push({ date: iso(day), from, to: from + take }); left -= take; }
+    day = addDays(day, 1); from = WORK_START;
+  }
+  return out;
+}
+const spanText = (job) => { const s = segments(job); if (!s.length) return 'ej inplanerat';
+  const f = (x) => { const d = parseIso(x.date); return DAYN[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1); };
+  return s[0].date === s[s.length - 1].date ? f(s[0]) + ' ' + hh(s[0].from) + '–' + hh(s[0].to) : f(s[0]) + ' ' + hh(s[0].from) + ' – ' + f(s[s.length - 1]) + ' ' + hh(s[s.length - 1].to); };
 
-            <div class="glass-panel p-3.5 rounded-2xl">
-                <h3 class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-3">👥 Personal</h3>
-                <div id="pool-personnel" class="flex flex-wrap gap-3 min-h-[40px]"></div>
-            </div>
+// ===== Data =====
+let resources = [], resById = {}, jobs = [];
+let view = 'person', zoom = 2;
+let rangeStart = mondayOf(new Date());
+const ZOOMS = [ { days: 2, label: 'Timmar' }, { days: 4, label: 'Dag' }, { days: 7, label: 'Vecka' }, { days: 35, label: 'Månad' } ];
+function mondayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const initials = (n) => String(n || '?').split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+const colorOf = (r) => r?.kind === 'equipment' ? '#a16207' : r?.kind === 'machine' ? '#b45309' : (String(r?.ownerCompany || '').includes('kla') ? '#16a34a' : '#0284c7');
+const orbIcon = (r) => r?.kind === 'equipment' ? '🛠️' : r?.kind === 'machine' ? '🚜' : initials(r?.name);
 
-            <div class="glass-panel p-3.5 rounded-2xl !bg-rose-50/50 dark:!bg-rose-950/20 !border-rose-200 dark:!border-rose-900/50">
-                <h3 class="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider mb-3">🤒 Sjukanmälda</h3>
-                <div id="pool-sick" class="flex flex-wrap gap-3 min-h-[30px]"></div>
-            </div>
+function setStatus(t, err) { const s = $('status'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
+let toastT;
+function toast(t, ok) { const el = $('toast'); el.textContent = t; el.className = 'toast' + (ok ? ' ok' : ''); el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => { el.style.display = 'none'; }, ok ? 2200 : 5000); }
 
-            <div class="glass-panel p-3.5 rounded-2xl">
-                <h3 class="text-[11px] font-bold text-sky-600 dark:text-sky-300 uppercase tracking-wider mb-3">🚜 UE & Maskinpark</h3>
-                <div id="pool-machines" class="flex flex-wrap gap-3 min-h-[40px]"></div>
-            </div>
-        </aside>
+async function load() {
+  setStatus('Hämtar…');
+  try {
+    const res = await snoApi({ action: 'getKabanossData' });
+    if (res.status !== 'success') throw new Error(res.message || 'Kunde inte hämta');
+    resources = (res.resources || []).filter(r => r.name);
+    resById = {}; resources.forEach(r => { resById[r.name] = r; });
+    jobs = (res.jobs || []).map(j => ({ ...j, assigned: (j.assigned || []).map(String) }));
+    setStatus('');
+    render();
+  } catch (e) {
+    $('tlin').innerHTML = `<div class="msg">❌ ${esc(e.message)}<br><br>Radarn kräver att du är inloggad som admin.</div>`;
+    setStatus('Fel', true);
+  }
+}
 
-        <!-- TIMELINE & ORDERBOOK -->
-        <main class="flex-1 flex flex-col overflow-y-auto p-5 space-y-5 custom-scrollbar relative z-10">
-            <!-- ORDERBOOK -->
-            <section class="glass-panel p-4 rounded-2xl">
-                <h2 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-3">📬 Ej inplanerade jobb</h2>
-                <div id="orderbook-list" class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar"></div>
-            </section>
+// ===== Synligt fönster och skala =====
+const visibleDays = () => { const n = ZOOMS[zoom].days; return Array.from({ length: n * 3 }, (_, i) => addDays(rangeStart, i - n)); };
+function dayWidth() {
+  const w = $('tl').clientWidth - parseInt(getComputedStyle(document.documentElement).getPropertyValue('--labelw'));
+  return Math.max(zoom === 3 ? 26 : 60, Math.floor(w / ZOOMS[zoom].days));
+}
+// Det man ser just nu (för kulpåsen): från vänsterkant till högerkant av tidslinjen
+function viewWindow() {
+  const days = visibleDays(), dw = dayWidth(), sl = $('tl').scrollLeft, w = $('tl').clientWidth - parseInt(getComputedStyle(document.documentElement).getPropertyValue('--labelw'));
+  // Bara dagar som syns till minst hälften räknas (inte en smal remsa i kanten)
+  const first = Math.max(0, Math.round(sl / dw)), last = Math.min(days.length - 1, Math.round((sl + w) / dw) - 1);
+  return days.slice(first, last + 1).map(iso);
+}
 
-            <!-- GANTT TIMELINE -->
-            <section class="glass-panel p-4 rounded-2xl flex-1 flex flex-col min-h-[360px]">
-                <h2 class="text-xs font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider mb-3">📅 Tidsperiod & Schemaläggning</h2>
+// ===== Upptagen/ledig =====
+// Upptagna timmar per resurs och dag (bara arbetsdagar räknas)
+function busyMap() {
+  const m = {};
+  jobs.forEach(j => { if (!j.startDate) return; const segs = segments(j); j.assigned.forEach(p => segs.forEach(s => { ((m[p] = m[p] || {})[s.date] = m[p][s.date] || []).push({ from: s.from, to: s.to, job: j }); })); });
+  return m;
+}
+function availability(name, dates, bm) {
+  const r = resById[name];
+  if (r?.isSick) return { state: 'busy', why: 'sjukanmäld' };
+  const work = dates.filter(d => isWorkday(parseIso(d), false));
+  if (!work.length) return { state: 'free' };
+  let full = 0, any = false, last = null;
+  work.forEach(d => { const b = bm[name]?.[d] || []; const h = b.reduce((s, x) => s + (x.to - x.from), 0); if (h > 0) { any = true; last = b[b.length - 1]; } if (h >= WORK_HOURS - 0.01) full++; });
+  if (full === work.length) return { state: 'busy', why: (last?.job.title || last?.job.client || 'jobb') };
+  return { state: any ? 'part' : 'free' };
+}
+// Krockar för ett jobb (samma regel som servern)
+function conflictsFor(job) {
+  const mine = segments(job), out = [];
+  if (!mine.length) return out;
+  jobs.forEach(o => {
+    if (o.id === job.id || !o.startDate) return;
+    const both = job.assigned.filter(p => o.assigned.includes(p));
+    if (!both.length) return;
+    const os = segments(o);
+    mine.forEach(a => os.forEach(b => { if (a.date === b.date && a.from < b.to - 0.001 && b.from < a.to - 0.001) both.forEach(p => {
+      if (!out.some(c => c.p === p)) { const d = parseIso(b.date); out.push({ p, text: `${p} är upptagen ${DAYN[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} ${hh(b.from)}–${hh(b.to)} (${o.title || o.client}).` }); } }); }));
+  });
+  const sick = job.assigned.filter(p => resById[p]?.isSick);
+  sick.forEach(p => out.push({ p, text: `${p} är sjukanmäld.` }));
+  return out;
+}
 
-                <div id="timeline-container" class="border border-white/40 dark:border-sky-900/50 rounded-xl bg-white/20 dark:bg-slate-950/40 flex-1 overflow-auto custom-scrollbar relative backdrop-blur-sm">
-                    <div id="timeline-inner" class="flex flex-col min-h-full relative">
-                        <div class="h-10 border-b border-white/30 dark:border-sky-900/50 flex items-center bg-white/40 dark:bg-slate-900/70 shrink-0 sticky top-0 z-40 backdrop-blur-md">
-                            <div class="w-56 px-4 font-bold text-sky-800 dark:text-slate-300 text-[10px] uppercase tracking-wider shrink-0 sticky left-0 z-50 bg-white/60 dark:bg-slate-900/90 border-r border-white/30 dark:border-sky-900/50 h-full flex items-center">
-                                Projekt / Kund
-                            </div>
-                            <div id="timeline-header-days" class="flex text-center text-xs font-bold h-full items-center"></div>
-                        </div>
+// ===== Rita =====
+function render() { renderTop(); renderOrder(); renderTimeline(); renderSide(); }
 
-                        <div class="relative flex-1" ondragover="allowDrop(event)" ondrop="dropJobOnTimeline(event)">
-                            <div id="timeline-grid-bg" class="absolute inset-0 flex pointer-events-none z-0 min-h-full"></div>
-                            <div id="gantt-rows" class="relative z-10 pb-8"></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
+function renderTop() {
+  const n = ZOOMS[zoom].days, a = rangeStart, b = addDays(rangeStart, n - 1);
+  const wk = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7)); return Math.ceil(((t - new Date(Date.UTC(t.getUTCFullYear(), 0, 1))) / 864e5 + 1) / 7); };
+  $('period').textContent = n === 7 ? `Vecka ${wk(a)} · ${a.getDate()} ${MON[a.getMonth()]}–${b.getDate()} ${MON[b.getMonth()]}` : `${a.getDate()} ${MON[a.getMonth()]} – ${b.getDate()} ${MON[b.getMonth()]}`;
+  document.querySelectorAll('#zoomseg button').forEach(x => x.classList.toggle('on', Number(x.dataset.z) === zoom));
+  document.querySelectorAll('#viewseg button').forEach(x => x.classList.toggle('on', x.dataset.v === view));
+}
 
-    <script>
-        const APPS_SCRIPT_URL = ""; 
-        
-        const SWEDISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
-        const SWEDISH_DAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
-        const START_DATE = new Date(2026, 9, 26);
-        const TOTAL_DAYS = 35;
-        const DAY_WIDTH = 130;
+function renderOrder() {
+  const list = jobs.filter(j => !j.startDate);
+  $('order').innerHTML = `<div class="title">Orderbok</div>` + (list.map(j => `<div class="ocard" data-job="${esc(j.id)}" data-from="order">
+      <b>${esc(j.title || j.client)}</b><span>${esc(j.client && j.client !== j.title ? j.client + ' · ' : '')}${j.hours} h${j.assigned.length ? ' · ' + j.assigned.length + ' res.' : ''}</span></div>`).join('')
+    || '<span class="empty">Inga oplanerade jobb – dra hit ett jobb för att avplanera det.</span>') +
+    `<button class="btn" id="newJob" style="flex:none;align-self:center">＋ Nytt jobb</button>`;
+  $('newJob').onclick = () => openSheet(null);
+}
 
-        let state = { clients: [], resources: [], jobs: [] };
+function rowsFor() {
+  if (view === 'person') {
+    const order = { person: 0, machine: 1, equipment: 2 };
+    const rows = resources.slice().sort((a, b) => (order[a.kind] - order[b.kind]) || a.name.localeCompare(b.name, 'sv'))
+      .map(r => ({ key: 'p:' + r.name, person: r.name, label: r.name, sub: r.isSick ? '🤒 sjuk' : (r.kind === 'person' ? '' : r.kind === 'machine' ? 'maskin' : 'utrustning'), res: r,
+        jobs: jobs.filter(j => j.startDate && j.assigned.includes(r.name)) }));
+    const none = jobs.filter(j => j.startDate && !j.assigned.length);
+    if (none.length) rows.unshift({ key: 'p:', person: '', label: 'Ej bemannade', sub: 'dra kulor hit', jobs: none });
+    return rows;
+  }
+  const by = {};
+  jobs.filter(j => j.startDate).forEach(j => { const k = j.client || j.title; (by[k] = by[k] || []).push(j); });
+  return Object.keys(by).sort((a, b) => by[a].map(j => j.startDate).sort()[0].localeCompare(by[b].map(j => j.startDate).sort()[0]))
+    .map(k => ({ key: 'c:' + k, client: k, label: k, sub: by[k].length + ' jobb', jobs: by[k] }));
+}
 
-        function toggleTheme() {
-            const htmlTag = document.documentElement;
-            htmlTag.classList.toggle('dark');
-            const isDark = htmlTag.classList.contains('dark');
-            document.getElementById('theme-icon').innerText = isDark ? '❄️' : '☀️';
-        }
+function renderTimeline() {
+  const days = visibleDays(), dw = dayWidth(), todayIso = iso(new Date());
+  const head = days.map(d => { const h = holidayName(d), we = d.getDay() === 0 || d.getDay() === 6;
+    return `<div class="day ${we ? 'we' : ''} ${h ? 'hol' : ''} ${iso(d) === todayIso ? 'today' : ''}" style="width:${dw}px"><b>${DAYN[d.getDay()]} ${d.getDate()}${zoom === 3 ? '' : ' ' + MON[d.getMonth()]}</b>${h ? `<span class="hol-name">${esc(h)}</span>` : ''}
+      ${zoom === 0 ? `<div class="hours">${Array.from({ length: WORK_HOURS }, (_, i) => `<span>${pad(WORK_START + i)}</span>`).join('')}</div>` : ''}</div>`; }).join('');
+  const colsHtml = days.map(d => { const we = d.getDay() === 0 || d.getDay() === 6; return `<div class="col ${we ? 'we' : ''} ${holidayName(d) ? 'hol' : ''}" style="width:${dw}px"></div>`; }).join('');
+  const idx = {}; days.forEach((d, i) => { idx[iso(d)] = i; });
+  const xOf = (date, hour) => idx[date] * dw + ((hour - WORK_START) / WORK_HOURS) * dw;
+  const rows = rowsFor();
+  const rowsHtml = rows.map(row => {
+    // Banor inom raden så att krockar syns (borde inte finnas, men gamla data kan ha det)
+    const bars = [];
+    row.jobs.forEach(j => {
+      const all = segments(j);
+      // Dagar i följd (heldagar) blir ett sammanhängande kort; helger och röda dagar bryter det
+      const runs = [];
+      all.forEach(sg => { if (idx[sg.date] === undefined) return; const last = runs[runs.length - 1];
+        if (last && idx[sg.date] === idx[last.endDate] + 1 && last.to >= WORK_START + WORK_HOURS - 0.01 && sg.from <= WORK_START + 0.01) { last.endDate = sg.date; last.to = sg.to; }
+        else runs.push({ date: sg.date, endDate: sg.date, from: sg.from, to: sg.to }); });
+      const crew = j.assigned.map(p => `<i title="${esc(p)}">${esc(resById[p]?.kind === 'person' || !resById[p] ? initials(p) : orbIcon(resById[p]))}</i>`).join('');
+      runs.forEach(run => {
+        const left = xOf(run.date, run.from), width = Math.max(14, xOf(run.endDate, run.to) - left - 2);
+        const first = all[0] && all[0].date === run.date, lastSeg = all[all.length - 1] && all[all.length - 1].date === run.endDate;
+        bars.push(`<div class="bar ${/kla/i.test(j.billingCompany) ? 'kla' : ''} ${j.assigned.length ? '' : 'none'} ${first ? '' : 'cont'} ${lastSeg ? '' : 'more'}" style="left:${left}px;width:${width}px"
+          data-job="${esc(j.id)}" data-from="${esc(row.key)}"><b>${first ? '' : '↪ '}${esc(j.title || j.client)}</b>${width > 50 ? `<div class="mini">${crew}</div>` : ''}</div>`);
+      });
+    });
+    const r = row.res;
+    return `<div class="row" data-row="${esc(row.key)}"><div class="rlabel">${row.person !== undefined && r ? `<div class="orb" style="--c:${colorOf(r)}">${esc(orbIcon(r))}</div>` : ''}
+      <span>${esc(row.label)}${row.sub ? `<em>${esc(row.sub)}</em>` : ''}</span></div><div class="cols">${colsHtml}${bars.join('')}</div></div>`;
+  }).join('') || `<div class="msg">Inga inplanerade jobb här ännu. Dra ett jobb från orderboken till tidslinjen.</div>`;
+  const now = new Date(), nowH = now.getHours() + now.getMinutes() / 60;
+  const nowLine = idx[todayIso] !== undefined ? `<div class="nowline" style="left:calc(var(--labelw) + ${xOf(todayIso, Math.min(WORK_START + WORK_HOURS, Math.max(WORK_START, nowH)))}px)"></div>` : '';
+  const keep = $('tl').scrollLeft, first = !renderTimeline.done;
+  $('tlin').style.width = `calc(var(--labelw) + ${days.length * dw}px)`;
+  $('tlin').innerHTML = `<div class="head"><div class="corner">${view === 'person' ? 'Personal & resurser' : 'Kund / projekt'}</div>${head}</div><div class="rows">${rowsHtml}${nowLine}</div>`;
+  // Starta på det valda fönstret (mitten av de tre fönster som ritas)
+  $('tl').scrollLeft = first || renderTimeline.jump ? ZOOMS[zoom].days * dw : keep;
+  renderTimeline.done = true; renderTimeline.jump = false;
+}
 
-        function reloadLiveData() {
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run
-                    .withSuccessHandler(onDataLoaded)
-                    .withFailureHandler(function(err) { console.error("Apps Script-fel:", err); })
-                    .handleGetKabanossData();
-            } else if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.length > 10) {
-                fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'getKabanossData', user: localStorage.getItem('lpv_user') || '', key: localStorage.getItem('lpv_key') || '' })
-                })
-                .then(function(r) { return r.json(); })
-                .then(onDataLoaded)
-                .catch(function(err) { console.error("Fetch-fel:", err); });
-            } else {
-                console.log("Körs offline - visar tom layout.");
-                onDataLoaded({ status: "success", clients: [], resources: [], jobs: [] });
-            }
-        }
+function renderSide() {
+  const dates = viewWindow(), bm = busyMap();
+  const groups = [['person', 'Personal'], ['machine', 'Maskiner'], ['equipment', 'Verktyg & utrustning']];
+  const busy = [];
+  const html = groups.map(([kind, title]) => {
+    const list = resources.filter(r => r.kind === kind);
+    if (!list.length) return '';
+    const orbs = list.map(r => { const a = availability(r.name, dates, bm);
+      if (a.state === 'busy') { busy.push(`${r.name} – ${a.why}`); return ''; }
+      return `<div class="orbwrap" data-res="${esc(r.name)}" title="${a.state === 'part' ? 'Delvis upptagen' : 'Ledig'}"><div class="orb ${a.state === 'part' ? 'part' : ''}" style="--c:${colorOf(r)}">${esc(orbIcon(r))}</div><small>${esc(r.name)}</small></div>`; }).join('');
+    return `<div><h3>${title}</h3><div class="orbs">${orbs || '<small style="color:var(--muted)">Alla upptagna</small>'}</div></div>`;
+  }).join('');
+  const span = dates.length ? (() => { const a = parseIso(dates[0]), b = parseIso(dates[dates.length - 1]); return `${a.getDate()}/${a.getMonth() + 1}–${b.getDate()}/${b.getMonth() + 1}`; })() : '';
+  $('side').innerHTML = `<div style="font-size:12px;color:var(--muted)">Lediga ${span}. Halvring = delvis upptagen.</div>` + html +
+    (busy.length ? `<details class="busylist"><summary>Upptagna (${busy.length})</summary>${busy.map(b => `<div>${esc(b)}</div>`).join('')}</details>` : '');
+}
 
-        function onDataLoaded(res) {
-            if (res && res.status === "success") {
-                state.clients = res.clients || [];
-                state.resources = res.resources || [];
-                state.jobs = res.jobs || [];
-                initUI();
-            }
-        }
+// ===== Dra och släpp med pekare (finger och mus) =====
+let drag = null;
+document.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('[data-job],[data-res]');
+  if (!el || e.button > 0 || el.closest('.sheet')) return;
+  drag = { el, x: e.clientX, y: e.clientY, started: false, job: el.dataset.job, res: el.dataset.res, from: el.dataset.from, pointerId: e.pointerId };
+});
+document.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+    drag.started = true;
+    const g = drag.el.cloneNode(true); g.classList.add('ghost'); g.style.width = Math.min(drag.el.offsetWidth, 220) + 'px'; g.style.left = 0; g.style.top = 0;
+    document.body.appendChild(g); drag.ghost = g;
+  }
+  e.preventDefault();
+  drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px';
+  highlight(e.clientX, e.clientY);
+}, { passive: false });
+document.addEventListener('pointerup', (e) => {
+  if (!drag) return;
+  const d = drag; drag = null;
+  clearHighlight();
+  if (d.ghost) d.ghost.remove();
+  if (!d.started) { if (d.job) openSheet(d.job); return; }
+  drop(d, e.clientX, e.clientY);
+});
+document.addEventListener('pointercancel', () => { if (drag?.ghost) drag.ghost.remove(); drag = null; clearHighlight(); });
 
-        function initUI() {
-            buildTimelineLayout();
-            renderKulpase();
-            renderOrderbook();
-            renderGantt();
-        }
+function targetAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return {};
+  return { bar: el.closest('.bar'), row: el.closest('.row'), order: el.closest('#order'), cols: el.closest('.cols') };
+}
+function clearHighlight() { document.querySelectorAll('.drop-ok,.drop-bad').forEach(x => x.classList.remove('drop-ok', 'drop-bad')); }
+function highlight(x, y) {
+  clearHighlight();
+  const t = targetAt(x, y);
+  if (drag.res && t.bar) { const j = jobs.find(q => q.id === t.bar.dataset.job); const test = { ...j, assigned: [...new Set([...j.assigned, drag.res])] };
+    document.querySelectorAll(`.bar[data-job="${CSS.escape(j.id)}"]`).forEach(b => b.classList.add(conflictsFor(test).length ? 'drop-bad' : 'drop-ok')); }
+  else if (drag.job && t.order) t.order.classList.add('drop-ok');
+  else if (drag.job && t.row) t.row.classList.add('drop-ok');
+}
 
-        function buildTimelineLayout() {
-            const inner = document.getElementById('timeline-inner');
-            inner.style.width = (224 + (TOTAL_DAYS * DAY_WIDTH)) + 'px';
+// Datum och tid där man släppte
+function whenAt(x, cols) {
+  const r = cols.getBoundingClientRect(), dw = dayWidth(), px = x - r.left;
+  const i = Math.max(0, Math.floor(px / dw)), date = iso(visibleDays()[Math.min(i, visibleDays().length - 1)]);
+  const frac = (px - i * dw) / dw;
+  const hour = zoom <= 1 ? Math.min(WORK_START + WORK_HOURS - 0.5, WORK_START + Math.round(frac * WORK_HOURS * 2) / 2) : null;
+  return { date, time: hour === null ? null : hh(hour) };
+}
 
-            const headerContainer = document.getElementById('timeline-header-days');
-            const gridBg = document.getElementById('timeline-grid-bg');
-            
-            headerContainer.innerHTML = '';
-            gridBg.innerHTML = '<div class="w-56 shrink-0 border-r border-white/20 dark:border-sky-900/30 sticky left-0 z-20 bg-white/30 dark:bg-slate-900/60 backdrop-blur-sm"></div>';
+async function drop(d, x, y) {
+  const t = targetAt(x, y);
+  if (d.res) {
+    if (!t.bar) return;
+    const j = jobs.find(q => q.id === t.bar.dataset.job);
+    if (j.assigned.includes(d.res)) return;
+    return saveJob({ ...j, assigned: [...j.assigned, d.res] }, `${d.res} tillagd – ${j.title || j.client} blir kortare`);
+  }
+  const j = jobs.find(q => q.id === d.job);
+  if (!j) return;
+  if (t.order) { if (j.startDate) return saveJob({ ...j, startDate: '' }, 'Tillbaka i orderboken'); return; }
+  if (!t.row || !t.cols) return;
+  const w = whenAt(x, t.cols);
+  const next = { ...j, startDate: w.date, startTime: w.time || (j.startDate ? j.startTime : '07:00') };
+  const rowKey = t.row.dataset.row;
+  if (view === 'person' && rowKey.startsWith('p:')) {
+    const to = rowKey.slice(2), fromP = (d.from || '').startsWith('p:') ? d.from.slice(2) : '';
+    if (to && !next.assigned.includes(to)) next.assigned = fromP && next.assigned.includes(fromP) ? next.assigned.map(p => p === fromP ? to : p) : [...next.assigned, to];
+  }
+  return saveJob(next, j.startDate ? 'Flyttat' : 'Inplanerat');
+}
 
-            for (let i = 0; i < TOTAL_DAYS; i++) {
-                const d = new Date(START_DATE);
-                d.setDate(d.getDate() + i);
+// ===== Spara =====
+async function saveJob(job, okText) {
+  const c = conflictsFor(job);
+  if (c.length) { toast('⛔ ' + c[0].text); render(); return false; }
+  const i = jobs.findIndex(q => q.id === job.id);
+  const before = i >= 0 ? jobs[i] : null;
+  if (i >= 0) jobs[i] = job; else jobs.push(job);
+  render(); setStatus('Sparar…');
+  try {
+    const res = await snoApi({ action: 'radarSaveJob', job });
+    if (res.status === 'conflict') throw Object.assign(new Error(res.message), { conflict: true });
+    if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara');
+    const k = jobs.findIndex(q => q.id === job.id);
+    const saved = { ...res.job, assigned: res.job.assigned.map(String) };
+    if (k >= 0) jobs[k] = saved; else jobs.push(saved);
+    setStatus('Sparat ✓'); if (okText) toast(okText, true);
+    render();
+    return saved;
+  } catch (e) {
+    if (before) jobs[i] = before; else jobs = jobs.filter(q => q !== job);
+    render(); setStatus('Inte sparat', true);
+    toast((e.conflict ? '⛔ ' : '❌ ') + (e.message || 'Ingen kontakt – försök igen.'));
+    return false;
+  }
+}
 
-                const dayName = SWEDISH_DAYS[(d.getDay() + 6) % 7];
-                const dateNum = d.getDate();
-                const monthName = SWEDISH_MONTHS[d.getMonth()];
-                const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
+// ===== Detaljruta =====
+let editing = null;
+function openSheet(id) {
+  const j = id ? jobs.find(q => q.id === id) : { id: '', title: '', client: '', hours: 8, startDate: '', startTime: '07:00', assigned: [], weekendWork: false, siteAddress: '' };
+  if (!j) return;
+  editing = JSON.parse(JSON.stringify(j));
+  drawSheet();
+  $('sheet').classList.add('open'); $('sheetBg').classList.add('open');
+}
+function closeSheet() { $('sheet').classList.remove('open'); $('sheetBg').classList.remove('open'); editing = null; }
+function drawSheet() {
+  const j = editing, segs = segments(j), n = workers(j);
+  $('sheet').innerHTML = `<h2>${j.id ? esc(j.title || j.client) : 'Nytt jobb'}</h2>
+    <div class="f"><label for="fTitle">Jobb</label><input id="fTitle" value="${esc(j.title)}" placeholder="T.ex. Fasadmålning"></div>
+    <div class="f"><label for="fClient">Kund</label><input id="fClient" value="${esc(j.client)}"></div>
+    <div class="f"><label for="fAddr">Adress</label><input id="fAddr" value="${esc(j.siteAddress)}"></div>
+    <div class="grid2"><div class="f"><label for="fHours">Timmar totalt</label><input id="fHours" type="number" min="0.5" step="0.5" inputmode="decimal" value="${esc(j.hours)}"></div>
+      <div class="f"><label for="fTime">Starttid</label><input id="fTime" type="time" value="${esc(j.startTime || '07:00')}"></div></div>
+    <div class="f"><label for="fDate">Startdatum (tomt = orderboken)</label><input id="fDate" type="date" value="${esc(j.startDate)}"></div>
+    <label style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><input type="checkbox" id="fWeekend" ${j.weekendWork ? 'checked' : ''} style="width:22px;height:22px"> Helgarbete (räkna även helger och röda dagar)</label>
+    <div class="calc">${n} ${n === 1 ? 'person' : 'personer'} · ${segs.length ? `<b>${segs.length} ${segs.length === 1 ? 'arbetsdag' : 'arbetsdagar'}</b> · ${esc(spanText(j))}` : 'i orderboken'}</div>
+    <div class="f"><label>Bemanning – dra in kulor från kulpåsen på jobbet</label><div class="crew">${j.assigned.map(p => `<div class="orbwrap"><div class="orb" style="--c:${colorOf(resById[p])}">${esc(orbIcon(resById[p] || { name: p }))}</div><small>${esc(p)}</small><button data-rm="${esc(p)}">ta bort</button></div>`).join('') || '<small style="color:var(--muted)">Ingen än</small>'}</div></div>
+    <div class="actions"><button class="btn primary" id="sSave">Spara</button><button class="btn" id="sCancel">Stäng</button>
+      ${j.id && j.startDate ? '<button class="btn" id="sOrder">Till orderboken</button>' : ''}${j.id ? '<button class="btn" id="sDel" style="color:var(--bad)">Ta bort jobbet</button>' : ''}</div>
+    <div id="sMsg" style="margin-top:10px;color:var(--bad);font-size:13px"></div>`;
+  const read = () => Object.assign(editing, { title: $('fTitle').value.trim(), client: $('fClient').value.trim(), siteAddress: $('fAddr').value.trim(),
+    hours: Number(String($('fHours').value).replace(',', '.')) || editing.hours, startTime: $('fTime').value || '07:00', startDate: $('fDate').value, weekendWork: $('fWeekend').checked });
+  ['fHours', 'fTime', 'fDate', 'fWeekend'].forEach(id => { $(id).onchange = () => { read(); drawSheet(); }; });
+  $('sheet').querySelectorAll('[data-rm]').forEach(b => { b.onclick = () => { read(); editing.assigned = editing.assigned.filter(p => p !== b.dataset.rm); drawSheet(); }; });
+  $('sSave').onclick = async () => { read(); const c = conflictsFor(editing); if (c.length) { $('sMsg').textContent = '⛔ ' + c[0].text; return; }
+    const saved = await saveJob({ ...editing }, 'Sparat'); if (saved) closeSheet(); };
+  $('sCancel').onclick = closeSheet;
+  if ($('sOrder')) $('sOrder').onclick = async () => { read(); const saved = await saveJob({ ...editing, startDate: '' }, 'Tillbaka i orderboken'); if (saved) closeSheet(); };
+  if ($('sDel')) { let armed = false; $('sDel').onclick = async () => {
+    if (!armed) { armed = true; $('sDel').textContent = 'Tryck igen för att ta bort'; return; }
+    setStatus('Tar bort…');
+    const res = await snoApi({ action: 'radarDeleteJob', id: editing.id }).catch(() => ({}));
+    if (res.status === 'success') { jobs = jobs.filter(q => q.id !== editing.id); closeSheet(); render(); setStatus('Borttaget'); }
+    else { $('sMsg').textContent = '❌ ' + (res.message || 'Kunde inte ta bort.'); setStatus('', true); } }; }
+}
+$('sheetBg').onclick = closeSheet;
 
-                headerContainer.innerHTML += '<div class="border-r border-white/30 dark:border-sky-900/50 py-1 h-full flex flex-col justify-center items-center shrink-0 text-xs font-bold ' + (isWeekend ? 'bg-helg text-rose-500' : 'text-sky-700 dark:text-slate-400') + '" style="width: ' + DAY_WIDTH + 'px;">' +
-                    '<span>' + dayName + ' ' + dateNum + ' ' + monthName + '</span>' +
-                '</div>';
-
-                gridBg.innerHTML += '<div class="border-r border-white/20 dark:border-sky-900/30 shrink-0 ' + (isWeekend ? 'bg-helg' : '') + '" style="width: ' + DAY_WIDTH + 'px;"></div>';
-            }
-        }
-
-        function renderKulpase() {
-            const poolPersonnel = document.getElementById('pool-personnel');
-            const poolSick = document.getElementById('pool-sick');
-            const poolMachines = document.getElementById('pool-machines');
-            
-            poolPersonnel.innerHTML = ''; poolSick.innerHTML = ''; poolMachines.innerHTML = '';
-
-            const assignedIds = new Set();
-            state.jobs.filter(function(j) { return j.status === 'scheduled'; }).forEach(function(j) { 
-                j.assigned.forEach(function(id) { assignedIds.add(id); }); 
-            });
-
-            state.resources.forEach(function(res) {
-                let badgeClass = 'bg-lpv'; let ownerText = 'LPV';
-                if (res.ownerCompany && res.ownerCompany.includes('kla')) { badgeClass = 'bg-klaryta'; ownerText = 'KLA'; }
-                if (res.ownerCompany && res.ownerCompany.includes('ue')) { badgeClass = 'bg-ue'; ownerText = 'UE'; }
-
-                let sizeClass = 'orb-kulpase-' + (res.sizeClass || 'liten');
-                let hasAvatar = res.avatarBase64 && res.avatarBase64.indexOf('data:image') !== -1;
-                let displayIcon = hasAvatar 
-                    ? '<img src="' + res.avatarBase64 + '" class="w-full h-full object-cover rounded-full z-10" />' 
-                    : '<span class="z-10 text-slate-800">' + (res.icon || '👦') + '</span>';
-
-                if (res.type === 'person' && res.isSick) {
-                    poolSick.innerHTML += '<div class="flex flex-col items-center gap-1 w-[56px] shrink-0">' +
-                        '<div class="glass-orb ' + sizeClass + ' sick-orb">' +
-                            '<span class="z-10">🤒</span>' +
-                            '<span class="owner-badge bg-rose-600 text-white">SJUK</span>' +
-                        '</div>' +
-                        '<span class="text-[9px] font-bold text-rose-500 dark:text-rose-300 truncate w-full text-center">' + res.name + '</span>' +
-                    '</div>';
-                } else if (!assignedIds.has(res.id)) {
-                    const html = '<div class="flex flex-col items-center gap-1 w-[56px] shrink-0">' +
-                        '<div class="glass-orb ' + sizeClass + '" style="background-color: ' + (res.color || '#0284c7') + '" draggable="true" ondragstart="onOrbDragStart(event, \'' + res.id + '\')">' +
-                            displayIcon +
-                            '<span class="owner-badge ' + badgeClass + '">' + ownerText + '</span>' +
-                        '</div>' +
-                        '<span class="text-[9px] font-semibold text-sky-900 dark:text-slate-300 truncate w-full text-center">' + res.name + '</span>' +
-                    '</div>';
-                    
-                    if (res.type === 'person') poolPersonnel.innerHTML += html;
-                    else poolMachines.innerHTML += html;
-                }
-            });
-
-            if (!poolPersonnel.innerHTML) poolPersonnel.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga tillgängliga</span>';
-            if (!poolMachines.innerHTML) poolMachines.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga maskiner</span>';
-        }
-
-        function renderOrderbook() {
-            const container = document.getElementById('orderbook-list');
-            container.innerHTML = '';
-            state.jobs.filter(function(j) { return j.status === 'unscheduled'; }).forEach(function(job) {
-                container.innerHTML += '<div class="glass-panel p-3 rounded-xl shrink-0 w-56 cursor-grab" draggable="true" ondragstart="onJobDragStart(event, \'' + job.id + '\')">' +
-                    '<div class="flex items-center justify-between text-[10px] font-bold uppercase mb-1">' +
-                        '<span class="truncate text-sky-800 dark:text-slate-300">' + job.client + '</span>' +
-                        '<span class="text-amber-500 dark:text-amber-400">' + job.hours + 'h</span>' +
-                    '</div>' +
-                    '<div class="font-bold text-xs text-sky-950 dark:text-slate-100 truncate">' + job.title + '</div>' +
-                '</div>';
-            });
-            if (!container.innerHTML) container.innerHTML = '<span class="text-sky-600/70 dark:text-slate-500 text-[10px] font-medium">Inga nya beställningar</span>';
-        }
-
-        function renderGantt() {
-            const container = document.getElementById('gantt-rows');
-            container.innerHTML = '';
-
-            state.jobs.filter(function(j) { return j.status === 'scheduled'; }).forEach(function(job) {
-                let orbsHtml = job.assigned.map(function(id) {
-                    const res = state.resources.find(function(r) { return r.id === id; });
-                    if (!res) return '';
-                    let sizeClass = 'orb-gantt-' + (res.sizeClass || 'liten');
-                    let displayIcon = res.avatarBase64 && res.avatarBase64.indexOf('data:image') !== -1 
-                        ? '<img src="' + res.avatarBase64 + '" class="w-full h-full object-cover rounded-full z-10" />' 
-                        : '<span class="z-10 text-slate-800">' + (res.icon || '👦') + '</span>';
-
-                    return '<div class="glass-orb ' + sizeClass + ' border border-white/60 dark:border-slate-800 shrink-0" style="background-color:' + (res.color || '#0284c7') + '" draggable="true" ondragstart="onOrbDragStart(event, \'' + id + '\')">' +
-                        displayIcon +
-                    '</div>';
-                }).join('');
-
-                const leftPx = (job.dayIndex || 0) * DAY_WIDTH + 8;
-                const widthPx = Math.ceil(job.hours / 8) * DAY_WIDTH - 16;
-
-                container.innerHTML += '<div class="flex items-center h-[76px] border-b border-white/20 dark:border-slate-800/40 relative">' +
-                    '<div class="w-56 p-2 shrink-0 h-full flex items-center z-30 sticky left-0 border-r border-white/30 dark:border-sky-900/50 bg-white/40 dark:bg-slate-900/70 backdrop-blur-md">' +
-                        '<div class="glass-panel p-2 rounded-xl w-full border-white/60 dark:border-slate-700">' +
-                            '<div class="text-[9px] font-bold text-sky-700 dark:text-slate-400 uppercase truncate">' + job.client + '</div>' +
-                            '<div class="font-bold text-xs text-sky-950 dark:text-slate-100 truncate">' + job.title + '</div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="flex-1 h-full relative">' +
-                        '<div class="gantt-job-card ' + (job.billingCompany === 'Klaryta' ? 'kla' : 'lpv') + ' absolute top-[6px] bottom-[6px] shadow-lg shadow-sky-900/10 dark:shadow-black/40" style="left: ' + leftPx + 'px; width: ' + widthPx + 'px;" draggable="true" ondragstart="onJobDragStart(event, \'' + job.id + '\')" ondrop="dropOrbOnJob(event, \'' + job.id + '\')" ondragover="allowDrop(event)">' +
-                            '<div class="flex items-center gap-1 z-40 relative">' + orbsHtml + '</div>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-            });
-        }
-
-        function onOrbDragStart(e, resId) { e.stopPropagation(); e.dataTransfer.setData("type", "orb"); e.dataTransfer.setData("id", resId); }
-        function onJobDragStart(e, jobId) { e.dataTransfer.setData("type", "job"); e.dataTransfer.setData("id", jobId); }
-        function allowDrop(e) { e.preventDefault(); }
-
-        function dropJobOnTimeline(e) {
-            e.preventDefault();
-            const type = e.dataTransfer.getData("type");
-            const id = e.dataTransfer.getData("id");
-            if (type === "job") {
-                const job = state.jobs.find(function(j) { return j.id === id; });
-                if (job) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const offsetX = e.clientX - (rect.left + 224);
-                    if (offsetX >= 0) {
-                        job.status = 'scheduled';
-                        job.dayIndex = Math.max(0, Math.floor(offsetX / DAY_WIDTH));
-                        initUI();
-                    }
-                }
-            }
-        }
-
-        function dropOrbOnJob(e, jobId) {
-            e.preventDefault(); e.stopPropagation();
-            const type = e.dataTransfer.getData("type");
-            const resId = e.dataTransfer.getData("id");
-            if (type === "orb" && resId) {
-                state.jobs.forEach(function(j) { 
-                    j.assigned = j.assigned.filter(function(aid) { return aid !== resId; }); 
-                });
-                const job = state.jobs.find(function(j) { return j.id === jobId; });
-                if (job && job.assigned.indexOf(resId) === -1) job.assigned.push(resId);
-                initUI();
-            }
-        }
-
-        function publishChanges() { alert("Ändringar sparade!"); }
-
-        document.addEventListener('DOMContentLoaded', reloadLiveData);
-    </script>
+// ===== Kontroller =====
+$('viewseg').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; view = b.dataset.v; render(); };
+$('zoomseg').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; zoom = Number(b.dataset.z);
+  if (zoom <= 1) { const t = new Date(); rangeStart = new Date(t.getFullYear(), t.getMonth(), t.getDate()); if (rangeStart < mondayOf(rangeStart)) rangeStart = mondayOf(rangeStart); }
+  else rangeStart = mondayOf(rangeStart);
+  renderTimeline.jump = true; render(); };
+$('prev').onclick = () => { rangeStart = addDays(rangeStart, -ZOOMS[zoom].days); renderTimeline.jump = true; render(); };
+$('next').onclick = () => { rangeStart = addDays(rangeStart, ZOOMS[zoom].days); renderTimeline.jump = true; render(); };
+$('today').onclick = () => { const t = new Date(); rangeStart = zoom <= 1 ? new Date(t.getFullYear(), t.getMonth(), t.getDate()) : mondayOf(t); renderTimeline.jump = true; render(); };
+$('tglSide').onclick = () => { $('side').classList.toggle('hidden'); renderTimeline.jump = true; render(); };
+$('tglOrder').onclick = () => $('order').classList.toggle('hidden');
+// Kulpåsen följer det man ser när man scrollar
+let scrollT; $('tl').addEventListener('scroll', () => { clearTimeout(scrollT); scrollT = setTimeout(renderSide, 120); });
+window.addEventListener('resize', () => { renderTimeline.jump = true; render(); });
+// Helskärm (där webbläsaren tillåter det – annars: lägg appen på hemskärmen)
+const fsEl = document.documentElement;
+if (fsEl.requestFullscreen || fsEl.webkitRequestFullscreen) { $('fs').hidden = false; $('fs').onclick = () => {
+  if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  else (fsEl.requestFullscreen || fsEl.webkitRequestFullscreen).call(fsEl); }; }
+// Nyp för att zooma
+let pinch = null;
+$('tl').addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = { d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY), z: zoom }; }, { passive: true });
+$('tl').addEventListener('touchmove', (e) => { if (!pinch || e.touches.length !== 2) return; const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  const nz = Math.max(0, Math.min(3, pinch.z + (d < pinch.d * 0.7 ? 1 : d > pinch.d * 1.4 ? -1 : 0))); if (nz !== zoom) { zoom = nz; pinch = { d, z: nz }; renderTimeline.jump = true; render(); } }, { passive: true });
+$('tl').addEventListener('touchend', () => { pinch = null; });
+load();
+</script>
 </body>
 </html>

@@ -108,6 +108,34 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
   } catch (e) { /* offline – senaste kända behörighet gäller */ }
 })();
 
+// Notiser från radarn: "📅 Inplanerad / Ändrat / Borttagen". Visas när appen öppnas och när den kommer tillbaka i förgrunden.
+async function checkPlanningNotices() {
+  if (!navigator.onLine || !localStorage.getItem('lpv_key')) return;
+  let res;
+  try { res = await apiPost({ action: 'getNotices' }); } catch (e) { return; }
+  const list = (res && res.notices) || [];
+  let box = document.getElementById('plan-notices');
+  if (!list.length) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement('div'); box.id = 'plan-notices';
+    box.style.cssText = 'margin:0 0 12px;padding:12px 14px;border-radius:16px;background:#1d4ed8;color:#fff;box-shadow:0 6px 18px rgba(29,78,216,.35);';
+    const c = document.querySelector('.app-container') || document.body;
+    c.insertBefore(box, c.firstChild);
+  }
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  box.innerHTML = `<div style="font-weight:800;margin-bottom:6px;">Ändringar i din planering</div>` +
+    list.map(n => `<div style="font-size:14px;line-height:1.4;padding:4px 0;border-top:1px solid rgba(255,255,255,.2);">${esc(n.text)}</div>`).join('') +
+    `<button type="button" id="plan-notices-ok" style="margin-top:8px;width:100%;min-height:44px;border:0;border-radius:12px;background:#fff;color:#1d4ed8;font-weight:800;font-size:15px;">👍 Uppfattat</button>`;
+  document.getElementById('plan-notices-ok').onclick = async () => {
+    box.remove();
+    try { await apiPost({ action: 'markNoticesRead', ids: list.map(n => n.id) }); } catch (e) { /* visas igen nästa gång */ }
+    if (typeof fetchPlannedJobs === 'function') fetchPlannedJobs();
+  };
+  if (typeof fetchPlannedJobs === 'function') fetchPlannedJobs();
+}
+document.addEventListener('DOMContentLoaded', checkPlanningNotices);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkPlanningNotices(); });
+
 // Alla anrop till backend går härigenom: skickar med användare + personlig nyckel.
 // Gamla gemensamma nyckeln (CONFIG.API_TOKEN) skickas bara om den finns kvar i config.js.
 function getAuthFields() {
