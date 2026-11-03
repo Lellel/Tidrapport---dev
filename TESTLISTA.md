@@ -106,6 +106,11 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] Tryck på ett jobb → detaljruta: timmar, starttid, datum, helgarbete, bemanning; Spara / Till orderboken / Ta bort
 - [ ] Personen som planerades in ser "Ändringar i din planering" i sin app och jobbet som blått kort; 👍 Uppfattat tar bort notisen
 - [ ] Ladda om radarn → allt ligger kvar
+- [ ] Kulorna visar personens avatar (den som saknar avatar har initialer)
+- [ ] Kulpåsen har två delar: 👷 Personal och 🧰 Maskiner & verktyg (fälls ihop)
+- [ ] Traktorerna från snöplaneringen syns i verktygsdelen med sina AI-kulor
+- [ ] ＋ Ny resurs: namn, maskin/utrustning, tillverkare och modell → 🎨 Skapa kula ger en AI-kula
+- [ ] En maskin eller ett verktyg på ett jobb gör inte jobbet kortare, men kan inte dubbelbokas
 
 ## 1. Inloggning med personlig länk
 

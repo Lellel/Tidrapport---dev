@@ -53,6 +53,11 @@ a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding:
 .bar .mini i.av { background-size: cover; background-position: center; box-shadow: 0 0 0 1px rgba(255,255,255,.7); }
 .orb.part::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--busy); border-right-color: var(--busy); }
 .orbwrap small { font-size: 10px; color: var(--muted); max-width: 54px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidepart { display: flex; flex-direction: column; gap: 6px; }
+.sidepart.gear { border-top: 1px solid var(--line); padding-top: 10px; }
+.sidepart summary { list-style: none; cursor: pointer; } .sidepart summary::-webkit-details-marker { display: none; }
+.sidepart summary h3::after { content: " ▾"; } .sidepart:not([open]) summary h3::after { content: " ▸"; }
+.respreview { width: 120px; height: 120px; border-radius: 50%; background: var(--panel2) center/cover; margin: 6px auto 12px; display: grid; place-items: center; font-size: 44px; box-shadow: 0 0 0 3px #b45309; }
 .busylist { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 .busylist summary { cursor: pointer; font-weight: 700; color: var(--fg); }
 .busylist div { padding-left: 4px; }
@@ -206,12 +211,12 @@ const orbIcon = (r) => r?.kind === 'equipment' ? '🛠️' : r?.kind === 'machin
 const cssUrl = (u) => "url('" + String(u).replace(/['"\\\n<>]/g, '') + "')"; // enkla citattecken – står i ett style="…"-attribut
 function orbHtml(r, cls = '') {
   const name = r?.name || '';
-  const av = r?.kind === 'person' || !r ? avatars[name] : '';
+  const av = avatars[name] || '';
   return av ? `<div class="orb av ${cls}" style="--c:${colorOf(r)};background-image:${cssUrl(av)}" aria-label="${esc(name)}"></div>`
             : `<div class="orb ${cls}" style="--c:${colorOf(r)}">${esc(orbIcon(r || { name }))}</div>`;
 }
 function miniHtml(p) {
-  const r = resById[p], av = (!r || r.kind === 'person') ? avatars[p] : '';
+  const r = resById[p], av = avatars[p] || '';
   return av ? `<i class="av" title="${esc(p)}" style="background-image:${cssUrl(av)}"></i>` : `<i title="${esc(p)}">${esc(r?.kind === 'person' || !r ? initials(p) : orbIcon(r))}</i>`;
 }
 
@@ -368,20 +373,25 @@ function renderTimeline() {
 
 function renderSide() {
   const dates = viewWindow(), bm = busyMap();
-  const groups = [['person', 'Personal'], ['machine', 'Maskiner'], ['equipment', 'Verktyg & utrustning']];
   const busy = [];
-  const html = groups.map(([kind, title]) => {
-    const list = resources.filter(r => r.kind === kind);
-    if (!list.length) return '';
-    const orbs = list.map(r => { const a = availability(r.name, dates, bm);
-      if (a.state === 'busy') { busy.push(`${r.name} – ${a.why}`); return ''; }
-      return `<div class="orbwrap" data-res="${esc(r.name)}" title="${a.state === 'part' ? 'Delvis upptagen' : 'Ledig'}">${orbHtml(r, a.state === 'part' ? 'part' : '')}<small>${esc(r.name)}</small></div>`; }).join('');
-    return `<div><h3>${title}</h3><div class="orbs">${orbs || '<small style="color:var(--muted)">Alla upptagna</small>'}</div></div>`;
-  }).join('');
+  const orbsFor = (list) => list.map(r => { const a = availability(r.name, dates, bm);
+    if (a.state === 'busy') { busy.push(`${r.name} – ${a.why}`); return ''; }
+    return `<div class="orbwrap" data-res="${esc(r.name)}" title="${a.state === 'part' ? 'Delvis upptagen' : 'Ledig'}">${orbHtml(r, a.state === 'part' ? 'part' : '')}<small>${esc(r.name)}</small></div>`; }).join('');
+  const people = resources.filter(r => r.kind === 'person');
+  const gear = resources.filter(r => r.kind !== 'person').sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'machine' ? -1 : 1) || a.name.localeCompare(b.name, 'sv'));
   const span = dates.length ? (() => { const a = parseIso(dates[0]), b = parseIso(dates[dates.length - 1]); return `${a.getDate()}/${a.getMonth() + 1}–${b.getDate()}/${b.getMonth() + 1}`; })() : '';
-  $('side').innerHTML = `<div style="font-size:12px;color:var(--muted)">Lediga ${span}. Halvring = delvis upptagen.</div>` + html +
+  const gearOpen = sideState.gear !== false;
+  $('side').innerHTML = `<div style="font-size:12px;color:var(--muted)">Lediga ${span}. Halvring = delvis upptagen.</div>
+    <div class="sidepart"><h3>👷 Personal</h3><div class="orbs">${orbsFor(people) || '<small style="color:var(--muted)">Alla upptagna</small>'}</div></div>
+    <details class="sidepart gear" ${gearOpen ? 'open' : ''} id="gearPart"><summary><h3>🧰 Maskiner & verktyg</h3></summary>
+      <div class="orbs">${orbsFor(gear) || '<small style="color:var(--muted)">Inga lediga</small>'}</div>
+      <button class="btn" id="newRes" style="margin-top:8px;width:100%">＋ Ny resurs</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Tryck på en kula för att ändra modell eller skapa en AI-kula.</div></details>` +
     (busy.length ? `<details class="busylist"><summary>Upptagna (${busy.length})</summary>${busy.map(b => `<div>${esc(b)}</div>`).join('')}</details>` : '');
+  $('gearPart').ontoggle = () => { sideState.gear = $('gearPart').open; };
+  $('newRes').onclick = () => openResSheet(null);
 }
+const sideState = {};
 
 // ===== Dra och släpp med pekare (finger och mus) =====
 let drag = null;
@@ -407,7 +417,7 @@ document.addEventListener('pointerup', (e) => {
   const d = drag; drag = null;
   clearHighlight();
   if (d.ghost) d.ghost.remove();
-  if (!d.started) { if (d.job) openSheet(d.job); return; }
+  if (!d.started) { if (d.job) openSheet(d.job); else if (d.res && resById[d.res]?.kind !== 'person') openResSheet(d.res); return; }
   drop(d, e.clientX, e.clientY);
 });
 document.addEventListener('pointercancel', () => { if (drag?.ghost) drag.ghost.remove(); drag = null; clearHighlight(); });
@@ -524,6 +534,46 @@ function drawSheet() {
     if (res.status === 'success') { jobs = jobs.filter(q => q.id !== editing.id); closeSheet(); render(); setStatus('Borttaget'); }
     else { $('sMsg').textContent = '❌ ' + (res.message || 'Kunde inte ta bort.'); setStatus('', true); } }; }
 }
+// ===== Resursruta (maskiner och utrustning) =====
+function openResSheet(name) {
+  const r = name ? resById[name] : { name: '', kind: 'equipment', model: '', source: 'resurs' };
+  if (!r) return;
+  const tractor = r.source === 'traktor', av = avatars[r.name];
+  $('sheet').innerHTML = `<h2>${r.name ? esc(r.name) : 'Ny resurs'}</h2>
+    <div class="respreview" id="resPrev" style="${av ? `background-image:${cssUrl(av)}` : ''}">${av ? '' : r.kind === 'machine' ? '🚜' : '🛠️'}</div>
+    ${tractor ? `<p style="color:var(--muted);font-size:13px">Traktorn finns i snöplaneringen. Namn och modell ändras där.</p>` : `
+    <div class="f"><label for="rName">Namn (syns på kulan)</label><input id="rName" value="${esc(r.name)}" placeholder="T.ex. Ställningskärran"></div>
+    <div class="f"><label>Typ</label><div class="seg" id="rKind"><button data-k="machine" class="${r.kind === 'machine' ? 'on' : ''}">🚜 Maskin</button><button data-k="equipment" class="${r.kind !== 'machine' ? 'on' : ''}">🛠️ Utrustning</button></div></div>
+    <div class="f"><label for="rModel">Tillverkare och modell</label><input id="rModel" value="${esc(r.model || '')}" placeholder="T.ex. Graco GMax II 7900"></div>`}
+    <div class="actions">${tractor ? '' : '<button class="btn primary" id="rSave">Spara</button>'}
+      ${r.name ? '<button class="btn" id="rAi">🎨 Skapa kula</button>' : ''}<button class="btn" id="rClose">Stäng</button>
+      ${r.name && !tractor ? '<button class="btn" id="rRemove" style="color:var(--bad)">Ta bort ur kulpåsen</button>' : ''}</div>
+    <div id="rMsg" style="margin-top:10px;font-size:13px;color:var(--muted)">${r.name ? 'AI-kulan görs utifrån tillverkare och modell, i samma stil som traktorerna. Det tar 10–20 sekunder.' : ''}</div>`;
+  $('sheet').classList.add('open'); $('sheetBg').classList.add('open');
+  let kind = r.kind === 'machine' ? 'machine' : 'equipment';
+  if ($('rKind')) $('rKind').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; kind = b.dataset.k; $('rKind').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
+  const msg = (t, bad) => { $('rMsg').textContent = t; $('rMsg').style.color = bad ? 'var(--bad)' : 'var(--muted)'; };
+  if ($('rSave')) $('rSave').onclick = async () => {
+    msg('Sparar…');
+    const res = await snoApi({ action: 'radarSaveResource', resource: { id: r.resId || '', name: $('rName').value.trim(), kind, model: $('rModel').value.trim() } }).catch(() => ({}));
+    if (res.status !== 'success') return msg('❌ ' + (res.message || 'Kunde inte spara.'), true);
+    await load(); openResSheet(res.resource.name); msg('Sparat ✓ – tryck 🎨 Skapa kula för att göra en AI-kula.');
+  };
+  if ($('rAi')) $('rAi').onclick = async () => {
+    msg('🎨 AI:n gör en kula …'); $('rAi').disabled = true;
+    const res = await snoApi({ action: 'radarResourceAvatar', id: r.resId, source: r.source }).catch(() => ({}));
+    $('rAi').disabled = false;
+    if (res.status !== 'success') return msg('❌ ' + (res.message || 'Kunde inte skapa kulan.'), true);
+    avatars[r.name] = res.avatarUrl; $('resPrev').style.backgroundImage = cssUrl(res.avatarUrl); $('resPrev').textContent = ''; render(); msg('Klar ✓');
+  };
+  $('rClose').onclick = closeSheet;
+  if ($('rRemove')) { let armed = false; $('rRemove').onclick = async () => {
+    if (!armed) { armed = true; $('rRemove').textContent = 'Tryck igen för att ta bort'; return; }
+    const res = await snoApi({ action: 'radarRemoveResource', id: r.resId }).catch(() => ({}));
+    if (res.status !== 'success') return msg('❌ ' + (res.message || 'Kunde inte ta bort.'), true);
+    closeSheet(); load(); }; }
+}
+
 $('sheetBg').onclick = closeSheet;
 
 // ===== Kontroller =====

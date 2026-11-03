@@ -163,7 +163,7 @@ function doPost(e) {
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
-      "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getKabanossData", "saveKabanossJob", "getAvatars"];
+      "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getKabanossData", "saveKabanossJob", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -203,6 +203,9 @@ function doPost(e) {
     if (action === "getJobs") return handleGetJobs(data, auth);
     if (action === "radarSaveJob") return handleRadarSaveJob(data, auth);
     if (action === "radarDeleteJob") return handleRadarDeleteJob(data, auth);
+    if (action === "radarSaveResource") return handleRadarSaveResource(data, auth);
+    if (action === "radarRemoveResource") return handleRadarRemoveResource(data, auth);
+    if (action === "radarResourceAvatar") return handleRadarResourceAvatar(data, auth);
     if (action === "getNotices") return handleGetNotices(auth);
     if (action === "getAvatars") {
       // Små avatarer (kolumn F i Personal) för radarns kulor. Hämtas separat så att planeringen laddar snabbt.
@@ -212,6 +215,7 @@ function doPost(e) {
         const v = String(r[5] || "");
         if (r[0] && inScope(auth, r[6]) && (/^data:image\/(jpeg|png);base64,/.test(v) && v.length < 60000 || /^https:\/\//.test(v))) out[String(r[0]).trim()] = v;
       });
+      extraResources(auth).forEach(x => { if (x.avatarUrl) out[x.name] = x.avatarUrl; });
       return createJsonResponse({ status: "success", avatars: out });
     }
     if (action === "saveMyAvatar") {
@@ -601,6 +605,10 @@ function handleGetKabanossData(auth) {
       });
     }
   }
+
+  // Maskiner och utrustning (fliken Resurser) + traktorerna
+  extraResources(auth).forEach(x => resources.push({ id: x.name, resId: x.id, source: x.source, name: x.name, type: x.kind === "machine" ? "machine" : "equipment",
+    kind: x.kind, model: x.model, icon: x.kind === "machine" ? "🚜" : "🛠️", hasAvatar: !!x.avatarUrl, ownerCompany: x.ownerCompany, color: "#b45309", isSick: false }));
 
   // 3. Jobben (radarn): riktiga datum, längd efter antal tilldelade, helger och röda dagar
   const jobs = handleRadarJobs(auth);
@@ -1672,6 +1680,7 @@ function resourceKinds() {
   _resourceKinds = {};
   const sheet = getStaffSheet();
   if (sheet) sheet.getDataRange().getValues().slice(1).forEach(r => { if (r[0]) _resourceKinds[String(r[0]).trim()] = resourceKind(r[3], r[0]); });
+  extraResources(null).forEach(x => { _resourceKinds[x.name] = x.kind; });
   return _resourceKinds;
 }
 
@@ -1852,6 +1861,110 @@ function handleMarkNoticesRead(data, auth) {
     if (ids.indexOf(String(rows[i][0])) !== -1 && String(rows[i][2]).trim() === String(auth.user).trim()) sheet.getRange(i + 1, 6).setValue(nowStamp());
   }
   return createJsonResponse({ status: "success" });
+}
+
+// ==========================================
+// 4c6. RESURSER: maskiner och utrustning för radarn
+// Fliken Resurser (ställningskärra, färgspruta, lift …) + traktorerna i fliken Traktorer.
+// Kulan görs av AI utifrån tillverkare och modell, samma stil som traktorkulorna.
+// En resurs bokas på jobb med sitt namn (som personalen) – namnen måste vara unika.
+// ==========================================
+const RES_HEADERS = ["Resurs-ID", "Namn", "Typ", "Tillverkare & modell", "Bolag", "AI-kula (Drive-ID)", "Aktiv", "Anteckning", "Uppdaterad"];
+function getResourceSheet() { return getSheetOrCreate(getSS(), "Resurser", RES_HEADERS); }
+
+// Maskiner och utrustning utöver personalen. Traktorerna är gemensamma (snön är gemensam).
+function extraResources(auth) {
+  const out = [];
+  const taken = {};
+  const st = getStaffSheet();
+  if (st) st.getDataRange().getValues().slice(1).forEach(r => { if (r[0]) taken[String(r[0]).trim()] = true; });
+  getResourceSheet().getDataRange().getValues().slice(1).forEach(r => {
+    if (!r[0] || String(r[6]).toLowerCase() === "nej" || !inScope(auth, r[4] || "LPV")) return;
+    const name = String(r[1] || "").trim();
+    if (!name || taken[name]) return;
+    taken[name] = true;
+    out.push({ id: String(r[0]), name: name, kind: String(r[2]) === "maskin" ? "machine" : "equipment", model: String(r[3] || ""),
+      ownerCompany: String(r[4] || "LPV").toLowerCase(), avatarUrl: driveImageUrl(String(r[5] || "")), source: "resurs" });
+  });
+  const fleet = getSS().getSheetByName("Traktorer");
+  if (fleet) fleet.getDataRange().getValues().slice(1).forEach(r => {
+    if (!r[0] || (r[4] !== "" && !isTrue(r[4]))) return;
+    let name = String(r[1] || "").trim() || String(r[0]);
+    if (taken[name]) name = name + " (" + (String(r[3] || "").trim() || r[0]) + ")";
+    if (taken[name]) return;
+    taken[name] = true;
+    out.push({ id: String(r[0]), name: name, kind: "machine", model: String(r[1] || ""), ownerCompany: "lpv",
+      avatarUrl: driveImageUrl(String(r[5] || "")), source: "traktor" });
+  });
+  return out;
+}
+
+function handleRadarSaveResource(data, auth) {
+  const input = data.resource || {};
+  const name = sanitize(input.name).replace(/\s+/g, " ").slice(0, 60);
+  if (!name) return createJsonResponse({ status: "error", message: "Skriv resursens namn." });
+  const sheet = getResourceSheet();
+  const hit = input.id ? findRowById(sheet, input.id) : null;
+  if (hit && !inScope(auth, hit.row[4] || "LPV")) return createJsonResponse({ status: "error", message: "Åtkomst nekad." });
+  const oldName = hit ? String(hit.row[1]) : "";
+  // Namnet måste vara unikt bland personal och resurser – jobben bokar på namnet
+  if (name !== oldName) {
+    const st = getStaffSheet();
+    const staffNames = st ? st.getDataRange().getValues().slice(1).map(r => String(r[0]).trim()) : [];
+    const resNames = sheet.getDataRange().getValues().slice(1).map(r => String(r[1]).trim());
+    if (staffNames.indexOf(name) !== -1 || resNames.indexOf(name) !== -1) return createJsonResponse({ status: "error", message: "Namnet " + name + " finns redan." });
+  }
+  const id = hit ? String(hit.row[0]) : "RES-" + Date.now().toString(36);
+  const row = [id, name, input.kind === "machine" ? "maskin" : "utrustning", sanitize(input.model).slice(0, 100),
+    hit ? hit.row[4] : (scopeOf(auth) || "LPV"), hit ? hit.row[5] : "", "ja", sanitize(input.note).slice(0, 300), nowStamp()];
+  upsertById(sheet, row);
+  // Bytt namn: flytta bokningarna till det nya namnet
+  if (hit && oldName && oldName !== name) {
+    const t = loadGantt();
+    t.rows.slice(1).forEach(r => { let a = []; try { a = JSON.parse(r[11] || "[]"); } catch (e) { a = []; }
+      if (a.indexOf(oldName) !== -1) r[11] = JSON.stringify(a.map(x => x === oldName ? name : x)); });
+    t.save();
+  }
+  return createJsonResponse({ status: "success", resource: { id: id, name: name, kind: row[2] === "maskin" ? "machine" : "equipment", model: row[3], avatarUrl: driveImageUrl(String(row[5] || "")), source: "resurs" } });
+}
+
+function handleRadarRemoveResource(data, auth) {
+  const sheet = getResourceSheet();
+  const hit = findRowById(sheet, data.id);
+  if (!hit || !inScope(auth, hit.row[4] || "LPV")) return createJsonResponse({ status: "error", message: "Resursen hittades inte." });
+  sheet.getRange(hit.rowNumber, 7).setValue("nej"); // ligger kvar i arket, syns inte i kulpåsen
+  return createJsonResponse({ status: "success" });
+}
+
+// AI-kula för en resurs utifrån tillverkare och modell (traktorer använder sin egen funktion)
+function handleRadarResourceAvatar(data, auth) {
+  if (data.source === "traktor") return handleGenerateTractorAvatar(data.id);
+  const sheet = getResourceSheet();
+  const hit = findRowById(sheet, data.id);
+  if (!hit || !inScope(auth, hit.row[4] || "LPV")) return createJsonResponse({ status: "error", message: "Resursen hittades inte." });
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
+  const what = String(hit.row[3] || hit.row[1]);
+  const machine = String(hit.row[2]) === "maskin";
+  const prompt = "A cheerful, friendly 3D animated character of a " + what + (machine ? " construction machine" : " (work equipment for a painting and property maintenance company)") + ", " +
+    "in the playful toy-like style of Bob the Builder: " + (machine ? "big expressive eyes in the windshield, a happy smiling front" : "small friendly cartoon eyes and a happy smile") + ", " +
+    "glossy smooth plastic textures, recognisable shape of the real product. Brand colors: " + getBrandColorPrompt(what) + ". " +
+    "The character sits centered inside a shiny transparent glass sphere (a marble), soft studio lighting, solid deep navy blue background, square image, no text, no logos.";
+  try {
+    const response = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + apiKey, {
+      method: "post", contentType: "application/json", muteHttpExceptions: true, payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+    let json = {};
+    try { json = JSON.parse(response.getContentText()); } catch (e) { json = {}; }
+    const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
+    const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
+    if (response.getResponseCode() !== 200 || !imagePart) return createJsonResponse({ status: "error", message: geminiErrorText(response.getResponseCode(), response.getContentText()) });
+    const fileId = saveImageToDrive(imagePart.inlineData.data, "Resurs-kulor", hit.row[0] + "_" + Date.now() + ".jpg");
+    const fresh = findRowById(sheet, data.id);
+    if (fresh) sheet.getRange(fresh.rowNumber, 6).setValue(fileId);
+    return createJsonResponse({ status: "success", avatarUrl: driveImageUrl(fileId) });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: "AI-fel: " + err.message });
+  }
 }
 
 // ==========================================
