@@ -2,6 +2,8 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" href="theme.css">
+<script src="theme.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Radarn – planering</title>
@@ -9,11 +11,13 @@
 /* Radarn: helskärm på paddan. Kulpåse till vänster, orderbok överst, tidslinje med personer eller kunder som rader.
    Dra och släpp med egen pekarhantering (fungerar med finger och mus). Se docs/radar.md. */
 :root {
-  --bg: #0b1220; --panel: #111a2c; --panel2: #17233a; --line: #24324d; --fg: #e8eef7; --muted: #8fa2bf;
-  --accent: #38bdf8; --job: #1d4ed8; --job2: #2563eb; --klaryta: #16a34a; --busy: #f59e0b; --bad: #ef4444;
+  --bg: var(--t-bg); --panel: var(--t-panel); --panel2: var(--t-card); --line: var(--t-line); --fg: var(--t-text); --muted: var(--t-muted);
+  --accent: var(--t-accent); --job: #1d4ed8; --job2: #2563eb; --klaryta: #16a34a; --busy: var(--t-warn); --bad: var(--t-danger);
   --weekend: rgba(148, 163, 184, .07); --holiday: rgba(239, 68, 68, .09); --today: #f43f5e;
   --rowh: 58px; --labelw: 170px; --headh: 46px;
 }
+:root[data-theme="night"] { --job: #5a0f0a; --job2: #6e140d; --klaryta: #4a1208; }
+:root[data-theme="night"] .orb, :root[data-theme="night"] .bar { filter: brightness(.7) saturate(.6); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden;
   touch-action: pan-x pan-y; /* nyp ska zooma tidslinjen, inte hela sidan */ }
@@ -24,9 +28,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .top h1 { font-size: 17px; margin: 0 8px 0 2px; white-space: nowrap; }
 .seg { display: inline-flex; background: var(--panel2); border-radius: 10px; padding: 3px; gap: 2px; }
 .seg button { border: 0; background: none; padding: 7px 11px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); min-height: 36px; }
-.seg button.on { background: var(--accent); color: #04121f; }
+.seg button.on { background: var(--accent); color: var(--t-on-accent); }
 .btn { border: 1px solid var(--line); background: var(--panel2); border-radius: 10px; padding: 7px 12px; font-weight: 600; font-size: 13px; min-height: 38px; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #04121f; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
 .period { font-weight: 700; font-size: 14px; min-width: 150px; text-align: center; }
 .status { font-size: 12px; color: var(--muted); margin-left: auto; min-width: 70px; text-align: right; }
 .status.err { color: var(--bad); }
@@ -85,7 +89,7 @@ a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding:
 .rlabel span { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rlabel em { display: block; font-style: normal; font-size: 11px; color: var(--muted); font-weight: 400; }
 .cols { position: relative; display: flex; }
-.col { flex: none; height: var(--rowh); border-right: 1px solid rgba(36,50,77,.6); }
+.col { flex: none; height: var(--rowh); border-right: 1px solid var(--line); }
 .row.drop-ok .cols { background: rgba(56, 189, 248, .08); }
 .bar { position: absolute; top: 7px; height: calc(var(--rowh) - 14px); border-radius: 9px; background: linear-gradient(180deg, var(--job2), var(--job)); color: #fff;
   padding: 4px 8px; overflow: hidden; touch-action: none; user-select: none; box-shadow: 0 2px 6px rgba(0,0,0,.35); z-index: 2; border: 1px solid rgba(255,255,255,.18); }
@@ -134,6 +138,7 @@ a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding:
     <button class="btn" id="today">Idag</button>
     <button class="btn" id="tglSide">Kulpåse</button>
     <button class="btn" id="tglOrder">Orderbok</button>
+    <span data-theme-slot></span>
     <button class="btn" id="fs" hidden>⛶</button>
     <span class="status" id="status"></span>
   </div>

@@ -96,7 +96,7 @@
 /* ---------- Natt: rött på svart för traktorhytten ---------- */
 :root[data-theme="night"] {
   color-scheme: dark;
-  --bg: radial-gradient(120% 80% at 50% 0%, #3a0603 0%, #0d0100 60%, #000 100%);
+  --bg: #000000;
   --bg-solid: #000000;
   --surface: rgba(255, 59, 48, 0.1);
   --surface2: rgba(255, 59, 48, 0.06);
@@ -113,8 +113,9 @@
   --bar: rgba(20, 0, 0, 0.75);
   --scrim: rgba(0, 0, 0, 0.75);
   --shadow: none;
-  --orb1: #7a0d06;
-  --orb2: #3a0603;
+  --orb1: transparent;   /* inga sken eller klot i natt – de gav en röd "dimma" */
+  --orb2: transparent;
+  --blur: none;
   --shadow-color: rgba(0, 0, 0, 0.6);
   /* Glaskulorna behålls men dämpas så de inte bländar i mörkret */
   --avatar-filter: brightness(0.6) saturate(0.7);
@@ -798,3 +799,6 @@ body:not(.has-side-nav) .side-nav-drawer { display: none; }
 
 /* Admin på Klaryta: LPV:s snöplanering och zoner döljs (servern nekar ändå) */
 body.not-super .lpv-only { display: none !important; }
+
+/* Natt: inga färgklot i bakgrunden */
+:root[data-theme="night"] body::before, :root[data-theme="night"] body::after { display: none; }

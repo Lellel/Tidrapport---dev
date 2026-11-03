@@ -2,11 +2,13 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Snöjour</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    :root { --bg: #0b1220; --panel: #111a2e; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; }
+    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { display: flex; flex-direction: column; }
@@ -16,18 +18,18 @@
     .map-wrap { position: relative; height: 50vh; flex-shrink: 0; }
     #map { height: 100%; width: 100%; }
     .map-buttons { position: absolute; right: 10px; bottom: 10px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
-    .map-buttons button { min-height: 40px; padding: 0 12px; background: rgba(17,26,46,.92); }
-    .map-buttons button.active { background: var(--accent); color: #0b1220; }
+    .map-buttons button { min-height: 40px; padding: 0 12px; background: var(--t-overlay); }
+    .map-buttons button.active { background: var(--accent); color: var(--t-on-accent); }
     .sheet { flex: 1; overflow-y: auto; padding: 12px 14px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 12px; }
     select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
-    button { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
+    button { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
     .btn-start { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 16px; }
     .btn-stop { background: var(--danger); border-color: var(--danger); color: #fff; font-size: 16px; }
     .timer { text-align: center; font-size: 13px; color: var(--muted); }
     .timer b { color: var(--text); font-size: 22px; font-variant-numeric: tabular-nums; display: block; }
     .gps-status { font-size: 12px; color: var(--muted); }
     .obj { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-    .obj-num { width: 28px; height: 28px; border-radius: 50%; background: #17223b; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
+    .obj-num { width: 28px; height: 28px; border-radius: 50%; background: var(--t-btn); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
     .obj-body { flex: 1; min-width: 0; }
     .obj-title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .obj-meta { font-size: 12px; color: var(--muted); }
@@ -42,7 +44,7 @@
   <header>
     <a href="index.html">← Tidrapport</a>
     <h1>❄️ Snöjour</h1>
-    <a href="snozoner.html" id="link-draw" style="visibility:hidden;">Rita ✏️</a>
+    <span style="display:flex;gap:8px;align-items:center;"><span data-theme-slot></span><a href="snozoner.html" id="link-draw" style="visibility:hidden;">Rita ✏️</a></span>
   </header>
 
   <div class="map-wrap">

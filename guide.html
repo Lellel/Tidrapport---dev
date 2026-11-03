@@ -2,25 +2,27 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Användarguide – Tidrapport</title>
   <style>
     :root {
-      --bg: #000000;
-      --card-bg: rgba(255, 255, 255, 0.08);
-      --card-border: rgba(255, 255, 255, 0.15);
-      --accent: #FF9F0A;
-      --accent-bg: rgba(255, 159, 10, 0.15);
-      --blue: #0A84FF;
-      --green: #30D158;
-      --danger: #FF453A;
-      --text: #FFFFFF;
-      --text-muted: #8E8E93;
-      --separator: rgba(255, 255, 255, 0.1);
+      --bg: var(--t-bg);
+      --card-bg: var(--t-panel);
+      --card-border: var(--t-line);
+      --accent: var(--t-warn);
+      --accent-bg: color-mix(in srgb, var(--t-warn) 15%, transparent);
+      --blue: var(--t-accent);
+      --green: var(--t-ok);
+      --danger: var(--t-danger);
+      --text: var(--t-text);
+      --text-muted: var(--t-muted);
+      --separator: var(--t-line);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
-      background: linear-gradient(135deg, #000000 0%, #12121a 100%);
+      background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
       padding: 30px 16px 60px 16px;
@@ -39,7 +41,7 @@
       width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .step-title { font-size: 16px; font-weight: 600; }
-    .step-desc { font-size: 13px; color: #C7C7CC; margin-bottom: 12px; line-height: 1.4; }
+    .step-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; }
 
     /* RENDERADE MOCKUP-KORT */
     .mockup-frame {
@@ -53,7 +55,7 @@
     .card-body { padding: 14px 16px; }
     .card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .card-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-    .card-note { font-size: 12px; color: #D1D1D6; border-left: 2px solid var(--separator); padding-left: 8px; margin-top: 6px; }
+    .card-note { font-size: 12px; color: var(--text-muted); border-left: 2px solid var(--separator); padding-left: 8px; margin-top: 6px; }
     
     /* KNAPPAR I KORT */
     .card-actions { display: flex; border-top: 0.5px solid var(--separator); background: rgba(255, 255, 255, 0.02); }
@@ -68,7 +70,7 @@
     /* STATUSAR & BRICKOR */
     .ongoing-pulse { color: var(--green); font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
     .ongoing-pulse::before { content: ''; width: 6px; height: 6px; background: var(--green); border-radius: 50%; box-shadow: 0 0 8px var(--green); }
-    .badge-ata { background: var(--accent-bg); color: var(--accent); border: 1px solid rgba(255,159,10,0.4); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+    .badge-ata { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--card-border); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
 
     /* MOCKUP HEADER */
     .mock-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; padding: 0 4px; }
@@ -82,7 +84,7 @@
     .mock-val { color: var(--accent); font-weight: 500; display: flex; align-items: center; gap: 4px; }
     
     .chips-demo { display: flex; gap: 6px; padding: 8px 14px; }
-    .chip { background: var(--accent-bg); border: 1px solid rgba(255, 159, 10, 0.4); color: var(--accent); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+    .chip { background: var(--accent-bg); border: 1px solid var(--card-border); color: var(--accent); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
 
     .photo-btn-mock {
       display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px; margin: 12px 0;
@@ -90,8 +92,8 @@
     }
 
     /* FÖRKLARINGSRUTOR */
-    .callout { background: rgba(255, 255, 255, 0.04); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 13px; color: #A1A1A6; line-height: 1.4; }
-    .callout strong { color: #FFF; }
+    .callout { background: var(--t-card); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+    .callout strong { color: var(--text); }
   </style>
 </head>
 <body>
@@ -170,7 +172,7 @@
       <div class="rendered-card">
         <div class="card-body">
           <div class="card-title"><span style="color:var(--accent);">🚜</span><span>Stalltvätt TV 99 (Pass 1)</span></div>
-          <div class="card-meta"><span>20 okt</span> • <span>07:00 – 11:30</span> • <span style="color:#FFF; font-weight:600;">4.5 h</span></div>
+          <div class="card-meta"><span>20 okt</span> • <span>07:00 – 11:30</span> • <span style="color:var(--text); font-weight:600;">4.5 h</span></div>
         </div>
         <div class="card-actions">
           <button class="btn-action btn-split">+ Nytt pass</button>

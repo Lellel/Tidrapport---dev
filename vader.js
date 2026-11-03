@@ -31,6 +31,8 @@
     @keyframes vxblink { 50% { fill: #ffb3ad; } }
     .vx-ready svg, .vx-brewing svg { animation: vxwiggle .5s ease 2; }
     @keyframes vxwiggle { 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+    :root[data-theme="night"] .vx-meter svg, :root[data-theme="night"] .vx-brewer svg { filter: sepia(1) saturate(3) hue-rotate(-38deg) brightness(.7); }
+    :root[data-theme="night"] .vx-label { color: #ff4a3d !important; }
     @media (prefers-reduced-motion: reduce) { .vx-needle { transition: none; } .vx-brewing .vx-drip, .vx-brewing .vx-steam, .vx-brewing .vx-lamp, .vx-ready svg, .vx-brewing svg { animation: none; } }
   `;
   document.head.appendChild(css);

@@ -1,0 +1,74 @@
+/* ==========================================================
+   GEMENSAMMA LÄGEN för alla sidor utanför startsidan (Snöjour, radarn, offerter …).
+   Samma fyra lägen som startsidan: Auto (följer enheten), Ljust, Mörkt och Natt
+   (rött på svart för hytten). Läget sätts av theme.js på <html data-theme>.
+   Sidorna pekar sina egna färgnamn hit, t.ex. --panel: var(--t-panel).
+   ========================================================== */
+:root {
+  color-scheme: light;
+  --t-bg: #e6eff9;        /* sidans bakgrund */
+  --t-panel: #ffffff;     /* paneler och sidhuvud */
+  --t-card: #f2f7fc;      /* kort inne i paneler */
+  --t-input: #ffffff;     /* fält */
+  --t-btn: #e9f1fa;       /* vanliga knappar */
+  --t-line: rgba(7, 29, 51, 0.16);
+  --t-text: #071d33;
+  --t-muted: rgba(7, 29, 51, 0.66);
+  --t-accent: #0a6fe0;
+  --t-on-accent: #ffffff;
+  --t-ok: #17803a;
+  --t-warn: #9e5500;
+  --t-danger: #c0251b;
+  --t-overlay: rgba(255, 255, 255, 0.92); /* knappar som ligger på kartan */
+  --t-shadow: 0 6px 20px rgba(20, 60, 110, 0.14);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --t-bg: #0b1220;
+  --t-panel: #111a2e;
+  --t-card: #16213a;
+  --t-input: #0b1220;
+  --t-btn: #17223b;
+  --t-line: #23314f;
+  --t-text: #e2e8f0;
+  --t-muted: #94a3b8;
+  --t-accent: #38bdf8;
+  --t-on-accent: #0b1220;
+  --t-ok: #10b981;
+  --t-warn: #f59e0b;
+  --t-danger: #ef4444;
+  --t-overlay: rgba(17, 26, 46, 0.92);
+  --t-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+/* Natt: rent svart, rött ljus, inga sken eller skuggor som bländar */
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --t-bg: #000000;
+  --t-panel: #0a0000;
+  --t-card: #140100;
+  --t-input: #000000;
+  --t-btn: #1a0201;
+  --t-line: rgba(255, 59, 48, 0.25);
+  --t-text: #ff4a3d;
+  --t-muted: rgba(255, 74, 61, 0.68);
+  --t-accent: #e8352b;
+  --t-on-accent: #1a0000;
+  --t-ok: #ff4a3d;
+  --t-warn: #ff4a3d;
+  --t-danger: #ff4a3d;
+  --t-overlay: rgba(10, 0, 0, 0.9);
+  --t-shadow: none;
+}
+
+/* Kartan dämpas i mörka lägen; i Natt även rödtonad så den inte bländar i hytten */
+:root[data-theme="dark"] .leaflet-tile-pane img.leaflet-tile { filter: brightness(0.85); }
+:root[data-theme="night"] .leaflet-tile-pane img.leaflet-tile { filter: brightness(0.42) sepia(1) saturate(2.6) hue-rotate(-38deg) contrast(1.1); }
+:root[data-theme="night"] .leaflet-overlay-pane svg, :root[data-theme="night"] .leaflet-marker-pane { filter: sepia(1) saturate(3) hue-rotate(-38deg) brightness(.75); }
+:root[data-theme="night"] .leaflet-control-attribution { background: rgba(0, 0, 0, 0.7) !important; color: var(--t-muted) !important; }
+:root[data-theme="night"] .leaflet-control-attribution a { color: var(--t-muted) !important; }
+:root[data-theme="night"] img:not(.leaflet-tile):not(.kk-overlay) { filter: brightness(0.6) saturate(0.7); }
+
+/* Lägesknappen (🌓) som theme.js lägger i sidhuvudet */
+.theme-btn { min-height: 36px; min-width: 36px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--t-line); background: var(--t-btn); color: var(--t-text); font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
+@media (max-width: 520px) { .theme-btn:not(.floating) .tl { display: none; } }
+.theme-btn.floating { position: fixed; z-index: 2000; left: calc(env(safe-area-inset-left) + 10px); bottom: calc(env(safe-area-inset-bottom) + 10px); box-shadow: var(--t-shadow); }

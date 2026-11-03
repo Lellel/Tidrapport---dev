@@ -2,12 +2,13 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Snöplanering</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    :root { --bg: #0b1220; --panel: #111a2e; --card: #16213a; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8;
-            --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; --stor: #f97316; --liten: #38bdf8; }
+    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); --stor: #f97316; --liten: #38bdf8; }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     .layout { display: grid; grid-template-columns: 1fr 400px; height: 100%; }
@@ -19,12 +20,12 @@
     .topbar a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
     h1 { font-size: 18px; margin: 8px 0 10px; }
     .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .tabs button.active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
+    .tabs button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
     .panel-body { flex: 1; overflow-y: auto; padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 10px; }
     label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
     input, textarea, select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 15px; }
     textarea { min-height: 60px; resize: vertical; }
-    button { min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; }
+    button { min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; }
     button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
     button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
     button.on { background: var(--warn); border-color: var(--warn); color: #111; }
@@ -34,7 +35,7 @@
     .msg { font-size: 13px; min-height: 18px; color: var(--muted); }
     .filters { display: flex; flex-wrap: wrap; gap: 6px; }
     .filters button { min-height: 32px; border-radius: 999px; font-size: 12px; }
-    .filters button.active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
+    .filters button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; }
     .stat { background: var(--card); border-radius: 10px; padding: 8px 4px; font-size: 11px; color: var(--muted); }
     .stat b { display: block; font-size: 18px; color: var(--text); }
@@ -46,9 +47,9 @@
     .pcard-title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pcard-meta { font-size: 12px; color: var(--muted); }
     .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
-    .badge.prio { background: rgba(245,158,11,.2); color: #fbbf24; }
+    .badge.prio { background: rgba(245,158,11,.2); color: var(--t-warn); }
     .badge.forced { background: rgba(239,68,68,.2); color: #fca5a5; }
-    .badge.missing { background: rgba(239,68,68,.25); color: #fecaca; }
+    .badge.missing { background: rgba(239,68,68,.25); color: var(--t-danger); }
 
     /* HÅLEN: platshållare för kulan på fastighetskortet */
     .hal { border-radius: 50%; border: 3px dashed var(--line); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; color: var(--muted); }
@@ -63,7 +64,7 @@
 
     /* KULORNA: traktorer */
     .kula { position: relative; border-radius: 50%; overflow: hidden; flex-shrink: 0;
-            background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.85), var(--kula-color, #64748b) 38%, #0b1220 100%);
+            background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.85), var(--kula-color, #64748b) 38%, var(--t-input) 100%);
             box-shadow: inset 0 -6px 14px rgba(0,0,0,.45), 0 6px 14px rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
     .kula::after { content: ''; position: absolute; top: 8%; left: 18%; width: 40%; height: 26%; border-radius: 50%; background: rgba(255,255,255,.45); filter: blur(2px); pointer-events: none; }
     .kula img { width: 100%; height: 100%; object-fit: cover; }
@@ -91,7 +92,7 @@
     .photo button { position: absolute; top: 4px; right: 4px; min-height: 26px; width: 26px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.6); border: none; font-size: 12px; }
     .map-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 600; background: var(--warn); color: #111; font-weight: 800; font-size: 13px; padding: 8px 14px; border-radius: 999px; display: none; }
     .map-toggle { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; gap: 6px; }
-    .map-toggle button { min-height: 36px; background: rgba(17,26,46,.9); }
+    .map-toggle button { min-height: 36px; background: var(--t-overlay); }
     .pin { border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
     .pin.stor { width: 18px; height: 18px; background: var(--stor); }
     .pin.liten { width: 12px; height: 12px; background: var(--liten); }
@@ -129,7 +130,7 @@
         <div class="topbar">
           <a href="index.html">← Tidrapport</a>
           <a href="snozoner.html">Rita zoner →</a>
-        </div>
+        <span data-theme-slot></span></div>
         <h1>❄️ Snöplanering</h1>
         <div class="tabs">
           <button id="tab-props" class="active" onclick="showTab('props')">🏠 Fastigheter</button>

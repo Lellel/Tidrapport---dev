@@ -2,10 +2,12 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Väder – Plogometern</title>
   <style>
-    :root { --bg: #0b1220; --panel: #111a2e; --line: #23314f; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --ok: #10b981; --warn: #f59e0b; --danger: #ef4444; --snow: #7dd3fc; --rain: #34d399; }
+    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); --snow: #7dd3fc; --rain: #34d399; }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -14,7 +16,7 @@
     .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .tools label { font-size: 13px; color: var(--muted); }
     .tools input { width: 70px; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 15px; }
-    button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: #17223b; color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
+    button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
     button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
     main { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; max-width: 1500px; margin: 0 auto; }
     .msg { grid-column: 1 / -1; padding: 10px 14px; border-radius: 12px; background: rgba(245,158,11,.12); border: 1px solid var(--warn); font-size: 14px; }
@@ -40,7 +42,7 @@
   <header>
     <a href="index.html">← Tidrapport</a>
     <h1>🌨️ Väder & Plogometern</h1>
-    <div class="tools">
+    <div class="tools"><span data-theme-slot></span>
       <label for="thr">Plogas från</label><input id="thr" type="number" min="0.5" max="20" step="0.5" inputmode="decimal"><label>cm</label>
       <button onclick="saveThr()">Spara</button>
       <button class="ok" id="refresh" onclick="load(true)">🔄 Mät nu</button>
