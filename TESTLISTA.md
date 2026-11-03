@@ -475,6 +475,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 ## Innan deploy till PROD
 
 - [ ] Avsnitt 1, 3 och 4 är helt gröna
+- [ ] **Snödata dev → prod:** kundkartornas läge, snözoner och slingor flyttas med export/import (inga testzoner, slingan "Test" väljs bort). Kolla först om prod redan har zoner som förarna använder.
 - [ ] **Varumärken (villkor för att gå live med offerter/HubSpot):** rätt logga och avsändare finns för varje varumärke och syns på offert-PDF och kundmejl
   - [x] Loggor levererade (LPV, Fasadmålarna, Linjemålarna, Klaryta) – ligger i `loggor/`
   - [ ] Skicka en offert per varumärke till dig själv: rätt logga i PDF, mejl (överst) och på kundsidan; avsändare och ämne med varumärkets namn
