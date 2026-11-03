@@ -1481,7 +1481,23 @@ function handleAnalyzePropertyMap(data) {
   catch (err) { return createJsonResponse({ status: "error", message: "Kunde inte läsa kartbilden: " + err.message }); }
   // FKAB:s snökartor: det rödrandiga är hela uppdraget (maskin + handskottning runt entréer) – inget utanför
   const snokarta = /snökarta/i.test(String(m.label || ""));
-  const prompt = snokarta ?
+  // Flens Bostads LandInfo-kartor: röd randning = hela fastigheten (även gräs och hus) – bara randad mörkgrå asfalt snöröjs
+  const landinfo = !snokarta && /landinfo/i.test(String(m.label || ""));
+  // Det vi redan vet från underlaget (t.ex. "Hårdgjord yta ca 1935 m² … 2 dagvattenbrunnar") – AI:n stämmer av mot det
+  const facts = String(hit.row[9] || "").match(/[^.]*(hårdgjord|brunn|entré)[^.]*\./gi);
+  const factText = facts ? "Det här vet vi redan om fastigheten: " + facts.join(" ").slice(0, 400) + " Stäm av mot det – summan av ytorna och antalet brunnar ska ligga nära. " : "";
+  const landinfoPrompt =
+    "Bilden är en skötselkarta (LandInfo) över en fastighet som ska snöröjas. FASTIGHETEN är området med RÖD SNEDRANDNING innanför den lila gränsen. " +
+    "Randningen ligger över allt på fastigheten – asfalt, gräs och hus – så randning betyder INTE att något ska snöröjas. Allt utan röd randning är grannens och ska ignoreras helt, även asfalt och brunnar. " +
+    "Det som snöröjs är bara den MÖRKGRÅ asfalten (och grå plattytor) som har röd randning. Grönt med röd randning är gräs – aldrig med. Hus (ljusrosa/vita med kryss eller randning) – aldrig med. " +
+    "Följ asfaltens kanter noga. Smala mörkgrå stråk (gångar mellan husen, slingrande gångvägar) ska bli egna smala polygoner – rita aldrig en stor polygon som täcker gräset runt ett stråk. " +
+    "Typer: \"maskin\" = breda mörkgrå ytor: körytor, parkeringar, gårdsplaner. \"hand\" = smala gångar och stråk (under ca 2,5 m), trappor och ytorna framför entréer. " +
+    "\"lucka\" = dagvattenbrunn: blå ring med prick (cirkelsymbol) – bara de som ligger inom den röda randningen, ange som punkt. " +
+    "\"upplag\" = snöupplag om det är markerat – ange som punkt. Ignorera bord, bänkar, papperskorgar, lekutrustning, träd och teckenförklaring. " +
+    factText +
+    "Koordinater som [y, x] normaliserade 0–1000 i bilden (0,0 = övre vänstra hörnet). " +
+    "Svara ENDAST med JSON: {\"ytor\":[{\"typ\":\"maskin|hand\",\"underlag\":\"asfalt|plattor|grus|betong|gräs|plantering\",\"polygon\":[[y,x],...],\"namn\":\"kort beskrivning\"}],\"punkter\":[{\"typ\":\"upplag|lucka\",\"punkt\":[y,x]}]}. Högst 25 ytor och 30 punkter. Gissa inte.";
+  const prompt = landinfo ? landinfoPrompt : snokarta ?
     "Bilden är en snökarta över en fastighet (" + String(m.label) + "). Det RÖDRANDIGA området (röd snedrandning/skraffering) är HELA området som ska snöröjas. " +
     "Allt utanför det rödrandiga ska ignoreras helt – även asfalt, gångar och entréer som inte är randade. Inga polygoner får gå utanför randningen; följ randningens kant noga. " +
     "Dela upp det rödrandiga i polygoner av två typer: " +
@@ -1502,6 +1518,7 @@ function handleAnalyzePropertyMap(data) {
     "\"upplag\" = snöupplag (markerat med S på snökartor) – ange som punkt. " +
     "\"lucka\" = dagvattenbrunnar om de syns tydligt – ange som punkt. " +
     "Ta bara med ytor inom fastigheten/området. Ignorera gräs, träd, buskar, byggnader, teckenförklaring, rubriker och omgivningen. " +
+    factText +
     "GRÄS: Gräsytor, gräsmattor, planteringar, rabatter och träd/buskar ska ALDRIG med – de snöröjs inte. Gräs syns oftast som grönt eller ljusgrönt (ibland med små prickar/streck), eller markerat Gräs/G i teckenförklaringen. " +
     "Gränsar en hårdgjord yta mot gräs: följ kanten mellan dem, och dela hellre upp i flera mindre polygoner än att en polygon täcker gräs. " +
     "Koordinater som [y, x] normaliserade 0–1000 i bilden (0,0 = övre vänstra hörnet). " +
