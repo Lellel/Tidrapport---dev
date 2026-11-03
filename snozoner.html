@@ -1093,11 +1093,26 @@
 
     // AI läser kundkartan; punkterna (0–1000 i bilden) räknas om till kartan via hörnen
     async function analyzeKk() {
+      if (kk.busy) return;
       const m = kkMap();
       if (kk.dirty || !m.place) { if (!(await saveKkPlace())) return; }
-      const btn = document.getElementById('kk-ai');
-      if (btn) btn.disabled = true;
+      // Tydlig återkoppling vid knappen och på kartan: AI:n tar 10–30 s
+      const t0 = Date.now();
+      kk.busy = true;
+      const tick = () => {
+        const s = Math.round((Date.now() - t0) / 1000), btn = document.getElementById('kk-ai');
+        if (btn) { btn.disabled = true; btn.textContent = `⏳ AI:n läser kundkartan… ${s} s`; }
+      };
+      tick();
+      const ticker = setInterval(tick, 1000);
+      mapToast('🤖 AI:n läser kundkartan…<br><small>Tar oftast 10–30 sekunder</small>', 0);
       setStatus('🤖 AI:n läser kundens karta… (10–30 sekunder)');
+      const done = (msg) => {
+        clearInterval(ticker); kk.busy = false;
+        const btn = document.getElementById('kk-ai');
+        if (btn) { btn.disabled = false; btn.textContent = '🤖 Föreslå zoner från kundkartan'; }
+        mapToast(msg, 6000);
+      };
       try {
         const res = await snoApi({ action: 'analyzePropertyMap', id: currentProp.id, mapId: m.id });
         if (res.status !== 'success') throw new Error(res.message);
@@ -1111,8 +1126,11 @@
         suggestions = found.concat(suggestions.filter(sg => sg.source !== 'ai'));
         renderSuggestions();
         setStatus(found.length ? `🤖 ${found.length} förslag från kundkartan. Kontrollera mot kartan – <b>Ta med</b> det som stämmer.` : 'AI:n hittade inga ytor på kartan. Rita av den själv.');
-      } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'AI:n svarade inte.')); }
-      if (btn) btn.disabled = false;
+        done(found.length ? `✅ ${found.length} förslag från kundkartan<br><small>Numrerade på kartan – tryck <b>Ta med</b> i listan</small>` : '🤷 AI:n hittade inga ytor<br><small>Rita av kundkartan själv</small>');
+      } catch (err) {
+        setStatus('❌ ' + snoEscape(err.message || 'AI:n svarade inte.'));
+        done('❌ ' + snoEscape(err.message || 'AI:n svarade inte.'));
+      }
     }
 
     function renderKkFab() {
@@ -1141,7 +1159,7 @@
           <span>${pinBtn()}<button class="kk-icon" title="${kk.hidden ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="kk.hidden=!kk.hidden; kk.layer && kk.layer.update(); renderKkCard()">${kk.hidden ? '🙈' : '👁'}</button></span></div>
         ${currentProp.maps.length > 1 ? `<div class="chips">${currentProp.maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
         ${opacity}
-        <button id="kk-ai" class="kk-main" onclick="analyzeKk()">🤖 Föreslå zoner från kundkartan</button>
+        <button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '🤖 Föreslå zoner från kundkartan'}</button>
         <button class="kk-small" onclick="startAdjust()">✋ Justera läge</button>
         ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}
         <div class="kk-progress">${progressHtml()}</div>`;
