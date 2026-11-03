@@ -1,0 +1,23 @@
+# Kunddata får aldrig hamna på GitHub (repot är publikt).
+# Kundernas PDF:er, snöunderlaget och kartbilder ska ligga utanför repot – det här är ett extra skydd.
+*.pdf
+*.zip
+*.heic
+*.HEIC
+snöunderlag*.json
+snounderlag*.json
+kartgenomgång*.md
+Snöadresser/
+uppackat/
+kundkartor/
+kartor/
+
+# Nycklar och inställningar
+Config.gs
+Config.js
+.clasp.json
+.env*
+
+# Lokala filer
+.DS_Store
+*.code-workspace
