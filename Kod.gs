@@ -795,6 +795,16 @@ function driveImageUrl(fileId) {
   return fileId ? "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w600" : "";
 }
 
+// Begripligt fel från Googles bild-AI (Gemini). 429 = kvoten är slut (gratisnivån har ett litet dagligt tak).
+function geminiErrorText(code, bodyText) {
+  const body = String(bodyText || "");
+  if (code === 429 || /quota|RESOURCE_EXHAUSTED|exceeded/i.test(body)) {
+    return "Dagens AI-kvot hos Google är slut. Försök igen i morgon – eller slå på betalning för Gemini-nyckeln i Google AI Studio så försvinner taket.";
+  }
+  if (code === 400 && /API key/i.test(body)) return "Gemini-nyckeln (GEMINI_API_KEY) är ogiltig.";
+  return "AI svarade inte med en bild (HTTP " + code + "). Försök igen.";
+}
+
 // ---------- TRAKTORER ----------
 // Föreslår storlek från tillverkare/modell. Tre gamla klasser blir två: liten = liten, allt annat = stor.
 function suggestTractorSize(model) {
@@ -860,7 +870,7 @@ function handleGenerateTractorAvatar(id) {
     const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
     const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
     if (response.getResponseCode() !== 200 || !imagePart) {
-      return createJsonResponse({ status: "error", message: "AI svarade inte med en bild (HTTP " + response.getResponseCode() + ")." });
+      return createJsonResponse({ status: "error", message: geminiErrorText(response.getResponseCode(), response.getContentText()) });
     }
     const fileId = saveImageToDrive(imagePart.inlineData.data, "Traktor-kulor", id + "_" + Date.now() + ".jpg");
     // Läs om raden – den kan ha ändrats under tiden AI:n arbetade
@@ -2277,7 +2287,7 @@ function handleRecolorHouse(data) {
     const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
     const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
     if (response.getResponseCode() !== 200 || !imagePart) {
-      return createJsonResponse({ status: "error", message: "AI svarade inte med en bild (HTTP " + response.getResponseCode() + "). Försök igen.", beforeId: beforeId });
+      return createJsonResponse({ status: "error", message: geminiErrorText(response.getResponseCode(), response.getContentText()), beforeId: beforeId });
     }
     const imageId = saveImageToDrive(imagePart.inlineData.data, "Kulörförslag", "forslag_" + Date.now() + ".jpg");
     return createJsonResponse({ status: "success", imageId: imageId, beforeId: beforeId, url: driveImageUrl(imageId), beforeUrl: driveImageUrl(beforeId) });
@@ -3079,7 +3089,7 @@ function handleClayTransformation(eData) {
 
       return createJsonResponse({ status: "success", clayAvatarBase64: finalImage });
     } else {
-      return createJsonResponse({ status: "fallback", message: "AI HTTP " + responseCode, clayAvatarBase64: userBase64 });
+      return createJsonResponse({ status: "fallback", message: geminiErrorText(responseCode, jsonText), clayAvatarBase64: userBase64 });
     }
   } catch (err) {
     return createJsonResponse({ status: "fallback", message: err.toString(), clayAvatarBase64: userBase64 });

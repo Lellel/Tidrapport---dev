@@ -202,6 +202,8 @@ function generatePostmanPatAvatar() {
           updateAvatarDisplays(data.clayAvatarBase64);
         }
         closePostmanPatModal();
+        // AI:n svarade inte (t.ex. dagens kvot slut) – fotot sparades som det är
+        if (data.status === 'fallback') alert('Ditt foto sparades som avatar.\n\n' + (data.message || 'AI-bilden kunde inte skapas just nu.'));
       } else {
         alert('Ett fel uppstod när avataren sparades: ' + (data.message || 'Okänt svar från servern'));
       }
