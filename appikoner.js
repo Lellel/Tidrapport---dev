@@ -5,9 +5,10 @@
   if (window.lpvIcons) { window.lpvIcons.apply(); return; }
   const css = document.createElement('style');
   // Kulan beskärs tätt (den mörkblå kanten bort) så att motivet syns även i 24 px
-  css.textContent = '.lpv-icw{display:inline-block;width:1.5em;height:1.5em;border-radius:50%;overflow:hidden;vertical-align:middle;flex:none}' +
+  css.textContent = '.lpv-icw{display:inline-block;width:1.9em;height:1.9em;border-radius:50%;overflow:hidden;vertical-align:middle;flex:none;margin:-0.2em 0}' +
     '.lpv-ico{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.28)}' +
-    '.tool-dock .lpv-icw{width:28px;height:28px}h1 .lpv-icw{width:1.7em;height:1.7em;margin-right:4px}' +
+    '.tool-dock .lpv-icw{width:34px;height:34px}h1 .lpv-icw{width:2.1em;height:2.1em;margin-right:6px}' +
+    '.tab-icon .lpv-icw,.lpv-tabbar span .lpv-icw{width:36px;height:36px}.side-nav-icon .lpv-icw{width:36px;height:36px}' +
     '[data-theme="night"] .lpv-ico{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-45deg) brightness(.55)}';
   document.head.appendChild(css);
   const read = () => { try { return JSON.parse(localStorage.getItem('lpv_app_icons') || '{}'); } catch (e) { return {}; } };
