@@ -1317,6 +1317,7 @@ const APP_ICON_MOTIFS = {
   ekonomi: "a small stack of gold coins with a green arrow pointing up",
   widget: "a small smartphone showing a tiny snowflake on its screen",
   mer: "three glossy white dots in a row",
+  tillbaka: "a bold glossy white arrow pointing to the left",
   // Sidrubriker
   ikoner: "an artist's paint palette with blobs of blue, orange and magenta paint",
   ata: "a shiny steel wrench crossed with a small hammer",

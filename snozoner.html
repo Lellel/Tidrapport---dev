@@ -73,7 +73,7 @@
     .kk-progress { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
     input[type=range] { padding: 0; }
     /* På kartan */
-    .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); z-index: 500; display: flex; gap: 6px; }
+    .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 60px); /* under tillbaka-knappen */ left: calc(env(safe-area-inset-left) + 12px); z-index: 500; display: flex; gap: 6px; }
     .map-toggle button { min-height: 36px; padding: 0 12px; background: var(--t-overlay); }
     .sno-legend { position: absolute; left: calc(env(safe-area-inset-left) + 12px); bottom: calc(env(safe-area-inset-bottom) + 12px); z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: calc(100% - 460px); padding: 6px 10px; border-radius: var(--t-r); background: var(--t-overlay); font-size: 12px; font-weight: 600; pointer-events: none; }
     .sno-legend span { display: inline-flex; align-items: center; gap: 5px; }
@@ -122,6 +122,7 @@
   </style>
 </head>
 <body>
+  <a class="lpv-back lpv-back-float" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
   <div class="layout">
     <div class="map-wrap">
       <div id="map"></div>
@@ -139,7 +140,6 @@
     <aside class="panel">
       <div class="panel-head">
         <div class="topbar">
-          <a href="index.html">← Hem</a>
           <a href="snohinder.html">📷 Hinder</a>
           <a href="snojour.html">Snöjour →</a>
           <span data-theme-slot></span>

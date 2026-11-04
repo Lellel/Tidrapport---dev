@@ -15,6 +15,21 @@
     meta.content = COLORS[t];
     document.querySelectorAll('.theme-btn').forEach(b => { const [ic, ...rest] = NAMES[setting()].split(' '); b.innerHTML = ic + '<span class="tl"> ' + rest.join(' ') + '</span>'; b.title = 'Läge: ' + NAMES[setting()].slice(3) + ' – tryck för att byta'; });
   }
+  // Tillbaka-knappen (.lpv-back) ligger fast i hörnet (theme.css). Står den i ett sidhuvud får den en
+  // osynlig platshållare lika bred som knappen, så att resten av raden börjar till höger om den.
+  // Knappar med klassen lpv-back-float ligger över kartan och behöver ingen platshållare.
+  function setupBackButtons() {
+    document.querySelectorAll('.lpv-back:not([data-lpv-back])').forEach(btn => {
+      btn.setAttribute('data-lpv-back', '1');
+      if (btn.classList.contains('lpv-back-float')) return;
+      const space = document.createElement('span');
+      space.className = 'lpv-back-space'; space.setAttribute('aria-hidden', 'true');
+      btn.parentNode.insertBefore(space, btn);
+      const fit = () => { space.style.width = Math.ceil(btn.getBoundingClientRect().width) + 'px'; };
+      fit();
+      if (window.ResizeObserver) new ResizeObserver(fit).observe(btn); // när glaskulan laddats blir knappen bredare
+    });
+  }
   // Flikraden för admin i telefon – samma som på startsidan, så man aldrig fastnar på en sida.
   // Radarn har en egen helskärmslayout och klarar sig med sin tillbakaknapp.
   function addTabBar() {
@@ -53,6 +68,8 @@
     if (slot) slot.appendChild(btn); else { btn.classList.add('floating'); document.body.appendChild(btn); }
     apply();
     addTabBar();
+    setupBackButtons();
+    new MutationObserver(setupBackButtons).observe(document.body, { childList: true, subtree: true });
     // Appikonerna (glaskulor) i flikraden och Mer-menyn
     if (window.lpvIcons) window.lpvIcons.apply();
     else { const s = document.createElement('script'); s.src = 'appikoner.js'; document.head.appendChild(s); }

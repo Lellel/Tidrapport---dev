@@ -82,7 +82,7 @@
 </head>
 <body>
   <header>
-    <a href="snojour.html" id="back">←</a>
+    <a class="lpv-back" href="snojour.html" id="back"><span data-icon="tillbaka">←</span> <span id="back-label">Snöjour</span></a>
     <h1><span data-icon="hinder">⚠️</span> Hinder</h1>
     <span data-theme-slot></span>
     <div class="mode" title="Hur hindret placeras">
@@ -554,7 +554,7 @@
     mapCtl = snoCreateMap('map');
     map = mapCtl.map;
     map.on('click', onMapClick);
-    if (snoIsAdmin() && document.referrer.includes('snozoner')) document.getElementById('back').href = 'snozoner.html';
+    if (snoIsAdmin() && document.referrer.includes('snozoner')) { document.getElementById('back').href = 'snozoner.html'; document.getElementById('back-label').textContent = 'Rita zoner'; }
     if (mode === 'gps') startGps();
     render();
     loadZones();

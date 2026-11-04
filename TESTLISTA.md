@@ -569,3 +569,11 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Tryck två gånger snabbt på en knapp som sparar/skickar → bara ett utskick
 - [ ] Knappar som inte pratar med servern (t.ex. ✏️ Penna i Rita zoner) får ingen snurra
 - [ ] Hemskärmsappen: "Ny version – tryck för att uppdatera" visas så att knappar.js kommer med
+
+## Tillbaka-knapp & statusfältet (2026-11-04)
+- [ ] Varje sida (Ekonomi, Offerter, Radarn, Snöplanering, Rita zoner, Snöjour, Hinder, Väder, Widget, Ikoner, Guiden): **← Hem** sitter fast uppe till vänster, precis under klockan/batteriet, även när man scrollar
+- [ ] Hinder: knappen heter **← Snöjour** (eller **← Rita zoner** om man kom därifrån). Öppen offert: **← Alla offerter**
+- [ ] Rita zoner och Snöplanering: knappen ligger över kartan, 🗺️/🛰️ under den
+- [ ] Inget (rubriker, knappar, text) ligger under statusfältet på iPhone eller iPad – särskilt Ekonomi, Guiden, Snöplanering på iPad och Radarns sidopanel
+- [ ] Offerter: dialogrutorna och Radarns sidopanel lägger sig över tillbaka-knappen
+- [ ] ikoner.html: skapa kulan **Tillbaka** → den ersätter ← i knappen på alla sidor

@@ -10,7 +10,7 @@
     :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--t-font); }
-    .wrap { max-width: 920px; margin: 0 auto; padding: 14px 16px 60px; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 12px) 16px 60px; }
     .topbar { display: flex; justify-content: space-between; align-items: center; }
     .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 10px 0 4px; }
@@ -54,7 +54,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar"><a href="index.html">← Hem</a><span style="display:flex;gap:8px;align-items:center;"><span class="meta" id="who"></span><span data-theme-slot></span></span></div>
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span style="display:flex;gap:8px;align-items:center;"><span class="meta" id="who"></span><span data-theme-slot></span></span></div>
   <h1><span data-icon="ekonomi">💰</span> Ekonomi – fakturaunderlag</h1>
   <div class="meta">Allt som är utfört men inte fakturerat. Skapa underlaget här, fakturera i Fortnox och markera sedan som fakturerat.</div>
   <div id="app"><div class="empty">Hämtar…</div></div>

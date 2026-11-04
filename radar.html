@@ -34,7 +34,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .period { font-weight: 700; font-size: 14px; min-width: 150px; text-align: center; }
 .status { font-size: 12px; color: var(--muted); margin-left: auto; min-width: 70px; text-align: right; }
 .status.err { color: var(--bad); }
-a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding: 6px 4px; }
 /* Orderboken */
 .order { display: flex; gap: 8px; align-items: stretch; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; min-height: 76px; }
 .order.hidden { display: none; }
@@ -107,7 +106,7 @@ a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding:
 /* Detaljrutan */
 .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: none; }
 .sheet-bg.open { display: block; }
-.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); background: var(--panel); border-left: 1px solid var(--line); z-index: 51; padding: 16px; overflow-y: auto;
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); background: var(--panel); border-left: 1px solid var(--line); z-index: 51; padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px); overflow-y: auto;
   transform: translateX(100%); transition: transform .2s; padding-top: max(16px, env(safe-area-inset-top)); }
 .sheet.open { transform: none; }
 .sheet h2 { margin: 0 0 12px; font-size: 18px; }
@@ -130,7 +129,7 @@ a.back { color: var(--accent); text-decoration: none; font-weight: 700; padding:
 <body>
 <div class="app">
   <div class="top">
-    <a class="back" href="index.html">←</a>
+    <a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
     <h1><span data-icon="radar">📡</span> Radarn</h1>
     <div class="seg" id="viewseg"><button data-v="person" class="on">👷 Personer</button><button data-v="client">🏠 Kunder</button></div>
     <div class="seg" id="zoomseg"><button data-z="0">Timmar</button><button data-z="1">Dag</button><button data-z="2" class="on">Vecka</button><button data-z="3">Månad</button></div>

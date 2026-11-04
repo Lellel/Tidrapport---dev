@@ -16,6 +16,7 @@
     #map { height: 100%; width: 100%; }
     .panel { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
     .panel-head { padding: 12px 14px 0; }
+    @media (min-width: 861px) { .panel-head { padding-top: calc(env(safe-area-inset-top) + 12px); } } /* iPad: panelen börjar överst */
     .topbar { display: flex; justify-content: space-between; align-items: center; }
     .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 8px 0 10px; }
@@ -90,8 +91,8 @@
     .photo { position: relative; aspect-ratio: 1; border-radius: var(--t-r); overflow: hidden; background: var(--bg); }
     .photo img { width: 100%; height: 100%; object-fit: cover; }
     .photo button { position: absolute; top: 4px; right: 4px; min-height: 26px; width: 26px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.6); border: none; font-size: 12px; }
-    .map-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 600; background: var(--warn); color: #111; font-weight: 800; font-size: 13px; padding: 8px 14px; border-radius: 999px; display: none; }
-    .map-toggle { position: absolute; top: 12px; left: 12px; z-index: 500; display: flex; gap: 6px; }
+    .map-hint { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: 50%; transform: translateX(-50%); z-index: 600; background: var(--warn); color: #111; font-weight: 800; font-size: 13px; padding: 8px 14px; border-radius: 999px; display: none; }
+    .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: calc(env(safe-area-inset-left) + 12px); /* under tillbaka-knappen */ z-index: 500; display: flex; gap: 6px; }
     .map-toggle button { min-height: 36px; background: var(--t-overlay); }
     .pin { border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
     .pin.stor { width: 18px; height: 18px; background: var(--stor); }
@@ -116,6 +117,7 @@
   </style>
 </head>
 <body>
+  <a class="lpv-back lpv-back-float" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
   <div class="layout">
     <div class="map-wrap">
       <div id="map"></div>
@@ -129,7 +131,6 @@
     <aside class="panel">
       <div class="panel-head">
         <div class="topbar">
-          <a href="index.html">← Hem</a>
           <a href="snozoner.html">Rita zoner →</a>
         <span data-theme-slot></span></div>
         <h1><span data-icon="sno">❄️</span> Snöplanering</h1>

@@ -25,7 +25,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-      padding: 30px 16px 60px 16px;
+      padding: calc(env(safe-area-inset-top) + 64px) 16px 60px 16px; /* plats för tillbaka-knappen */
       display: flex;
       justify-content: center;
     }
@@ -98,6 +98,7 @@
 </head>
 <body>
 
+<a class="lpv-back lpv-back-float" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
 <div class="guide-container">
   
   <div class="mock-header">

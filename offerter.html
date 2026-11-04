@@ -207,7 +207,7 @@
       const dis = locked() ? 'disabled' : '';
       const seg = (field, val, text) => `<button class="${draft[field] === val ? 'active' : ''}" ${dis} onclick="setField('${field}', '${val}')">${text}</button>`;
       return `
-        <div class="topbar"><button onclick="backToList()">← Alla offerter</button><span class="status s-${esc(draft.status)}">${esc(draft.status)}</span></div>
+        <div class="topbar"><button type="button" class="lpv-back" onclick="backToList()"><span data-icon="tillbaka">←</span> Alla offerter</button><span class="status s-${esc(draft.status)}">${esc(draft.status)}</span></div>
         <h1>${draft.type === 'ata' ? '<span data-icon="ata">🔧</span> ÄTA' : '<span data-icon="offerter">📄</span> Offert'} ${esc(draft.id || '(ny)')}${draft.version > 1 ? ` <span class="muted">version ${draft.version}</span>` : ''}</h1>
         ${draft.status === 'godkänd' ? `<div class="banner good">✅ Godkänd av <b>${esc(draft.approvedBy)}</b> ${esc(draft.answered)}. Jobbet <b>${esc(draft.jobId)}</b> ligger i planeringen.${draft.customerComment ? `<br>Kommentar: <i>${esc(draft.customerComment)}</i>` : ''}</div>` : ''}
         ${draft.status === 'avböjd' ? `<div class="banner warn">❌ Avböjd ${esc(draft.answered)}${draft.customerComment ? `: <i>${esc(draft.customerComment)}</i>` : ''}. Ändra och skicka en ny version om du vill.</div>` : ''}
@@ -931,8 +931,8 @@
     function render() {
       const app = document.getElementById('app');
       const sticky = document.getElementById('sticky');
-      if (!settings) { app.innerHTML = `<div class="topbar"><a href="index.html">← Hem</a></div><h1><span data-icon="offerter">📄</span> Offerter & ÄTA</h1><div class="msg" id="msg">${message || 'Hämtar…'}</div>`; return; }
-      const head = view === 'edit' ? '' : `<div class="topbar"><a href="index.html">← Hem</a></div><h1><span data-icon="offerter">📄</span> Offerter & ÄTA</h1>
+      if (!settings) { app.innerHTML = `<div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a></div><h1><span data-icon="offerter">📄</span> Offerter & ÄTA</h1><div class="msg" id="msg">${message || 'Hämtar…'}</div>`; return; }
+      const head = view === 'edit' ? '' : `<div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a></div><h1><span data-icon="offerter">📄</span> Offerter & ÄTA</h1>
         <div class="tabs"><button class="${view === 'list' ? 'active' : ''}" onclick="view='list'; message=''; render()">Offerter</button><button class="${view === 'customers' ? 'active' : ''}" onclick="showCustomers()">👥 Kunder</button>${scope ? '' : `<button class="${view === 'settings' ? 'active' : ''}" onclick="view='settings'; message=''; render()">⚙️ Inställningar</button>`}</div>`;
       if (scope && view === 'settings') view = 'list';
       app.innerHTML = head + (view === 'list' ? renderList() : view === 'edit' ? renderEdit() : view === 'customers' ? renderCustomers() : renderSettings());

@@ -82,6 +82,19 @@
 @media (max-width: 520px) { .theme-btn:not(.floating) .tl { display: none; } }
 .theme-btn.floating { position: fixed; z-index: 2000; left: calc(env(safe-area-inset-left) + 10px); bottom: calc(env(safe-area-inset-bottom) + 10px); box-shadow: var(--t-shadow); }
 
+/* Tillbaka-knappen (bestämt 2026-11-04): alltid fast uppe till vänster, precis under statusfältet,
+   samma plats på alla sidor – även över kartan. theme.js lägger en osynlig platshållare där knappen
+   står i sidhuvudet så att resten av raden inte hamnar under den. Glaskulan "tillbaka" visas i stället för ←. */
+.lpv-back { position: fixed; z-index: 40; /* under sidornas dialogrutor och paneler */ top: calc(env(safe-area-inset-top) + 8px); left: calc(env(safe-area-inset-left) + 10px);
+  display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px 0 8px; margin: 0; box-sizing: border-box;
+  border-radius: 999px; border: 1px solid var(--t-line); background: var(--t-overlay); color: var(--t-accent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: var(--t-shadow);
+  font: 700 var(--t-fs-link)/1 var(--t-font); text-decoration: none; white-space: nowrap; cursor: pointer; }
+.lpv-back > [data-icon] { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; font-size: 18px; }
+.lpv-back .lpv-icw { width: 32px !important; height: 32px !important; margin: 0 !important; }
+.lpv-back-space { display: inline-block; flex: none; height: 42px; }
+.lpv-back-float { z-index: 900; } /* över kartan (Leaflet ligger på 400–700) */
+
 /* Gemensam grund för undersidorna */
 @media (max-width: 420px) { :root { --t-fs-title: 17px; } }
 header a, .topbar a, .mode button { white-space: nowrap; }

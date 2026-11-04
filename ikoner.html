@@ -29,7 +29,7 @@
 </head>
 <body>
   <main>
-    <div class="topbar"><a href="index.html">← Hem</a><span data-theme-slot></span></div>
+    <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
     <h1><span data-icon="ikoner">🎨</span> Appikoner</h1>
     <div class="muted">Glaskulor i samma stil som maskinerna och avatarerna. Varje ikon skapas av AI:n (ungefär 40 öre per bild) och syns i flikraden, sidomenyn och Mer-menyn. Där ingen ikon finns står emojin kvar. Motivet går att ändra innan du skapar – skriv på engelska.</div>
     <div class="row"><button class="ok" id="btn-all" onclick="makeAll()">✨ Skapa alla som saknas</button><span class="msg" id="all-msg"></span></div>
@@ -42,7 +42,7 @@
   <script>
     const GROUPS = [
       ['Navigering', [['hem', '🏠', 'Hem'], ['radar', '🔭', 'Radarn'], ['sno', '🚜', 'Snö / Snöplanering / Traktorer'], ['offerter', '📄', 'Offerter & ÄTA'],
-        ['kunder', '💼', 'Kunder'], ['vader', '🌨️', 'Väder'], ['zoner', '❄️', 'Rita snözoner'], ['ekonomi', '💰', 'Ekonomi'], ['widget', '📱', 'Widget'], ['mer', '•••', 'Mer']]],
+        ['kunder', '💼', 'Kunder'], ['vader', '🌨️', 'Väder'], ['zoner', '❄️', 'Rita snözoner'], ['ekonomi', '💰', 'Ekonomi'], ['widget', '📱', 'Widget'], ['mer', '•••', 'Mer'], ['tillbaka', '←', 'Tillbaka (knappen uppe till vänster)']]],
       ['Sidrubriker', [['ikoner', '🎨', 'Appikoner'], ['ata', '🔧', 'ÄTA'], ['snojour', '❄️', 'Snöjour'], ['hinder', '⚠️', 'Hinder']]],
       ['Verktygslådan i Rita zoner', [['maskin', '🟦', 'Maskinzon'], ['hand', '🟧', 'Handskottning'], ['upplag', '🟪', 'Snöupplag'], ['stracka', '〰️', 'Sträcka'],
         ['markor', '📍', 'Markör'], ['lucka', '🛑', 'Brunnslock'], ['kantsten', '⚠️', 'Kantsten'], ['trappa', '🪜', 'Trappa'], ['hinder2', '❗', 'Övrigt hinder'], ['entre', '🚪', 'Entré'],
