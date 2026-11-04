@@ -221,8 +221,6 @@ function doPost(e) {
     if (action === "getOfferForCustomer") return handleGetOfferForCustomer(data);
     if (action === "redeemPcLink") return handleRedeemPcLink(data);
     if (action === "respondOffer") return handleRespondOffer(data);
-    // TILLFÄLLIGT: engångskod så att Claude kan skapa appikonerna (Daniel gav lov 2026-11-04). Tas bort direkt efteråt.
-    if (action === "generateAppIcon" && data.setupCode && appIconSetupOk(data.setupCode)) return handleGenerateAppIcon(data);
 
     // --- INLOGGNING: personlig nyckel (eller gamla gemensamma nyckeln under övergången) ---
     const auth = authenticate(data);
@@ -1333,12 +1331,6 @@ function appIconUrls() {
   const ids = appIconIds(), out = {};
   Object.keys(ids).forEach(k => { out[k] = driveImageUrl(ids[k], 256); });
   return out;
-}
-
-function appIconSetupOk(code) {
-  const hex = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(code), Utilities.Charset.UTF_8)
-    .map(b => ((b + 256) % 256).toString(16).padStart(2, "0")).join("");
-  return hex === "338103385710a8f450c208bbe283dd9c3a6795424f45115c7d2bf6a82b3a93fa";
 }
 
 function handleGenerateAppIcon(data) {
