@@ -603,3 +603,13 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Rita handskottning med 🖌️ Pensel och spara → tryck med fingret på den → den blir vald och **🗑️ Ta bort zonen** syns → borttagen
 - [ ] Samma med 🧽 Sudd valt
 - [ ] Ett penseldrag ovanpå en befintlig zon väljer inte zonen av misstag
+
+## Säsongsteman (sasong.js, 2026-11-04 – kräver ny Kod.gs)
+- [ ] `index.html?tema=jul`: snö, julröd accent, tomteluva på din avatar; 🎄-knapp bredvid läget stänger av/slår på
+- [ ] Radarn och Personal med `?tema=jul`: tomteluva på alla kulor (personal, maskiner)
+- [ ] `?tema=pask`: fjädrar/ägg, haröron, en hare skuttar förbi efter ~8 s
+- [ ] `?tema=halloween`, `?tema=lucia`, `?tema=kanelbulle`, `?tema=kraftor` – rätt saker faller och rätt accessoar
+- [ ] Inget faller på Snöplanering/Rita zoner/Snöjour/Hinder och inte i Natt-läget
+- [ ] `?tema=av` → vanligt utseende igen
+- [ ] ikoner.html: temaraden överst; välj 🕯️ Lucia → skapa kulor; med `?tema=lucia` visas luciakulorna i appen
+- [ ] Startsidan som admin från 22 nov: kortet "🕯️ Lucia om … dagar" i kortsnurran; Göm tar bort det

@@ -38,6 +38,7 @@
   <script src="config.js"></script>
   <script src="knappar.js"></script>
   <script src="inloggning.js"></script>
+  <script src="sasong.js"></script>
   <script src="sno.js"></script>
   <script src="appikoner.js"></script>
   <script>
@@ -52,23 +53,39 @@
         ['forslag', '💡', 'Förslag'], ['ai', '🤖', 'Föreslå zoner (AI)'], ['justera', '✋', 'Justera läge'], ['grannar', '🏘️', 'Grannar'], ['frankartan', '🗺️', 'Från kartan']]]
     ];
     const ICONS = GROUPS.flatMap(g => g[1]);
-    let urls = {}, motifs = {}, busy = new Set();
+    let urls = {}, motifs = {}, themes = {}, busy = new Set();
+    // Säsongsteman (sasong.js): välj tema överst – nycklarna blir t.ex. "hem_jul". #lucia i adressen väljer temat direkt.
+    const SEASONS = (window.lpvSeason && lpvSeason.THEMES) || {};
+    let tema = SEASONS[location.hash.slice(1)] ? location.hash.slice(1) : '';
+    const keyOf = (k) => tema ? k + '_' + tema : k;
+    const motifOf = (k) => motifs[keyOf(k)] || (tema ? (motifs[k] || '') + (themes[tema] ? ', ' + themes[tema] : '') : (motifs[k] || ''));
+    function setTema(t) { tema = t; try { history.replaceState(null, '', t ? '#' + t : location.pathname); } catch (e) { /* inget */ } render(); }
+    function temaChips() {
+      const done = (t) => ICONS.filter(([k]) => urls[k + '_' + t]).length;
+      return '<div class="row" style="flex-wrap:wrap;gap:6px;margin:4px 0 6px">' +
+        `<button onclick="setTema('')" style="${tema ? '' : 'background:var(--accent);color:var(--t-on-accent)'}">Vanliga</button>` +
+        Object.keys(SEASONS).map(t => `<button onclick="setTema('${t}')" style="${tema === t ? 'background:var(--accent);color:var(--t-on-accent)' : ''}">${SEASONS[t].emoji} ${SEASONS[t].name} <small>${done(t)}/${ICONS.length}</small></button>`).join('') +
+        '</div>' + (tema ? `<div class="muted" style="margin-bottom:8px">${SEASONS[tema].emoji} ${SEASONS[tema].name}-kulor visas under temat. Saknas en visas den vanliga.</div>` : '');
+    }
 
     function render() {
-      document.getElementById('list').innerHTML = GROUPS.map(([title, items]) => `<h2 style="font-size:15px;margin:18px 0 8px">${title}</h2>` + items.map(([k, emo, name]) => `<div class="card" style="margin-bottom:10px">
-        <div class="pic">${urls[k] ? `<img src="${snoEscape(urls[k])}" alt="">` : emo}</div>
+      document.getElementById('list').innerHTML = temaChips() + GROUPS.map(([title, items]) => `<h2 style="font-size:15px;margin:18px 0 8px">${title}</h2>` + items.map(([k, emo, name]) => {
+        const kk = keyOf(k), url = urls[kk];
+        return `<div class="card" style="margin-bottom:10px">
+        <div class="pic">${url ? `<img src="${snoEscape(url)}" alt="">` : tema && urls[k] ? `<img src="${snoEscape(urls[k])}" alt="" style="opacity:.35">` : emo}</div>
         <div>
-          <div class="name">${emo} ${snoEscape(name)}</div>
-          <textarea id="m-${k}" aria-label="Motiv för ${snoEscape(name)}">${snoEscape(motifs[k] || '')}</textarea>
-          <div class="row"><button onclick="make('${k}')" ${busy.has(k) ? 'disabled' : ''}>${busy.has(k) ? '⏳ AI:n ritar…' : urls[k] ? '✨ Skapa ny' : '✨ Skapa'}</button><span class="msg" id="msg-${k}"></span></div>
-        </div></div>`).join('')).join('');
+          <div class="name">${emo} ${snoEscape(name)}${tema ? ' – ' + SEASONS[tema].emoji : ''}</div>
+          <textarea id="m-${kk}" aria-label="Motiv för ${snoEscape(name)}">${snoEscape(motifOf(k))}</textarea>
+          <div class="row"><button onclick="make('${kk}')" ${busy.has(kk) ? 'disabled' : ''}>${busy.has(kk) ? '⏳ AI:n ritar…' : url ? '✨ Skapa ny' : '✨ Skapa'}</button><span class="msg" id="msg-${kk}"></span></div>
+        </div></div>`;
+      }).join('')).join('');
     }
 
     async function load() {
       try {
         const res = await snoApi({ action: 'getAppIcons' });
         if (res.status !== 'success') throw new Error(res.message);
-        urls = res.icons || {}; motifs = res.motifs || {};
+        urls = res.icons || {}; motifs = res.motifs || {}; themes = res.themes || {};
         if (window.lpvIcons) lpvIcons.set(urls);
       } catch (e) { document.getElementById('all-msg').textContent = '❌ ' + (e.message || 'Ingen kontakt med servern.'); }
       render();
@@ -94,7 +111,7 @@
 
     // En i taget – AI:n tar 10–30 s per bild
     async function makeAll() {
-      const todo = ICONS.map(i => i[0]).filter(k => !urls[k]);
+      const todo = ICONS.map(i => keyOf(i[0])).filter(k => !urls[k]);
       const btn = document.getElementById('btn-all'), out = document.getElementById('all-msg');
       if (!todo.length) { out.textContent = 'Alla ikoner finns redan – tryck ✨ Skapa ny på den du vill byta.'; return; }
       btn.disabled = true;

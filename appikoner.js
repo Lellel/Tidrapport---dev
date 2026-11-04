@@ -16,7 +16,9 @@
   function apply(root) {
     const icons = read();
     (root || document).querySelectorAll('[data-icon]').forEach(el => {
-      const url = icons[el.dataset.icon];
+      // Säsongstema (sasong.js): t.ex. "hem_jul" före "hem" om julkulan finns
+      const tema = document.documentElement.getAttribute('data-tema');
+      const url = (tema && icons[el.dataset.icon + '_' + tema]) || icons[el.dataset.icon];
       if (el.dataset.fallback === undefined) el.dataset.fallback = el.innerHTML;
       if (!url) { if (el.querySelector('img.lpv-ico')) el.innerHTML = el.dataset.fallback; return; }
       const img = el.querySelector('img.lpv-ico');

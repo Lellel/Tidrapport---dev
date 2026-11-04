@@ -657,6 +657,7 @@ function renderOutbox() {
         </div>
       </div>
     `;
+    addSeasonReminders(container);
     return;
   }
 
@@ -758,6 +759,40 @@ function renderOutbox() {
       <div class="card-actions">${actionButtons}</div>
     `;
     container.appendChild(card);
+  });
+  addSeasonReminders(container);
+}
+
+// Påminnelse till admin 3 veckor innan ett säsongstema (sasong.js): skapa temats glaskulor i tid.
+// "Göm" gäller det temat det året. Kortet försvinner när temat börjar eller alla kulor finns.
+function addSeasonReminders(container) {
+  if (!window.lpvSeason || localStorage.getItem('lpv_is_admin') !== 'true') return;
+  let icons = {}, hidden = [];
+  try { icons = JSON.parse(localStorage.getItem('lpv_app_icons') || '{}'); } catch (e) { icons = {}; }
+  try { hidden = JSON.parse(localStorage.getItem('lpv_tema_gomd') || '[]'); } catch (e) { hidden = []; }
+  const SUFFIXES = Object.keys(lpvSeason.THEMES);
+  const base = Object.keys(icons).filter(k => !SUFFIXES.some(t => k.endsWith('_' + t)));
+  lpvSeason.upcoming(21).reverse().forEach(u => {
+    const tag = u.id + ':' + lpvSeason.iso(u.start);
+    const done = base.filter(k => icons[k + '_' + u.id]).length;
+    if (hidden.includes(tag) || (base.length && done >= base.length)) return;
+    const card = document.createElement('div');
+    card.className = 'draft-card';
+    card.innerHTML = `
+      <div class="card-body">
+        <div class="card-title"><span style="margin-right:10px">${u.theme.emoji}</span>${u.theme.name} om ${u.days} ${u.days === 1 ? 'dag' : 'dagar'}</div>
+        <div class="card-meta" style="margin-top:6px;">${done} av ${base.length || '–'} ${u.theme.name.toLowerCase()}-kulor klara</div>
+      </div>
+      <div class="card-actions">
+        <button class="btn-action" onclick="location.href='ikoner.html#${u.id}'">🎨 Skapa kulor</button>
+        <button class="btn-action" style="background:transparent" data-hide="${tag}">Göm</button>
+      </div>`;
+    card.querySelector('[data-hide]').onclick = () => {
+      hidden.push(tag);
+      try { localStorage.setItem('lpv_tema_gomd', JSON.stringify(hidden.slice(-30))); } catch (e) { /* privat läge */ }
+      card.remove();
+    };
+    container.prepend(card);
   });
 }
 

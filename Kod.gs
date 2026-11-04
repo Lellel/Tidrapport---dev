@@ -277,7 +277,7 @@ function doPost(e) {
     if (action === "radarRemoveResource") return handleRadarRemoveResource(data, auth);
     if (action === "radarResourceAvatar") return handleRadarResourceAvatar(data, auth);
     if (action === "getNotices") return handleGetNotices(auth);
-    if (action === "getAppIcons") return createJsonResponse({ status: "success", icons: appIconUrls(), motifs: APP_ICON_MOTIFS });
+    if (action === "getAppIcons") return createJsonResponse({ status: "success", icons: appIconUrls(), motifs: APP_ICON_MOTIFS, themes: APP_ICON_THEMES });
     if (action === "generateAppIcon") return handleGenerateAppIcon(data);
     if (action === "getAvatars") {
       // Små avatarer (kolumn F i Personal) för radarns kulor. Hämtas separat så att planeringen laddar snabbt.
@@ -1452,6 +1452,21 @@ function handleGenerateTractorAvatar(id) {
 // ---------- APPIKONER (navigeringen) ----------
 // Glaskulor i samma stil som traktorernas och personalens AI-kulor. En bild per modul, sparas i Drive-mappen
 // "Appikoner" och pekas ut i Script Properties (APP_ICONS = {nyckel: filId}). Appen visar emoji tills en ikon finns.
+// Säsongsvarianter av kulorna (sasong.js, docs/sasonger.md): nyckeln blir t.ex. "hem_jul" och motivet = grundmotivet + tillägget
+const APP_ICON_THEMES = {
+  vaffla: "waffle day version: with a small golden waffle with whipped cream and jam",
+  pi: "Pi day version: with a small Greek letter pi and a tiny slice of pie",
+  fettis: "Swedish Shrove Tuesday version: with a small cream-filled semla bun",
+  pask: "Easter version: with small pastel Easter eggs and a colorful feather",
+  nationaldag: "Swedish National Day version: with a small blue and yellow Swedish flag",
+  kraftor: "Swedish crayfish party version: with a small red crayfish and a paper party hat",
+  kanelbulle: "cinnamon bun day version: with a small Swedish cinnamon bun with pearl sugar",
+  halloween: "Halloween version: with a small carved pumpkin and a tiny bat",
+  lucia: "Swedish Lucia version: with a small crown of lit candles and a warm golden glow",
+  jul: "Christmas version: with a tiny Santa hat, small red baubles and a little snow",
+  nyar: "New Year's Eve version: with small colorful fireworks and confetti"
+};
+
 const APP_ICON_MOTIFS = {
   hem: "a small cozy red Swedish wooden house with a snowy roof and a warm lit window",
   radar: "a shiny brass telescope on a small tripod",
@@ -1515,8 +1530,11 @@ function appIconUrls() {
 
 function handleGenerateAppIcon(data) {
   const key = String(data.icon || ""); // inte data.key – det är inloggningsnyckeln
-  if (!APP_ICON_MOTIFS[key]) return createJsonResponse({ status: "error", message: "Okänd ikon: " + key });
-  const motif = String(data.motif || "").trim().slice(0, 300) || APP_ICON_MOTIFS[key];
+  // Säsongsvariant: "hem_jul" = grundikonen "hem" i jultema
+  const m = /^(.+)_([a-z]+)$/.exec(key), base = m && APP_ICON_THEMES[m[2]] && APP_ICON_MOTIFS[m[1]] ? m[1] : key;
+  if (!APP_ICON_MOTIFS[base]) return createJsonResponse({ status: "error", message: "Okänd ikon: " + key });
+  const fallback = base === key ? APP_ICON_MOTIFS[key] : APP_ICON_MOTIFS[base] + ", " + APP_ICON_THEMES[m[2]];
+  const motif = String(data.motif || "").trim().slice(0, 400) || fallback;
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
   if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
   try {
