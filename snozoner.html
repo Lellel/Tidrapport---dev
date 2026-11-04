@@ -98,6 +98,8 @@
     .edit-mid { background: rgba(255,255,255,.75); border: 2px solid #111827; border-radius: 50%; }
     /* 📍 Adressens nål – tar inte emot tryck, så ritning och gester går igenom */
     .prop-pin { pointer-events: none !important; }
+    .nb-pin { pointer-events: none !important; }
+    .nb-pin div { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); white-space: nowrap; padding: 3px 8px; border-radius: 999px; background: #f97316; color: #fff; font-size: 12px; font-weight: 800; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
     .prop-pin svg { filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
@@ -177,7 +179,7 @@
           <div class="row2">
             <div>
               <label for="f-property">Fastighet / Adress</label>
-              <input id="f-property" placeholder="T.ex. Drottninggatan 4">
+              <input id="f-property" placeholder="T.ex. Drottninggatan 4" oninput="propertyAuto=false">
             </div>
             <div>
               <label for="f-order">Ordning</label>
@@ -320,6 +322,8 @@
       help.style.display = help.innerHTML ? 'block' : 'none';
       document.getElementById('btn-delete').style.display = selectedZone ? 'block' : 'none';
       document.getElementById('btn-save').innerText = selectedZone ? '💾 Spara ändringar' : '💾 Spara zon';
+      const auto = autoAddress(shape && shape.polys.length ? shape.polys[0] : drawingPoints);
+      if (auto) document.getElementById('f-property').value = auto;
     }
 
     // Utprickade punkter (tryck/GPS), sträckor och markörer
@@ -372,6 +376,8 @@
     function cancelAll() {
       cancelDrawing();
       selectZone(null);
+      propertyAuto = true;
+      if (currentProp) document.getElementById('f-property').value = currentProp.address;
       setStatus('');
     }
 
@@ -400,7 +406,7 @@
         const base = { ...(old || {}), ...form, type: shape.type };
         if (!old && !base.note && shape.fromEntre) base.note = 'Entré';
         // Första delen ersätter zonen; är den uppdelad sparas resten som nya zoner på samma adress
-        toSave = shape.polys.map((c, i) => { const z = { ...base, coords: c, areaM2: snoGeodesicArea(c) }; if (i > 0) delete z.id; return z; });
+        toSave = shape.polys.map((c, i) => { const z = { ...base, coords: c, areaM2: snoGeodesicArea(c) }; if (i > 0) delete z.id; z.property = autoAddress(c) || z.property; return z; });
       } else if (selectedZone) {
         toSave = [{ ...selectedZone, ...form }];
       } else {
@@ -408,7 +414,7 @@
         const okPoint = def.allowPoint && drawingPoints.length === 1;
         if (kind === 'polygon' && !okPoint) { setStatus(def.allowPoint ? 'Rita runt upplaget med pennan – eller tryck en punkt.' : 'Rita ytan först: ringa in med pennan eller tryck ut minst 3 hörn.'); return; }
         if (drawingPoints.length < (kind === 'line' ? 2 : 1)) { setStatus(kind === 'line' ? 'Rita sträckan först.' : 'Tryck på kartan där markören ska sitta.'); return; }
-        toSave = [{ ...form, type: toolType(), coords: drawingPoints, areaM2: 0 }];
+        toSave = [{ ...form, property: autoAddress(drawingPoints) || form.property, type: toolType(), coords: drawingPoints, areaM2: 0 }];
       }
 
       setStatus('Sparar…');
@@ -422,6 +428,7 @@
         selectZone(null);
         // Vald fastighet ligger kvar, så att nästa zon på samma adress går fort
         document.getElementById('f-property').value = currentProp ? currentProp.address : '';
+        propertyAuto = true;
         document.getElementById('f-note').value = '';
         const orderInput = document.getElementById('f-order');
         if (orderInput.value) orderInput.value = Number(orderInput.value) + 1;
@@ -454,6 +461,7 @@
         if (previewLayer) { map.removeLayer(previewLayer); previewLayer = null; }
         document.getElementById('f-slinga').value = zone.slinga;
         document.getElementById('f-property').value = zone.property;
+        propertyAuto = false;
         document.getElementById('f-order').value = zone.order || '';
         document.getElementById('f-note').value = zone.note;
         drawType = zone.type;
@@ -1074,16 +1082,21 @@
     // ✅ Klar / ⏭ Senare -> nästa som inte är klar (de överhoppade kommer sist)
     async function markAndNext(status) {
       const p = currentProp;
+      const all = [p, ...groupProps()];
       try {
-        const res = await snoApi({ action: 'setPropertyZoneStatus', id: p.id, zoneStatus: status });
-        if (res.status !== 'success') throw new Error(res.message);
-        p.zoneStatus = status; p.claimedBy = '';
+        for (const x of all) {
+          const res = await snoApi({ action: 'setPropertyZoneStatus', id: x.id, zoneStatus: status });
+          if (res.status !== 'success') throw new Error(res.message);
+          x.zoneStatus = status; x.claimedBy = '';
+        }
       } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'Kunde inte spara.')); return; }
+      clearGroup(false);
       await refreshProperties(); // färska 🔒 från de andra innan nästa väljs
       const next = nextProperty(p);
       if (!next) { setStatus(area ? `🎉 Allt i ${snoEscape(area)} är klart (eller upptaget av någon annan)!` : '🎉 Alla fastigheter är klara!'); renderKkCard(); return; }
       openProperty(next);
-      setStatus(`${status === 'klar' ? '✅ ' + snoEscape(p.address) + ' klar.' : '⏭ ' + snoEscape(p.address) + ' tas senare.'} Nu: <b>${snoEscape(next.address)}</b>`);
+      const names = all.map(x => snoEscape(x.address)).join(', ');
+      setStatus(`${status === 'klar' ? '✅ ' + names + ' klar' + (all.length > 1 ? 'a' : '') + '.' : '⏭ ' + names + ' tas senare.'} Nu: <b>${snoEscape(next.address)}</b>`);
     }
 
     function progressHtml() {
@@ -1093,7 +1106,7 @@
       return `${takenByOther(currentProp) ? `<div class="warn">🔒 ${snoEscape(currentProp.claimedBy)} jobbar med den här just nu. Välj en annan – eller <a href="#" onclick="claim(currentProp, true); return false;" style="color:var(--accent)">ta över</a>.</div>` : ''}
         <div class="status" style="font-size:12px">${area ? snoEscape(area) : 'Genomgång'}: <b>${done} av ${mine.length}</b> klara${later ? ` · ${later} senare` : ''}${busy.length ? ` · 🔒 ${[...new Set(busy)].map(snoEscape).join(', ')} jobbar också` : ''}</div>
         ${takenByOther(currentProp) ? `<div class="kk-row"><button onclick="const n = nextProperty(currentProp); if (n) openProperty(n)">⏭ Välj en annan</button></div>` :
-          `<div class="kk-row"><button class="ok" onclick="markAndNext('klar')">✅ Klar – nästa</button><button onclick="markAndNext('senare')">⏭ Senare – nästa</button></div>`}`;
+          `<div class="kk-row"><button class="ok" onclick="markAndNext('klar')">✅ Klar${group.length ? ` (${group.length + 1})` : ''} – nästa</button><button onclick="markAndNext('senare')">⏭ Senare – nästa</button></div>`}`;
     }
 
     function chooseProperty(label) {
@@ -1103,7 +1116,9 @@
         snoApi({ action: 'claimProperty', id: currentProp.id, release: true }).catch(() => {});
         currentProp.claimedBy = '';
       }
+      clearGroup(true);
       currentProp = p;
+      propertyAuto = true;
       if (!takenByOther(p)) claim(p);
       selectZone(null);
       document.getElementById('f-property').value = p.address;
@@ -1160,23 +1175,24 @@
     }
 
     // Hörnen i kartprojektionen (meter gånger 1/cos(lat) i Web Mercator)
-    function kkCorners(place) {
+    function kkCorners(place, W, H) {
+      W = W || kk.W; H = H || kk.H;
       const crs = L.CRS.EPSG3857;
       const c = crs.project(L.latLng(place.c[0], place.c[1]));
       const k = 1 / Math.cos(place.c[0] * Math.PI / 180);
-      const hw = place.w / 2 * k, hh = hw * kk.H / kk.W;
+      const hw = place.w / 2 * k, hh = hw * H / W;
       const ex = [Math.cos(place.rot), Math.sin(place.rot)], ey = [-Math.sin(place.rot), Math.cos(place.rot)];
       const at = (sx, sy) => { const ll = crs.unproject(L.point(c.x + sx * hw * ex[0] + sy * hh * ey[0], c.y + sx * hw * ex[1] + sy * hh * ey[1])); return [ll.lat, ll.lng]; };
       return { tl: at(-1, 1), tr: at(1, 1), bl: at(-1, -1), br: at(1, -1) };
     }
 
     const KundOverlay = L.Layer.extend({
-      initialize(url) { this._url = url; },
+      initialize(url, st) { this._url = url; this._st = st || kk; },
       onAdd(m) {
         if (!m.getPane('kundkarta')) { m.createPane('kundkarta'); m.getPane('kundkarta').style.zIndex = 350; }
         this._img = L.DomUtil.create('img', 'kk-overlay', m.getPane('kundkarta'));
         this._img.src = this._url;
-        this._img.style.width = kk.W + 'px'; this._img.style.height = kk.H + 'px';
+        this._img.style.width = this._st.W + 'px'; this._img.style.height = this._st.H + 'px';
         m.on('zoomend viewreset', this.update, this);
         m.on('zoomstart', this._hide, this);
         this.update();
@@ -1184,11 +1200,12 @@
       onRemove(m) { L.DomUtil.remove(this._img); m.off('zoomend viewreset', this.update, this); m.off('zoomstart', this._hide, this); },
       _hide() { this._img.style.visibility = 'hidden'; },
       update() {
-        if (!this._map || !kk.place) return;
-        const c = kkCorners(kk.place);
+        const st = this._st;
+        if (!this._map || !st.place) return;
+        const c = kkCorners(st.place, st.W, st.H);
         const p = (ll) => this._map.latLngToLayerPoint(ll);
         const tl = p(c.tl), tr = p(c.tr), bl = p(c.bl);
-        this._img.style.transform = `matrix(${(tr.x - tl.x) / kk.W},${(tr.y - tl.y) / kk.W},${(bl.x - tl.x) / kk.H},${(bl.y - tl.y) / kk.H},${tl.x},${tl.y})`;
+        this._img.style.transform = `matrix(${(tr.x - tl.x) / st.W},${(tr.y - tl.y) / st.W},${(bl.x - tl.x) / st.H},${(bl.y - tl.y) / st.H},${tl.x},${tl.y})`;
         this._img.style.opacity = kk.hidden ? 0 : kk.opacity;
         this._img.style.visibility = 'visible';
       }
@@ -1385,8 +1402,8 @@
       const m = kkMap();
       if (!currentProp) { el.style.display = 'none'; return; }
       el.style.display = 'flex';
-      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span><span>${pinBtn()}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${progressHtml()}`; return; }
-      const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); kk.hidden=false; kk.layer && kk.layer.update()" onchange="renderKkCard()"></div>`;
+      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span><span>${pinBtn()}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${neighborsHtml()}${progressHtml()}`; return; }
+      const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); kk.hidden=false; updateOverlays()" onchange="renderKkCard()"></div>`;
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span>✋ Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Gesterna styr <b>${kk.gestures === 'kk' ? '🗺️ kundkartan' : '🛰️ satellitbilden'}</b> – byt med knappen till vänster på kartan.</div>
@@ -1395,16 +1412,95 @@
         return;
       }
       el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta <small>· ${snoEscape(currentProp.kund || '')}</small></span>
-          <span>${pinBtn()}<button class="kk-icon" title="${kk.hidden ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="kk.hidden=!kk.hidden; kk.layer && kk.layer.update(); renderKkCard()">${kk.hidden ? '🙈' : '👁'}</button></span></div>
+          <span>${pinBtn()}<button class="kk-icon" title="${kk.hidden ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="kk.hidden=!kk.hidden; updateOverlays(); renderKkCard()">${kk.hidden ? '🙈' : '👁'}</button></span></div>
         ${currentProp.maps.length > 1 ? `<div class="chips">${currentProp.maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
         ${opacity}
         <button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '🤖 Föreslå zoner från kundkartan'}</button>
         <button class="kk-small" onclick="startAdjust()">✋ Justera läge</button>
         ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}
+        ${neighborsHtml()}
         <div class="kk-progress">${progressHtml()}</div>`;
     }
 
     function dropSuggestion(i) { suggestions.splice(i, 1); renderSuggestions(); }
+
+    // ---------- GRANNAR: rita flera fastigheter samtidigt ----------
+    // Fastigheter med samma kund inom 80 m föreslås. De man bockar i visas med sin kundkarta och nål,
+    // zonerna får adressen till närmaste fastighet och ✅ Klar gäller alla.
+    const NEIGHBOR_M = 80;
+    let group = [], groupLayers = [], propertyAuto = true;
+    const sizeCache = {};
+    const hasPos = (p) => p && p.lat !== null && p.lat !== undefined && p.lng !== null && p.lng !== undefined;
+    const sameKund = (a, b) => !a.kund || !b.kund || a.kund.trim().toLowerCase() === b.kund.trim().toLowerCase();
+    const groupProps = () => group.map(id => properties.find(x => x.id === id)).filter(Boolean);
+
+    function neighbors(p) {
+      if (!hasPos(p)) return [];
+      return properties.filter(x => x.id !== p.id && hasPos(x) && sameKund(p, x))
+        .map(x => ({ p: x, d: L.latLng(p.lat, p.lng).distanceTo([x.lat, x.lng]) }))
+        .filter(n => n.d <= NEIGHBOR_M).sort((a, b) => a.d - b.d);
+    }
+
+    function neighborsHtml() {
+      const list = neighbors(currentProp);
+      if (!list.length) return '';
+      return `<div class="kk-progress"><label>🏘️ Grannar inom ${NEIGHBOR_M} m</label>
+        <div class="chips">${list.map(n => {
+          const on = group.includes(n.p.id), busy = takenByOther(n.p);
+          return `<button class="chip ${on ? 'on' : ''}" ${busy ? 'disabled' : ''} onclick="toggleNeighbor('${snoEscape(n.p.id)}')">${on ? '✓ ' : ''}${busy ? '🔒 ' : ''}${snoEscape(n.p.address)} · ${Math.round(n.d)} m${n.p.zoneStatus === 'klar' ? ' ✅' : ''}</button>`;
+        }).join('')}</div>
+        <div class="muted">${group.length ? 'Zonerna får adressen till närmaste fastighet – ändra i kortet om det blir fel. ✅ Klar gäller alla ibockade.' : 'Bocka i dem du vill rita samtidigt.'}</div></div>`;
+    }
+
+    function toggleNeighbor(id) {
+      const p = properties.find(x => x.id === id);
+      if (!p) return;
+      if (group.includes(id)) {
+        group = group.filter(x => x !== id);
+        if (p.claimedBy === me) { snoApi({ action: 'claimProperty', id, release: true }).catch(() => {}); p.claimedBy = ''; }
+      } else {
+        if (takenByOther(p)) return;
+        group.push(id);
+        claim(p);
+      }
+      renderGroupLayers(); renderKkCard(); renderZoneCard();
+    }
+
+    // Släpp grannarna (release = ta bort 🔒 så att andra kan ta dem)
+    function clearGroup(release) {
+      if (release) groupProps().forEach(p => { if (p.claimedBy === me) { snoApi({ action: 'claimProperty', id: p.id, release: true }).catch(() => {}); p.claimedBy = ''; } });
+      group = [];
+      renderGroupLayers();
+    }
+
+    function renderGroupLayers() {
+      groupLayers.forEach(l => map.removeLayer(l)); groupLayers = [];
+      if (!map.dragging) return;
+      groupProps().forEach(p => {
+        if (hasPos(p)) groupLayers.push(L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'nb-pin', html: `<div>📍 ${snoEscape(p.address)}</div>`, iconSize: [0, 0] }), interactive: false, keyboard: false, zIndexOffset: 1900 }).addTo(map));
+        const m = (p.maps || []).find(x => x.place);
+        if (!m) return;
+        const add = (W, H) => { if (!group.includes(p.id)) return; const lay = new KundOverlay(m.url, { place: m.place, W, H }).addTo(map); groupLayers.push(lay); };
+        if (sizeCache[m.url]) { add(...sizeCache[m.url]); return; }
+        const img = new Image();
+        img.onload = () => { sizeCache[m.url] = [img.naturalWidth, img.naturalHeight]; add(img.naturalWidth, img.naturalHeight); };
+        img.src = m.url;
+      });
+    }
+
+    function updateOverlays() {
+      if (kk.layer) kk.layer.update();
+      groupLayers.forEach(l => l.update && l.update());
+    }
+
+    // Vilken fastighet en zon hör till: närmaste nål bland den öppna och de ibockade
+    function ownerOf(coords) {
+      const c = snoCenter(coords);
+      const cands = [currentProp, ...groupProps()].filter(hasPos);
+      if (!cands.length) return currentProp;
+      return cands.map(p => ({ p, d: L.latLng(c[0], c[1]).distanceTo([p.lat, p.lng]) })).sort((a, b) => a.d - b.d)[0].p;
+    }
+    const autoAddress = (coords) => group.length && propertyAuto && !selectedZone && coords && coords.length ? ownerOf(coords).address : null;
 
     mapCtl = snoCreateMap('map');
     map = mapCtl.map;
