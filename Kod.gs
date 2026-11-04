@@ -516,7 +516,9 @@ function handleAddStaff(data) {
   const sheet = getStaffSheet();
   if (findStaffRow(sheet, name)) return createJsonResponse({ status: "error", message: name + " finns redan i Personal." });
   const key = Utilities.getUuid().replace(/-/g, "");
-  const row = [name, sanitize(data.email).slice(0, 120), sanitize(data.phone).slice(0, 20), role,
+  // Telefonnumret sparas som text ('070…) så att kalkylarket inte tar bort den inledande nollan
+  const phone = sanitize(data.phone).slice(0, 20);
+  const row = [name, sanitize(data.email).slice(0, 120), /^\d/.test(phone) ? "'" + phone : phone, role,
     role === "Admin" ? "TRUE" : (role === "Ekonom" ? "Ekonom" : ""), "", sanitize(data.company).slice(0, 60) || "LPV", "Aktiv"];
   while (row.length < KEY_COLUMN - 1) row.push("");
   row.push(key);
@@ -4376,10 +4378,13 @@ function smsSenderFor(company) {
 }
 
 // 070-123 45 67 / 0046... / +46... -> +4670... (E.164). Tom sträng om numret inte går att tolka.
+// Kalkylarket gör om 0701234567 till talet 701234567 och +46701234567 till 46701234567 – båda tolkas också.
 function toE164(phone) {
-  let p = String(phone || "").replace(/[\s\-().]/g, "");
+  let p = String(phone || "").replace(/[\s\-().']/g, "");
   if (p.indexOf("00") === 0) p = "+" + p.slice(2);
   else if (p.indexOf("0") === 0) p = "+46" + p.slice(1);
+  else if (/^7\d{8}$/.test(p)) p = "+46" + p;          // svenskt mobilnummer utan inledande 0
+  else if (/^467\d{8}$/.test(p)) p = "+" + p;          // +46… där plustecknet försvunnit
   return /^\+\d{8,15}$/.test(p) ? p : "";
 }
 
