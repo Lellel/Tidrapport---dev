@@ -41,3 +41,8 @@ Bestämt med Daniel 2026-11-03. Byggs med Blacksta-planeringen som mall.
 - Fliken **Gantt_Jobb**, nya kolumner (hittas på rubrik): Startdatum, Starttid, Helgarbete, Uppdaterad, Uppdaterad av.
 - Fliken **Planeringsnotiser**: tid, person, jobb, text, läst.
 - Allt sparas direkt vid varje ändring. Klaryta ser bara Klarytas jobb och personal.
+
+## Kundens kontaktperson på arbetskortet (bestämt 2026-11-04, ej byggt – Daniel vill vänta)
+- Jobben har redan kolumnerna Site-Kontakt och Site-Telefon (fylls i automatiskt när en offert godkänns).
+- Förslag: arbetskortet på startsidan får raden "👤 Namn" med **📞 Ring** och **💬 SMS**; Radarns jobbruta får fälten Kontaktperson och Telefon (numret sparas med nollan).
+- **Vem ser numret:** förare och admin som är bemannade på jobbet. **Inte UE** – men admin ska kunna slå på det för ett jobb när en UE behöver kontakta kunden (t.ex. en bock "Visa kontakt för UE" i jobbrutan).
