@@ -322,7 +322,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] **Verktygslådan nere till höger:** typ (Maskin/Hand/Upplag/Sträcka/📍 Markör ▾) och instrument (✏️ Penna / 🖌️ Pensel / 🧽 Sudd), bredder när pensel/sudd är vald, 📍 GPS och ↶ Ångra
 - [ ] **✏️ Penna:** ringa in → ytan syns med vita hörn; ringa in en bit till → slås ihop
 - [ ] **🖌️ Pensel:** måla → läggs till med vald bredd (1/1,5/2 m)
-- [ ] **🧽 Sudd:** ringa in (eller sudda med 1/2/4 m) från kanten → biten försvinner; rakt igenom → 2 delar (sparas som 2 zoner); hål mitt i → varning
+- [ ] **🧽 Sudd:** ringa in (eller sudda med 1/2/4 m) från kanten → biten försvinner; rakt igenom → 2 delar (sparas som 2 zoner); **hål mitt i (t.ex. gräs i en AI-yta) → hålet försvinner, kopplat till kanten med en smal skarv**; sparas och syns rätt i Snöjour
 - [ ] Byt **Maskin ↔ Hand** med en yta på gång → typen byts, formen ligger kvar
 - [ ] Hörnen: dra (penna/finger) · tryck = ta bort · kantprick = nytt hörn · fingrar flyttar kartan
 - [ ] **Ta med** ett förslag → kan rättas direkt med penna/sudd/hörn → 💾 Spara

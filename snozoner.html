@@ -937,20 +937,35 @@
       let res;
       try { res = erase ? polygonClipping.difference(geom(before), geom(pieces)) : polygonClipping.union(geom(before), geom(pieces)); }
       catch (err) { mapToast('⚠️ Det gick inte att räkna ut – försök igen.'); return; }
-      if (res.some(poly => poly.length > 1)) {
-        mapToast(erase ? '⚠️ Det blir ett hål mitt i zonen – det går inte att spara.<br><small>Sudda in från kanten i stället.</small>'
-                       : '⚠️ Det blir ett hål mitt i zonen – det går inte att spara.<br><small>Ta med hela ytan, eller rita två zoner.</small>', 5000);
-        if (!before.length && !shape.zone) endShape(false);
-        return;
-      }
       const a0 = shapeArea();
       if (before.length || shape.zone) pushShapeHistory();
-      shape.polys = res.map(poly => simplifyLL(poly[0].slice(0, -1).map(f.ll), 0.1, true)).filter(c => c.length >= 3 && snoGeodesicArea(c) >= 0.5);
+      // Ett hål (t.ex. gräs mitt i en gård) kopplas till kanten med en smal skarv, så att zonen förblir en enda yta
+      let holes = 0;
+      shape.polys = res.map(poly => {
+        const rings = poly.map(r => simplifyLL(r.slice(0, -1).map(f.ll), 0.1, true)).filter((r, k) => r.length >= 3 && (k === 0 || snoGeodesicArea(r) >= 0.5));
+        if (!rings.length) return [];
+        holes += rings.length - 1;
+        return rings.length === 1 ? rings[0] : keyhole(rings, f);
+      }).filter(c => c.length >= 3 && snoGeodesicArea(c) >= 0.5);
       renderShape();
       if (quiet) return;
       const d = Math.round(shapeArea() - a0), n = shape.polys.length;
       mapToast(`${erase ? '🧽' : '✅'} ${d >= 0 ? '+' : '−'}${Math.abs(d).toLocaleString('sv-SE')} m² · nu <b>${fmtM2(shapeArea())}</b>` +
+        (holes ? `<br><small>Hålet sparas med en smal skarv till kanten</small>` : '') +
         (n > 1 ? `<br><small>${n} delar – sparas som ${n} zoner</small>` : '<br><small>Fortsätt – eller tryck <b>💾 Spara</b></small>'), 4000);
+    }
+
+    // Yttre kant + hål → en ring: från närmaste hörnpar går en skarv in till hålet, runt det och tillbaka
+    function keyhole(rings, f) {
+      let outer = rings[0].map(f.xy);
+      rings.slice(1).forEach(r => {
+        const hole = r.map(f.xy);
+        let bi = 0, bj = 0, bd = Infinity;
+        outer.forEach((p, i) => hole.forEach((q, j) => { const dd = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2; if (dd < bd) { bd = dd; bi = i; bj = j; } }));
+        const around = hole.slice(bj).concat(hole.slice(0, bj), [hole[bj]]);
+        outer = outer.slice(0, bi + 1).concat(around, outer.slice(bi));
+      });
+      return outer.map(f.ll);
     }
 
     function renderShape() {
