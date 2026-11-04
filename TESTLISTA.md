@@ -590,3 +590,11 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] "Visa äldre än 12 månader" visas när det finns äldre rapporter
 - [ ] Klaryta-admin: ser bara Klarytas personal, kan inte ändra admin/ekonom
 - [ ] ikoner.html: skapa kulan **Personal**
+
+## Hängslen & livrem för inloggningen (2026-11-04)
+- [ ] Enhet med gammal nyckel → röd banderoll "Inloggningen på den här enheten gäller inte längre" överst (i hemskärmsappen även tipset att lägga till den igen)
+- [ ] ✕ stänger banderollen
+- [ ] Startsidan → Administratör → välj **dig själv** → 🔑 Spärra & skapa ny länk → varningen "DIN EGEN inloggning" visas
+- [ ] Efter OK: den här enheten är fortfarande inloggad, och den nya länken visas i en ruta att kopiera
+- [ ] Öppna den nya länken på en annan enhet → inloggad; den gamla länken → banderollen
+- [ ] Spärra någon annan → samma enkla fråga som förut

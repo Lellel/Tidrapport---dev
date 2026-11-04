@@ -1029,10 +1029,23 @@ async function toggleAdminQR() {
 async function adminResetKey() {
   const targetUser = document.getElementById('admin-target-user')?.value.trim();
   if (!targetUser) { alert('Välj en person först.'); return; }
-  if (!confirm(`Spärra ${targetUser}s nuvarande inloggningslänk och skapa en ny?\n\n${targetUser} behöver då få den nya länken.`)) return;
+  // Spärrar man sig själv loggas alla ens enheter ut – varna tydligt, behåll inloggningen på den här enheten
+  // och visa den nya länken direkt så att man aldrig blir utelåst (bestämt 2026-11-04).
+  const me = (localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || '').trim();
+  const self = targetUser === me;
+  const question = self
+    ? `⚠️ Du håller på att spärra DIN EGEN inloggning.\n\nAlla dina enheter (telefon, iPad, dator) loggas ut. Den här enheten får den nya nyckeln direkt, men de andra måste öppna den nya länken.\n\nFortsätt?`
+    : `Spärra ${targetUser}s nuvarande inloggningslänk och skapa en ny?\n\n${targetUser} behöver då få den nya länken.`;
+  if (!confirm(question)) return;
   const targetUrl = await getAdminTargetUrl(true);
   if (!targetUrl) return;
-  alert(`Klart! ${targetUser}s gamla länk fungerar inte längre. Skicka den nya via SMS, Mail eller QR.`);
+  if (self) {
+    const newKey = new URL(targetUrl).searchParams.get('key');
+    if (newKey) localStorage.setItem('lpv_key', newKey);
+    prompt('✅ Klart! Den här enheten är fortfarande inloggad.\n\nKopiera din nya länk och öppna den på dina andra enheter (eller skicka den till dig själv med SMS/Mail):', targetUrl);
+  } else {
+    alert(`Klart! ${targetUser}s gamla länk fungerar inte längre. Skicka den nya via SMS, Mail eller QR.`);
+  }
   const qrBox = document.getElementById('admin-qr-container');
   if (qrBox && qrBox.style.display === 'block') renderAdminQR(targetUrl);
 }
