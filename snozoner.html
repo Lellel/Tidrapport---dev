@@ -144,7 +144,7 @@
           <a href="snojour.html">Snöjour →</a>
           <span data-theme-slot></span>
         </div>
-        <h1>❄️ Rita snözoner</h1>
+        <h1><span data-icon="zoner">❄️</span> Rita snözoner</h1>
         <div class="banner" id="admin-banner">Bara admin kan spara zoner. Logga in med din admin-länk.</div>
         <div class="pick">
           <select id="f-omrade" onchange="setArea(this.value)" aria-label="Mitt område"></select>
@@ -152,9 +152,9 @@
           <datalist id="fastighet-list"></datalist>
         </div>
         <div class="tabs">
-          <button id="tab-fastighet" class="active" onclick="setTab('fastighet')">🏠 Fastighet</button>
-          <button id="tab-zoner" onclick="setTab('zoner')">🗂️ Zoner <span id="zone-count"></span></button>
-          <button id="tab-forare" onclick="setTab('forare')">👷 Förare</button>
+          <button id="tab-fastighet" class="active" onclick="setTab('fastighet')"><span data-icon="fastighet">🏠</span> Fastighet</button>
+          <button id="tab-zoner" onclick="setTab('zoner')"><span data-icon="zonlista">🗂️</span> Zoner <span id="zone-count"></span></button>
+          <button id="tab-forare" onclick="setTab('forare')"><span data-icon="forare">👷</span> Förare</button>
         </div>
       </div>
 
@@ -162,7 +162,7 @@
         <div class="card" id="kk-card" style="display:none"></div>
 
         <div class="card">
-          <div class="card-head"><span>💡 Förslag</span><button class="chip" id="btn-sugg" onclick="loadSuggestions()">🗺️ Från kartan</button></div>
+          <div class="card-head"><span><span data-icon="forslag">💡</span> Förslag</span><button class="chip" id="btn-sugg" onclick="loadSuggestions()"><span data-icon="frankartan">🗺️</span> Från kartan</button></div>
           <div class="zone-list" id="sugg-list"></div>
           <div class="muted" id="sugg-empty">Tryck <b>🤖 Föreslå zoner</b> på kundkartan – eller <b>🗺️ Från kartan</b> för parkeringar och gångvägar ur OpenStreetMap.</div>
         </div>
@@ -243,7 +243,9 @@
     const toolDef = () => SNO_TYPES[toolType()];
     const isArea = () => drawType !== 'entre' && toolDef().kind === 'polygon';
     const fmtM2 = (a) => Math.round(a).toLocaleString('sv-SE') + ' m²';
-    const typeName = (t) => t === 'entre' ? '🚪 Entré' : (SNO_TYPES[t].icon ? SNO_TYPES[t].icon + ' ' : '') + SNO_TYPES[t].label;
+    // Ikonnyckel per typ i verktygslådan (glaskulor, emoji som reserv)
+    const DOCK_ICON = { maskin: 'maskin', hand: 'hand', upplag: 'upplag', stracka: 'stracka', lucka: 'lucka', kantsten: 'kantsten', trappa: 'trappa', hinder: 'hinder2', entre: 'entre' };
+    const typeName = (t) => t === 'entre' ? '<span data-icon="entre">🚪</span> Entré' : (SNO_TYPES[t].icon ? `<span data-icon="${DOCK_ICON[t] || t}">${SNO_TYPES[t].icon}</span> ` : '') + SNO_TYPES[t].label;
     function squareAround(pt, sizeM) {
       const dLat = sizeM / 2 / 111320, dLng = sizeM / 2 / (111320 * Math.cos(pt[0] * Math.PI / 180));
       return [[pt[0] + dLat, pt[1] - dLng], [pt[0] + dLat, pt[1] + dLng], [pt[0] - dLat, pt[1] + dLng], [pt[0] - dLat, pt[1] - dLng]];
@@ -261,18 +263,18 @@
     // ---------- VERKTYGSLÅDAN ----------
     function renderDock() {
       const typeBtn = (key, html) => `<button class="${drawType === key ? 'active' : ''}" onclick="setType('${key}')">${html}</button>`;
-      const sw = (key) => `<i class="sw" style="background:${SNO_TYPES[key].color}"></i>`;
+      const sw = (key) => `<span data-icon="${DOCK_ICON[key]}"><i class="sw" style="background:${SNO_TYPES[key].color}"></i></span>`;
       const marker = MARKER_TYPES.includes(drawType), area = isArea();
       const instrBtn = (key, html) => `<button class="${key} ${instrument === key && area ? 'active' : ''}" ${area ? '' : 'disabled'} onclick="setInstrument('${key}')">${html}</button>`;
       let opts = '';
       if (area && instrument === 'pensel') opts = BRUSH_WIDTHS.map(w => `<button class="chip ${w === brushW ? 'on' : ''}" onclick="brushW=${w}; renderDock()">${String(w).replace('.', ',')} m</button>`).join('');
-      if (area && instrument === 'sudd') opts = `<button class="chip ${eraseW === 'lasso' ? 'on' : ''}" onclick="eraseW='lasso'; renderDock()">✏️ Ringa in</button>` +
+      if (area && instrument === 'sudd') opts = `<button class="chip ${eraseW === 'lasso' ? 'on' : ''}" onclick="eraseW='lasso'; renderDock()"><span data-icon="penna">✏️</span> Ringa in</button>` +
         ERASE_WIDTHS.map(w => `<button class="chip ${w === eraseW ? 'on' : ''}" onclick="eraseW=${w}; renderDock()">${w} m</button>`).join('');
       document.getElementById('tool-dock').innerHTML = `
         ${markerMenu ? `<div class="dock-row dock-pop">${MARKER_TYPES.map(k => typeBtn(k, typeName(k))).join('')}</div>` : ''}
-        <div class="dock-row">${typeBtn('maskin', sw('maskin') + 'Maskin')}${typeBtn('hand', sw('hand') + 'Hand')}${typeBtn('upplag', sw('upplag') + 'Upplag')}${typeBtn('stracka', sw('stracka') + 'Sträcka')}<button class="${marker ? 'active' : ''}" onclick="markerMenu=!markerMenu; renderDock()">${marker ? typeName(drawType) : '📍 Markör'} ▾</button></div>
-        <div class="dock-row">${instrBtn('penna', '✏️ Penna')}${instrBtn('pensel', '🖌️ Pensel')}${instrBtn('sudd', '🧽 Sudd')}</div>
-        <div class="dock-row dock-foot">${opts || `<span class="dock-hint">${dockHint()}</span>`}<span style="flex:1"></span><button class="dock-icon" id="btn-gps" onclick="addGpsPoint()" title="Punkt där jag står">📍</button><button class="dock-icon" onclick="undoPoint()" title="Ångra">↶</button></div>`;
+        <div class="dock-row">${typeBtn('maskin', sw('maskin') + 'Maskin')}${typeBtn('hand', sw('hand') + 'Hand')}${typeBtn('upplag', sw('upplag') + 'Upplag')}${typeBtn('stracka', sw('stracka') + 'Sträcka')}<button class="${marker ? 'active' : ''}" onclick="markerMenu=!markerMenu; renderDock()">${marker ? typeName(drawType) : '<span data-icon="markor">📍</span> Markör'} ▾</button></div>
+        <div class="dock-row">${instrBtn('penna', '<span data-icon="penna">✏️</span> Penna')}${instrBtn('pensel', '<span data-icon="pensel">🖌️</span> Pensel')}${instrBtn('sudd', '<span data-icon="sudd">🧽</span> Sudd')}</div>
+        <div class="dock-row dock-foot">${opts || `<span class="dock-hint">${dockHint()}</span>`}<span style="flex:1"></span><button class="dock-icon" id="btn-gps" onclick="addGpsPoint()" title="Punkt där jag står"><span data-icon="gps">📍</span></button><button class="dock-icon" onclick="undoPoint()" title="Ångra">↶</button></div>`;
     }
     function dockHint() {
       if (drawType === 'entre') return 'Tryck vid entrén';
@@ -1359,7 +1361,7 @@
       const done = (msg) => {
         clearInterval(ticker); kk.busy = false;
         const btn = document.getElementById('kk-ai');
-        if (btn) { btn.disabled = false; btn.textContent = '🤖 Föreslå zoner från kundkartan'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'; }
         mapToast(msg, 6000);
       };
       try {
@@ -1405,22 +1407,22 @@
       const m = kkMap();
       if (!currentProp) { el.style.display = 'none'; return; }
       el.style.display = 'flex';
-      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span><span>${pinBtn()}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${neighborsHtml()}${progressHtml()}`; return; }
+      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="fastighet">🏠</span> ${snoEscape(currentProp.address)}</span><span>${pinBtn()}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${neighborsHtml()}${progressHtml()}`; return; }
       const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" onchange="renderKkCard()"></div>`;
       if (kk.adjusting) {
-        el.innerHTML = `<div class="slinga-card-head"><span>✋ Justera kundkartan</span><span>${pinBtn()}</span></div>
+        el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Gesterna styr <b>${kk.gestures === 'kk' ? '🗺️ kundkartan' : '🛰️ satellitbilden'}</b> – byt med knappen till vänster på kartan.</div>
           ${opacity}
           <div class="kk-row"><button class="ok" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
         return;
       }
       const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;
-      el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || ''))}</small></span>
+      el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="kundkarta">📄</span> Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || ''))}</small></span>
           <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button></span></div>
         ${kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
         ${opacity}
-        <button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '🤖 Föreslå zoner från kundkartan'}</button>
-        <button class="kk-small" onclick="startAdjust()">✋ Justera läge</button>
+        <button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>
+        <button class="kk-small" onclick="startAdjust()"><span data-icon="justera">✋</span> Justera läge</button>
         ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}
         ${neighborsHtml()}
         <div class="kk-progress">${progressHtml()}</div>`;
@@ -1448,7 +1450,7 @@
     function neighborsHtml() {
       const list = neighbors(currentProp);
       if (!list.length) return '';
-      return `<div class="kk-progress"><label>🏘️ Grannar inom ${NEIGHBOR_M} m</label>
+      return `<div class="kk-progress"><label><span data-icon="grannar">🏘️</span> Grannar inom ${NEIGHBOR_M} m</label>
         <div class="chips">${list.map(n => {
           const on = group.includes(n.p.id), busy = takenByOther(n.p);
           return `<button class="chip ${on ? 'on' : ''}" ${busy ? 'disabled' : ''} onclick="toggleNeighbor('${snoEscape(n.p.id)}')">${on ? '✓ ' : ''}${busy ? '🔒 ' : ''}${snoEscape(n.p.address)} · ${Math.round(n.d)} m${n.p.zoneStatus === 'klar' ? ' ✅' : ''}</button>`;
@@ -1460,7 +1462,7 @@
     function mapsHtml() {
       const props = [currentProp, ...groupProps()].filter(p => p && (p.maps || []).length);
       if (!group.length || !props.length) return '';
-      return `<label style="margin-top:4px">🗺️ Kundkartor på kartan</label>
+      return `<label style="margin-top:4px"><span data-icon="kundkarta">🗺️</span> Kundkartor på kartan</label>
         <div class="zone-list">${props.map(p => {
           const m = p === kp() ? kkMap() : p.maps[0], active = p === kp(), hid = hiddenMaps.has(m.id);
           return `<div class="kk-row" style="align-items:center"><button class="chip ${active ? 'on' : ''}" style="flex:1;text-align:left" onclick="setActiveMap('${snoEscape(p.id)}')">${active ? '✏️ ' : ''}${snoEscape(p.address)}${m.place ? '' : ' · inte utlagd'}</button>

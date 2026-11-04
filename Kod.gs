@@ -1286,7 +1286,37 @@ const APP_ICON_MOTIFS = {
   zoner: "a folded paper map with a blue zone drawn on it and a yellow pencil",
   ekonomi: "a small stack of gold coins with a green arrow pointing up",
   widget: "a small smartphone showing a tiny snowflake on its screen",
-  mer: "three glossy white dots in a row"
+  mer: "three glossy white dots in a row",
+  // Sidrubriker
+  ikoner: "an artist's paint palette with blobs of blue, orange and magenta paint",
+  ata: "a shiny steel wrench crossed with a small hammer",
+  snojour: "a glowing white snowflake on top of a round red map pin",
+  hinder: "an orange and white traffic cone",
+  // Verktygslådan i Rita zoner
+  maskin: "a small bright blue wheel loader with a snow plough blade",
+  hand: "an orange snow shovel stuck in a small pile of snow",
+  upplag: "a big pile of snow with a small magenta flag on top",
+  stracka: "a winding purple dashed path between two small map pins",
+  lucka: "a round cast iron manhole cover",
+  kantsten: "a grey granite curb stone",
+  trappa: "a short flight of concrete stairs with a metal handrail",
+  hinder2: "a yellow and black striped bollard post",
+  entre: "a wooden front door with a small doormat and a little snow",
+  markor: "a red map pin",
+  penna: "a yellow pencil drawing a short blue line",
+  pensel: "a paint brush with fresh orange paint on its tip",
+  sudd: "a pink rubber eraser with a few crumbs",
+  gps: "a glowing blue location dot with signal rings around it",
+  // Flikar och kort
+  fastighet: "a small apartment building with a snowy roof",
+  zonlista: "a neat stack of three colorful map layers",
+  forare: "a yellow hard hat",
+  kundkarta: "a rolled out paper site plan with a green lawn and grey paths",
+  forslag: "a glowing light bulb",
+  ai: "a friendly small white robot",
+  justera: "an open hand with four small move arrows around it",
+  grannar: "two small houses side by side with snowy roofs",
+  frankartan: "a folded map with a magnifying glass"
 };
 
 function appIconPrompt(motif) {

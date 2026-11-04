@@ -30,7 +30,7 @@
 <body>
   <main>
     <div class="topbar"><a href="index.html">← Hem</a><span data-theme-slot></span></div>
-    <h1>🎨 Appikoner</h1>
+    <h1><span data-icon="ikoner">🎨</span> Appikoner</h1>
     <div class="muted">Glaskulor i samma stil som maskinerna och avatarerna. Varje ikon skapas av AI:n (ungefär 40 öre per bild) och syns i flikraden, sidomenyn och Mer-menyn. Där ingen ikon finns står emojin kvar. Motivet går att ändra innan du skapar – skriv på engelska.</div>
     <div class="row"><button class="ok" id="btn-all" onclick="makeAll()">✨ Skapa alla som saknas</button><span class="msg" id="all-msg"></span></div>
     <div id="list"></div>
@@ -39,18 +39,27 @@
   <script src="sno.js"></script>
   <script src="appikoner.js"></script>
   <script>
-    const ICONS = [['hem', '🏠', 'Hem'], ['radar', '🔭', 'Radarn'], ['sno', '🚜', 'Snö / Snöplanering'], ['offerter', '📄', 'Offerter & ÄTA'],
-      ['kunder', '💼', 'Kunder'], ['vader', '🌨️', 'Väder'], ['zoner', '❄️', 'Rita snözoner'], ['ekonomi', '💰', 'Ekonomi'], ['widget', '📱', 'Widget'], ['mer', '•••', 'Mer']];
+    const GROUPS = [
+      ['Navigering', [['hem', '🏠', 'Hem'], ['radar', '🔭', 'Radarn'], ['sno', '🚜', 'Snö / Snöplanering / Traktorer'], ['offerter', '📄', 'Offerter & ÄTA'],
+        ['kunder', '💼', 'Kunder'], ['vader', '🌨️', 'Väder'], ['zoner', '❄️', 'Rita snözoner'], ['ekonomi', '💰', 'Ekonomi'], ['widget', '📱', 'Widget'], ['mer', '•••', 'Mer']]],
+      ['Sidrubriker', [['ikoner', '🎨', 'Appikoner'], ['ata', '🔧', 'ÄTA'], ['snojour', '❄️', 'Snöjour'], ['hinder', '⚠️', 'Hinder']]],
+      ['Verktygslådan i Rita zoner', [['maskin', '🟦', 'Maskinzon'], ['hand', '🟧', 'Handskottning'], ['upplag', '🟪', 'Snöupplag'], ['stracka', '〰️', 'Sträcka'],
+        ['markor', '📍', 'Markör'], ['lucka', '🛑', 'Brunnslock'], ['kantsten', '⚠️', 'Kantsten'], ['trappa', '🪜', 'Trappa'], ['hinder2', '❗', 'Övrigt hinder'], ['entre', '🚪', 'Entré'],
+        ['penna', '✏️', 'Penna'], ['pensel', '🖌️', 'Pensel'], ['sudd', '🧽', 'Sudd'], ['gps', '📍', 'Punkt där jag står']]],
+      ['Flikar och kort', [['fastighet', '🏠', 'Fastighet / Fastigheter'], ['zonlista', '🗂️', 'Zoner'], ['forare', '👷', 'Förare'], ['kundkarta', '📄', 'Kundkarta'],
+        ['forslag', '💡', 'Förslag'], ['ai', '🤖', 'Föreslå zoner (AI)'], ['justera', '✋', 'Justera läge'], ['grannar', '🏘️', 'Grannar'], ['frankartan', '🗺️', 'Från kartan']]]
+    ];
+    const ICONS = GROUPS.flatMap(g => g[1]);
     let urls = {}, motifs = {}, busy = new Set();
 
     function render() {
-      document.getElementById('list').innerHTML = ICONS.map(([k, emo, name]) => `<div class="card" style="margin-bottom:10px">
+      document.getElementById('list').innerHTML = GROUPS.map(([title, items]) => `<h2 style="font-size:15px;margin:18px 0 8px">${title}</h2>` + items.map(([k, emo, name]) => `<div class="card" style="margin-bottom:10px">
         <div class="pic">${urls[k] ? `<img src="${snoEscape(urls[k])}" alt="">` : emo}</div>
         <div>
           <div class="name">${emo} ${snoEscape(name)}</div>
           <textarea id="m-${k}" aria-label="Motiv för ${snoEscape(name)}">${snoEscape(motifs[k] || '')}</textarea>
           <div class="row"><button onclick="make('${k}')" ${busy.has(k) ? 'disabled' : ''}>${busy.has(k) ? '⏳ AI:n ritar…' : urls[k] ? '✨ Skapa ny' : '✨ Skapa'}</button><span class="msg" id="msg-${k}"></span></div>
-        </div></div>`).join('');
+        </div></div>`).join('')).join('');
     }
 
     async function load() {

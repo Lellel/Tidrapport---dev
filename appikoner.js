@@ -5,6 +5,7 @@
   if (window.lpvIcons) { window.lpvIcons.apply(); return; }
   const css = document.createElement('style');
   css.textContent = '.lpv-ico{width:1.5em;height:1.5em;border-radius:50%;object-fit:cover;vertical-align:middle;display:inline-block}' +
+    '.tool-dock .lpv-ico{width:24px;height:24px}h1 .lpv-ico{width:1.6em;height:1.6em;margin-right:2px}' +
     '[data-theme="night"] .lpv-ico{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-45deg) brightness(.55)}';
   document.head.appendChild(css);
   const read = () => { try { return JSON.parse(localStorage.getItem('lpv_app_icons') || '{}'); } catch (e) { return {}; } };
@@ -13,14 +14,14 @@
     const icons = read();
     (root || document).querySelectorAll('[data-icon]').forEach(el => {
       const url = icons[el.dataset.icon];
-      if (el.dataset.fallback === undefined) el.dataset.fallback = el.textContent;
-      if (!url) { if (el.querySelector('img.lpv-ico')) el.textContent = el.dataset.fallback; return; }
+      if (el.dataset.fallback === undefined) el.dataset.fallback = el.innerHTML;
+      if (!url) { if (el.querySelector('img.lpv-ico')) el.innerHTML = el.dataset.fallback; return; }
       const img = el.querySelector('img.lpv-ico');
       if (img && img.getAttribute('src') === url) return;
       el.innerHTML = '';
       const im = document.createElement('img');
       im.className = 'lpv-ico'; im.alt = ''; im.src = url;
-      im.onerror = () => { el.textContent = el.dataset.fallback; }; // ingen bild (t.ex. utan nät) → emojin
+      im.onerror = () => { el.innerHTML = el.dataset.fallback; }; // ingen bild (t.ex. utan nät) → emojin
       el.appendChild(im);
     });
   }
@@ -45,6 +46,13 @@
   }
 
   window.lpvIcons = { apply, set, refresh };
-  const go = () => { apply(); refresh(); };
+  // Sidor som ritar om sitt innehåll (verktygslådan, korten) får kulorna direkt
+  let pending = false;
+  const watch = () => new MutationObserver(() => {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => { pending = false; if (document.querySelector('[data-icon]:not([data-fallback])')) apply(); });
+  }).observe(document.body, { childList: true, subtree: true });
+  const go = () => { apply(); watch(); refresh(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();
