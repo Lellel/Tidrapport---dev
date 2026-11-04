@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Inloggning – kontroll</title>
+  <!-- Felsökning: visar vad den här enheten har sparat (nyckeln delvis dold) och vad servern säger om den. -->
+  <style>
+    body { margin: 0; padding: calc(env(safe-area-inset-top) + 20px) 18px 40px; background: #0b1220; color: #e5edf7; font: 16px/1.5 -apple-system, system-ui, sans-serif; }
+    h1 { font-size: 20px; margin: 0 0 14px; }
+    table { border-collapse: collapse; width: 100%; max-width: 560px; }
+    td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.12); vertical-align: top; }
+    td:first-child { color: #93a4bd; white-space: nowrap; }
+    code { font-size: 15px; word-break: break-all; }
+    .ok { color: #4ade80; font-weight: 700; } .bad { color: #f87171; font-weight: 700; }
+    a { color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <h1>🔑 Inloggning på den här enheten</h1>
+  <table id="t"></table>
+  <p id="srv">Frågar servern…</p>
+  <p><a href="index.html">← Till startsidan</a></p>
+<script src="config.js"></script>
+<script>
+  const get = (k) => { try { return localStorage.getItem(k); } catch (e) { return '(kan inte läsas)'; } };
+  const show = (v) => v === null ? '<i>saknas</i>' : '<code>' + String(v).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</code> <small>(' + String(v).length + ' tecken)</small>';
+  const key = get('lpv_key');
+  const masked = key ? key.slice(0, 6) + '…' + key.slice(-4) : null;
+  const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  document.getElementById('t').innerHTML = [
+    ['lpv_user', show(get('lpv_user'))], ['lpv_user_name', show(get('lpv_user_name'))],
+    ['Nyckel', masked ? show(masked).replace(/\(\d+ tecken\)/, '(' + key.length + ' tecken)') : show(null)],
+    ['Admin-läge', show(get('lpv_is_admin'))], ['Öppnad som', standalone ? 'hemskärmsapp' : 'webbläsare'],
+    ['Adress', '<code>' + location.origin + location.pathname + '</code>']
+  ].map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+  fetch(CONFIG.API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
+    body: JSON.stringify({ user: get('lpv_user') || get('lpv_user_name') || '', key: key || '', action: 'me' }) })
+    .then(r => r.json())
+    .then(j => { document.getElementById('srv').innerHTML = j.status === 'success'
+      ? `<span class="ok">✅ Servern godkänner inloggningen</span> – ${j.user}, ${j.role || 'roll saknas'}, ${j.company}${j.isAdmin ? ', admin' : ''}`
+      : `<span class="bad">❌ Servern nekar:</span> ${j.message || 'okänt fel'}`; })
+    .catch(e => { document.getElementById('srv').innerHTML = '<span class="bad">❌ Ingen kontakt med servern</span>'; });
+</script>
+</body>
+</html>
