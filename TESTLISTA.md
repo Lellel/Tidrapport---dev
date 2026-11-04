@@ -332,7 +332,8 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Utan penna: tryck ut hörnen med fingret, eller 📍 GPS-punkter; penseln målar med fingret
 
 ### 8e. Grannar – rita flera fastigheter samtidigt
-- [ ] Öppna t.ex. Floragatan 20–22 → kortet visar **🏘️ Grannar inom 80 m** (samma kund) med avstånd
+- [ ] Floragatan 23 → **Floragatan 20–22** dyker upp som granne (inom 100 m, eller "kartorna överlappar" om båda kartorna är utlagda)
+- [ ] Öppna t.ex. Floragatan 20–22 → kortet visar **🏘️ Grannar** (samma kund, inom 100 m eller med överlappande kundkarta) med avstånd
 - [ ] Bocka i en granne → dess kundkarta (om den är utlagd) och en orange nål med adressen syns
 - [ ] Rita en zon vid grannen → **Fastighet / Adress** fylls i med grannens adress; vid den öppna → dess adress
 - [ ] En yta som delas i två delar vid två fastigheter → sparas med var sin adress
@@ -345,7 +346,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] En ibockad granne vars karta inte är utlagd → nämns i panelen ("passa in den först") och hoppas över
 - [ ] **Ta med** ett förslag → Fastighet / Adress blir förslagets adress
 - [ ] Dölj den aktiva kartan (👁 → 🙈) så att bara grannens syns → **✋ Justera läge** flyttar grannens karta, inte den dolda
-- [ ] Avstånden stämmer ungefär (nålarna kan ligga 20–50 m fel – säg till om 80 m är för lite/mycket)
+- [ ] Avstånden stämmer ungefär (nålarna kan ligga 20–50 m fel – säg till om 100 m är för lite/mycket)
 
 ## 9. Snöjour – förarens vy (telefon)
 

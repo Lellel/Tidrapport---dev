@@ -1457,29 +1457,53 @@
     // ---------- GRANNAR: rita flera fastigheter samtidigt ----------
     // Fastigheter med samma kund inom 80 m föreslås. De man bockar i visas med sin kundkarta och nål,
     // zonerna får adressen till närmaste fastighet och ✅ Klar gäller alla.
-    const NEIGHBOR_M = 80;
+    // Granne = samma kund och nålarna inom 100 m – eller kundkartorna överlappar (minst en fjärdedel av den
+    // mindre kartan, inom 250 m). Kartorna träffar bättre än nålarna, som kan ligga 20–50 m fel.
+    const NEIGHBOR_M = 100, NEIGHBOR_MAP_M = 250, NEIGHBOR_OVERLAP = 0.25;
     let group = [], groupLayers = [], propertyAuto = true;
     const sizeCache = {};
     const hasPos = (p) => p && p.lat !== null && p.lat !== undefined && p.lng !== null && p.lng !== undefined;
     const sameKund = (a, b) => !a.kund || !b.kund || a.kund.trim().toLowerCase() === b.kund.trim().toLowerCase();
     const groupProps = () => group.map(id => properties.find(x => x.id === id)).filter(Boolean);
 
+    // Kundkartans hörn (sparas när kartan läggs ut)
+    function mapRect(p) {
+      const m = (p.maps || []).find(x => x.place && x.place.tl && x.place.tr && x.place.bl);
+      if (!m) return null;
+      const { tl, tr, bl } = m.place;
+      return [tl, tr, [tr[0] + bl[0] - tl[0], tr[1] + bl[1] - tl[1]], bl];
+    }
+    // Läge: nålen, annars mitten av kundkartan
+    const posOf = (p) => hasPos(p) ? [p.lat, p.lng] : (mapRect(p) ? snoCenter(mapRect(p)) : null);
+    function mapsOverlap(a, b) {
+      const ra = mapRect(a), rb = mapRect(b);
+      if (!ra || !rb || typeof polygonClipping === 'undefined') return false;
+      const f = meterFrame(ra[0]);
+      try {
+        const inter = polygonClipping.intersection([[ra.map(f.xy)]], [[rb.map(f.xy)]]);
+        const area = inter.reduce((sum, poly) => sum + snoGeodesicArea(poly[0].slice(0, -1).map(f.ll)), 0);
+        return area >= NEIGHBOR_OVERLAP * Math.min(snoGeodesicArea(ra), snoGeodesicArea(rb));
+      } catch (err) { return false; }
+    }
+
     function neighbors(p) {
-      if (!hasPos(p)) return [];
-      return properties.filter(x => x.id !== p.id && hasPos(x) && sameKund(p, x))
-        .map(x => ({ p: x, d: L.latLng(p.lat, p.lng).distanceTo([x.lat, x.lng]) }))
-        .filter(n => n.d <= NEIGHBOR_M).sort((a, b) => a.d - b.d);
+      const here = p && posOf(p);
+      if (!here) return [];
+      return properties.filter(x => x.id !== p.id && sameKund(p, x) && posOf(x))
+        .map(x => ({ p: x, d: L.latLng(here[0], here[1]).distanceTo(posOf(x)) }))
+        .filter(n => n.d <= NEIGHBOR_M || (n.d <= NEIGHBOR_MAP_M && (n.overlap = mapsOverlap(p, n.p))))
+        .sort((a, b) => a.d - b.d);
     }
 
     function neighborsHtml() {
       const list = neighbors(currentProp);
       if (!list.length) return '';
-      return `<div class="kk-progress"><label><span data-icon="grannar">🏘️</span> Grannar inom ${NEIGHBOR_M} m</label>
+      return `<div class="kk-progress"><label><span data-icon="grannar">🏘️</span> Grannar</label>
         <div class="chips">${list.map(n => {
           const on = group.includes(n.p.id), busy = takenByOther(n.p);
-          return `<button class="chip ${on ? 'on' : ''}" ${busy ? 'disabled' : ''} onclick="toggleNeighbor('${snoEscape(n.p.id)}')">${on ? '✓ ' : ''}${busy ? '🔒 ' : ''}${snoEscape(n.p.address)} · ${Math.round(n.d)} m${n.p.zoneStatus === 'klar' ? ' ✅' : ''}</button>`;
+          return `<button class="chip ${on ? 'on' : ''}" ${busy ? 'disabled' : ''} onclick="toggleNeighbor('${snoEscape(n.p.id)}')">${on ? '✓ ' : ''}${busy ? '🔒 ' : ''}${snoEscape(n.p.address)} · ${Math.round(n.d)} m${n.overlap ? ' · kartorna överlappar' : ''}${n.p.zoneStatus === 'klar' ? ' ✅' : ''}</button>`;
         }).join('')}</div>
-        <div class="muted">${group.length ? 'Zonerna får adressen till närmaste fastighet – ändra i kortet om det blir fel. ✅ Klar gäller alla ibockade.' : 'Bocka i dem du vill rita samtidigt.'}</div>${mapsHtml()}</div>`;
+        <div class="muted">${group.length ? 'Zonerna får adressen till närmaste fastighet – ändra i kortet om det blir fel. ✅ Klar gäller alla ibockade.' : `Samma kund inom ${NEIGHBOR_M} m, eller med överlappande kundkarta. Bocka i dem du vill rita samtidigt.`}</div>${mapsHtml()}</div>`;
     }
 
     // Kundkartorna på kartan när grannar är ibockade: välj vilken som är aktiv (✏️ = justeras och läses av AI:n), dölj var för sig
