@@ -4,8 +4,10 @@
 (function () {
   if (window.lpvIcons) { window.lpvIcons.apply(); return; }
   const css = document.createElement('style');
-  css.textContent = '.lpv-ico{width:1.5em;height:1.5em;border-radius:50%;object-fit:cover;vertical-align:middle;display:inline-block}' +
-    '.tool-dock .lpv-ico{width:24px;height:24px}h1 .lpv-ico{width:1.6em;height:1.6em;margin-right:2px}' +
+  // Kulan beskärs tätt (den mörkblå kanten bort) så att motivet syns även i 24 px
+  css.textContent = '.lpv-icw{display:inline-block;width:1.5em;height:1.5em;border-radius:50%;overflow:hidden;vertical-align:middle;flex:none}' +
+    '.lpv-ico{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.28)}' +
+    '.tool-dock .lpv-icw{width:28px;height:28px}h1 .lpv-icw{width:1.7em;height:1.7em;margin-right:4px}' +
     '[data-theme="night"] .lpv-ico{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-45deg) brightness(.55)}';
   document.head.appendChild(css);
   const read = () => { try { return JSON.parse(localStorage.getItem('lpv_app_icons') || '{}'); } catch (e) { return {}; } };
@@ -19,10 +21,11 @@
       const img = el.querySelector('img.lpv-ico');
       if (img && img.getAttribute('src') === url) return;
       el.innerHTML = '';
-      const im = document.createElement('img');
+      const wrap = document.createElement('span'), im = document.createElement('img');
+      wrap.className = 'lpv-icw';
       im.className = 'lpv-ico'; im.alt = ''; im.src = url;
       im.onerror = () => { el.innerHTML = el.dataset.fallback; }; // ingen bild (t.ex. utan nät) → emojin
-      el.appendChild(im);
+      wrap.appendChild(im); el.appendChild(wrap);
     });
   }
 

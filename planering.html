@@ -100,6 +100,7 @@
     .pin.prio { outline: 3px solid #fbbf24; }
     @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; grid-template-rows: 45vh auto; }
+      .layout > * { min-width: 0; } /* annars kan innehållet göra sidan bredare än skärmen */
       .panel { border-left: none; border-top: 1px solid var(--line); }
     }
     .imp-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: none; align-items: flex-end; justify-content: center; }
