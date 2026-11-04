@@ -184,7 +184,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getRadarData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "getWeather"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "getWeather", "getAppIcons", "generateAppIcon"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -221,6 +221,8 @@ function doPost(e) {
     if (action === "getOfferForCustomer") return handleGetOfferForCustomer(data);
     if (action === "redeemPcLink") return handleRedeemPcLink(data);
     if (action === "respondOffer") return handleRespondOffer(data);
+    // TILLFÄLLIGT: engångskod så att Claude kan skapa appikonerna (Daniel gav lov 2026-11-04). Tas bort direkt efteråt.
+    if (action === "generateAppIcon" && data.setupCode && appIconSetupOk(data.setupCode)) return handleGenerateAppIcon(data);
 
     // --- INLOGGNING: personlig nyckel (eller gamla gemensamma nyckeln under övergången) ---
     const auth = authenticate(data);
@@ -232,7 +234,7 @@ function doPost(e) {
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
-      "saveStall", "addStallPhoto", "robotAlarm", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
+      "saveStall", "addStallPhoto", "robotAlarm", "generateAppIcon", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
     }
@@ -276,6 +278,8 @@ function doPost(e) {
     if (action === "radarRemoveResource") return handleRadarRemoveResource(data, auth);
     if (action === "radarResourceAvatar") return handleRadarResourceAvatar(data, auth);
     if (action === "getNotices") return handleGetNotices(auth);
+    if (action === "getAppIcons") return createJsonResponse({ status: "success", icons: appIconUrls(), motifs: APP_ICON_MOTIFS });
+    if (action === "generateAppIcon") return handleGenerateAppIcon(data);
     if (action === "getAvatars") {
       // Små avatarer (kolumn F i Personal) för radarns kulor. Hämtas separat så att planeringen laddar snabbt.
       const out = {};
@@ -1264,6 +1268,80 @@ function handleGenerateTractorAvatar(id) {
     if (!fresh) return createJsonResponse({ status: "error", message: "Traktorn togs bort under tiden." });
     sheet.getRange(fresh.rowNumber, 6).setValue(fileId);
     return createJsonResponse({ status: "success", avatarUrl: driveImageUrl(fileId) });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: "AI-fel: " + err.message });
+  }
+}
+
+// ---------- APPIKONER (navigeringen) ----------
+// Glaskulor i samma stil som traktorernas och personalens AI-kulor. En bild per modul, sparas i Drive-mappen
+// "Appikoner" och pekas ut i Script Properties (APP_ICONS = {nyckel: filId}). Appen visar emoji tills en ikon finns.
+const APP_ICON_MOTIFS = {
+  hem: "a small cozy red Swedish wooden house with a snowy roof and a warm lit window",
+  radar: "a shiny brass telescope on a small tripod",
+  sno: "a small bright orange tractor with a snow plough blade with a little snow on it",
+  offerter: "a white paper document with a big green check mark and a pen",
+  kunder: "a brown leather briefcase",
+  vader: "a fluffy snow cloud with falling snowflakes and a small red thermometer",
+  zoner: "a folded paper map with a blue zone drawn on it and a yellow pencil",
+  ekonomi: "a small stack of gold coins with a green arrow pointing up",
+  widget: "a small smartphone showing a tiny snowflake on its screen",
+  mer: "three glossy white dots in a row"
+};
+
+function appIconPrompt(motif) {
+  return "A single app icon for a snow clearing and contracting company's app: a glossy, smooth, toy-like 3D " + motif + ". " +
+    "The object sits centered inside a shiny transparent glass sphere (a marble), soft studio lighting from the top left, " +
+    "a few subtle snowflakes around, solid deep navy blue background. Same style as a set of icons: same sphere size and position, " +
+    "same light and camera angle, the sphere fills about 85 % of the image. Square image, no text, no letters, no numbers, no logos.";
+}
+
+function appIconIds() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("APP_ICONS") || "{}"); } catch (e) { return {}; }
+}
+function appIconUrls() {
+  const ids = appIconIds(), out = {};
+  Object.keys(ids).forEach(k => { out[k] = driveImageUrl(ids[k], 256); });
+  return out;
+}
+
+function appIconSetupOk(code) {
+  const hex = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(code), Utilities.Charset.UTF_8)
+    .map(b => ((b + 256) % 256).toString(16).padStart(2, "0")).join("");
+  return hex === "338103385710a8f450c208bbe283dd9c3a6795424f45115c7d2bf6a82b3a93fa";
+}
+
+function handleGenerateAppIcon(data) {
+  const key = String(data.key || "");
+  if (!APP_ICON_MOTIFS[key]) return createJsonResponse({ status: "error", message: "Okänd ikon: " + key });
+  const motif = String(data.motif || "").trim().slice(0, 300) || APP_ICON_MOTIFS[key];
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
+  try {
+    const response = geminiFetch("image", apiKey, {
+      method: "post", contentType: "application/json", muteHttpExceptions: true,
+      payload: JSON.stringify({ contents: [{ parts: [{ text: appIconPrompt(motif) }] }] })
+    });
+    let json = {};
+    try { json = JSON.parse(response.getContentText()); } catch (e) { json = {}; }
+    const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
+    const imagePart = parts.find(p => p.inlineData && p.inlineData.data);
+    if (response.getResponseCode() !== 200 || !imagePart) {
+      return createJsonResponse({ status: "error", message: geminiErrorText(response.getResponseCode(), response.getContentText()) });
+    }
+    const fileId = saveImageToDrive(imagePart.inlineData.data, "Appikoner", key + "_" + Date.now() + ".jpg");
+    // Skriv pekaren under lås (flera ikoner kan skapas efter varandra); den gamla bilden läggs i papperskorgen
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    let old = "";
+    try {
+      const ids = appIconIds();
+      old = ids[key] || "";
+      ids[key] = fileId;
+      PropertiesService.getScriptProperties().setProperty("APP_ICONS", JSON.stringify(ids));
+    } finally { lock.releaseLock(); }
+    if (old) { try { DriveApp.getFileById(old).setTrashed(true); } catch (e) { /* redan borta */ } }
+    return createJsonResponse({ status: "success", key, url: driveImageUrl(fileId, 256) });
   } catch (err) {
     return createJsonResponse({ status: "error", message: "AI-fel: " + err.message });
   }

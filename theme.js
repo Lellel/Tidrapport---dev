@@ -23,14 +23,14 @@
     const page = location.pathname.split('/').pop() || 'index.html';
     if (!admin || page === 'radar.html' || document.querySelector('.lpv-tabbar')) return;
     const snow = ['planering.html', 'snozoner.html', 'snojour.html', 'snohinder.html', 'vader.html'].includes(page);
-    const tabs = [['index.html', '🏠', 'Hem', false], ['radar.html', '🔭', 'Radarn', false], ['planering.html', '🚜', 'Snö', snow], ['offerter.html', '📄', 'Offerter', page === 'offerter.html']];
+    const tabs = [['index.html', '🏠', 'Hem', false, 'hem'], ['radar.html', '🔭', 'Radarn', false, 'radar'], ['planering.html', '🚜', 'Snö', snow, 'sno'], ['offerter.html', '📄', 'Offerter', page === 'offerter.html', 'offerter']];
     const bar = document.createElement('nav');
     bar.className = 'lpv-tabbar'; bar.setAttribute('aria-label', 'Admin');
-    bar.innerHTML = tabs.map(([href, ic, txt, on]) => `<a href="${href}" class="${on ? 'on' : ''}"><span>${ic}</span>${txt}</a>`).join('') +
-      `<button type="button" class="${page === 'ekonomi.html' ? 'on' : ''}"><span>•••</span>Mer</button>`;
+    bar.innerHTML = tabs.map(([href, ic, txt, on, key]) => `<a href="${href}" class="${on ? 'on' : ''}"><span data-icon="${key}">${ic}</span>${txt}</a>`).join('') +
+      `<button type="button" class="${page === 'ekonomi.html' ? 'on' : ''}"><span data-icon="mer">•••</span>Mer</button>`;
     const more = document.createElement('div');
     more.className = 'lpv-more';
-    more.innerHTML = '<div><a href="offerter.html?view=customers">💼&nbsp; Kunder</a><a href="vader.html">🌨️&nbsp; Väder – Plogometern</a><a href="snozoner.html">❄️&nbsp; Rita snözoner</a><a href="ekonomi.html">💰&nbsp; Ekonomi</a><a href="widget.html">📱&nbsp; Widget</a></div>';
+    more.innerHTML = '<div><a href="offerter.html?view=customers"><span data-icon="kunder">💼</span>&nbsp; Kunder</a><a href="vader.html"><span data-icon="vader">🌨️</span>&nbsp; Väder – Plogometern</a><a href="snozoner.html"><span data-icon="zoner">❄️</span>&nbsp; Rita snözoner</a><a href="ekonomi.html"><span data-icon="ekonomi">💰</span>&nbsp; Ekonomi</a><a href="widget.html"><span data-icon="widget">📱</span>&nbsp; Widget</a><a href="ikoner.html">🎨&nbsp; Appikoner</a></div>';
     more.onclick = (e) => { if (e.target === more) more.classList.remove('open'); };
     bar.querySelector('button').onclick = () => more.classList.add('open');
     document.body.append(bar, more);
@@ -53,5 +53,8 @@
     if (slot) slot.appendChild(btn); else { btn.classList.add('floating'); document.body.appendChild(btn); }
     apply();
     addTabBar();
+    // Appikonerna (glaskulor) i flikraden och Mer-menyn
+    if (window.lpvIcons) window.lpvIcons.apply();
+    else { const s = document.createElement('script'); s.src = 'appikoner.js'; document.head.appendChild(s); }
   });
 })();

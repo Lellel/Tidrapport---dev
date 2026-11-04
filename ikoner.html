@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Appikoner</title>
+  <style>
+    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--t-font); }
+    main { max-width: 760px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; }
+    .topbar a { color: var(--accent); text-decoration: none; font-weight: 700; font-size: var(--t-fs-link); }
+    h1 { font-size: var(--t-fs-title); margin: 0; }
+    .muted { color: var(--muted); font-size: 13px; }
+    button { min-height: 44px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 14px var(--t-font); padding: 0 14px; cursor: pointer; touch-action: manipulation; }
+    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+    button:disabled { opacity: .5; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 12px; display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: start; }
+    .pic { width: 96px; height: 96px; border-radius: 50%; background: #0b1220; display: flex; align-items: center; justify-content: center; font-size: 40px; overflow: hidden; }
+    .pic img { width: 100%; height: 100%; object-fit: cover; }
+    .name { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+    textarea { width: 100%; min-height: 54px; padding: 8px 10px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font: 16px var(--t-font); resize: vertical; }
+    .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+    .msg { font-size: 13px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar"><a href="index.html">← Hem</a><span data-theme-slot></span></div>
+    <h1>🎨 Appikoner</h1>
+    <div class="muted">Glaskulor i samma stil som maskinerna och avatarerna. Varje ikon skapas av AI:n (ungefär 40 öre per bild) och syns i flikraden, sidomenyn och Mer-menyn. Där ingen ikon finns står emojin kvar. Motivet går att ändra innan du skapar – skriv på engelska.</div>
+    <div class="row"><button class="ok" id="btn-all" onclick="makeAll()">✨ Skapa alla som saknas</button><span class="msg" id="all-msg"></span></div>
+    <div id="list"></div>
+  </main>
+  <script src="config.js"></script>
+  <script src="sno.js"></script>
+  <script src="appikoner.js"></script>
+  <script>
+    const ICONS = [['hem', '🏠', 'Hem'], ['radar', '🔭', 'Radarn'], ['sno', '🚜', 'Snö / Snöplanering'], ['offerter', '📄', 'Offerter & ÄTA'],
+      ['kunder', '💼', 'Kunder'], ['vader', '🌨️', 'Väder'], ['zoner', '❄️', 'Rita snözoner'], ['ekonomi', '💰', 'Ekonomi'], ['widget', '📱', 'Widget'], ['mer', '•••', 'Mer']];
+    let urls = {}, motifs = {}, busy = new Set();
+
+    function render() {
+      document.getElementById('list').innerHTML = ICONS.map(([k, emo, name]) => `<div class="card" style="margin-bottom:10px">
+        <div class="pic">${urls[k] ? `<img src="${snoEscape(urls[k])}" alt="">` : emo}</div>
+        <div>
+          <div class="name">${emo} ${snoEscape(name)}</div>
+          <textarea id="m-${k}" aria-label="Motiv för ${snoEscape(name)}">${snoEscape(motifs[k] || '')}</textarea>
+          <div class="row"><button onclick="make('${k}')" ${busy.has(k) ? 'disabled' : ''}>${busy.has(k) ? '⏳ AI:n ritar…' : urls[k] ? '✨ Skapa ny' : '✨ Skapa'}</button><span class="msg" id="msg-${k}"></span></div>
+        </div></div>`).join('');
+    }
+
+    async function load() {
+      try {
+        const res = await snoApi({ action: 'getAppIcons' });
+        if (res.status !== 'success') throw new Error(res.message);
+        urls = res.icons || {}; motifs = res.motifs || {};
+        if (window.lpvIcons) lpvIcons.set(urls);
+      } catch (e) { document.getElementById('all-msg').textContent = '❌ ' + (e.message || 'Ingen kontakt med servern.'); }
+      render();
+    }
+
+    async function make(k) {
+      if (busy.has(k)) return;
+      const motif = (document.getElementById('m-' + k) || {}).value || '';
+      motifs[k] = motif;
+      busy.add(k); render();
+      let msg = '';
+      try {
+        const res = await snoApi({ action: 'generateAppIcon', key: k, motif });
+        if (res.status !== 'success') throw new Error(res.message);
+        urls[k] = res.url;
+        if (window.lpvIcons) lpvIcons.set(urls);
+        msg = '✅ Klar';
+      } catch (e) { msg = '❌ ' + (e.message || 'AI:n svarade inte.'); }
+      busy.delete(k); render();
+      const el = document.getElementById('msg-' + k); if (el) el.textContent = msg;
+      return msg.startsWith('✅');
+    }
+
+    // En i taget – AI:n tar 10–30 s per bild
+    async function makeAll() {
+      const todo = ICONS.map(i => i[0]).filter(k => !urls[k]);
+      const btn = document.getElementById('btn-all'), out = document.getElementById('all-msg');
+      if (!todo.length) { out.textContent = 'Alla ikoner finns redan – tryck ✨ Skapa ny på den du vill byta.'; return; }
+      btn.disabled = true;
+      let ok = 0;
+      for (const [i, k] of todo.entries()) { out.textContent = `⏳ ${i + 1} av ${todo.length}…`; if (await make(k)) ok++; }
+      btn.disabled = false;
+      out.textContent = `✅ ${ok} av ${todo.length} ikoner skapade.`;
+    }
+
+    if (!snoIsAdmin()) document.getElementById('list').innerHTML = '<div class="muted">Bara admin kan skapa appikoner.</div>';
+    else load();
+  </script>
+</body>
+</html>

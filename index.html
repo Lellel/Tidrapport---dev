@@ -26,42 +26,42 @@
   <!-- GLIDANDE VÄNSTERMENY (SIDE-DRAWER FÖR ADMIN & VYER) -->
   <nav class="side-nav-drawer" id="sideNav">
     <div class="side-nav-item" onclick="location.href='radar.html'">
-      <span class="side-nav-icon">🔭</span>
+      <span class="side-nav-icon" data-icon="radar">🔭</span>
       <span class="side-nav-text">Framtidsradarn</span>
     </div>
     <div class="side-nav-item" onclick="location.href='offerter.html?view=customers'">
-      <span class="side-nav-icon">💼</span>
+      <span class="side-nav-icon" data-icon="kunder">💼</span>
       <span class="side-nav-text">Kunder</span>
     </div>
     <div class="side-nav-item" onclick="location.href='offerter.html'">
-      <span class="side-nav-icon">📄</span>
+      <span class="side-nav-icon" data-icon="offerter">📄</span>
       <span class="side-nav-text">Offerter &amp; ÄTA</span>
     </div>
     <div class="side-nav-item" onclick="location.href='planering.html'">
-      <span class="side-nav-icon">🚜</span>
+      <span class="side-nav-icon" data-icon="sno">🚜</span>
       <span class="side-nav-text">Snöplanering</span>
     </div>
     <div class="side-nav-item" onclick="location.href='vader.html'">
-      <span class="side-nav-icon">🌨️</span>
+      <span class="side-nav-icon" data-icon="vader">🌨️</span>
       <span class="side-nav-text">Väder</span>
     </div>
     <div class="side-nav-item" onclick="location.href='snozoner.html'">
-      <span class="side-nav-icon">❄️</span>
+      <span class="side-nav-icon" data-icon="zoner">❄️</span>
       <span class="side-nav-text">Rita snözoner</span>
     </div>
     <div class="side-nav-item" onclick="location.href='ekonomi.html'">
-      <span class="side-nav-icon">💰</span>
+      <span class="side-nav-icon" data-icon="ekonomi">💰</span>
       <span class="side-nav-text">Ekonomi</span>
     </div>
   </nav>
 
   <!-- FLIKRAD FÖR ADMIN I TELEFON (som iPhone-appar: högst fem flikar, resten under Mer) -->
   <nav class="tab-bar" id="tabBar" aria-label="Admin">
-    <button class="tab-item is-active" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"><span class="tab-icon">🏠</span>Hem</button>
-    <button class="tab-item" onclick="location.href='radar.html'"><span class="tab-icon">🔭</span>Radarn</button>
-    <button class="tab-item" onclick="location.href='planering.html'"><span class="tab-icon">🚜</span>Snö</button>
-    <button class="tab-item" onclick="location.href='offerter.html'"><span class="tab-icon">📄</span>Offerter</button>
-    <button class="tab-item" onclick="document.getElementById('moreSheet').classList.add('active')"><span class="tab-icon">•••</span>Mer</button>
+    <button class="tab-item is-active" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"><span class="tab-icon" data-icon="hem">🏠</span>Hem</button>
+    <button class="tab-item" onclick="location.href='radar.html'"><span class="tab-icon" data-icon="radar">🔭</span>Radarn</button>
+    <button class="tab-item" onclick="location.href='planering.html'"><span class="tab-icon" data-icon="sno">🚜</span>Snö</button>
+    <button class="tab-item" onclick="location.href='offerter.html'"><span class="tab-icon" data-icon="offerter">📄</span>Offerter</button>
+    <button class="tab-item" onclick="document.getElementById('moreSheet').classList.add('active')"><span class="tab-icon" data-icon="mer">•••</span>Mer</button>
   </nav>
   <div class="sheet-backdrop" id="moreSheet" onclick="this.classList.remove('active')">
     <div class="sheet-container" onclick="event.stopPropagation()">
@@ -69,10 +69,11 @@
         <div class="section-label" style="margin:0;">Mer</div>
         <button class="sheet-close" onclick="document.getElementById('moreSheet').classList.remove('active')">Stäng</button>
       </div>
-      <div class="sheet-item" onclick="location.href='offerter.html?view=customers'">💼&nbsp; Kunder</div>
-      <div class="sheet-item" onclick="location.href='vader.html'">🌨️&nbsp; Väder – Plogometern</div>
-      <div class="sheet-item" onclick="location.href='snozoner.html'">❄️&nbsp; Rita snözoner</div>
-      <div class="sheet-item" onclick="location.href='ekonomi.html'">💰&nbsp; Ekonomi</div>
+      <div class="sheet-item" onclick="location.href='offerter.html?view=customers'"><span data-icon="kunder">💼</span>&nbsp; Kunder</div>
+      <div class="sheet-item" onclick="location.href='vader.html'"><span data-icon="vader">🌨️</span>&nbsp; Väder – Plogometern</div>
+      <div class="sheet-item" onclick="location.href='snozoner.html'"><span data-icon="zoner">❄️</span>&nbsp; Rita snözoner</div>
+      <div class="sheet-item" onclick="location.href='ekonomi.html'"><span data-icon="ekonomi">💰</span>&nbsp; Ekonomi</div>
+      <div class="sheet-item" onclick="location.href='ikoner.html'">🎨&nbsp; Appikoner</div>
     </div>
   </div>
 
@@ -298,6 +299,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="config.js"></script>
+  <script src="appikoner.js"></script>
   <script src="vader.js"></script>
   <script src="app.js"></script>
   <script>
