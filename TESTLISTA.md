@@ -562,3 +562,10 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Skicka nya inloggningslänkar till alla förare
 - [ ] iPhone-förare: ta bort den gamla appen från hemskärmen, öppna nya länken i Safari och lägg till appen igen via guiden (annars saknar hemskärmsappen nyckeln)
 - [ ] När alla har nya länkar: ta bort `API_TOKEN` ur `Config.gs` och `config.js`
+
+## Knapprespons (knappar.js, 2026-11-04)
+- [ ] Tryck på valfri knapp i iPhone/iPad → knappen blir mörkare och lite mindre direkt
+- [ ] 📦 Skicka välkomstpaket → snurra före texten, knappen blekare tills rutan med svaret kommer
+- [ ] Tryck två gånger snabbt på en knapp som sparar/skickar → bara ett utskick
+- [ ] Knappar som inte pratar med servern (t.ex. ✏️ Penna i Rita zoner) får ingen snurra
+- [ ] Hemskärmsappen: "Ny version – tryck för att uppdatera" visas så att knappar.js kommer med
