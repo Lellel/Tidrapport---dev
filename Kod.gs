@@ -1450,7 +1450,7 @@ const APP_ICON_MOTIFS = {
   widget: "a small smartphone showing a tiny snowflake on its screen",
   mer: "three glossy white dots in a row",
   tillbaka: "a bold glossy white arrow pointing to the left",
-  personal: "three friendly cartoon workers in hard hats and high-visibility vests standing side by side",
+  personal: "three glossy yellow construction hard hats in a row", // inga människor – bild-AI:n vägrar ibland rita personer
   // Sidrubriker
   ikoner: "an artist's paint palette with blobs of blue, orange and magenta paint",
   ata: "a shiny steel wrench crossed with a small hammer",
