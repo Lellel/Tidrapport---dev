@@ -10,97 +10,112 @@
   <style>
     :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--t-font); }
-    .layout { display: grid; grid-template-columns: 1fr 340px; height: 100%; }
+    .layout { display: grid; grid-template-columns: 1fr 380px; height: 100%; }
+    .map-wrap { position: relative; height: 100%; }
     #map { height: 100%; width: 100%; }
-    .panel { background: var(--panel); border-left: 1px solid var(--line); padding: calc(14px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    /* Panelen som i Snöplanering: fast sidhuvud med flikar, innehållet scrollar */
+    .panel { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+    .panel-head { padding: calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 10px 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 12px calc(14px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) 14px; display: flex; flex-direction: column; gap: 10px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 0; }
+    .pick { display: grid; grid-template-columns: 1fr 1.4fr; gap: 6px; }
+    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .tabs button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
     label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
-    input, textarea { width: 100%; padding: 10px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font-size: var(--t-fs-input); }
+    input, textarea, select { width: 100%; padding: 10px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font-size: 16px !important; } /* 16 px: iPad zoomar inte in */
     textarea { resize: vertical; min-height: 54px; }
-    .row2 { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
-    .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    button { min-height: 44px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; }
+    input, textarea, select, button { font-family: inherit; }
+    button { min-height: 44px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; touch-action: manipulation; }
+    button:disabled { opacity: .45; cursor: default; }
     button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
     button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
     button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+    .row2 { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
     .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .status { font-size: 13px; color: var(--muted); min-height: 18px; }
+    .status { font-size: 13px; color: var(--muted); }
+    .status:empty { display: none; }
     .status b { color: var(--text); }
+    .muted { font-size: 12px; color: var(--muted); }
     .banner { background: rgba(239,68,68,.12); border: 1px solid var(--danger); color: var(--t-danger); padding: 10px; border-radius: var(--t-r); font-size: 13px; display: none; }
-    /* Statusraden (klocka/batteri) på iPad: inget läggs under den */
-    .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); z-index: 500; display: flex; gap: 6px; }
-    .map-toggle button { min-height: 36px; padding: 0 12px; background: var(--t-overlay); }
-    .map-wrap { position: relative; height: 100%; }
+    /* Kort – samma familj som resten av appen */
+    .card, .slinga-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .card-head, .slinga-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+    .card-head small, .slinga-card-head small { color: var(--muted); font-weight: 600; }
+    .zone-card { border-color: var(--accent); }
     .zone-list { display: flex; flex-direction: column; gap: 6px; }
-    .zone-item { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--t-r); font-size: 13px; cursor: pointer; }
+    .zone-item { display: flex; justify-content: space-between; gap: 8px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r); font-size: 13px; cursor: pointer; }
     .zone-item small { color: var(--muted); }
-    .slinga-card { border: 1px solid var(--line); border-radius: var(--t-r); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-    .slinga-card-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 700; }
-    .slinga-card-head small { color: var(--muted); font-weight: 400; }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: transparent; }
-    .chip.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .chip.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
     .warn { color: var(--t-warn); font-size: 12px; }
-    .sugg { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px dashed var(--accent); border-radius: var(--t-r); font-size: 13px; }
+    .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,.7); vertical-align: -1px; margin-right: 4px; }
+    button.active .sw { border: 2px solid #fff; }
+    .sugg { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px dashed var(--accent); border-radius: var(--t-r); font-size: 13px; background: var(--panel); }
     .sugg span { flex: 1; cursor: pointer; }
-    .sugg-num { flex: none !important; width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+    .sugg-num { flex: none !important; width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111; border: 1px solid var(--line); font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
     .sugg-badge { pointer-events: none !important; }
     .sugg-badge div { width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111; border: 2px solid #111; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
     .sugg small { color: var(--muted); }
     .sugg button { min-height: 36px; padding: 0 10px; }
+    /* Kundkartan */
     .kk-overlay { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; max-width: none !important; }
     .kk-handle { width: 34px; height: 34px; border-radius: 50%; background: #38bdf8; color: var(--t-on-accent); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,.5); border: 2px solid #fff; }
     .kk-row { display: flex; gap: 6px; flex-wrap: wrap; }
-    .kk-row button { flex: 1; min-height: 40px; padding: 0 8px; }
-    .kk-icon { min-height: 32px; padding: 0 8px; background: transparent; font-size: 16px; }
+    .kk-row button { flex: 1; min-height: 44px; padding: 0 8px; }
+    .kk-icon { min-height: 32px; padding: 0 8px; background: transparent; font-size: 16px; border: none; }
     .kk-main { min-height: 48px; font-size: 14px; }
     .kk-small { min-height: 36px; font-size: 12px; background: transparent; }
-    .sno-legend { position: absolute; left: calc(env(safe-area-inset-left) + 12px); bottom: calc(env(safe-area-inset-bottom) + 12px); z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: calc(100% - 24px); padding: 6px 10px; border-radius: var(--t-r); background: var(--t-overlay); font-size: 12px; font-weight: 600; pointer-events: none; }
+    .kk-progress { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    input[type=range] { padding: 0; }
+    /* På kartan */
+    .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); z-index: 500; display: flex; gap: 6px; }
+    .map-toggle button { min-height: 36px; padding: 0 12px; background: var(--t-overlay); }
+    .sno-legend { position: absolute; left: calc(env(safe-area-inset-left) + 12px); bottom: calc(env(safe-area-inset-bottom) + 12px); z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: calc(100% - 460px); padding: 6px 10px; border-radius: var(--t-r); background: var(--t-overlay); font-size: 12px; font-weight: 600; pointer-events: none; }
     .sno-legend span { display: inline-flex; align-items: center; gap: 5px; }
-    .sno-legend i, .tools .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,.7); vertical-align: -1px; }
-    .brush-opts { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .sno-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,.7); vertical-align: -1px; }
     /* Gestknappen till vänster på kartan – nås med vänster tumme i liggande läge */
     .kk-fab { position: absolute; left: calc(env(safe-area-inset-left) + 12px); top: 50%; transform: translateY(-50%); z-index: 600; display: none; flex-direction: column; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.4); }
     .kk-fab button { width: 76px; min-height: 64px; border: none; border-radius: 0; background: var(--t-overlay); font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
     .kk-fab button span { font-size: 22px; }
     .kk-fab button.on { background: var(--accent); color: var(--t-on-accent); }
+    /* Verktygslådan nere till höger: vad (typ) och hur (penna, pensel, sudd) */
+    .tool-dock { position: absolute; right: calc(env(safe-area-inset-right) + 12px); bottom: calc(env(safe-area-inset-bottom) + 12px); z-index: 650; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: var(--t-r-card); background: var(--t-overlay); border: 1px solid var(--line); box-shadow: var(--t-shadow); max-width: calc(100% - 24px); }
+    .dock-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .dock-row button { min-height: 44px; padding: 0 10px; }
+    .dock-row button.sudd.active { background: var(--danger); border-color: var(--danger); color: #fff; }
+    .dock-pop { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+    .dock-foot { min-height: 40px; }
+    .dock-foot .chip { min-height: 36px; }
+    .dock-hint { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .dock-icon { width: 44px; padding: 0 !important; font-size: 18px; }
+    /* Hörnhandtag och kantprickar på ytan man ritar */
+    .edit-handle { background: #fff; border: 3px solid #111827; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+    .edit-mid { background: rgba(255,255,255,.75); border: 2px solid #111827; border-radius: 50%; }
     /* 📍 Adressens nål – tar inte emot tryck, så ritning och gester går igenom */
     .prop-pin { pointer-events: none !important; }
     .prop-pin svg { filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
-    .kk-progress { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
-    input[type=range] { padding: 0; }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
-    /* iPad/dator: sidan står still – bara panelen scrollar (inget gummibandsglid när man ritar) */
+    /* Kvittens på kartan */
+    .map-toast { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: 50%; transform: translateX(-50%); z-index: 700; max-width: calc(100% - 200px); padding: 10px 16px; border-radius: 12px; background: var(--t-overlay); border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.4); font-size: 14px; font-weight: 600; text-align: center; pointer-events: none; opacity: 0; transition: opacity .2s; }
+    .map-toast.show { opacity: 1; }
+    /* iPad/dator: sidan står still – bara panelen scrollar */
     @media (min-width: 801px) {
       html, body { overflow: hidden; overscroll-behavior: none; }
       body { position: fixed; inset: 0; }
-      .layout { height: 100dvh; }
-      .panel { overscroll-behavior: contain; overflow-x: hidden; touch-action: pan-y; }
-      .layout { overflow: hidden; width: 100vw; }
+      .layout { height: 100dvh; overflow: hidden; width: 100vw; }
+      .panel-body { overscroll-behavior: contain; overflow-x: hidden; touch-action: pan-y; }
     }
-    /* iPad zoomar in hela sidan när man trycker i ett fält med text under 16 px – då glider panelen i sidled */
-    input, textarea, select { font-size: 16px !important; }
-    button { touch-action: manipulation; } /* inget dubbeltryck-zoom */
-    /* Ändra form: hörnhandtag, kantprickar och knappar på kartan */
-    .edit-handle { background: #fff; border: 3px solid #111827; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
-    .edit-mid { background: rgba(255,255,255,.75); border: 2px solid #111827; border-radius: 50%; }
-    .edit-fab { position: absolute; right: calc(env(safe-area-inset-right) + 12px); bottom: calc(env(safe-area-inset-bottom) + 64px); z-index: 650; display: none; flex-direction: column; gap: 6px; }
-    .edit-fab button { min-height: 48px; min-width: 120px; font-size: 15px; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
-    .edit-fab button.sub.active { background: #dc2626; border-color: #dc2626; color: #fff; }
-    .edit-bar { border: 2px solid var(--accent); border-radius: var(--t-r); padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
-    .edit-bar .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .edit-bar .seg button.sub.active { background: #dc2626; border-color: #dc2626; color: #fff; }
-    /* Kvittens på kartan när man ritar med pennan */
-    .map-toast { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: 50%; transform: translateX(-50%); z-index: 700; max-width: calc(100% - 200px); padding: 10px 16px; border-radius: 12px; background: var(--t-overlay); border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.4); font-size: 14px; font-weight: 600; text-align: center; pointer-events: none; opacity: 0; transition: opacity .2s; }
-    .map-toast.show { opacity: 1; }
     @media (max-width: 800px) {
       .map-toast { max-width: calc(100% - 24px); }
-      .layout { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
-      .panel { border-left: none; border-top: 1px solid var(--line); padding-top: 14px; }
+      .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; }
+      .panel { border-left: none; border-top: 1px solid var(--line); }
+      .sno-legend { display: none; }
     }
   </style>
 </head>
@@ -116,81 +131,79 @@
       <div class="sno-legend" id="sno-legend"></div>
       <div class="kk-fab" id="kk-fab"></div>
       <div class="map-toast" id="map-toast"></div>
-      <div class="edit-fab" id="edit-fab"></div>
+      <div class="tool-dock" id="tool-dock"></div>
     </div>
 
     <aside class="panel">
-      <div class="topbar">
-        <a href="index.html">← Hem</a>
-        <a href="snohinder.html">📷 Hinder steg för steg</a>
-        <a href="snojour.html">Snöjour →</a>
-      <span data-theme-slot></span></div>
-      <h1>❄️ Rita snözoner</h1>
-      <div class="banner" id="admin-banner">Bara admin kan spara zoner. Logga in med din admin-länk.</div>
-
-      <div>
-        <label for="f-omrade">Mitt område i genomgången</label>
-        <select id="f-omrade" onchange="setArea(this.value)" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--t-input);color:var(--text);font-size:15px;margin-bottom:8px;"></select>
-        <label for="f-fastighet">Fastighet från Snöplanering</label>
-        <input id="f-fastighet" list="fastighet-list" placeholder="🔍 Sök fastighet – visar kundens karta" onchange="chooseProperty(this.value)">
-        <datalist id="fastighet-list"></datalist>
-      </div>
-      <div class="slinga-card" id="kk-card" style="display:none"></div>
-
-      <div>
-        <label for="f-slinga">Slinga</label>
-        <input id="f-slinga" list="slinga-list" placeholder="T.ex. Centrum 1">
-        <datalist id="slinga-list"></datalist>
-      </div>
-      <div class="row2">
-        <div>
-          <label for="f-property">Fastighet / Adress</label>
-          <input id="f-property" placeholder="T.ex. Drottninggatan 4">
+      <div class="panel-head">
+        <div class="topbar">
+          <a href="index.html">← Hem</a>
+          <a href="snohinder.html">📷 Hinder</a>
+          <a href="snojour.html">Snöjour →</a>
+          <span data-theme-slot></span>
         </div>
-        <div>
-          <label for="f-order">Ordning</label>
-          <input id="f-order" type="number" min="0" inputmode="numeric" placeholder="1">
+        <h1>❄️ Rita snözoner</h1>
+        <div class="banner" id="admin-banner">Bara admin kan spara zoner. Logga in med din admin-länk.</div>
+        <div class="pick">
+          <select id="f-omrade" onchange="setArea(this.value)" aria-label="Mitt område"></select>
+          <input id="f-fastighet" list="fastighet-list" placeholder="🔍 Sök fastighet" aria-label="Fastighet" onchange="chooseProperty(this.value)">
+          <datalist id="fastighet-list"></datalist>
+        </div>
+        <div class="tabs">
+          <button id="tab-fastighet" class="active" onclick="setTab('fastighet')">🏠 Fastighet</button>
+          <button id="tab-zoner" onclick="setTab('zoner')">🗂️ Zoner <span id="zone-count"></span></button>
+          <button id="tab-forare" onclick="setTab('forare')">👷 Förare</button>
         </div>
       </div>
-      <div>
-        <label for="f-note">Anteckning</label>
-        <textarea id="f-note" placeholder="T.ex. Snöupplag vid gaveln, se upp för låg grind"></textarea>
-      </div>
 
-      <div>
-        <label>Verktyg</label>
-        <div class="tools" id="tools"></div>
-        <div class="brush-opts" id="brush-opts" style="display:none"></div>
-      </div>
+      <div class="panel-body" id="pane-fastighet">
+        <div class="card" id="kk-card" style="display:none"></div>
 
-      <div>
-        <label>På plats och förslag</label>
-        <div class="actions">
-          <button id="btn-gps" onclick="addGpsPoint()">📍 Punkt där jag står</button>
-          <button id="btn-sugg" onclick="loadSuggestions()">💡 Förslag från kartan</button>
+        <div class="card">
+          <div class="card-head"><span>💡 Förslag</span><button class="chip" id="btn-sugg" onclick="loadSuggestions()">🗺️ Från kartan</button></div>
+          <div class="zone-list" id="sugg-list"></div>
+          <div class="muted" id="sugg-empty">Tryck <b>🤖 Föreslå zoner</b> på kundkartan – eller <b>🗺️ Från kartan</b> för parkeringar och gångvägar ur OpenStreetMap.</div>
         </div>
-        <div class="zone-list" id="sugg-list" style="margin-top:6px;"></div>
+
+        <div class="card zone-card">
+          <div class="card-head" id="zone-head"></div>
+          <div class="muted" id="zone-help"></div>
+          <div class="status" id="status"></div>
+          <div>
+            <label for="f-slinga">Slinga</label>
+            <input id="f-slinga" list="slinga-list" placeholder="T.ex. Centrum 1">
+            <datalist id="slinga-list"></datalist>
+          </div>
+          <div class="row2">
+            <div>
+              <label for="f-property">Fastighet / Adress</label>
+              <input id="f-property" placeholder="T.ex. Drottninggatan 4">
+            </div>
+            <div>
+              <label for="f-order">Ordning</label>
+              <input id="f-order" type="number" min="0" inputmode="numeric" placeholder="1">
+            </div>
+          </div>
+          <div>
+            <label for="f-note">Anteckning</label>
+            <textarea id="f-note" placeholder="T.ex. Snöupplag vid gaveln, se upp för låg grind"></textarea>
+          </div>
+          <div class="actions">
+            <button class="ok" id="btn-save" onclick="saveCurrent()">💾 Spara zon</button>
+            <button onclick="cancelAll()">✕ Avbryt</button>
+          </div>
+          <button class="danger" id="btn-delete" onclick="deleteSelected()" style="display:none">🗑️ Ta bort zonen</button>
+        </div>
       </div>
 
-      <div class="edit-bar" id="edit-bar" style="display:none"></div>
-      <div class="status" id="status">Välj ett verktyg och tryck på kartan.</div>
-      <div class="actions">
-        <button onclick="undoPoint()">↶ Ångra punkt</button>
-        <button onclick="cancelDrawing()">✕ Avbryt</button>
-        <button id="btn-edit" onclick="startEdit()" style="grid-column: 1 / -1; display:none;">✏️ Ändra form</button>
-        <button class="ok" id="btn-save" onclick="saveCurrent()" style="grid-column: 1 / -1;">💾 Spara zon</button>
-        <button class="danger" id="btn-delete" onclick="deleteSelected()" style="grid-column: 1 / -1; display:none;">🗑️ Ta bort vald zon</button>
-      </div>
-
-      <div id="tilldela">
-        <label>Förare per slinga</label>
-        <div class="status" style="margin-bottom:6px;">Tryck på ett namn för att tilldela eller ta bort. Föraren ser bara sina slingor i Snöjour.</div>
-        <div class="zone-list" id="assign-list"></div>
-      </div>
-
-      <div>
-        <label>Sparade zoner <span id="zone-count"></span></label>
+      <div class="panel-body" id="pane-zoner" hidden>
+        <div class="muted">Tryck på en zon för att visa och ändra den.</div>
         <div class="zone-list" id="zone-list"></div>
+      </div>
+
+      <div class="panel-body" id="pane-forare" hidden>
+        <div class="muted">Tryck på ett namn för att tilldela eller ta bort. Föraren ser bara sina slingor i Snöjour.</div>
+        <div class="zone-list" id="assign-list"></div>
       </div>
     </aside>
   </div>
@@ -204,104 +217,162 @@
     let mapCtl, map;
     let zones = [];
     let zoneLayers = [];
-    let currentTool = 'maskin';
-    let drawingPoints = [];
+    // Verktygslådan nere till höger: VAD man ritar (typ) och HUR (instrument)
+    let drawType = 'maskin';
+    let instrument = 'penna';          // penna = ringa in · pensel = måla · sudd = ta bort
+    let brushW = 1.5;
+    let eraseW = 'lasso';              // sudden: ringa in, eller sudda med en bredd
+    const BRUSH_WIDTHS = [1, 1.5, 2];
+    const ERASE_WIDTHS = [1, 2, 4];
+    let drawingPoints = [];            // utprickade hörn (tryck/GPS), sträckor och markörer
     let previewLayer = null;
     let selectedZone = null;
     let assignments = {};
     let staff = [];
+    let markerMenu = false;
 
     function setStatus(html) { document.getElementById('status').innerHTML = html; }
 
-    // 🚪 Entré = en handskottningsyta på 3 × 3 m med ett tryck (sparas som Handskottning)
+    // 🚪 Entré = handskottningsyta på 3 × 3 m med ett tryck
     const ENTRE_SIZE = 3;
-    // 🖌️ Pensel = handskottning som målas med en viss bredd (meter på marken)
-    const toolType = () => currentTool === 'entre' || currentTool === 'pensel' ? 'hand' : currentTool;
-    let brushW = 1.5;
-    const BRUSH_WIDTHS = [1, 1.5, 2];
+    const MARKER_TYPES = ['lucka', 'kantsten', 'trappa', 'hinder', 'entre'];
+    const typeKey = (t) => t === 'entre' ? 'hand' : t;
+    const toolType = () => typeKey(drawType);
     const toolDef = () => SNO_TYPES[toolType()];
+    const isArea = () => drawType !== 'entre' && toolDef().kind === 'polygon';
+    const fmtM2 = (a) => Math.round(a).toLocaleString('sv-SE') + ' m²';
+    const typeName = (t) => t === 'entre' ? '🚪 Entré' : (SNO_TYPES[t].icon ? SNO_TYPES[t].icon + ' ' : '') + SNO_TYPES[t].label;
     function squareAround(pt, sizeM) {
       const dLat = sizeM / 2 / 111320, dLng = sizeM / 2 / (111320 * Math.cos(pt[0] * Math.PI / 180));
       return [[pt[0] + dLat, pt[1] - dLng], [pt[0] + dLat, pt[1] + dLng], [pt[0] - dLat, pt[1] + dLng], [pt[0] - dLat, pt[1] - dLng]];
     }
 
-    function renderTools() {
-      document.getElementById('tools').innerHTML = Object.entries(SNO_TYPES).map(([key, def]) =>
-        `<button class="${key === currentTool ? 'active' : ''}" onclick="setTool('${key}')">${def.color ? `<span class="sw" style="background:${def.color}"></span>` : ''} ${def.icon || ''} ${def.label}</button>`
-      ).join('') + `<button class="${currentTool === 'pensel' ? 'active' : ''}" onclick="setTool('pensel')"><span class="sw" style="background:${SNO_TYPES.hand.color}"></span> 🖌️ Pensel</button>` +
-        `<button class="${currentTool === 'entre' ? 'active' : ''}" onclick="setTool('entre')">🚪 Entré</button>`;
-      const bo = document.getElementById('brush-opts');
-      bo.style.display = currentTool === 'pensel' ? 'flex' : 'none';
-      const erasing = isErasing();
-      bo.innerHTML = 'Bredd:' + BRUSH_WIDTHS.map(w => `<button class="chip ${w === brushW ? 'on' : ''}" onclick="brushW=${w}; renderTools()">${String(w).replace('.', ',')} m</button>`).join('') +
-        `<span style="flex:1"></span><button class="chip ${!erasing ? 'on' : ''}" onclick="setErase(false)">➕ Måla</button><button class="chip ${erasing ? 'on' : ''}" onclick="setErase(true)">➖ Sudda</button>`;
+    // ---------- FLIKAR ----------
+    function setTab(t) {
+      ['fastighet', 'zoner', 'forare'].forEach(k => {
+        document.getElementById('pane-' + k).hidden = k !== t;
+        document.getElementById('tab-' + k).classList.toggle('active', k === t);
+      });
+      try { localStorage.setItem('lpv_zon_flik', t); } catch (e) { /* privat läge */ }
     }
 
-    function setTool(tool) {
-      // Medan formen ändras: Maskinzon/Handskottning/Snöupplag = ringa in (och byter typ), Pensel = måla. Annat avslutar.
-      if (editShape) {
-        if (tool === 'pensel') editShape.pen = 'brush';
-        else if (SNO_TYPES[tool] && SNO_TYPES[tool].kind === 'polygon') { editShape.type = tool; editShape.pen = 'lasso'; }
-        else endEdit(true);
-        if (editShape) { currentTool = tool; renderTools(); renderEdit(); return; }
+    // ---------- VERKTYGSLÅDAN ----------
+    function renderDock() {
+      const typeBtn = (key, html) => `<button class="${drawType === key ? 'active' : ''}" onclick="setType('${key}')">${html}</button>`;
+      const sw = (key) => `<i class="sw" style="background:${SNO_TYPES[key].color}"></i>`;
+      const marker = MARKER_TYPES.includes(drawType), area = isArea();
+      const instrBtn = (key, html) => `<button class="${key} ${instrument === key && area ? 'active' : ''}" ${area ? '' : 'disabled'} onclick="setInstrument('${key}')">${html}</button>`;
+      let opts = '';
+      if (area && instrument === 'pensel') opts = BRUSH_WIDTHS.map(w => `<button class="chip ${w === brushW ? 'on' : ''}" onclick="brushW=${w}; renderDock()">${String(w).replace('.', ',')} m</button>`).join('');
+      if (area && instrument === 'sudd') opts = `<button class="chip ${eraseW === 'lasso' ? 'on' : ''}" onclick="eraseW='lasso'; renderDock()">✏️ Ringa in</button>` +
+        ERASE_WIDTHS.map(w => `<button class="chip ${w === eraseW ? 'on' : ''}" onclick="eraseW=${w}; renderDock()">${w} m</button>`).join('');
+      document.getElementById('tool-dock').innerHTML = `
+        ${markerMenu ? `<div class="dock-row dock-pop">${MARKER_TYPES.map(k => typeBtn(k, typeName(k))).join('')}</div>` : ''}
+        <div class="dock-row">${typeBtn('maskin', sw('maskin') + 'Maskin')}${typeBtn('hand', sw('hand') + 'Hand')}${typeBtn('upplag', sw('upplag') + 'Upplag')}${typeBtn('stracka', sw('stracka') + 'Sträcka')}<button class="${marker ? 'active' : ''}" onclick="markerMenu=!markerMenu; renderDock()">${marker ? typeName(drawType) : '📍 Markör'} ▾</button></div>
+        <div class="dock-row">${instrBtn('penna', '✏️ Penna')}${instrBtn('pensel', '🖌️ Pensel')}${instrBtn('sudd', '🧽 Sudd')}</div>
+        <div class="dock-row dock-foot">${opts || `<span class="dock-hint">${dockHint()}</span>`}<span style="flex:1"></span><button class="dock-icon" id="btn-gps" onclick="addGpsPoint()" title="Punkt där jag står">📍</button><button class="dock-icon" onclick="undoPoint()" title="Ångra">↶</button></div>`;
+    }
+    function dockHint() {
+      if (drawType === 'entre') return 'Tryck vid entrén';
+      if (MARKER_TYPES.includes(drawType)) return 'Tryck där markören ska sitta';
+      if (drawType === 'stracka') return 'Dra med pennan eller tryck ut';
+      return 'Ringa in med pennan – eller tryck ut hörnen';
+    }
+
+    function setType(t) {
+      markerMenu = false;
+      const area = t !== 'entre' && SNO_TYPES[typeKey(t)].kind === 'polygon';
+      // En yta byter typ (färg) direkt. Markör/sträcka/entré kräver att en annan påbörjad yta sparas först.
+      if (shape && !area && !(t === 'entre' && shape.type === 'hand')) {
+        if (shapeChanged()) { mapToast('Spara eller avbryt ytan du ritar först.'); renderDock(); return; }
+        cancelDrawing(); selectZone(null);
       }
-      currentTool = tool;
-      cancelDrawing();
-      renderTools();
-      const kind = toolDef().kind;
-      setStatus(tool === 'entre' ? `Tryck vid entrén – en handskottningsyta på ${ENTRE_SIZE} × ${ENTRE_SIZE} m läggs ut. Spara, och fortsätt med nästa entré.` :
-        tool === 'pensel' ? `Måla gångytorna med pennan (${String(brushW).replace('.', ',')} m bred) – fingrarna flyttar kartan. Utan penna målar fingret. Spara när du är klar.` :
-        kind === 'marker' ? 'Tryck på kartan där markören ska sitta.' :
-        kind === 'line' ? 'Dra sträckan med pennan, eller tryck ut den punkt för punkt. Spara när du är klar.' :
-        toolDef().allowPoint ? 'Rita runt upplaget med pennan eller tryck ut hörnen – eller tryck en punkt. Spara när du är klar.' :
-        'Rita runt ytan med pennan, eller tryck ut hörnen. Spara när du är klar.');
+      const wasArea = isArea();
+      if (!(area && wasArea) && t !== drawType) { drawingPoints = []; drawPreview(); }
+      if (selectedZone && !shape && t !== drawType) selectZone(null);
+      drawType = t;
+      if (shape && area) { shape.type = t; renderShape(); }
+      if (!area) instrument = 'penna';
+      renderDock(); renderZoneCard();
     }
 
+    function setInstrument(k) {
+      instrument = k;
+      renderDock();
+      if (k === 'sudd' && !shape) mapToast('🧽 Sudden tar bort från ytan du ritar.<br><small>Rita en yta, ta med ett förslag eller tryck på en sparad zon först.</small>', 4000);
+    }
+
+    // ---------- ZONEN DU RITAR (kortet i panelen) ----------
+    function renderZoneCard() {
+      const t = shape ? shape.type : selectedZone ? selectedZone.type : toolType();
+      const def = SNO_TYPES[t] || SNO_TYPES.maskin;
+      let info = '';
+      if (shape) {
+        const n = shape.polys.length;
+        info = n ? `<b>${fmtM2(shapeArea())}</b>${n > 1 ? ` · ${n} delar` : ''}` : 'allt suddat';
+      } else if (drawingPoints.length) info = def.kind === 'polygon' && drawingPoints.length >= 3 ? `<b>${fmtM2(snoGeodesicArea(drawingPoints))}</b>` : `${drawingPoints.length} ${drawingPoints.length === 1 ? 'punkt' : 'punkter'}`;
+      const mark = def.color ? `<i class="sw" style="background:${def.color}"></i>` : (def.icon || '');
+      document.getElementById('zone-head').innerHTML = `<span>${selectedZone ? '✏️ Vald zon' : '➕ Ny zon'}</span><small>${mark}${def.label}${info ? ' · ' + info : ''}</small>`;
+      const help = document.getElementById('zone-help');
+      help.innerHTML = shape
+        ? `Pennan lägger till, 🧽 sudden tar bort. Dra i hörnen – tryck på ett hörn tar bort det, tryck på en kantprick ger ett nytt.${shape.polys.length > 1 ? ` De ${shape.polys.length} delarna sparas som var sin zon.` : ''}${shape.tooMany ? '<br>🔍 Zooma in för att se hörnen.' : ''}`
+        : selectedZone || drawingPoints.length ? '' : 'Välj typ i verktygslådan nere till höger på kartan och rita med pennan. Tryck på en sparad zon för att ändra den.';
+      help.style.display = help.innerHTML ? 'block' : 'none';
+      document.getElementById('btn-delete').style.display = selectedZone ? 'block' : 'none';
+      document.getElementById('btn-save').innerText = selectedZone ? '💾 Spara ändringar' : '💾 Spara zon';
+    }
+
+    // Utprickade punkter (tryck/GPS), sträckor och markörer
     function drawPreview() {
       if (previewLayer) map.removeLayer(previewLayer);
       previewLayer = null;
       const def = toolDef();
-      if (drawingPoints.length === 0) return;
-      if (def.kind === 'polygon' && drawingPoints.length >= 3) {
-        previewLayer = L.polygon(drawingPoints, { color: def.color, fillOpacity: 0.25, dashArray: '6 6' }).addTo(map);
-        setStatus(`${drawingPoints.length} punkter · Yta: <b>${Math.round(snoGeodesicArea(drawingPoints)).toLocaleString('sv-SE')} m²</b>`);
-      } else if (def.allowPoint && drawingPoints.length === 1) {
-        previewLayer = L.marker(drawingPoints[0], { icon: L.divIcon({ className: 'sno-hazard', html: def.icon, iconSize: [30, 30] }) }).addTo(map);
-        setStatus(`${def.label} som punkt – tryck Spara, eller fortsätt runt ytan.`);
-      } else if (def.kind !== 'marker') {
-        previewLayer = L.polyline(drawingPoints, { color: def.color || '#fff', dashArray: '6 6', weight: 4 }).addTo(map);
-        setStatus(`${drawingPoints.length} punkter`);
-      } else {
-        previewLayer = L.marker(drawingPoints[0], { icon: L.divIcon({ className: 'sno-hazard', html: def.icon, iconSize: [30, 30] }) }).addTo(map);
-        setStatus(`${def.label} placerad – tryck Spara.`);
+      if (drawingPoints.length) {
+        if (def.kind === 'polygon' && drawingPoints.length >= 3) {
+          previewLayer = L.polygon(drawingPoints, { color: def.color, fillOpacity: 0.25, dashArray: '6 6' }).addTo(map);
+          setStatus(`${drawingPoints.length} hörn – tryck ut fler, eller <b>💾 Spara</b>.`);
+        } else if ((def.allowPoint && drawingPoints.length === 1) || def.kind === 'marker') {
+          previewLayer = L.marker(drawingPoints[0], { icon: L.divIcon({ className: 'sno-hazard', html: def.icon, iconSize: [30, 30] }) }).addTo(map);
+          setStatus(def.kind === 'marker' ? `${def.label} placerad – tryck <b>💾 Spara</b>.` : `${def.label} som punkt – tryck <b>💾 Spara</b>, eller fortsätt runt ytan.`);
+        } else {
+          previewLayer = L.polyline(drawingPoints, { color: def.color || '#fff', dashArray: '6 6', weight: 4 }).addTo(map);
+          setStatus(def.kind === 'line' ? `Sträcka · <b>${snoFormatDistance(snoLineLength(drawingPoints))}</b>` : `${drawingPoints.length} hörn – minst 3 behövs.`);
+        }
       }
-      updateEditButton();
+      renderZoneCard();
     }
 
     function onMapClick(e) {
-      if (kk.adjusting || editShape) return; // kundkartan justeras / formen ändras – tryck på kartan ritar inget
-      if (currentTool === 'pensel' || Date.now() < clickBlockUntil) return; // pensel/pennan ritar själv
-      selectZone(null);
+      if (kk.adjusting || Date.now() < clickBlockUntil) return; // kundkartan justeras / pennan har just ritat
       const point = [e.latlng.lat, e.latlng.lng];
-      if (currentTool === 'entre') drawingPoints = squareAround(point, ENTRE_SIZE);
-      else if (toolDef().kind === 'marker') drawingPoints = [point];
+      if (drawType === 'entre') { applyShapeOp([squareAround(point, ENTRE_SIZE)], false); return; }
+      if (isArea() && instrument !== 'penna') return;
+      if (isArea() && shape) { mapToast('Ändra ytan med pennan, 🧽 sudden eller hörnen.'); return; }
+      if (selectedZone && !shape) selectZone(null);
+      if (toolDef().kind === 'marker') drawingPoints = [point];
       else drawingPoints.push(point);
       drawPreview();
     }
 
     function undoPoint() {
-      if (editShape) { undoEdit(); return; }
-      if (currentTool === 'pensel') { brushStrokes.pop(); updateBrush(); return; }
-      drawingPoints.pop(); drawPreview();
+      if (shape && shape.history.length) { undoShape(); return; }
+      if (drawingPoints.length) { drawingPoints.pop(); drawPreview(); return; }
+      mapToast('Inget att ångra.');
     }
 
+    // Rensa det som ritas (en sparad zon som ändrades visas som förut)
     function cancelDrawing() {
-      if (editShape) endEdit(true);
+      endShape(true);
       drawingPoints = [];
-      brushStrokes = []; updateBrush(true);
       if (previewLayer) map.removeLayer(previewLayer);
       previewLayer = null;
-      updateEditButton();
+      renderZoneCard();
+    }
+
+    function cancelAll() {
+      cancelDrawing();
+      selectZone(null);
+      setStatus('');
     }
 
     function readForm() {
@@ -315,37 +386,29 @@
 
     async function saveCurrent() {
       const form = readForm();
-      let zone, toSave = null;
-      if (editShape) {
-        if (!form.property) { setStatus('Fyll i Fastighet / Adress.'); document.getElementById('f-property').focus(); return; }
-        const polys = editShape.polys, old = editShape.zone;
-        if (!polys.length) {
-          if (old && confirm('Allt är suddat. Ta bort zonen?')) { endEdit(false); selectedZone = old; await deleteSelected(true); }
+      if (!form.property) { setStatus('Fyll i Fastighet / Adress.'); document.getElementById('f-property').focus(); return; }
+      // Utprickade hörn blir en del av ytan
+      if (isArea() && drawingPoints.length >= 3) applyShapeOp([drawingPoints.slice()], false, true);
+      let toSave;
+      if (shape) {
+        const old = shape.zone;
+        if (!shape.polys.length) {
+          if (old && confirm('Allt är suddat. Ta bort zonen?')) { endShape(false); selectedZone = old; await deleteSelected(true); }
           else if (!old) setStatus('Inget kvar att spara – rita igen eller tryck ✕ Avbryt.');
           return;
         }
-        const base = { ...(old || {}), ...form, type: editShape.type };
-        if (!old && !base.note && editShape.type === 'hand' && editShape.fromEntre) base.note = 'Entré';
-        // Första delen ersätter zonen; blev den uppdelad sparas resten som nya zoner på samma adress
-        toSave = polys.map((c, i) => { const z = { ...base, coords: c, areaM2: snoGeodesicArea(c) }; if (i > 0) delete z.id; return z; });
+        const base = { ...(old || {}), ...form, type: shape.type };
+        if (!old && !base.note && shape.fromEntre) base.note = 'Entré';
+        // Första delen ersätter zonen; är den uppdelad sparas resten som nya zoner på samma adress
+        toSave = shape.polys.map((c, i) => { const z = { ...base, coords: c, areaM2: snoGeodesicArea(c) }; if (i > 0) delete z.id; return z; });
       } else if (selectedZone) {
-        zone = { ...selectedZone, ...form };
+        toSave = [{ ...selectedZone, ...form }];
       } else {
         const def = toolDef(), kind = def.kind;
-        if (currentTool === 'pensel') {
-          if (!brushPolys.length) { setStatus('Måla ytan först.'); return; }
-        } else {
-          const minPoints = kind === 'polygon' ? 3 : kind === 'line' ? 2 : 1;
-          const okPoint = def.allowPoint && drawingPoints.length === 1;
-          if (drawingPoints.length < minPoints && !okPoint) { setStatus(def.allowPoint ? 'Rita runt ytan (minst 3 punkter) eller tryck en punkt.' : `Rita minst ${minPoints} punkter först.`); return; }
-        }
-        zone = { ...form, type: toolType(), coords: drawingPoints, areaM2: kind === 'polygon' && drawingPoints.length >= 3 ? snoGeodesicArea(drawingPoints) : 0 };
-        if (currentTool === 'entre' && !zone.note) zone.note = 'Entré';
-      }
-      if (!toSave) {
-        if (!zone.property) { setStatus('Fyll i Fastighet / Adress.'); document.getElementById('f-property').focus(); return; }
-        // Penseln: varje sammanhängande målad yta blir en egen zon på samma adress
-        toSave = !selectedZone && currentTool === 'pensel' ? brushPolys.map(p => ({ ...zone, coords: p.coords, areaM2: p.area })) : [zone];
+        const okPoint = def.allowPoint && drawingPoints.length === 1;
+        if (kind === 'polygon' && !okPoint) { setStatus(def.allowPoint ? 'Rita runt upplaget med pennan – eller tryck en punkt.' : 'Rita ytan först: ringa in med pennan eller tryck ut minst 3 hörn.'); return; }
+        if (drawingPoints.length < (kind === 'line' ? 2 : 1)) { setStatus(kind === 'line' ? 'Rita sträckan först.' : 'Tryck på kartan där markören ska sitta.'); return; }
+        toSave = [{ ...form, type: toolType(), coords: drawingPoints, areaM2: 0 }];
       }
 
       setStatus('Sparar…');
@@ -354,7 +417,7 @@
           const res = await snoApi({ action: 'saveSnowZone', zone: z });
           if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return; }
         }
-        if (editShape) endEdit(false);
+        endShape(false);
         cancelDrawing();
         selectZone(null);
         // Vald fastighet ligger kvar, så att nästa zon på samma adress går fort
@@ -363,7 +426,8 @@
         const orderInput = document.getElementById('f-order');
         if (orderInput.value) orderInput.value = Number(orderInput.value) + 1;
         await loadZones();
-        setStatus(toSave.length > 1 ? `✅ ${toSave.length} ytor sparade. Rita nästa zon.` : '✅ Sparad. Rita nästa zon.');
+        setStatus(toSave.length > 1 ? `✅ ${toSave.length} zoner sparade. Rita nästa.` : '✅ Sparad. Rita nästa zon.');
+        mapToast(toSave.length > 1 ? `✅ ${toSave.length} zoner sparade` : '✅ Sparad');
       } catch (err) {
         setStatus('❌ Ingen kontakt med servern. Försök igen.');
       }
@@ -374,25 +438,31 @@
       if (confirmed !== true && !confirm(`Ta bort ${SNO_TYPES[selectedZone.type].label.toLowerCase()} vid ${selectedZone.property}?`)) return;
       const res = await snoApi({ action: 'deleteSnowZone', zoneId: selectedZone.id });
       if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte ta bort.')); return; }
+      endShape(false);
       selectZone(null);
       await loadZones();
       setStatus('🗑️ Borttagen.');
     }
 
-    // Tryck på en sparad zon = välj den för att ändra uppgifter eller ta bort
+    // Tryck på en sparad zon = välj den. En yta går direkt att ändra med pennan, sudden och hörnen.
     function selectZone(zone) {
+      if (zone && shape) endShape(true);
+      if (!zone && shape && shape.zone) endShape(true);
       selectedZone = zone;
-      document.getElementById('btn-delete').style.display = zone ? 'block' : 'none';
-      document.getElementById('btn-save').innerText = zone ? '💾 Spara ändringar' : '💾 Spara zon';
       if (zone) {
-        cancelDrawing();
+        drawingPoints = [];
+        if (previewLayer) { map.removeLayer(previewLayer); previewLayer = null; }
         document.getElementById('f-slinga').value = zone.slinga;
         document.getElementById('f-property').value = zone.property;
         document.getElementById('f-order').value = zone.order || '';
         document.getElementById('f-note').value = zone.note;
-        setStatus(`Vald: <b>${snoEscape(zone.property)}</b> (${SNO_TYPES[zone.type].label}). Ändra uppgifterna${snoZoneKind(zone) === 'polygon' ? ', tryck <b>✏️ Ändra form</b>' : ''} eller ta bort.`);
+        drawType = zone.type;
+        if (snoZoneKind(zone) === 'polygon' && (zone.coords || []).length >= 3) startShape({ type: zone.type, zone, polys: [zone.coords.map(c => [c[0], c[1]])] });
+        else instrument = 'penna';
+        renderDock();
+        setStatus(`Vald: <b>${snoEscape(zone.property)}</b>. Ändra uppgifterna${shape ? ' eller formen' : ''} och spara – eller ta bort.`);
       }
-      updateEditButton();
+      renderZoneCard();
     }
 
     function renderZoneList() {
@@ -410,6 +480,7 @@
       const zone = zones.find(z => z.id === id);
       if (!zone) return;
       map.setView(snoCenter(zone.coords), Math.max(map.getZoom(), 18));
+      setTab('fastighet');
       selectZone(zone);
     }
 
@@ -423,13 +494,13 @@
         // Mitt i en ritning blir tryck på en befintlig zon en ny punkt, annars väljs zonen
         zoneLayers = zones.map(z => snoRenderZone(map, z, (zone, layer, e) => {
           // Entréer och markörer läggs ofta inne i en zon: då räknas trycket som ett tryck på kartan
-          if (editShape || currentTool === 'pensel' || Date.now() < clickBlockUntil) { layer.closePopup(); return; }
-          if (drawingPoints.length > 0 || currentTool === 'entre' || toolDef().kind === 'marker') { layer.closePopup(); onMapClick(e); }
+          if (Date.now() < clickBlockUntil || (isArea() && instrument !== 'penna')) { layer.closePopup(); return; }
+          if (shapeChanged() || drawingPoints.length > 0 || MARKER_TYPES.includes(drawType)) { layer.closePopup(); onMapClick(e); }
           else selectZone(zone);
         }));
-        if (editShape && editShape.zone) {
-          const i = zones.findIndex(z => z.id === editShape.zone.id);
-          if (i >= 0) { map.removeLayer(zoneLayers[i]); editShape.hidden = zoneLayers[i]; }
+        if (shape && shape.zone) {
+          const i = zones.findIndex(z => z.id === shape.zone.id);
+          if (i >= 0) { map.removeLayer(zoneLayers[i]); shape.hidden = zoneLayers[i]; }
         }
         renderZoneList();
         renderAssignments();
@@ -472,11 +543,11 @@
       try {
         const res = await snoApi({ action: 'setSlingaDrivers', slinga, drivers: after });
         if (res.status !== 'success') throw new Error(res.message);
-        setStatus(`✅ ${snoEscape(slinga)}: ${after.length ? snoEscape(after.join(', ')) : 'ingen förare'}`);
+        mapToast(`✅ ${snoEscape(slinga)}: ${after.length ? snoEscape(after.join(', ')) : 'ingen förare'}`);
       } catch (err) {
         assignments[slinga] = before;
         renderAssignments();
-        setStatus('❌ Kunde inte spara tilldelningen. ' + snoEscape(err.message || ''));
+        mapToast('❌ Kunde inte spara tilldelningen. ' + snoEscape(err.message || ''), 5000);
       }
     }
 
@@ -498,33 +569,32 @@
 
     async function addGpsPoint() {
       if (gpsSamples) return;
-      if (currentTool === 'pensel') { setStatus('Penseln målas på kartan. Välj Handskottning för att gå runt ytan med GPS.'); return; }
-      selectZone(null);
+      if (isArea() && shape) { mapToast('📍 Spara eller avbryt ytan du ritar först – sedan kan du gå runt en ny med GPS.', 4000); return; }
+      if (selectedZone) selectZone(null);
       startGps();
-      const btn = document.getElementById('btn-gps');
-      btn.disabled = true;
+      const btn = () => document.getElementById('btn-gps');
+      if (btn()) btn().disabled = true;
       gpsSamples = [];
       const started = Date.now();
       // Fem sekunder; telefonen skickar sällan nya positioner när man står still – då gäller den senaste
       while (Date.now() - started < 5000 || (!gpsSamples.length && !myFix && Date.now() - started < 15000)) {
-        setStatus(`📡 Mäter… stå still (${Math.max(0, Math.ceil((5000 - (Date.now() - started)) / 1000))} s)`);
+        mapToast(`📡 Mäter… stå still (${Math.max(0, Math.ceil((5000 - (Date.now() - started)) / 1000))} s)`, 0);
         await new Promise(r => setTimeout(r, 250));
       }
       const samples = gpsSamples.length ? gpsSamples : (myFix ? [myFix] : []);
       gpsSamples = null;
-      btn.disabled = false;
-      if (!samples.length) { setStatus('Fick ingen GPS-position. Försök igen eller tryck på kartan.'); return; }
+      if (btn()) btn().disabled = false;
+      if (!samples.length) { mapToast('Fick ingen GPS-position. Försök igen eller tryck på kartan.', 4000); return; }
       let w = 0, lat = 0, lng = 0;
       samples.forEach(x => { const k = 1 / (x.acc * x.acc); w += k; lat += x.pos[0] * k; lng += x.pos[1] * k; });
       const point = [lat / w, lng / w];
       const acc = Math.round(samples.map(x => x.acc).sort((a, b) => a - b)[Math.floor(samples.length / 2)]);
-      if (currentTool === 'entre') drawingPoints = squareAround(point, ENTRE_SIZE);
-      else if (toolDef().kind === 'marker') drawingPoints = [point];
-      else drawingPoints.push(point);
-      setStatus('');
-      drawPreview();
       map.setView(point, Math.max(map.getZoom(), 18));
-      setStatus((document.getElementById('status').innerHTML || `${drawingPoints.length} punkter`) + ` · senaste ±${acc} m${toolDef().kind === 'marker' || currentTool === 'entre' ? '' : ' – gå till nästa hörn'}`);
+      if (drawType === 'entre') { applyShapeOp([squareAround(point, ENTRE_SIZE)], false); return; }
+      if (toolDef().kind === 'marker') drawingPoints = [point];
+      else drawingPoints.push(point);
+      drawPreview();
+      mapToast(`📍 Punkt ±${acc} m${toolDef().kind === 'marker' ? '' : ' – gå till nästa hörn'}`, 4000);
     }
 
     // ---------- FÖRSLAG FRÅN KARTAN (OpenStreetMap) ----------
@@ -568,6 +638,7 @@
           <span class="sugg-num">${i + 1}</span>
           <span onclick="showSuggestion(${i})">${sg.icon} ${snoEscape(sg.what)} <small>${sg.size ? sg.size + ' ' : ''}→ ${SNO_TYPES[sg.type].label}</small></span>
           <button onclick="takeSuggestion(${i})">Ta med</button><button onclick="dropSuggestion(${i})" title="Inte aktuell">✕</button></div>`).join('');
+      document.getElementById('sugg-empty').style.display = suggestions.length ? 'none' : 'block';
     }
 
     function showSuggestion(i) {
@@ -586,16 +657,17 @@
 
     function takeSuggestion(i) {
       const sg = suggestions[i];
-      if (editShape) { mapToast('Spara eller avbryt formen du ändrar först.'); return; }
+      if (shapeChanged() || drawingPoints.length) { mapToast('Spara eller avbryt det du ritar först.'); return; }
       selectZone(null);
-      setTool(sg.type);
-      drawingPoints = sg.coords.slice();
-      drawPreview();
+      cancelDrawing();
+      drawType = sg.type;
+      instrument = 'penna';
+      // Ytor går direkt att rätta med pennan, sudden och hörnen innan de sparas
+      if (SNO_TYPES[sg.type].kind === 'polygon' && sg.coords.length >= 3) startShape({ type: sg.type, zone: null, polys: [sg.coords.map(c => [c[0], c[1]])] });
+      else { drawingPoints = sg.coords.slice(); drawPreview(); }
+      renderDock();
       dropSuggestion(i);
-      setStatus(`${sg.icon} ${snoEscape(sg.what)} inlagd som ${SNO_TYPES[sg.type].label.toLowerCase()}. Fyll i adress och tryck <b>Spara zon</b>.`);
-      // Ytor går direkt till Ändra form, så att förslaget kan rättas med pennan innan det sparas
-      if (SNO_TYPES[sg.type].kind === 'polygon' && sg.coords.length >= 3) startEdit();
-      if (!document.getElementById('f-property').value) document.getElementById('f-property').focus();
+      setStatus(`${sg.icon} ${snoEscape(sg.what)} inlagd som ${SNO_TYPES[sg.type].label.toLowerCase()}. Rätta vid behov och tryck <b>💾 Spara zon</b>.`);
     }
 
     // ---------- HELSKÄRM ----------
@@ -623,7 +695,6 @@
     //  • Sträcka: dra linjen.  • Markörer/entré: ett tryck, som förut.
     //  • 🖌️ Pensel: måla handskottning; dragen slås ihop till ytor (utan penna målar fingret).
     let penSeen = false, stroke = null, strokeLayer = null, clickBlockUntil = 0;
-    let brushStrokes = [], brushPolys = [], brushLayers = [];
 
     let toastTimer = null;
     function mapToast(html, ms) {
@@ -634,11 +705,9 @@
     }
 
     function penMode() {
-      if (editShape) return editShape.pen === 'brush' ? 'brush' : 'lasso';
-      if (currentTool === 'pensel') return 'brush';
-      if (currentTool === 'entre') return null;
-      const k = toolDef().kind;
-      return k === 'polygon' ? 'lasso' : k === 'line' ? 'line' : null;
+      if (MARKER_TYPES.includes(drawType)) return null;
+      if (toolDef().kind === 'line') return 'line';
+      return instrument === 'pensel' || (instrument === 'sudd' && eraseW !== 'lasso') ? 'brush' : 'lasso';
     }
 
     // Lokala meter kring en punkt (räcker för en fastighet)
@@ -733,28 +802,17 @@
         .filter(p => p.coords.length >= 3 && p.area >= 0.5);
     }
 
-    function updateBrush(clearOnly) {
-      brushLayers.forEach(l => map.removeLayer(l)); brushLayers = [];
-      brushPolys = clearOnly ? [] : brushToPolygons(brushStrokes);
-      updateEditButton();
-      const c = SNO_TYPES.hand.color;
-      brushLayers = brushPolys.map(p => L.polygon(p.coords, { color: c, fillColor: c, fillOpacity: 0.4, weight: 2, dashArray: '6 6', interactive: false }).addTo(map));
-      if (clearOnly) return;
-      const total = brushPolys.reduce((s, p) => s + p.area, 0);
-      if (brushStrokes.length) mapToast(`🖌️ <b>${Math.round(total).toLocaleString('sv-SE')} m²</b>${brushPolys.length > 1 ? ` i ${brushPolys.length} ytor` : ''}<br><small>Måla mer – eller tryck <b>💾 Spara zon</b></small>`, 5000);
-      setStatus(brushStrokes.length ? `🖌️ ${brushStrokes.length} drag · <b>${Math.round(total).toLocaleString('sv-SE')} m²</b>${brushPolys.length > 1 ? ` i ${brushPolys.length} ytor` : ''} – måla mer eller tryck <b>Spara zon</b>.` : 'Måla gångytorna med pennan.');
-    }
-
-    // Penselns bredd i pixlar på aktuell zoomnivå
+    // Penselns/suddens bredd i pixlar på aktuell zoomnivå
     const metersToPx = (m) => m / (40075016.686 * Math.cos(map.getCenter().lat * Math.PI / 180) / Math.pow(2, map.getZoom() + 8));
+    const strokeWidth = () => instrument === 'sudd' ? eraseW : brushW;
 
     function drawStroke() {
       if (strokeLayer) map.removeLayer(strokeLayer);
       const lls = stroke.pts.map(p => map.containerPointToLatLng(p));
-      const col = isErasing() ? '#dc2626' : editShape ? SNO_TYPES[editShape.type].color : null;
+      const col = stroke.erase ? '#dc2626' : (toolDef().color || '#fff');
       strokeLayer = stroke.mode === 'brush'
-        ? L.polyline(lls, { color: col || SNO_TYPES.hand.color, opacity: 0.6, weight: Math.max(3, metersToPx(brushW)), lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map)
-        : L.polyline(lls, { color: col || toolDef().color || '#fff', weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map);
+        ? L.polyline(lls, { color: col, opacity: 0.6, weight: Math.max(3, metersToPx(stroke.w)), lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map)
+        : L.polyline(lls, { color: col, weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false, dashArray: stroke.erase ? '8 6' : null }).addTo(map);
     }
 
     function endStroke(save) {
@@ -763,31 +821,23 @@
       map.dragging.enable(); map.touchZoom.enable();
       if (!save || !st) return;
       const lls = st.pts.map(p => { const ll = map.containerPointToLatLng(p); return [ll.lat, ll.lng]; });
-      if (editShape) {
-        if (st.mode === 'brush') { clickBlockUntil = Date.now() + 400; applyEditOp(brushToPolygons([{ pts: st.moved ? simplifyLL(lls, 0.05, false) : [lls[0]], w: brushW }]).map(p => p.coords)); return; }
-        if (!st.moved) { document.getElementById('map-toast').classList.remove('show'); return; }
-        clickBlockUntil = Date.now() + 400;
-        const ring = simplifyLL(lls, 0.3, true);
-        if (ring.length < 3) { mapToast('⚠️ För liten – ringa in hela biten och lyft pennan.'); return; }
-        applyEditOp([ring]);
-        return;
-      }
       if (st.mode === 'brush') {
         clickBlockUntil = Date.now() + 400;
-        brushStrokes.push({ pts: st.moved ? simplifyLL(lls, 0.05, false) : [lls[0]], w: brushW, erase: brushErase });
-        updateBrush();
+        applyShapeOp(brushToPolygons([{ pts: st.moved ? simplifyLL(lls, 0.05, false) : [lls[0]], w: st.w }]).map(p => p.coords), st.erase);
         return;
       }
-      if (!st.moved) { document.getElementById('map-toast').classList.remove('show'); return; } // ett tryck: kartans vanliga klick lägger punkten
+      if (!st.moved) { document.getElementById('map-toast').classList.remove('show'); return; } // ett tryck: kartans vanliga klick
       clickBlockUntil = Date.now() + 400;
-      const pts = simplifyLL(lls, 0.3, st.mode === 'lasso');
-      if (st.mode === 'lasso' && pts.length < 3) { mapToast('⚠️ För liten – ringa in hela ytan och lyft pennan.'); return; }
-      selectZone(null);
-      drawingPoints = pts;
-      drawPreview();
-      mapToast(st.mode === 'lasso'
-        ? `✅ ${toolDef().label} inringad · <b>${Math.round(snoGeodesicArea(pts)).toLocaleString('sv-SE')} m²</b><br><small>Tryck <b>💾 Spara zon</b> – eller ringa in igen</small>`
-        : `✅ Sträcka · <b>${snoFormatDistance(snoLineLength(pts))}</b><br><small>Tryck <b>💾 Spara zon</b></small>`, 6000);
+      if (st.mode === 'line') {
+        const pts = simplifyLL(lls, 0.3, false);
+        drawingPoints = pts;
+        drawPreview();
+        mapToast(`✅ Sträcka · <b>${snoFormatDistance(snoLineLength(pts))}</b><br><small>Tryck <b>💾 Spara zon</b></small>`, 5000);
+        return;
+      }
+      const ring = simplifyLL(lls, 0.3, true);
+      if (ring.length < 3) { mapToast('⚠️ För liten – ringa in hela biten och lyft pennan.'); return; }
+      applyShapeOp([ring], st.erase);
     }
 
     function setupPen() {
@@ -797,7 +847,7 @@
       el.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'pen') penSeen = true;
         if (stroke) { if (e.pointerType === 'touch' && stroke.type === 'touch') endStroke(false); return; } // två fingrar = zooma
-        if (e.target.closest('.leaflet-control, .edit-handle, .edit-mid')) return; // hörnhandtagen dras av Leaflet
+        if (e.target.closest('.leaflet-control, .edit-handle, .edit-mid, .tool-dock')) return; // hörnen dras av Leaflet
         // Medan kundkartan justeras flyttar pennan kundkartan – säg det, så att det inte ser ut som att ritningen tappades
         if (kk.adjusting) { if (e.pointerType === 'pen' && penMode()) mapToast('✋ Du justerar kundkartan.<br><small>Tryck <b>💾 Spara läge</b> (eller ✕ Avbryt) för att börja rita.</small>', 4000); return; }
         const mode = penMode();
@@ -805,12 +855,13 @@
         const draws = e.pointerType === 'pen' || (mode === 'brush' && (e.pointerType === 'mouse' || !penSeen));
         if (!draws) return;
         map.dragging.disable(); map.touchZoom.disable(); // handflatan mot skärmen ska inte zooma
-        if (selectedZone && !editShape) selectZone(null); // en vald zon ska inte hindra att man ritar en ny
-        stroke = { id: e.pointerId, type: e.pointerType, mode, moved: false, pts: [map.mouseEventToContainerPoint(e)] };
+        if (selectedZone && !shape) selectZone(null); // en vald markör ska inte hindra att man ritar
+        const erase = instrument === 'sudd' && mode !== 'line';
+        stroke = { id: e.pointerId, type: e.pointerType, mode, erase, w: strokeWidth(), moved: false, pts: [map.mouseEventToContainerPoint(e)] };
         try { el.setPointerCapture(e.pointerId); } catch (err) { /* äldre webbläsare */ }
         if (mode === 'brush') drawStroke();
-        else if (e.pointerType === 'pen' && editShape) mapToast(editShape.op === 'sub' ? '➖ Ringa in det som ska bort – lyft pennan' : '➕ Ringa in det som ska läggas till – lyft pennan', 0);
-        else if (e.pointerType === 'pen') mapToast(mode === 'lasso' ? `✏️ Ringa in ${toolDef().label.toLowerCase()} – lyft pennan när du är runt` : '✏️ Dra sträckan – lyft pennan när du är klar', 0);
+        else if (e.pointerType === 'pen') mapToast(mode === 'line' ? '✏️ Dra sträckan – lyft pennan när du är klar'
+          : erase ? '🧽 Ringa in det som ska bort – lyft pennan' : `✏️ Ringa in ${toolDef().label.toLowerCase()} – lyft pennan när du är runt`, 0);
       }, true);
       el.addEventListener('pointermove', (e) => {
         if (!stroke || e.pointerId !== stroke.id) return;
@@ -824,153 +875,113 @@
       el.addEventListener('pointercancel', (e) => { if (stroke && e.pointerId === stroke.id) endStroke(false); }, true);
     }
 
-    // ---------- ÄNDRA FORM ----------
-    // En zon (sparad, förslag eller nyss ritad) kan rättas: pennan ➕ lägger till / ➖ suddar det man ringar in
-    // eller målar med penseln, hörnen dras med penna eller finger, tryck på ett hörn tar bort det och
-    // tryck på en kantprick lägger till ett. Ytorna slås ihop/skärs med polygon-clipping (i meter kring zonen).
-    let editShape = null, editLayers = [], editHandles = [];
-    let brushErase = false;
-    const isErasing = () => editShape ? editShape.op === 'sub' : (currentTool === 'pensel' && brushErase);
-    function setErase(on) {
-      if (editShape) editShape.op = on ? 'sub' : 'add'; else brushErase = on;
-      renderTools(); if (editShape) renderEditBar();
-    }
+    // ---------- YTAN SOM RITAS ----------
+    // Allt man ritar på en yta hamnar här: pennan/penseln lägger till, sudden skär bort, hörnen dras.
+    // Ytorna slås ihop/skärs med polygon-clipping (i meter kring ytan). Blir den uppdelad sparas varje del som en zon.
+    let shape = null, shapeLayers = [], shapeHandles = [];
+    const shapeChanged = () => !!shape && (!shape.zone || shape.history.length > 0);
+    const shapeArea = () => shape ? shape.polys.reduce((s, p) => s + snoGeodesicArea(p), 0) : 0;
 
-    function canEditShape() {
-      if (editShape) return false;
-      if (selectedZone) return snoZoneKind(selectedZone) === 'polygon' && (selectedZone.coords || []).length >= 3;
-      if (currentTool === 'pensel') return brushPolys.length > 0;
-      return currentTool !== 'entre' ? toolDef().kind === 'polygon' && drawingPoints.length >= 3 : drawingPoints.length >= 3;
-    }
-    function updateEditButton() {
-      const b = document.getElementById('btn-edit');
-      if (b) b.style.display = canEditShape() ? 'block' : 'none';
-    }
-
-    function startEdit() {
-      if (editShape || !canEditShape()) return;
-      const zone = selectedZone;
-      const shape = { zone, op: 'add', history: [], hidden: null, fromEntre: currentTool === 'entre' };
-      if (zone) { shape.type = zone.type; shape.polys = [zone.coords.map(c => [c[0], c[1]])]; }
-      else if (currentTool === 'pensel') { shape.type = 'hand'; shape.polys = brushPolys.map(p => p.coords); }
-      else { shape.type = toolType(); shape.polys = [drawingPoints.slice()]; }
-      shape.pen = currentTool === 'pensel' ? 'brush' : 'lasso';
-      // Rensa ritningen utan att släppa vald zon
-      drawingPoints = []; brushStrokes = []; updateBrush(true);
-      if (previewLayer) { map.removeLayer(previewLayer); previewLayer = null; }
-      editShape = shape;
-      if (zone) {
-        const i = zones.indexOf(zone);
+    function startShape(s) {
+      endShape(true);
+      shape = { history: [], hidden: null, fromEntre: false, tooMany: false, ...s };
+      if (s.zone) {
+        const i = zones.findIndex(z => z.id === s.zone.id);
         if (i >= 0 && zoneLayers[i]) { map.removeLayer(zoneLayers[i]); shape.hidden = zoneLayers[i]; }
       }
-      map.on('moveend', renderEditHandles);
-      renderEdit();
-      mapToast('✏️ Ändra formen<br><small>Pennan: ringa in för att <b>➕ lägga till</b> eller <b>➖ sudda</b> · dra i hörnen</small>', 5000);
+      map.on('moveend', renderShapeHandles);
+      renderShape();
     }
 
-    function endEdit(restore) {
-      if (!editShape) return;
-      if (restore && editShape.hidden) editShape.hidden.addTo(map);
-      editLayers.forEach(l => map.removeLayer(l)); editLayers = [];
-      editHandles.forEach(h => map.removeLayer(h)); editHandles = [];
-      map.off('moveend', renderEditHandles);
-      editShape = null;
-      document.getElementById('edit-bar').style.display = 'none';
-      document.getElementById('edit-fab').style.display = 'none';
-      renderTools(); updateEditButton();
+    function endShape(restore) {
+      if (!shape) return;
+      if (restore && shape.hidden) shape.hidden.addTo(map);
+      shapeLayers.forEach(l => map.removeLayer(l)); shapeLayers = [];
+      shapeHandles.forEach(h => map.removeLayer(h)); shapeHandles = [];
+      map.off('moveend', renderShapeHandles);
+      shape = null;
+      renderZoneCard();
     }
 
-    const editArea = () => editShape.polys.reduce((s, p) => s + snoGeodesicArea(p), 0);
-    function pushEditHistory() {
-      editShape.history.push(editShape.polys.map(p => p.map(c => [c[0], c[1]])));
-      if (editShape.history.length > 40) editShape.history.shift();
+    function pushShapeHistory() {
+      shape.history.push(shape.polys.map(p => p.map(c => [c[0], c[1]])));
+      if (shape.history.length > 40) shape.history.shift();
     }
-    function undoEdit() {
-      if (!editShape || !editShape.history.length) { mapToast('Inget att ångra.'); return; }
-      editShape.polys = editShape.history.pop();
-      renderEdit();
+    function undoShape() {
+      shape.polys = shape.history.pop();
+      renderShape();
     }
 
-    // Slå ihop (➕) eller skär bort (➖) de nya bitarna från zonen
-    function applyEditOp(shapes) {
-      shapes = shapes.filter(c => c.length >= 3);
-      if (!shapes.length || typeof polygonClipping === 'undefined') { if (typeof polygonClipping === 'undefined') mapToast('⚠️ Ritverktyget laddades inte – ladda om sidan.'); return; }
-      const before = editShape.polys, f = meterFrame((before[0] || shapes[0])[0]);
+    // Lägg till (eller skär bort) bitar. quiet = ingen kvittens (när utprickade hörn läggs in vid Spara).
+    function applyShapeOp(pieces, erase, quiet) {
+      pieces = (pieces || []).filter(c => c && c.length >= 3);
+      if (!pieces.length) return;
+      if (typeof polygonClipping === 'undefined') { mapToast('⚠️ Ritverktyget laddades inte – ladda om sidan.'); return; }
+      if (erase && !shape) { mapToast('🧽 Inget att sudda här.<br><small>Rita en yta, ta med ett förslag eller tryck på en sparad zon först.</small>', 4000); return; }
+      if (!shape) startShape({ type: toolType(), zone: null, polys: [], fromEntre: drawType === 'entre' });
+      // Utprickade hörn följer med när man fortsätter med pennan
+      if (!erase && isArea() && drawingPoints.length >= 3) { pieces.push(drawingPoints.slice()); drawingPoints = []; drawPreview(); }
+      const before = shape.polys, f = meterFrame((before[0] || pieces[0])[0]);
       const geom = (polys) => polys.map(p => [p.map(f.xy)]);
-      const sub = editShape.op === 'sub';
       let res;
-      try { res = sub ? polygonClipping.difference(geom(before), geom(shapes)) : polygonClipping.union(geom(before), geom(shapes)); }
+      try { res = erase ? polygonClipping.difference(geom(before), geom(pieces)) : polygonClipping.union(geom(before), geom(pieces)); }
       catch (err) { mapToast('⚠️ Det gick inte att räkna ut – försök igen.'); return; }
       if (res.some(poly => poly.length > 1)) {
-        mapToast(sub ? '⚠️ Det blir ett hål mitt i zonen – det går inte att spara.<br><small>Sudda in från kanten i stället.</small>'
-                     : '⚠️ Det blir ett hål mitt i zonen – det går inte att spara.<br><small>Ta med hela ytan, eller rita två zoner.</small>', 5000);
+        mapToast(erase ? '⚠️ Det blir ett hål mitt i zonen – det går inte att spara.<br><small>Sudda in från kanten i stället.</small>'
+                       : '⚠️ Det blir ett hål mitt i zonen – det går inte att spara.<br><small>Ta med hela ytan, eller rita två zoner.</small>', 5000);
+        if (!before.length && !shape.zone) endShape(false);
         return;
       }
-      const a0 = editArea();
-      pushEditHistory();
-      editShape.polys = res.map(poly => simplifyLL(poly[0].slice(0, -1).map(f.ll), 0.1, true))
-        .filter(c => c.length >= 3 && snoGeodesicArea(c) >= 0.5);
-      renderEdit();
-      const d = Math.round(editArea() - a0);
-      mapToast(`${sub ? '➖' : '➕'} ${d >= 0 ? '+' : '−'}${Math.abs(d).toLocaleString('sv-SE')} m² · nu <b>${Math.round(editArea()).toLocaleString('sv-SE')} m²</b>` +
-        (editShape.polys.length > 1 ? `<br><small>${editShape.polys.length} delar – sparas som ${editShape.polys.length} zoner</small>` : '<br><small>Fortsätt, eller tryck <b>💾 Spara</b></small>'), 4000);
+      const a0 = shapeArea();
+      if (before.length || shape.zone) pushShapeHistory();
+      shape.polys = res.map(poly => simplifyLL(poly[0].slice(0, -1).map(f.ll), 0.1, true)).filter(c => c.length >= 3 && snoGeodesicArea(c) >= 0.5);
+      renderShape();
+      if (quiet) return;
+      const d = Math.round(shapeArea() - a0), n = shape.polys.length;
+      mapToast(`${erase ? '🧽' : '✅'} ${d >= 0 ? '+' : '−'}${Math.abs(d).toLocaleString('sv-SE')} m² · nu <b>${fmtM2(shapeArea())}</b>` +
+        (n > 1 ? `<br><small>${n} delar – sparas som ${n} zoner</small>` : '<br><small>Fortsätt – eller tryck <b>💾 Spara</b></small>'), 4000);
     }
 
-    function renderEdit() {
-      editLayers.forEach(l => map.removeLayer(l)); editLayers = [];
-      if (!editShape) return;
-      const c = SNO_TYPES[editShape.type].color || '#2563eb';
-      editLayers = editShape.polys.map(p => L.polygon(p, { color: c, fillColor: c, fillOpacity: 0.35, weight: 3, interactive: false }).addTo(map));
-      renderEditHandles();
-      renderEditBar();
+    function renderShape() {
+      shapeLayers.forEach(l => map.removeLayer(l)); shapeLayers = [];
+      if (!shape) { renderZoneCard(); return; }
+      const c = SNO_TYPES[shape.type].color || '#2563eb';
+      shapeLayers = shape.polys.map(p => L.polygon(p, { color: c, fillColor: c, fillOpacity: 0.35, weight: 3, interactive: false }).addTo(map));
+      renderShapeHandles();
+      renderZoneCard();
     }
 
-    function renderEditHandles() {
-      editHandles.forEach(h => map.removeLayer(h)); editHandles = [];
-      if (!editShape) return;
+    function renderShapeHandles() {
+      shapeHandles.forEach(h => map.removeLayer(h)); shapeHandles = [];
+      if (!shape) return;
       const view = map.getBounds().pad(0.2), vis = [];
-      editShape.polys.forEach((p, pi) => p.forEach((ll, vi) => { if (view.contains(ll)) vis.push([pi, vi]); }));
-      editShape.tooMany = vis.length > 150;
-      if (editShape.tooMany) { renderEditBar(); return; } // för många hörn i bild – zooma in
+      shape.polys.forEach((p, pi) => p.forEach((ll, vi) => { if (view.contains(ll)) vis.push([pi, vi]); }));
+      const tooMany = vis.length > 150;
+      if (tooMany !== shape.tooMany) { shape.tooMany = tooMany; renderZoneCard(); }
+      if (tooMany) return; // för många hörn i bild – zooma in
       const icon = (cls, size) => L.divIcon({ className: cls, iconSize: [size, size] });
       vis.forEach(([pi, vi]) => {
-        const poly = editShape.polys[pi];
+        const poly = shape.polys[pi];
         const h = L.marker(poly[vi], { draggable: true, icon: icon('edit-handle', 22), zIndexOffset: 2000, keyboard: false });
-        h.on('dragstart', pushEditHistory);
-        h.on('drag', (e) => { const ll = e.target.getLatLng(); poly[vi] = [ll.lat, ll.lng]; editLayers[pi].setLatLngs(poly); });
-        h.on('dragend', renderEdit);
+        h.on('dragstart', pushShapeHistory);
+        h.on('drag', (e) => { const ll = e.target.getLatLng(); poly[vi] = [ll.lat, ll.lng]; shapeLayers[pi].setLatLngs(poly); });
+        h.on('dragend', renderShape);
         h.on('click', () => {
           if (poly.length <= 3) { mapToast('En yta behöver minst 3 hörn.'); return; }
-          pushEditHistory(); poly.splice(vi, 1); renderEdit();
+          pushShapeHistory(); poly.splice(vi, 1); renderShape();
         });
-        editHandles.push(h.addTo(map));
+        shapeHandles.push(h.addTo(map));
         // Kantprick mitt på kanten till nästa hörn (bara där kanten syns ordentligt)
         const nx = poly[(vi + 1) % poly.length];
         if (map.latLngToContainerPoint(poly[vi]).distanceTo(map.latLngToContainerPoint(nx)) < 44) return;
         const mid = [(poly[vi][0] + nx[0]) / 2, (poly[vi][1] + nx[1]) / 2];
         const m = L.marker(mid, { draggable: true, icon: icon('edit-mid', 16), zIndexOffset: 1900, keyboard: false });
-        m.on('dragstart', () => { pushEditHistory(); poly.splice(vi + 1, 0, mid.slice()); });
-        m.on('drag', (e) => { const ll = e.target.getLatLng(); poly[vi + 1] = [ll.lat, ll.lng]; editLayers[pi].setLatLngs(poly); });
-        m.on('dragend', renderEdit);
-        m.on('click', () => { pushEditHistory(); poly.splice(vi + 1, 0, mid.slice()); renderEdit(); });
-        editHandles.push(m.addTo(map));
+        m.on('dragstart', () => { pushShapeHistory(); poly.splice(vi + 1, 0, mid.slice()); });
+        m.on('drag', (e) => { const ll = e.target.getLatLng(); poly[vi + 1] = [ll.lat, ll.lng]; shapeLayers[pi].setLatLngs(poly); });
+        m.on('dragend', renderShape);
+        m.on('click', () => { pushShapeHistory(); poly.splice(vi + 1, 0, mid.slice()); renderShape(); });
+        shapeHandles.push(m.addTo(map));
       });
-    }
-
-    function renderEditBar() {
-      if (!editShape) return;
-      const sub = editShape.op === 'sub', n = editShape.polys.length;
-      const opBtns = `<button class="${!sub ? 'active' : ''}" onclick="setErase(false)">➕ Lägg till</button><button class="sub ${sub ? 'active' : ''}" onclick="setErase(true)">➖ Sudda</button>`;
-      const bar = document.getElementById('edit-bar');
-      bar.style.display = 'flex';
-      bar.innerHTML = `<div>✏️ <b>Ändrar formen</b> · ${SNO_TYPES[editShape.type].label} · <b>${Math.round(editArea()).toLocaleString('sv-SE')} m²</b>${n > 1 ? ` i ${n} delar` : ''}${!n ? ' – allt suddat' : ''}</div>
-        <div class="seg">${opBtns}</div>
-        <div class="status" style="font-size:12px">${editShape.pen === 'brush' ? `🖌️ Pennan målar ${String(brushW).replace('.', ',')} m bred – välj Maskinzon/Handskottning för att ringa in i stället.` : '✏️ Pennan ringar in – välj 🖌️ Pensel för att måla i stället. Typen byts med verktygsknapparna.'}
-          ${editShape.tooMany ? '<br>🔍 Zooma in för att se hörnen.' : '<br>Dra i hörnen. Tryck på ett hörn = ta bort det, tryck på en kantprick = nytt hörn.'}</div>`;
-      const fab = document.getElementById('edit-fab');
-      fab.style.display = 'flex';
-      fab.innerHTML = opBtns + '<button onclick="undoEdit()">↶ Ångra</button>';
-      setStatus(`✏️ Ändra formen och tryck <b>💾 ${editShape.zone ? 'Spara ändringar' : 'Spara zon'}</b> – eller ✕ Avbryt.`);
     }
 
     // ---------- FASTIGHETER OCH KUNDENS KARTA ----------
@@ -1037,7 +1048,7 @@
       document.getElementById('f-fastighet').value = propLabel(p);
       document.getElementById('f-slinga').value = '';
       document.getElementById('f-note').value = '';
-      clearSuggestionLayers(); suggestions = []; document.getElementById('sugg-list').innerHTML = '';
+      suggestions = []; renderSuggestions();
       chooseProperty(propLabel(p));
     }
 
@@ -1403,7 +1414,8 @@
     ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, onFullscreenChange));
     document.getElementById('sno-legend').innerHTML = snoLegendHtml();
     if (!snoIsAdmin()) document.getElementById('admin-banner').style.display = 'block';
-    renderTools();
+    renderDock(); renderZoneCard();
+    try { setTab(localStorage.getItem('lpv_zon_flik') || 'fastighet'); } catch (e) { setTab('fastighet'); }
     loadZones();
     if (snoIsAdmin()) { loadStaff(); loadProperties(); }
   </script>

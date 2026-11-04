@@ -317,17 +317,19 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] **Flera hjälps åt:** välj **Mitt område** → nästa fastighet stannar i området; den som en annan har öppen visas med 🔒 och hoppas över (släpps efter 30 min eller vid Klar/Senare)
 - [ ] **✅ Klar – nästa** / **⏭ Senare – nästa** → hoppar till nästa fastighet; de överhoppade kommer sist; "x av 74 klara" stämmer
 
-### 8d. Ändra form (iPad med Apple Pencil, admin)
-- [ ] Förslag → **Ta med** på en yta → går direkt till ✏️ Ändra form (vita hörn, ram i panelen, ➕/➖/↶ nere till höger på kartan)
-- [ ] **➕ Lägg till:** ringa in en bit som saknas med pennan → ytan växer, m² visas
-- [ ] **➖ Sudda:** ringa in gräs från kanten → biten försvinner; skär man rakt igenom blir det 2 delar (sparas som 2 zoner)
-- [ ] Sudda en bit mitt i (hål) → varning, inget ändras
-- [ ] Välj **🖌️ Pensel** under ändring → pennan målar till/suddar med penselbredd
-- [ ] Byt **Maskinzon ↔ Handskottning** under ändring → typen byts, formen ligger kvar
-- [ ] Dra ett hörn (penna och finger) · tryck på ett hörn = bort · tryck/dra en kantprick = nytt hörn · fingrar flyttar kartan
-- [ ] **↶ Ångra** stegvis · **✕ Avbryt** → sparad zon ser ut som förut
-- [ ] Sparad zon → tryck på den → **✏️ Ändra form** → ändra → **💾 Spara ändringar** → rätt efter omladdning
-- [ ] Pensel utan ändra-läge: **➖ Sudda** i penselraden tar bort det man målat för mycket
+### 8d. Ny meny och verktygslåda (iPad med Apple Pencil, admin)
+- [ ] Panelen: fast sidhuvud med område + fastighet och flikarna **🏠 Fastighet / 🗂️ Zoner / 👷 Förare**; vald flik ligger kvar efter omladdning
+- [ ] **Verktygslådan nere till höger:** typ (Maskin/Hand/Upplag/Sträcka/📍 Markör ▾) och instrument (✏️ Penna / 🖌️ Pensel / 🧽 Sudd), bredder när pensel/sudd är vald, 📍 GPS och ↶ Ångra
+- [ ] **✏️ Penna:** ringa in → ytan syns med vita hörn; ringa in en bit till → slås ihop
+- [ ] **🖌️ Pensel:** måla → läggs till med vald bredd (1/1,5/2 m)
+- [ ] **🧽 Sudd:** ringa in (eller sudda med 1/2/4 m) från kanten → biten försvinner; rakt igenom → 2 delar (sparas som 2 zoner); hål mitt i → varning
+- [ ] Byt **Maskin ↔ Hand** med en yta på gång → typen byts, formen ligger kvar
+- [ ] Hörnen: dra (penna/finger) · tryck = ta bort · kantprick = nytt hörn · fingrar flyttar kartan
+- [ ] **Ta med** ett förslag → kan rättas direkt med penna/sudd/hörn → 💾 Spara
+- [ ] Tryck på en **sparad zon** → kan ändras direkt → **💾 Spara ändringar**; **✕ Avbryt** → som förut
+- [ ] **📍 Markör ▾ → 🚪 Entré:** tryck vid två dörrar → 2 ytor à 9 m² → Spara ger 2 zoner
+- [ ] Markör (brunn m.m.) med en osparad yta → "Spara eller avbryt först"
+- [ ] Utan penna: tryck ut hörnen med fingret, eller 📍 GPS-punkter; penseln målar med fingret
 
 ## 9. Snöjour – förarens vy (telefon)
 
