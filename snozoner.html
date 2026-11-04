@@ -1127,7 +1127,7 @@
       if (p.note && !document.getElementById('f-note').value) document.getElementById('f-note').placeholder = p.note;
       if (p.lat !== null) map.setView([p.lat, p.lng], 18);
       setPropPin(p);
-      kk.idx = 0;
+      kk.prop = p; kk.idx = 0;
       showCustomerMap();
     }
 
@@ -1148,7 +1148,10 @@
       propPin = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'prop-pin', html, iconSize: [30, 40], iconAnchor: [15, 39] }), interactive: false, keyboard: false, zIndexOffset: 2000 }).addTo(map);
     }
 
-    const kkMap = () => currentProp && currentProp.maps && currentProp.maps[kk.idx];
+    // Den aktiva kundkartan kan höra till den öppna fastigheten eller till en ibockad granne
+    const kp = () => kk.prop || currentProp;
+    const kkMap = () => { const p = kp(); return p && p.maps && p.maps[kk.idx]; };
+    const hiddenMaps = new Set(); // kundkartor som är dolda (👁/🙈), per karta
 
     function removeCustomerMap() {
       if (kk.layer) map.removeLayer(kk.layer);
@@ -1165,7 +1168,7 @@
       img.onload = () => {
         kk.W = img.naturalWidth; kk.H = img.naturalHeight;
         // Första gången: mitt på fastigheten, ca 150 m bred (LandInfo-kartorna visar mer omgivning)
-        kk.place = m.place ? { ...m.place } : { c: currentProp.lat !== null ? [currentProp.lat, currentProp.lng] : [map.getCenter().lat, map.getCenter().lng], w: /LandInfo/.test(m.label) ? 140 : 160, rot: 0 };
+        kk.place = m.place ? { ...m.place } : { c: hasPos(kp()) ? [kp().lat, kp().lng] : [map.getCenter().lat, map.getCenter().lng], w: /LandInfo/.test(m.label) ? 140 : 160, rot: 0 };
         kk.layer = new KundOverlay(m.url).addTo(map);
         if (!m.place) startAdjust();
         renderKkCard();
@@ -1206,7 +1209,7 @@
         const p = (ll) => this._map.latLngToLayerPoint(ll);
         const tl = p(c.tl), tr = p(c.tr), bl = p(c.bl);
         this._img.style.transform = `matrix(${(tr.x - tl.x) / st.W},${(tr.y - tl.y) / st.W},${(bl.x - tl.x) / st.H},${(bl.y - tl.y) / st.H},${tl.x},${tl.y})`;
-        this._img.style.opacity = kk.hidden ? 0 : kk.opacity;
+        this._img.style.opacity = hiddenMaps.has(st === kk ? (kkMap() || {}).id : st.mapId) ? 0 : kk.opacity;
         this._img.style.visibility = 'visible';
       }
     });
@@ -1328,7 +1331,7 @@
       const m = kkMap();
       const place = { ...kk.place, ...(() => { const c = kkCorners(kk.place); return { tl: c.tl, tr: c.tr, bl: c.bl }; })() };
       try {
-        const res = await snoApi({ action: 'savePropertyMapPlace', id: currentProp.id, mapId: m.id, place });
+        const res = await snoApi({ action: 'savePropertyMapPlace', id: kp().id, mapId: m.id, place });
         if (res.status !== 'success') throw new Error(res.message);
         m.place = res.place; kk.place = { ...res.place }; kk.dirty = false; kk.adjusting = false;
         placeHandles(); applyGestureMode(); renderKkCard();
@@ -1360,7 +1363,7 @@
         mapToast(msg, 6000);
       };
       try {
-        const res = await snoApi({ action: 'analyzePropertyMap', id: currentProp.id, mapId: m.id });
+        const res = await snoApi({ action: 'analyzePropertyMap', id: kp().id, mapId: m.id });
         if (res.status !== 'success') throw new Error(res.message);
         const c = m.place;
         const toLL = ([y, x]) => [c.tl[0] + (c.tr[0] - c.tl[0]) * x / 1000 + (c.bl[0] - c.tl[0]) * y / 1000,
@@ -1403,7 +1406,7 @@
       if (!currentProp) { el.style.display = 'none'; return; }
       el.style.display = 'flex';
       if (!m) { el.innerHTML = `<div class="slinga-card-head"><span>🏠 ${snoEscape(currentProp.address)}</span><span>${pinBtn()}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${neighborsHtml()}${progressHtml()}`; return; }
-      const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); kk.hidden=false; updateOverlays()" onchange="renderKkCard()"></div>`;
+      const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" onchange="renderKkCard()"></div>`;
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span>✋ Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Gesterna styr <b>${kk.gestures === 'kk' ? '🗺️ kundkartan' : '🛰️ satellitbilden'}</b> – byt med knappen till vänster på kartan.</div>
@@ -1411,9 +1414,10 @@
           <div class="kk-row"><button class="ok" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
         return;
       }
-      el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta <small>· ${snoEscape(currentProp.kund || '')}</small></span>
-          <span>${pinBtn()}<button class="kk-icon" title="${kk.hidden ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="kk.hidden=!kk.hidden; updateOverlays(); renderKkCard()">${kk.hidden ? '🙈' : '👁'}</button></span></div>
-        ${currentProp.maps.length > 1 ? `<div class="chips">${currentProp.maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
+      const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;
+      el.innerHTML = `<div class="slinga-card-head"><span>📄 Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || ''))}</small></span>
+          <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button></span></div>
+        ${kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
         ${opacity}
         <button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '🤖 Föreslå zoner från kundkartan'}</button>
         <button class="kk-small" onclick="startAdjust()">✋ Justera läge</button>
@@ -1449,7 +1453,34 @@
           const on = group.includes(n.p.id), busy = takenByOther(n.p);
           return `<button class="chip ${on ? 'on' : ''}" ${busy ? 'disabled' : ''} onclick="toggleNeighbor('${snoEscape(n.p.id)}')">${on ? '✓ ' : ''}${busy ? '🔒 ' : ''}${snoEscape(n.p.address)} · ${Math.round(n.d)} m${n.p.zoneStatus === 'klar' ? ' ✅' : ''}</button>`;
         }).join('')}</div>
-        <div class="muted">${group.length ? 'Zonerna får adressen till närmaste fastighet – ändra i kortet om det blir fel. ✅ Klar gäller alla ibockade.' : 'Bocka i dem du vill rita samtidigt.'}</div></div>`;
+        <div class="muted">${group.length ? 'Zonerna får adressen till närmaste fastighet – ändra i kortet om det blir fel. ✅ Klar gäller alla ibockade.' : 'Bocka i dem du vill rita samtidigt.'}</div>${mapsHtml()}</div>`;
+    }
+
+    // Kundkartorna på kartan när grannar är ibockade: välj vilken som är aktiv (✏️ = justeras och läses av AI:n), dölj var för sig
+    function mapsHtml() {
+      const props = [currentProp, ...groupProps()].filter(p => p && (p.maps || []).length);
+      if (!group.length || !props.length) return '';
+      return `<label style="margin-top:4px">🗺️ Kundkartor på kartan</label>
+        <div class="zone-list">${props.map(p => {
+          const m = p === kp() ? kkMap() : p.maps[0], active = p === kp(), hid = hiddenMaps.has(m.id);
+          return `<div class="kk-row" style="align-items:center"><button class="chip ${active ? 'on' : ''}" style="flex:1;text-align:left" onclick="setActiveMap('${snoEscape(p.id)}')">${active ? '✏️ ' : ''}${snoEscape(p.address)}${m.place ? '' : ' · inte utlagd'}</button>
+            <button class="kk-icon" style="flex:none;width:44px" title="${hid ? 'Visa' : 'Dölj'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button></div>`;
+        }).join('')}</div>
+        <div class="muted">Tryck på en adress för att göra dess karta aktiv – den justeras och läses av 🤖 AI:n.</div>`;
+    }
+
+    function setActiveMap(id) {
+      const p = id === currentProp.id ? currentProp : groupProps().find(x => x.id === id);
+      if (!p || p === kp()) return;
+      if (kk.adjusting) cancelAdjust();
+      kk.prop = p; kk.idx = 0;
+      showCustomerMap();       // inte utlagd → läggs vid adressen och Justera öppnas
+      renderGroupLayers();
+    }
+
+    function toggleMapHidden(mapId) {
+      if (hiddenMaps.has(mapId)) hiddenMaps.delete(mapId); else hiddenMaps.add(mapId);
+      updateOverlays(); renderKkCard();
     }
 
     function toggleNeighbor(id) {
@@ -1462,7 +1493,10 @@
         if (takenByOther(p)) return;
         group.push(id);
         claim(p);
+        // Grannens karta är inte utlagd än → gör den aktiv så att den kan passas in (den andra ligger kvar)
+        if ((p.maps || []).length && !p.maps.some(x => x.place)) { setActiveMap(id); renderZoneCard(); return; }
       }
+      if (!group.includes(kp().id) && kp() !== currentProp) { if (kk.adjusting) cancelAdjust(); kk.prop = currentProp; kk.idx = 0; showCustomerMap(); }
       renderGroupLayers(); renderKkCard(); renderZoneCard();
     }
 
@@ -1470,6 +1504,7 @@
     function clearGroup(release) {
       if (release) groupProps().forEach(p => { if (p.claimedBy === me) { snoApi({ action: 'claimProperty', id: p.id, release: true }).catch(() => {}); p.claimedBy = ''; } });
       group = [];
+      kk.prop = currentProp;
       renderGroupLayers();
     }
 
@@ -1478,9 +1513,12 @@
       if (!map.dragging) return;
       groupProps().forEach(p => {
         if (hasPos(p)) groupLayers.push(L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'nb-pin', html: `<div>📍 ${snoEscape(p.address)}</div>`, iconSize: [0, 0] }), interactive: false, keyboard: false, zIndexOffset: 1900 }).addTo(map));
-        const m = (p.maps || []).find(x => x.place);
-        if (!m) return;
-        const add = (W, H) => { if (!group.includes(p.id)) return; const lay = new KundOverlay(m.url, { place: m.place, W, H }).addTo(map); groupLayers.push(lay); };
+      });
+      [currentProp, ...groupProps()].filter(p => p && p !== kp()).forEach(p => {
+        const m = (p.maps || []).find(x => x.place) || (p.maps || [])[0];
+        if (!m || (!m.place && !hasPos(p))) return;
+        const place = m.place || { c: [p.lat, p.lng], w: /LandInfo/.test(m.label) ? 140 : 160, rot: 0 };
+        const add = (W, H) => { if (p !== currentProp && !group.includes(p.id)) return; if (p === kp()) return; const lay = new KundOverlay(m.url, { place, W, H, mapId: m.id }).addTo(map); groupLayers.push(lay); };
         if (sizeCache[m.url]) { add(...sizeCache[m.url]); return; }
         const img = new Image();
         img.onload = () => { sizeCache[m.url] = [img.naturalWidth, img.naturalHeight]; add(img.naturalWidth, img.naturalHeight); };

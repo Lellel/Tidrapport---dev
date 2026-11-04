@@ -339,6 +339,9 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Skriver man en egen adress → skrivs inte över
 - [ ] **✅ Klar (n) – nästa** → alla ibockade blir klara; nästa fastighet öppnas
 - [ ] Granne som någon annan jobbar med → 🔒 och går inte att bocka i
+- [ ] Bocka i en granne vars kundkarta **inte är utlagd** → den blir aktiv och Justera öppnas; den egna kartan ligger kvar
+- [ ] **🗺️ Kundkartor på kartan:** tryck på en adress → den kartan blir aktiv (✏️); 👁/🙈 döljer var karta för sig
+- [ ] 🤖 Föreslå zoner med grannens karta aktiv → AI:n läser grannens karta
 - [ ] Avstånden stämmer ungefär (nålarna kan ligga 20–50 m fel – säg till om 80 m är för lite/mycket)
 
 ## 9. Snöjour – förarens vy (telefon)
