@@ -598,3 +598,8 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Efter OK: den här enheten är fortfarande inloggad, och den nya länken visas i en ruta att kopiera
 - [ ] Öppna den nya länken på en annan enhet → inloggad; den gamla länken → banderollen
 - [ ] Spärra någon annan → samma enkla fråga som förut
+
+## Rita zoner: välja/ta bort med Pensel eller Sudd valt (2026-11-04)
+- [ ] Rita handskottning med 🖌️ Pensel och spara → tryck med fingret på den → den blir vald och **🗑️ Ta bort zonen** syns → borttagen
+- [ ] Samma med 🧽 Sudd valt
+- [ ] Ett penseldrag ovanpå en befintlig zon väljer inte zonen av misstag

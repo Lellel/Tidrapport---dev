@@ -506,7 +506,9 @@
         // Mitt i en ritning blir tryck på en befintlig zon en ny punkt, annars väljs zonen
         zoneLayers = zones.map(z => snoRenderZone(map, z, (zone, layer, e) => {
           // Entréer och markörer läggs ofta inne i en zon: då räknas trycket som ett tryck på kartan
-          if (Date.now() < clickBlockUntil || (isArea() && instrument !== 'penna')) { layer.closePopup(); return; }
+          // Bara direkt efter ett drag spärras trycket (clickBlockUntil). Förut spärrades det också så länge Pensel/Sudd
+          // var valt – då gick handskottning (ritad med penseln) inte att välja och därmed inte att ta bort.
+          if (Date.now() < clickBlockUntil) { layer.closePopup(); return; }
           if (shapeChanged() || drawingPoints.length > 0 || MARKER_TYPES.includes(drawType)) { layer.closePopup(); onMapClick(e); }
           else selectZone(zone);
         }));
