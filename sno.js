@@ -58,7 +58,8 @@ async function snoApi(payload) {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     redirect: 'follow',
-    body: JSON.stringify({ ...auth, site: location.origin + location.pathname.replace(/[^/]*$/, ''), ...payload })
+    // Inloggningen läggs sist så att ett fält i payload (t.ex. key) aldrig kan skriva över den
+    body: JSON.stringify({ site: location.origin + location.pathname.replace(/[^/]*$/, ''), ...payload, ...auth })
   });
   return res.json();
 }

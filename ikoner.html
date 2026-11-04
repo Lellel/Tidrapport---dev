@@ -81,7 +81,7 @@
       busy.add(k); render();
       let msg = '';
       try {
-        const res = await snoApi({ action: 'generateAppIcon', key: k, motif });
+        const res = await snoApi({ action: 'generateAppIcon', icon: k, motif });
         if (res.status !== 'success') throw new Error(res.message);
         urls[k] = res.url;
         if (window.lpvIcons) lpvIcons.set(urls);

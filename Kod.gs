@@ -1514,7 +1514,7 @@ function appIconUrls() {
 }
 
 function handleGenerateAppIcon(data) {
-  const key = String(data.key || "");
+  const key = String(data.icon || ""); // inte data.key – det är inloggningsnyckeln
   if (!APP_ICON_MOTIFS[key]) return createJsonResponse({ status: "error", message: "Okänd ikon: " + key });
   const motif = String(data.motif || "").trim().slice(0, 300) || APP_ICON_MOTIFS[key];
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");

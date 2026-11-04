@@ -230,7 +230,8 @@ async function apiPost(payload) {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     redirect: 'follow',
     // site = appens adress, så att servern hittar loggorna (loggor/) i rätt miljö (dev/prod)
-    body: JSON.stringify({ ...getAuthFields(), site: location.origin + location.pathname.replace(/[^/]*$/, ''), ...payload })
+    // Inloggningen läggs sist så att ett fält i payload (t.ex. key) aldrig kan skriva över den
+    body: JSON.stringify({ site: location.origin + location.pathname.replace(/[^/]*$/, ''), ...payload, ...getAuthFields() })
   });
   return res.json();
 }
