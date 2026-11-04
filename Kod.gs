@@ -228,7 +228,7 @@ function doPost(e) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning (" + authFailReason(data) + "). Be om en ny inloggningslänk." });
     }
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
-      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
+      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
@@ -371,6 +371,7 @@ function doPost(e) {
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
+    if (action === "saveSnowZones") return handleSnowZoneBatch(data, auth.user);
     if (action === "saveSnowHazard") return handleSaveSnowHazard(data, auth);
     if (action === "analyzeSnowPhoto") return handleAnalyzeSnowPhoto(data, auth);
     if (action === "getInvoiceBasis") return handleGetInvoiceBasis(auth);
@@ -1248,6 +1249,27 @@ function handleAnalyzeSnowPhoto(data, auth) {
     out.aiError = "AI:n kunde inte tolka bilden. Välj typ själv.";
   }
   return createJsonResponse(out);
+}
+
+// Ritprogrammet i Rita zoner (docs/ritprogram.md): ett drag kan ändra flera zoner – allt sparas i ett anrop.
+// save = zoner att skapa/uppdatera (id från appen, så att ↶ Ångra kan återskapa dem), delete = zon-id att ta bort.
+function handleSnowZoneBatch(data, savedBy) {
+  const saves = Array.isArray(data.save) ? data.save.slice(0, 60) : [];
+  const dels = Array.isArray(data.delete) ? data.delete.slice(0, 60).map(String) : [];
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ids = [];
+    for (let i = 0; i < saves.length; i++) {
+      const r = JSON.parse(handleSaveSnowZone(saves[i], savedBy).getContent());
+      if (r.status !== "success") return createJsonResponse(r);
+      ids.push(r.id);
+    }
+    dels.forEach(id => handleDeleteSnowZone(id));
+    return createJsonResponse({ status: "success", ids: ids, deleted: dels.length });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function handleDeleteSnowZone(zoneId) {

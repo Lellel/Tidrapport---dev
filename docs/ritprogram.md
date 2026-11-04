@@ -1,6 +1,6 @@
 # Rita zoner som ett ritprogram
 
-Bestämt med Daniel 2026-11-04. Ej byggt än – vänta på klartecken.
+Bestämt med Daniel 2026-11-04. Byggt samma dag (snozoner.html: paintOp, scopeProps, undoPaint; Kod.gs: saveSnowZones).
 
 ## Verktygsraden (som i Apples Anteckningar/Freeform)
 - Smal rad: ✏️ Penna · 🖌️ Pensel · 🧽 Sudd · ↶ Ångra · ＋ (Sträcka och markörer: brunnslock, kantsten, trappa, hinder, entré).
@@ -31,3 +31,10 @@ Bestämt med Daniel 2026-11-04. Ej byggt än – vänta på klartecken.
 ## Behålls
 - Förslag (AI/OpenStreetMap), kundkartan, 📍 GPS, Helskärm och förare/slingor som i dag.
 - Apple Pencil ritar, fingrar flyttar/zoomar kartan; tryck med fingret på en zon visar dess kort.
+
+## Hur det blev
+- Penseldrag, inringning, utprickade hörn (stängs med tryck på första hörnet) och 🚪 entré går till `paintOp` och sparas direkt med `saveSnowZones` (flera zoner i ett anrop).
+- ↶ Ångra: först utprickade hörn, sedan ändringar på en vald zon, sedan senaste draget (upp till 30 drag bakåt).
+- En vald zon (tryck med fingret) kan fortfarande ändras med hörnhandtagen – det sparas med 💾 som förut.
+- Målar man där en granne utanför omfattningen har en zon rörs grannens zon inte (ytorna kan då överlappa).
+- Ringen visas för pensel och sudd när Apple Pencil (eller musen) är över kartan.

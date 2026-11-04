@@ -613,3 +613,17 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] `?tema=av` → vanligt utseende igen
 - [ ] ikoner.html: temaraden överst; välj 🕯️ Lucia → skapa kulor; med `?tema=lucia` visas luciakulorna i appen
 - [ ] Startsidan som admin från 22 nov: kortet "🕯️ Lucia om … dagar" i kortsnurran; Göm tar bort det
+
+## Rita zoner som ritprogram (2026-11-04 – kräver ny Kod.gs)
+- [ ] Verktygsraden: ✏️ 🖌️ 🧽 · färgprick · ＋ · 📍 · ↶. Tryck på valt verktyg → Färg (Maskin/Hand/Upplag) och Storlek (0,5–8 m)
+- [ ] Ringen följer Apple Pencil och visar penselns/suddens storlek
+- [ ] Måla maskin → sparas direkt (✅ +X m²) utan att välja zon eller trycka Spara
+- [ ] Måla hand mitt i en maskinzon → maskinzonen får ett hål
+- [ ] Måla maskin intill/över en maskinzon → de blir en zon
+- [ ] Sudda över två zoner i ett drag → båda ändras; en zon som suddas helt försvinner; delad zon blir två
+- [ ] ↶ ångrar senaste draget även efter att det sparats (ladda om sidan → ändringen är borta)
+- [ ] Pennan: pricka ut hörn → tryck på första hörnet → ytan målas in
+- [ ] Grannens zoner rörs inte – bocka i grannen (eller lägg ut kundkartan över den) → nu går de att sudda/måla
+- [ ] Ny yta nära grannens nål (grannen ibockad) får grannens adress
+- [ ] ＋ → Sträcka / markörer / Entré fungerar som förut; tryck på en färg/verktyg för att gå tillbaka till ytor
+- [ ] Tryck med fingret på en zon → kortet visar den; ändra slinga/anteckning → 💾 Spara ändringar
