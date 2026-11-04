@@ -45,7 +45,7 @@
       `<button type="button" class="${page === 'ekonomi.html' ? 'on' : ''}"><span data-icon="mer">•••</span>Mer</button>`;
     const more = document.createElement('div');
     more.className = 'lpv-more';
-    more.innerHTML = '<div><a href="offerter.html?view=customers"><span data-icon="kunder">💼</span>&nbsp; Kunder</a><a href="vader.html"><span data-icon="vader">🌨️</span>&nbsp; Väder – Plogometern</a><a href="snozoner.html"><span data-icon="zoner">❄️</span>&nbsp; Rita snözoner</a><a href="ekonomi.html"><span data-icon="ekonomi">💰</span>&nbsp; Ekonomi</a><a href="widget.html"><span data-icon="widget">📱</span>&nbsp; Widget</a><a href="ikoner.html"><span data-icon="ikoner">🎨</span>&nbsp; Appikoner</a></div>';
+    more.innerHTML = '<div><a href="offerter.html?view=customers"><span data-icon="kunder">💼</span>&nbsp; Kunder</a><a href="vader.html"><span data-icon="vader">🌨️</span>&nbsp; Väder – Plogometern</a><a href="snozoner.html"><span data-icon="zoner">❄️</span>&nbsp; Rita snözoner</a><a href="ekonomi.html"><span data-icon="ekonomi">💰</span>&nbsp; Ekonomi</a><a href="personal.html"><span data-icon="personal">👥</span>&nbsp; Personal</a><a href="widget.html"><span data-icon="widget">📱</span>&nbsp; Widget</a><a href="ikoner.html"><span data-icon="ikoner">🎨</span>&nbsp; Appikoner</a></div>';
     more.onclick = (e) => { if (e.target === more) more.classList.remove('open'); };
     bar.querySelector('button').onclick = () => more.classList.add('open');
     document.body.append(bar, more);

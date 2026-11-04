@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Personal</title>
+  <!-- Personal-översikten (se docs/personal.md): alla i personalen med kula, roll, bolag och dagens jobb.
+       Tryck på en person → ring/SMS/mejl, välkomstpaket, ändra uppgifter och tidigare projekt med egenkontroller. -->
+  <style>
+    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--t-font); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 90px); }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    h1 { font-size: var(--t-fs-title); margin: 14px 0 10px; display: flex; align-items: center; gap: 8px; }
+    h1 small { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .tools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font-size: var(--t-fs-input); font-family: inherit; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; }
+    .chip.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
+    .person { display: flex; gap: 12px; align-items: center; text-align: left; width: 100%; padding: 12px; border-radius: var(--t-r-card); border: 1px solid var(--line);
+      background: var(--panel); color: var(--text); cursor: pointer; font: inherit; }
+    .person.off { opacity: .55; }
+    .orb { width: 52px; height: 52px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; overflow: hidden;
+      font-weight: 800; font-size: 18px; color: #fff; background-size: cover; background-position: center; box-shadow: inset 0 -4px 10px rgba(0,0,0,.25); }
+    .orb.big { width: 72px; height: 72px; font-size: 24px; }
+    .pinfo { min-width: 0; flex: 1; }
+    .pname { font-weight: 800; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pmeta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .ptoday { font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ptoday.free { color: var(--muted); }
+    .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; margin-left: 4px; vertical-align: 1px;
+      background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+    .badge.warn { background: color-mix(in srgb, var(--t-warn) 18%, transparent); color: var(--t-warn); }
+    .badge.bad { background: color-mix(in srgb, var(--t-danger) 15%, transparent); color: var(--t-danger); }
+    .empty { color: var(--muted); font-size: 14px; padding: 18px; text-align: center; background: var(--card); border-radius: var(--t-r-card); }
+
+    /* Personkortet (öppnas ovanpå listan) */
+    .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 3050; /* över flikraden (3000), under Mer-menyn (3100) */ display: none; align-items: flex-end; justify-content: center; }
+    .sheet-bg.open { display: flex; }
+    .sheet { width: min(640px, 100%); max-height: calc(100dvh - env(safe-area-inset-top) - 20px); overflow-y: auto; background: var(--panel);
+      border-radius: var(--t-r-card) var(--t-r-card) 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 20px); -webkit-overflow-scrolling: touch; }
+    @media (min-width: 700px) { .sheet-bg { align-items: center; } .sheet { border-radius: var(--t-r-card); max-height: calc(100dvh - 60px); } }
+    .shead { display: flex; gap: 14px; align-items: center; }
+    .shead h2 { margin: 0; font-size: 20px; }
+    .close { margin-left: auto; align-self: flex-start; }
+    .quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 16px 0 6px; }
+    .quick a, .quick button, .btn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: var(--t-r);
+      border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 13px var(--t-font); text-decoration: none; cursor: pointer; }
+    .quick .disabled { opacity: .4; pointer-events: none; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .contact { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .contact b { color: var(--text); font-weight: 600; }
+    h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 22px 0 8px; }
+    .form { display: none; background: var(--card); border-radius: var(--t-r-card); padding: 12px; margin-top: 10px; }
+    .form.open { display: block; }
+    .form label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin: 10px 0 4px; }
+    .form .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .form .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .form .actions > * { flex: 1; }
+    .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .msg { font-size: 13px; min-height: 18px; margin-top: 8px; color: var(--muted); }
+    .proj { background: var(--card); border-radius: var(--t-r); padding: 10px 12px; margin-bottom: 8px; }
+    .proj-title { font-weight: 800; font-size: 14px; }
+    .proj-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .ek { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+    .proj > .ek:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+    .ek a { color: var(--accent); font-weight: 700; text-decoration: none; margin-left: auto; white-space: nowrap; }
+    .ek span.st { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+    @media (max-width: 480px) { .form .g2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
+  <h1><span data-icon="personal">👥</span> Personal <small id="count"></small></h1>
+  <div class="tools">
+    <input id="q" type="search" placeholder="🔍 Sök namn, nummer eller e-post" oninput="render()" autocomplete="off">
+    <div class="chips" id="chips"></div>
+  </div>
+  <div id="list"><div class="empty">Hämtar personalen…</div></div>
+</div>
+
+<div class="sheet-bg" id="sheetBg" onclick="if (event.target === this) closePerson()">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+</div>
+
+<script src="config.js"></script>
+  <script src="knappar.js"></script>
+<script src="sno.js"></script>
+<script>
+  const esc = snoEscape;
+  const $ = (id) => document.getElementById(id);
+  let data = null;                 // { staff, isSuper, me, roles, statuses }
+  let filter = { role: 'alla', company: 'alla', inactive: false };
+  let current = null;              // personen som är öppen
+
+  const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+  const fmtDate = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : (s || ''); };
+  const initials = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  const hue = (n) => { let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+  // Kalkylarket kan ha tappat nollan (701234567) – visa och ring med den
+  const fixPhone = (p) => { const s = String(p || '').trim(); return /^7\d{8}$/.test(s.replace(/\s/g, '')) ? '0' + s : s; };
+  const telHref = (p) => fixPhone(p).replace(/[^\d+]/g, '');
+
+  function orbHtml(p, big) {
+    const style = p.avatar ? `background-image:url('${p.avatar.replace(/'/g, '%27')}')` : `background:hsl(${hue(p.name)} 55% 42%)`;
+    return `<div class="orb${big ? ' big' : ''}" style="${style}">${p.avatar ? '' : esc(initials(p.name))}</div>`;
+  }
+
+  function chipsHtml() {
+    const roles = [['alla', 'Alla'], ['Förare', 'Förare'], ['UE', 'UE'], ['Admin', 'Admin'], ['Ekonom', 'Ekonom']]
+      .filter(([k]) => k === 'alla' || data.staff.some(p => p.role === k));
+    let h = roles.map(([k, t]) => `<button class="chip ${filter.role === k ? 'on' : ''}" onclick="setFilter('role','${k}')">${t}</button>`).join('');
+    if (data.isSuper) h += ['alla', 'LPV', 'Klaryta'].map(c => `<button class="chip ${filter.company === c ? 'on' : ''}" onclick="setFilter('company','${c}')">${c === 'alla' ? 'Båda bolagen' : c}</button>`).join('');
+    const off = data.staff.filter(p => !p.active).length;
+    if (off) h += `<button class="chip ${filter.inactive ? 'on' : ''}" onclick="setFilter('inactive', ${!filter.inactive})">Visa inaktiva (${off})</button>`;
+    $('chips').innerHTML = h;
+  }
+  function setFilter(k, v) { filter[k] = v; render(); }
+
+  function render() {
+    if (!data) return;
+    chipsHtml();
+    const q = $('q').value.trim().toLowerCase();
+    const list = data.staff.filter(p => (filter.inactive || p.active) && (filter.role === 'alla' || p.role === filter.role) &&
+      (filter.company === 'alla' || p.company === filter.company) &&
+      (!q || [p.name, p.phone, p.email, p.roleText].join(' ').toLowerCase().includes(q)));
+    $('count').textContent = `${data.staff.filter(p => p.active).length} aktiva`;
+    $('list').innerHTML = list.length ? '<div class="grid">' + list.map(p => `
+      <button type="button" class="person ${p.active ? '' : 'off'}" onclick="openPerson(${JSON.stringify(p.name).replace(/"/g, '&quot;')})">
+        ${orbHtml(p)}
+        <div class="pinfo">
+          <div class="pname">${esc(p.name)}${p.active ? '' : ` <span class="badge ${p.status.toLowerCase() === 'karantän' ? 'bad' : 'warn'}">${esc(p.status)}</span>`}</div>
+          <div class="pmeta">${esc(p.role)} · ${esc(p.company)}</div>
+          <div class="ptoday ${p.today.length ? '' : 'free'}">${p.today.length ? '📅 Idag: ' + esc(p.today.join(', ')) : 'Inget inplanerat idag'}</div>
+        </div>
+      </button>`).join('') + '</div>' : '<div class="empty">Ingen i personalen matchar.</div>';
+  }
+
+  // ================= PERSONKORTET =================
+  function openPerson(name) {
+    const p = data.staff.find(x => x.name === name);
+    if (!p) return;
+    current = p;
+    const tel = telHref(p.phone);
+    const roleOpts = (data.isSuper ? data.roles : data.roles.filter(r => r !== 'Admin' && r !== 'Ekonom'));
+    $('sheet').innerHTML = `
+      <div class="shead">${orbHtml(p, true)}
+        <div><h2>${esc(p.name)}</h2><div class="pmeta">${esc(p.role)}${p.roleText && p.roleText !== p.role ? ' (' + esc(p.roleText) + ')' : ''} · ${esc(p.company)}${p.active ? '' : ` · <b>${esc(p.status)}</b>`}</div></div>
+        <button type="button" class="btn close" onclick="closePerson()">✕ Stäng</button></div>
+      <div class="quick">
+        <a class="${tel ? '' : 'disabled'}" href="tel:${esc(tel)}">📞 Ring</a>
+        <a class="${tel ? '' : 'disabled'}" href="sms:${esc(tel)}">💬 SMS</a>
+        <a class="${p.email ? '' : 'disabled'}" href="mailto:${esc(p.email)}">✉️ Mejl</a>
+        <button type="button" class="${p.canEdit ? '' : 'disabled'}" onclick="sendKit()">📦 Välkomstpaket</button>
+        <button type="button" class="${p.canEdit ? '' : 'disabled'}" onclick="$('form').classList.toggle('open')">✏️ Ändra</button>
+      </div>
+      <div class="contact">📱 <b>${esc(fixPhone(p.phone) || '–')}</b> &nbsp; ✉️ <b>${esc(p.email || '–')}</b>
+        ${p.today.length ? `<br>📅 Idag: <b>${esc(p.today.join(', '))}</b>` : ''}</div>
+      <div class="msg" id="pMsg"></div>
+      <div class="form" id="form">
+        <div class="g2">
+          <div><label for="fPhone">Mobil</label><input id="fPhone" type="tel" value="${esc(fixPhone(p.phone))}" placeholder="070…"></div>
+          <div><label for="fEmail">E-post</label><input id="fEmail" type="email" value="${esc(p.email)}" placeholder="namn@exempel.se"></div>
+          <div><label for="fRole">Roll</label><select id="fRole">${roleOpts.map(r => `<option ${r === p.role ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+          <div><label for="fStatus">Status</label><select id="fStatus">${data.statuses.map(s => `<option ${s === (p.active ? 'Aktiv' : p.status) ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+          ${data.isSuper ? `<div><label for="fCompany">Bolag</label><select id="fCompany">${['LPV', 'Klaryta'].map(c => `<option ${c === p.company ? 'selected' : ''}>${c}</option>`).join('')}</select></div>` : ''}
+        </div>
+        <div class="note">Inaktiv = döljs i listan. Karantän spärrar dessutom inloggningen. Namnet ändras i fliken Personal.</div>
+        <div class="actions"><button type="button" class="btn primary" onclick="savePerson()">💾 Spara</button><button type="button" class="btn" onclick="$('form').classList.remove('open')">Avbryt</button></div>
+      </div>
+      <h3>Tidigare projekt</h3>
+      <div id="hist"><div class="empty">Hämtar…</div></div>`;
+    $('sheetBg').classList.add('open');
+    $('sheet').scrollTop = 0;
+    try { history.replaceState(null, '', '?p=' + encodeURIComponent(p.name)); } catch (e) { /* inget */ }
+    loadHistory(p.name, false);
+  }
+
+  function closePerson() {
+    $('sheetBg').classList.remove('open');
+    current = null;
+    try { history.replaceState(null, '', location.pathname); } catch (e) { /* inget */ }
+  }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && current) closePerson(); });
+
+  const msg = (t, bad) => { const el = $('pMsg'); if (el) { el.textContent = t; el.style.color = bad ? 'var(--danger)' : 'var(--muted)'; } };
+
+  async function loadHistory(name, all) {
+    const key = name + (all ? '|all' : '');
+    let res = historyCache[key];
+    if (!res) {
+      try { res = await snoApi({ action: 'getStaffHistory', targetUser: name, all: all }); }
+      catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+      if (res.status === 'success') historyCache[key] = res;
+    }
+    if (!current || current.name !== name || !$('hist')) return;
+    if (res.status !== 'success') { $('hist').innerHTML = `<div class="empty">❌ ${esc(res.message || 'Kunde inte hämta.')}</div>`; return; }
+    const ekRow = (e) => `<div class="ek">${e.status === 'klar' ? '✅' : '⏳'} <div>${esc(e.name)}<div class="proj-meta">${esc(fmtDate(e.date))}${e.place && !e.matched ? ' · ' + esc(e.place) : ''}</div></div>
+      ${e.pdfUrl ? `<a href="${esc(e.pdfUrl)}" target="_blank" rel="noopener">📄 PDF</a>` : `<span class="st">${esc(e.status)}</span>`}</div>`;
+    let h = res.projects.map(p => `<div class="proj">
+        <div class="proj-title">${esc(p.place)}</div>
+        <div class="proj-meta">${p.from === p.to ? esc(fmtDate(p.from)) : esc(fmtDate(p.from)) + ' – ' + esc(fmtDate(p.to))} · ${p.days} ${p.days === 1 ? 'dag' : 'dagar'} · ${String(p.hours).replace('.', ',')} h
+          ${p.activities.length ? '<br>' + esc(p.activities.join(', ')) : ''}</div>
+        ${p.ek.map(e => ekRow({ ...e, matched: true })).join('')}
+      </div>`).join('');
+    if (res.otherEk.length) h += `<h3>Egenkontroller utan tidrapport</h3><div class="proj">${res.otherEk.map(ekRow).join('')}</div>`;
+    if (!h) h = `<div class="empty">Inga tidrapporter eller egenkontroller ${res.all ? '' : 'de senaste 12 månaderna'}.</div>`;
+    if (res.hasOlder && !res.all) h += `<button type="button" class="btn" style="width:100%;margin-top:8px" onclick="loadHistory(current.name, true)">Visa äldre än 12 månader</button>`;
+    $('hist').innerHTML = h;
+  }
+  const historyCache = {};         // namn (|all) → svar från getStaffHistory
+
+  async function savePerson() {
+    const p = current;
+    const payload = { action: 'updateStaff', targetUser: p.name, phone: $('fPhone').value.trim(), email: $('fEmail').value.trim(),
+      role: $('fRole').value, status: $('fStatus').value };
+    if ($('fCompany')) payload.company = $('fCompany').value;
+    let res;
+    try { res = await snoApi(payload); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+    if (res.status !== 'success') { msg('❌ ' + (res.message || 'Kunde inte spara.'), true); return; }
+    await load(true);
+    openPerson(p.name);
+    msg('✅ Sparat');
+  }
+
+  // Samma välkomstpaket som på startsidan (SMS + mejl för admin/ekonom + kvittens till dig)
+  async function sendKit() {
+    const p = current;
+    if (!confirm(`Skicka välkomstpaket till ${p.name}?\n\nSMS till ${fixPhone(p.phone) || '(saknar nummer)'}` + (p.role === 'Admin' || p.role === 'Ekonom' ? `\nMejl till ${p.email || '(saknar e-post)'}` : ''))) return;
+    let res;
+    try { res = await snoApi({ action: 'sendWelcomeKit', targetUser: p.name }); }
+    catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+    if (res.status !== 'success') { msg('❌ ' + (res.message || 'Kunde inte skicka.'), true); return; }
+    const sms = res.sms === 'skickat' ? '📱 SMS: skickat' : res.sms === 'not_configured' ? '📱 SMS: öppnar Meddelanden' : '📱 SMS: ' + res.sms;
+    const mail = res.mail === 'behövs inte' ? '' : '\n✉️ Mejl: ' + res.mail;
+    const receipt = res.receipt ? '\n🧾 Kvittens: ' + res.receipt : '';
+    alert(`📦 Välkomstpaket till ${res.user}\n\n${sms}${mail}${receipt}`);
+    if (res.sms === 'not_configured') location.href = `sms.html?to=${encodeURIComponent(p.phone)}&body=${encodeURIComponent(res.smsText)}`;
+  }
+
+  // ================= START =================
+  async function load(quiet) {
+    let res;
+    try { res = await snoApi({ action: 'getStaffOverview' }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+    if (res.status !== 'success') { if (!quiet) $('list').innerHTML = `<div class="empty">❌ ${esc(res.message || 'Kunde inte hämta.')}</div>`; return; }
+    data = res;
+    render();
+  }
+  load().then(() => {
+    const p = new URLSearchParams(location.search).get('p');
+    if (p && data) openPerson(p);
+  });
+</script>
+</body>
+</html>

@@ -232,6 +232,7 @@ function doPost(e) {
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
+      "getStaffOverview", "getStaffHistory", "updateStaff",
       "saveStall", "addStallPhoto", "robotAlarm", "generateAppIcon", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
@@ -384,6 +385,9 @@ function doPost(e) {
       }
       return handleAddStaff(data);
     }
+    if (action === "getStaffOverview") return handleStaffOverview(auth);
+    if (action === "getStaffHistory") return handleStaffHistory(data, auth);
+    if (action === "updateStaff") return handleUpdateStaff(data, auth);
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
 
@@ -631,7 +635,7 @@ function welcomeSections(roles, isSuper, site) {
     add("🚜", "Snöplanering", "planering.html", "Fastigheter och traktorer.");
     add("❄️", "Rita snözoner", "snozoner.html", "Plogzoner, handskottning och snöupplag – med förslag från kartan. Förarna lägger ut hinder i Snöjour.");
     add("💰", "Ekonomi", "ekonomi.html", "Fakturaunderlag per kund och period, markera fakturerat, PDF.");
-    add("👥", "Personal", "index.html", "Lägg till personer och skicka välkomstpaket: startsidan → Administratör.");
+    add("👥", "Personal", "personal.html", "Alla i personalen: ring, SMS, välkomstpaket, ändra uppgifter och tidigare projekt med egenkontroller. Nya personer läggs till på startsidan → Administratör.");
     if (isSuper) add("⚙️", "Inställningar", "offerter.html", "Priser, texter och företagsuppgifter: Offerter → Inställningar.");
   } else if (roles.indexOf("ekonom") !== -1) {
     add("💰", "Ekonomi", "ekonomi.html", "Fakturaunderlaget: alla rapporterade timmar per kund och period. Markera fakturerat och ta ut PDF.");
@@ -727,6 +731,134 @@ function sendWelcomeReceipt(sheet, sender, result, p) {
   } catch (err) {
     return "fel: " + err.message;
   }
+}
+
+// ==========================================
+// PERSONAL-ÖVERSIKTEN (personal.html, se docs/personal.md)
+// Admin ser personalen i sitt bolag (LPV-admin ser alla). Status i kolumn H: tomt/Aktiv = aktiv,
+// allt annat (Inaktiv, Karantän …) = inaktiv. Karantän spärrar dessutom inloggningen (readStaffAuth).
+// ==========================================
+const STAFF_STATUSES = ["Aktiv", "Inaktiv", "Karantän"];
+
+function staffRoleName(row) {
+  if (isAdminRow(row)) return "Admin";
+  if (isEconomistRow(row) || String(row[3] || "").trim().toLowerCase() === "ekonom") return "Ekonom";
+  if (String(row[3] || "").trim().toLowerCase() === "ue") return "UE";
+  return "Förare";
+}
+
+function staffDateText(v, tz) {
+  return v instanceof Date ? Utilities.formatDate(v, tz, "yyyy-MM-dd") : String(v || "").slice(0, 10);
+}
+
+function handleStaffOverview(auth) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const today = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+  // Dagens jobb ur radarn per person
+  const todayJobs = {};
+  try {
+    handleRadarJobs(auth).forEach(j => {
+      if (!(j.segments || []).some(s => s.date === today)) return;
+      (j.assigned || []).forEach(p => { (todayJobs[p] = todayJobs[p] || []).push(j.title || j.client || "Jobb"); });
+    });
+  } catch (e) { /* radarn saknas – visa ändå personalen */ }
+  const staff = [];
+  getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
+    if (!r[0] || !inScope(auth, r[6])) return;
+    const name = String(r[0]).trim(), status = String(r[7] || "").trim() || "Aktiv";
+    const av = String(r[5] || "");
+    staff.push({
+      name: name, email: String(r[1] || ""), phone: String(r[2] || ""), role: staffRoleName(r), roleText: String(r[3] || ""),
+      company: companyOf(r[6]), status: status, active: status.toLowerCase() === "aktiv",
+      avatar: (/^data:image\/(jpeg|png);base64,/.test(av) && av.length < 60000) || /^https:\/\//.test(av) ? av : "",
+      today: todayJobs[name] || [],
+      canEdit: auth.isSuper || !(isAdminRow(r) || isEconomistRow(r))
+    });
+  });
+  staff.sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  return createJsonResponse({ status: "success", staff: staff, isSuper: !!auth.isSuper, me: auth.user, roles: STAFF_ROLES, statuses: STAFF_STATUSES });
+}
+
+// Tidigare projekt: personens tidrapporter grupperade per plats, med egenkontrollerna personen skapat.
+// Standard senaste 12 månaderna; data.all = true ger allt.
+function handleStaffHistory(data, auth) {
+  const sheet = getStaffSheet(), hit = findStaffRow(sheet, data.targetUser);
+  if (!hit || !inScope(auth, hit.row[6])) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
+  const name = String(hit.row[0]).trim();
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const cut = new Date(); cut.setFullYear(cut.getFullYear() - 1);
+  const cutoff = data.all ? "" : Utilities.formatDate(cut, tz, "yyyy-MM-dd");
+  const norm = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  let hasOlder = false;
+
+  const projects = {};
+  const tid = getSS().getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  (tid ? tid.getDataRange().getValues() : []).slice(1).forEach(r => {
+    if (!r[0] || String(r[8] || "").trim() !== name) return;
+    const date = staffDateText(r[0], tz);
+    if (cutoff && date < cutoff) { hasOlder = true; return; }
+    const place = String(r[2] || "").trim() || String(r[3] || "").trim() || "Okänd plats";
+    const key = norm(place);
+    const p = projects[key] || (projects[key] = { place: place, from: date, to: date, days: {}, hours: 0, activities: {}, ek: [] });
+    if (date < p.from) p.from = date;
+    if (date > p.to) p.to = date;
+    p.days[date] = true;
+    p.hours += reportHours(r[6], sheetTimeText(r[4], tz), sheetTimeText(r[5], tz)) || 0;
+    if (r[3]) p.activities[String(r[3]).trim()] = true;
+  });
+
+  const otherEk = [];
+  getEkSheet().getDataRange().getValues().slice(1).forEach(r => {
+    if (!r[0]) return;
+    const e = ekFromRow(r);
+    if (e.createdBy.trim() !== name) return;
+    const date = e.created.slice(0, 10);
+    if (cutoff && date && date < cutoff) { hasOlder = true; return; }
+    const tpl = EK_TEMPLATES[e.template];
+    const item = { id: e.id, name: tpl ? tpl.name : e.template, status: e.status, date: date, place: e.place || e.customer, pdfUrl: e.pdfUrl };
+    const p = projects[norm(e.place)] || projects[norm(e.customer)];
+    if (p) p.ek.push(item); else otherEk.push(item);
+  });
+
+  const list = Object.keys(projects).map(k => {
+    const p = projects[k];
+    return { place: p.place, from: p.from, to: p.to, days: Object.keys(p.days).length, hours: Math.round(p.hours * 10) / 10,
+      activities: Object.keys(p.activities).slice(0, 4), ek: p.ek };
+  }).sort((a, b) => b.to.localeCompare(a.to));
+  otherEk.sort((a, b) => b.date.localeCompare(a.date));
+  return createJsonResponse({ status: "success", user: name, all: !!data.all, hasOlder: hasOlder, projects: list, otherEk: otherEk });
+}
+
+// Ändra en person: e-post, mobil, roll, bolag och status. Namnet går inte att ändra (det är nyckeln i alla flikar).
+// Samma regler som välkomstpaketet: Klaryta-admin ändrar bara förare/UE i Klaryta.
+function handleUpdateStaff(data, auth) {
+  const sheet = getStaffSheet(), hit = findStaffRow(sheet, data.targetUser);
+  if (!hit || !inScope(auth, hit.row[6])) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
+  const row = hit.row, name = String(row[0]).trim(), self = name === String(auth.user).trim();
+  if (!auth.isSuper && (isAdminRow(row) || isEconomistRow(row))) return createJsonResponse({ status: "error", message: "Bara admin på LPV kan ändra admin och ekonom." });
+  const role = STAFF_ROLES.indexOf(data.role) !== -1 ? data.role : staffRoleName(row);
+  const status = STAFF_STATUSES.indexOf(data.status) !== -1 ? data.status : (String(row[7] || "").trim() || "Aktiv");
+  if (!auth.isSuper && (role === "Admin" || role === "Ekonom")) return createJsonResponse({ status: "error", message: "Bara admin på LPV kan ge admin- eller ekonombehörighet." });
+  if (self && role !== "Admin") return createJsonResponse({ status: "error", message: "Du kan inte ta bort din egen admin-behörighet." });
+  if (self && status !== "Aktiv") return createJsonResponse({ status: "error", message: "Du kan inte göra dig själv inaktiv." });
+  const email = sanitize(data.email).replace(/^'/, "").slice(0, 120);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return createJsonResponse({ status: "error", message: "E-postadressen ser inte rätt ut." });
+  const phone = sanitize(data.phone).replace(/^'/, "").slice(0, 20);
+  if (phone && !toE164(phone)) return createJsonResponse({ status: "error", message: "Mobilnumret ser inte rätt ut." });
+  const company = auth.isSuper ? (companyOf(data.company) === "Klaryta" ? "Klaryta" : "LPV") : auth.company;
+
+  const r = hit.rowNumber;
+  sheet.getRange(r, 2).setValue(email);
+  sheet.getRange(r, 3).setValue(/^\d/.test(phone) ? "'" + phone : phone);
+  // Rollen skrivs bara om den ändrats – annars får egna rolltexter i kolumn D (t.ex. "Maskinförare") stå kvar
+  if (role !== staffRoleName(row)) {
+    sheet.getRange(r, 4).setValue(role);
+    sheet.getRange(r, 5).setValue(role === "Admin" ? "TRUE" : (role === "Ekonom" ? "Ekonom" : ""));
+  }
+  sheet.getRange(r, 7).setValue(company);
+  sheet.getRange(r, 8).setValue(status);
+  clearStaffAuthCache(name);
+  return createJsonResponse({ status: "success", user: name });
 }
 
 function getDocSecret() {
@@ -1318,6 +1450,7 @@ const APP_ICON_MOTIFS = {
   widget: "a small smartphone showing a tiny snowflake on its screen",
   mer: "three glossy white dots in a row",
   tillbaka: "a bold glossy white arrow pointing to the left",
+  personal: "three friendly cartoon workers in hard hats and high-visibility vests standing side by side",
   // Sidrubriker
   ikoner: "an artist's paint palette with blobs of blue, orange and magenta paint",
   ata: "a shiny steel wrench crossed with a small hammer",

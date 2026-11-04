@@ -577,3 +577,16 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Inget (rubriker, knappar, text) ligger under statusfältet på iPhone eller iPad – särskilt Ekonomi, Guiden, Snöplanering på iPad och Radarns sidopanel
 - [ ] Offerter: dialogrutorna och Radarns sidopanel lägger sig över tillbaka-knappen
 - [ ] ikoner.html: skapa kulan **Tillbaka** → den ersätter ← i knappen på alla sidor
+
+## Personal-översikten (personal.html, 2026-11-04 – kräver ny Kod.gs)
+- [ ] Nås från sidomenyn (iPad), Mer-menyn (telefon), admin-knapparna på startsidan och "Översikt →" i Radarns sidopanel
+- [ ] Listan: kulor/initialer, roll, bolag, "Idag: …" för den som är inplanerad i Radarn
+- [ ] Sök + rollfilter; "Visa inaktiva" visar de som inte är aktiva
+- [ ] Tryck på en person: Ring/SMS/Mejl öppnar telefonen/mejlen
+- [ ] ✏️ Ändra mobil → sparas med inledande 0 i fliken Personal
+- [ ] Sätt en testperson till Inaktiv → försvinner ur listan; Karantän → kan inte logga in
+- [ ] Försök ta bort din egen admin → felmeddelande
+- [ ] Tidigare projekt: platser med datum, dagar och timmar; egenkontroller under rätt plats, ✅ PDF öppnas
+- [ ] "Visa äldre än 12 månader" visas när det finns äldre rapporter
+- [ ] Klaryta-admin: ser bara Klarytas personal, kan inte ändra admin/ekonom
+- [ ] ikoner.html: skapa kulan **Personal**
