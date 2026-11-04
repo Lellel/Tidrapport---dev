@@ -344,6 +344,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] 🤖 Föreslå zoner med grannar ibockade → AI:n läser **alla utlagda** kundkartor samtidigt; förslagen heter t.ex. "Gård · Floragatan 23"
 - [ ] En ibockad granne vars karta inte är utlagd → nämns i panelen ("passa in den först") och hoppas över
 - [ ] **Ta med** ett förslag → Fastighet / Adress blir förslagets adress
+- [ ] Dölj den aktiva kartan (👁 → 🙈) så att bara grannens syns → **✋ Justera läge** flyttar grannens karta, inte den dolda
 - [ ] Avstånden stämmer ungefär (nålarna kan ligga 20–50 m fel – säg till om 80 m är för lite/mycket)
 
 ## 9. Snöjour – förarens vy (telefon)

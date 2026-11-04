@@ -1174,6 +1174,7 @@
         kk.place = m.place ? { ...m.place } : { c: hasPos(kp()) ? [kp().lat, kp().lng] : [map.getCenter().lat, map.getCenter().lng], w: /LandInfo/.test(m.label) ? 140 : 160, rot: 0 };
         kk.layer = new KundOverlay(m.url).addTo(map);
         if (!m.place) startAdjust();
+        else if (kk.afterLoad) { const f = kk.afterLoad; kk.afterLoad = null; f(); }
         renderKkCard();
       };
       img.onerror = () => { setStatus('❌ Kundkartan kunde inte laddas.'); renderKkCard(); };
@@ -1445,7 +1446,7 @@
         ${kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
         ${opacity}
         <button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>
-        <button class="kk-small" onclick="startAdjust()"><span data-icon="justera">✋</span> Justera läge</button>
+        <button class="kk-small" onclick="adjustVisible()"><span data-icon="justera">✋</span> Justera läge</button>
         ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}
         ${neighborsHtml()}
         <div class="kk-progress">${progressHtml()}</div>`;
@@ -1501,6 +1502,24 @@
       kk.prop = p; kk.idx = 0;
       showCustomerMap();       // inte utlagd → läggs vid adressen och Justera öppnas
       renderGroupLayers();
+    }
+
+    // ✋ Justera läge tar den kundkarta man ser: är den aktiva dold blir den synliga aktiv först
+    function adjustVisible() {
+      const am = kkMap();
+      if (am && hiddenMaps.has(am.id)) {
+        const vis = [currentProp, ...groupProps()].filter(p => p && p !== kp()).map(p => ({ p, m: (p.maps || []).find(x => x.place) || (p.maps || [])[0] }))
+          .find(x => x.m && !hiddenMaps.has(x.m.id));
+        if (vis) {
+          if (kk.adjusting) cancelAdjust();
+          kk.prop = vis.p; kk.idx = vis.p.maps.indexOf(vis.m);
+          kk.afterLoad = startAdjust;
+          showCustomerMap(); renderGroupLayers();
+          return;
+        }
+        hiddenMaps.delete(am.id); updateOverlays(); // alla dolda → visa den aktiva igen
+      }
+      startAdjust();
     }
 
     function toggleMapHidden(mapId) {
