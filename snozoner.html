@@ -928,6 +928,11 @@
       pieces = (pieces || []).filter(c => c && c.length >= 3);
       if (!pieces.length) return;
       if (typeof polygonClipping === 'undefined') { mapToast('⚠️ Ritverktyget laddades inte – ladda om sidan.'); return; }
+      // Sudd på ett förslag som inte är taget: förslaget tas med automatiskt och biten suddas i samma drag
+      if (erase && !shape && !drawingPoints.length) {
+        const k = suggestionUnder(pieces);
+        if (k >= 0) { const keep = eraseW; takeSuggestion(k); instrument = 'sudd'; eraseW = keep; renderDock(); }
+      }
       if (erase && !shape) { mapToast('🧽 Inget att sudda här.<br><small>Rita en yta, ta med ett förslag eller tryck på en sparad zon först.</small>', 4000); return; }
       if (!shape) startShape({ type: toolType(), zone: null, polys: [], fromEntre: drawType === 'entre' });
       // Utprickade hörn följer med när man fortsätter med pennan
@@ -953,6 +958,22 @@
       mapToast(`${erase ? '🧽' : '✅'} ${d >= 0 ? '+' : '−'}${Math.abs(d).toLocaleString('sv-SE')} m² · nu <b>${fmtM2(shapeArea())}</b>` +
         (holes ? `<br><small>Hålet sparas med en smal skarv till kanten</small>` : '') +
         (n > 1 ? `<br><small>${n} delar – sparas som ${n} zoner</small>` : '<br><small>Fortsätt – eller tryck <b>💾 Spara</b></small>'), 4000);
+    }
+
+    // Det ytförslag som de inringade bitarna täcker mest av (−1 = inget)
+    function suggestionUnder(pieces) {
+      if (typeof polygonClipping === 'undefined' || !pieces.length) return -1;
+      const f = meterFrame(pieces[0][0]), g = pieces.map(p => [p.map(f.xy)]);
+      const area = (r) => Math.abs(r.reduce((sum, q, i) => { const n = r[(i + 1) % r.length]; return sum + q[0] * n[1] - n[0] * q[1]; }, 0)) / 2;
+      let best = -1, bestA = 0;
+      suggestions.forEach((sg, i) => {
+        if (sg.coords.length < 3 || SNO_TYPES[sg.type].kind !== 'polygon') return;
+        try {
+          const a = polygonClipping.intersection([[sg.coords.map(f.xy)]], g).reduce((sum, poly) => sum + area(poly[0]), 0);
+          if (a > bestA) { bestA = a; best = i; }
+        } catch (err) { /* trasigt förslag – hoppa över */ }
+      });
+      return best;
     }
 
     // Yttre kant + hål → en ring: från närmaste hörnpar går en skarv in till hålet, runt det och tillbaka

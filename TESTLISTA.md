@@ -326,6 +326,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Byt **Maskin ↔ Hand** med en yta på gång → typen byts, formen ligger kvar
 - [ ] Hörnen: dra (penna/finger) · tryck = ta bort · kantprick = nytt hörn · fingrar flyttar kartan
 - [ ] **Ta med** ett förslag → kan rättas direkt med penna/sudd/hörn → 💾 Spara
+- [ ] **Sudda direkt på ett förslag** (utan Ta med) → förslaget tas med automatiskt och biten suddas; ↶ ger tillbaka biten
 - [ ] Tryck på en **sparad zon** → kan ändras direkt → **💾 Spara ändringar**; **✕ Avbryt** → som förut
 - [ ] **📍 Markör ▾ → 🚪 Entré:** tryck vid två dörrar → 2 ytor à 9 m² → Spara ger 2 zoner
 - [ ] Markör (brunn m.m.) med en osparad yta → "Spara eller avbryt först"
