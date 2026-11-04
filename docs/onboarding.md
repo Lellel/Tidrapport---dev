@@ -32,6 +32,11 @@ Bestämt med Daniel 2026-11-03. Byggt (Kod.gs: handleSendWelcomeKit, handleRedee
 - Lägger **inte** till ÄTA (de är oftast lösningen på ÄTA). ÄTA-knappen döljs för UE.
 - Fler funktioner senare, kopplade till radarn (t.ex. egenkontroll klar innan jobbet räknas som klart).
 
+## Kvittens till admin (bestämt 2026-11-04)
+- Varje gång ett välkomstpaket skickas får admin som skickade ett kvittensmejl (e-posten på admin i Personal).
+- Skickas alltid, även när SMS eller mejl misslyckades – då med ⚠️ i ämnet och felet i mejlet.
+- Innehåll: person, roll, bolag, mobil, e-post, status för SMS och mejl, samt SMS-texten med nyckeln maskad (`key=•••`).
+
 ## Kräver
 - Mobilnummer (SMS) och e-post (mejl) i Personal.
 - 46elks för SMS (finns), e-post via Google (finns).

@@ -696,7 +696,37 @@ function handleSendWelcomeKit(data, auth) {
       result.mail = "fel: " + err.message;
     }
   }
+  result.receipt = sendWelcomeReceipt(sheet, auth.user, result, { name: name, company: company, brand: brand, phone: phone, email: email, sms: sms });
   return createJsonResponse(result);
+}
+
+// Kvittens till admin som skickade välkomstpaketet – alltid, även när något misslyckades.
+// SMS-texten skickas med men nyckeln maskas (key=•••), samma som i SMS-loggen.
+function sendWelcomeReceipt(sheet, sender, result, p) {
+  const self = findStaffRow(sheet, sender);
+  const to = self ? String(self.row[1] || "").trim() : "";
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return "saknar e-post för " + sender;
+  const roleNames = { admin: "Admin", ekonom: "Ekonom", ue: "UE", forare: "Förare" };
+  const smsStatus = result.sms === "not_configured" ? "öppnas i Meddelanden på din telefon (46elks ej inställt)" : result.sms;
+  const ok = (result.sms === "skickat" || result.sms === "not_configured") && (result.mail === "skickat" || result.mail === "behövs inte");
+  const rad = (k, v) => '<tr><td style="padding:3px 12px 3px 0;color:#64748b">' + escHtml(k) + '</td><td style="padding:3px 0">' + escHtml(v) + '</td></tr>';
+  try {
+    MailApp.sendEmail({ to: to, subject: (ok ? "✅ " : "⚠️ ") + "Välkomstpaket skickat till " + p.name, name: brandDisplayName(p.brand),
+      htmlBody: welcomeMailFrame(p.brand, "Kvittens: välkomstpaket",
+        "<p>Du skickade ett välkomstpaket " + escHtml(Utilities.formatDate(new Date(), "Europe/Stockholm", "yyyy-MM-dd 'kl.' HH:mm")) + ".</p>" +
+        '<table style="border-collapse:collapse;font-size:15px">' +
+          rad("Person", p.name) + rad("Roll", result.roles.map(r => roleNames[r] || r).join(" + ")) + rad("Bolag", p.company) +
+          rad("Mobil", toE164(p.phone) || p.phone || "–") + rad("E-post", p.email || "–") +
+          rad("📱 SMS", smsStatus) + rad("✉️ Mejl", result.mail) +
+        "</table>" +
+        "<p><b>SMS-texten</b> (inloggningsnyckeln dold):</p>" +
+        '<pre style="white-space:pre-wrap;font-family:inherit;background:#f1f5f9;padding:10px 12px;border-radius:8px">' +
+          escHtml(p.sms.replace(/([?&]key=)[A-Za-z0-9]+/g, "$1•••")) + "</pre>" +
+        (ok ? "" : '<p style="color:#b45309">Något gick inte fram – kontrollera numret/adressen i fliken Personal och skicka paketet igen.</p>')) });
+    return "skickat till " + to;
+  } catch (err) {
+    return "fel: " + err.message;
+  }
 }
 
 function getDocSecret() {

@@ -984,7 +984,8 @@ async function adminSendWelcomeKit() {
   const roleNames = { admin: 'admin', ekonom: 'ekonom', ue: 'UE', forare: 'förare' };
   const smsLine = res.sms === 'skickat' ? '📱 SMS: skickat' : res.sms === 'not_configured' ? '📱 SMS: öppnar Meddelanden' : '📱 SMS: ' + res.sms;
   const mailLine = res.mail === 'behövs inte' ? '' : '\n✉️ Mejl: ' + res.mail;
-  alert(`📦 Välkomstpaket till ${res.user} (${res.roles.map(r => roleNames[r] || r).join(' + ')})\n\n${smsLine}${mailLine}`);
+  const receiptLine = res.receipt ? '\n🧾 Kvittens: ' + res.receipt : '';
+  alert(`📦 Välkomstpaket till ${res.user} (${res.roles.map(r => roleNames[r] || r).join(' + ')})\n\n${smsLine}${mailLine}${receiptLine}`);
   if (res.sms === 'not_configured') {
     const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
     window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(res.smsText)}`;

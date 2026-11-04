@@ -160,6 +160,9 @@ Står det ❌ efter ett test: skriv kort vad som hände så fixar vi det.
 - [ ] I telefonen: **💻 Logga in på en dator** → mejl till din egen adress → fungerar en gång
 - [ ] Fliken **SMS-logg**: nyckeln syns som `key=•••`
 - [ ] Fliken **Datorlänkar**: bara hash, ingen läsbar kod
+- [ ] **Kvittens**: du (admin som skickade) får mejlet "✅ Välkomstpaket skickat till …" med status och SMS-texten där nyckeln är `key=•••`; rutan i appen visar raden 🧾 Kvittens
+- [ ] Kvittens vid fel: skicka till en person med felaktigt nummer → ämnet börjar med ⚠️ och felet står i mejlet
+- [ ] Nummer utan nolla i Personal (t.ex. `701234567`) → SMS går ändå fram
 
 ## 2. Spärra en person
 
