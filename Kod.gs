@@ -225,7 +225,7 @@ function doPost(e) {
     // --- INLOGGNING: personlig nyckel (eller gamla gemensamma nyckeln under övergången) ---
     const auth = authenticate(data);
     if (!auth) {
-      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning. Be om en ny inloggningslänk." });
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning (" + authFailReason(data) + "). Be om en ny inloggningslänk." });
     }
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "setSlingaDrivers",
@@ -492,6 +492,20 @@ function authenticate(data) {
     return { user: String(data.user || "Okänd"), isAdmin: isAdmin, isEconomist: !!(info && info.isEconomist), company: company, isSuper: isAdmin && company === "LPV", legacy: true };
   }
   return null;
+}
+
+// Varför inloggningen nekades – visas i felmeddelandet så att det går att felsöka från enheten.
+// Visar bara början av nyckeln som enheten själv skickade, aldrig den rätta nyckeln.
+function authFailReason(data) {
+  const user = String(data.user || "").trim(), key = String(data.key || "");
+  if (!user) return "ingen användare sparad på enheten";
+  if (!key) return "ingen nyckel sparad på enheten";
+  const sheet = getStaffSheet(), hit = sheet ? findStaffRow(sheet, user) : null;
+  if (!hit) return "\"" + user + "\" finns inte i Personal";
+  if (String(hit.row[7] || "").toLowerCase() === "karantän") return "kontot är i karantän";
+  if (String(hit.row[KEY_COLUMN - 1] || "") !== key) return "enhetens nyckel " + key.slice(0, 6) + "… stämmer inte för " + user;
+  clearStaffAuthCache(user); // arket stämmer – det var den sparade kopian på servern som var gammal
+  return "servern hade en gammal kopia, försök igen";
 }
 
 // Admin hämtar (eller skapar) en persons nyckel för inloggningslänken. reset=true ger ny nyckel och spärrar den gamla.
