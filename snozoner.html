@@ -675,6 +675,7 @@
       // Ytor går direkt att rätta med pennan, sudden och hörnen innan de sparas
       if (SNO_TYPES[sg.type].kind === 'polygon' && sg.coords.length >= 3) startShape({ type: sg.type, zone: null, polys: [sg.coords.map(c => [c[0], c[1]])] });
       else { drawingPoints = sg.coords.slice(); drawPreview(); }
+      if (sg.property) { document.getElementById('f-property').value = sg.property; propertyAuto = false; }
       renderDock();
       dropSuggestion(i);
       setStatus(`${sg.icon} ${snoEscape(sg.what)} inlagd som ${SNO_TYPES[sg.type].label.toLowerCase()}. Rätta vid behov och tryck <b>💾 Spara zon</b>.`);
@@ -1343,55 +1344,77 @@
     }
 
     // AI läser kundkartan; punkterna (0–1000 i bilden) räknas om till kartan via hörnen
+    // AI läser kundkartan; punkterna (0–1000 i bilden) räknas om till kartan via hörnen.
+    // Med grannar ibockade läses alla utlagda kundkartor samtidigt, och varje förslag får sin fastighets adress.
+    function aiToSuggestions(res, m, prop) {
+      const c = m.place, many = group.length > 0;
+      const toLL = ([y, x]) => [c.tl[0] + (c.tr[0] - c.tl[0]) * x / 1000 + (c.bl[0] - c.tl[0]) * y / 1000,
+                                 c.tl[1] + (c.tr[1] - c.tl[1]) * x / 1000 + (c.bl[1] - c.tl[1]) * y / 1000];
+      const label = (w) => many ? `${w} · ${prop.address}` : w;
+      const found = [];
+      (res.areas || []).forEach(a => {
+        let coords = a.polygon.map(toLL);
+        // AI:n ritar ibland en gångväg som en streckad linje utan bredd (t.ex. "5 m²") – gör den 2 m bred
+        const perim = snoLineLength(coords.concat([coords[0]]));
+        if (a.type === 'hand' && perim > 10 && snoGeodesicArea(coords) / (perim / 2) < 1) {
+          let far = 0;
+          coords.forEach((q, k) => { if (snoLineLength([coords[0], q]) > snoLineLength([coords[0], coords[far]])) far = k; });
+          coords = snoBufferLine(coords.slice(0, far + 1), 2);
+        }
+        found.push({ type: a.type, coords, icon: a.type === 'hand' ? '🚶' : '🚜', what: label(a.name || (a.type === 'hand' ? 'Gångyta' : 'Köryta')), size: Math.round(snoGeodesicArea(coords)).toLocaleString('sv-SE') + ' m²', areaM2: snoGeodesicArea(coords) });
+      });
+      (res.points || []).forEach(q => found.push({ type: q.type, coords: [toLL(q.point)], icon: SNO_TYPES[q.type].icon, what: label(SNO_TYPES[q.type].label), size: '' }));
+      found.forEach(sg => { sg.source = 'ai'; sg.property = prop.address; });
+      return found;
+    }
+
     async function analyzeKk() {
       if (kk.busy) return;
       const m = kkMap();
       if (kk.dirty || !m.place) { if (!(await saveKkPlace())) return; }
-      // Tydlig återkoppling vid knappen och på kartan: AI:n tar 10–30 s
+      // Den aktiva kartan + de ibockades utlagda kartor (inte utlagda hoppas över – de måste passas in först)
+      const targets = [{ prop: kp(), map: kkMap() }];
+      [currentProp, ...groupProps()].filter(p => p && p !== kp()).forEach(p => {
+        const pm = (p.maps || []).find(x => x.place && x.place.tl);
+        if (pm) targets.push({ prop: p, map: pm });
+      });
+      const skipped = [currentProp, ...groupProps()].filter(p => p && p !== kp() && (p.maps || []).length && !p.maps.some(x => x.place && x.place.tl)).map(p => p.address);
+      const many = targets.length > 1, what = many ? `${targets.length} kundkartor` : 'kundkartan';
+      // Tydlig återkoppling vid knappen och på kartan: AI:n tar 10–30 s (kartorna läses samtidigt)
       const t0 = Date.now();
       kk.busy = true;
       const tick = () => {
-        const s = Math.round((Date.now() - t0) / 1000), btn = document.getElementById('kk-ai');
-        if (btn) { btn.disabled = true; btn.textContent = `⏳ AI:n läser kundkartan… ${s} s`; }
+        const sec = Math.round((Date.now() - t0) / 1000), btn = document.getElementById('kk-ai');
+        if (btn) { btn.disabled = true; btn.textContent = `⏳ AI:n läser ${what}… ${sec} s`; }
       };
       tick();
       const ticker = setInterval(tick, 1000);
-      mapToast('🤖 AI:n läser kundkartan…<br><small>Tar oftast 10–30 sekunder</small>', 0);
-      setStatus('🤖 AI:n läser kundens karta… (10–30 sekunder)');
+      mapToast(`🤖 AI:n läser ${what}…<br><small>Tar oftast 10–30 sekunder</small>`, 0);
+      setStatus(`🤖 AI:n läser ${what}… (10–30 sekunder)`);
       const done = (msg) => {
         clearInterval(ticker); kk.busy = false;
         const btn = document.getElementById('kk-ai');
         if (btn) { btn.disabled = false; btn.innerHTML = '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'; }
-        mapToast(msg, 6000);
+        mapToast(msg, 7000);
       };
-      try {
-        const res = await snoApi({ action: 'analyzePropertyMap', id: kp().id, mapId: m.id });
-        if (res.status !== 'success') throw new Error(res.message);
-        const c = m.place;
-        const toLL = ([y, x]) => [c.tl[0] + (c.tr[0] - c.tl[0]) * x / 1000 + (c.bl[0] - c.tl[0]) * y / 1000,
-                                   c.tl[1] + (c.tr[1] - c.tl[1]) * x / 1000 + (c.bl[1] - c.tl[1]) * y / 1000];
-        const found = [];
-        res.areas.forEach(a => {
-          let coords = a.polygon.map(toLL);
-          // AI:n ritar ibland en gångväg som en streckad linje utan bredd (t.ex. "5 m²") – gör den 2 m bred
-          const perim = snoLineLength(coords.concat([coords[0]]));
-          if (a.type === 'hand' && perim > 10 && snoGeodesicArea(coords) / (perim / 2) < 1) {
-            let far = 0;
-            coords.forEach((c, i) => { if (snoLineLength([coords[0], c]) > snoLineLength([coords[0], coords[far]])) far = i; });
-            coords = snoBufferLine(coords.slice(0, far + 1), 2);
-          }
-          found.push({ type: a.type, coords, icon: a.type === 'hand' ? '🚶' : '🚜', what: a.name || (a.type === 'hand' ? 'Gångyta' : 'Köryta'), size: Math.round(snoGeodesicArea(coords)).toLocaleString('sv-SE') + ' m²', areaM2: snoGeodesicArea(coords) });
-        });
-        res.points.forEach(p => found.push({ type: p.type, coords: [toLL(p.point)], icon: SNO_TYPES[p.type].icon, what: SNO_TYPES[p.type].label, size: '' }));
-        found.forEach(sg => { sg.source = 'ai'; });
-        suggestions = found.concat(suggestions.filter(sg => sg.source !== 'ai'));
-        renderSuggestions();
-        setStatus(found.length ? `🤖 ${found.length} förslag från kundkartan. Kontrollera mot kartan – <b>Ta med</b> det som stämmer.` : 'AI:n hittade inga ytor på kartan. Rita av den själv.');
-        done(found.length ? `✅ ${found.length} förslag från kundkartan<br><small>Numrerade på kartan – tryck <b>Ta med</b> i listan</small>` : '🤷 AI:n hittade inga ytor<br><small>Rita av kundkartan själv</small>');
-      } catch (err) {
-        setStatus('❌ ' + snoEscape(err.message || 'AI:n svarade inte.'));
-        done('❌ ' + snoEscape(err.message || 'AI:n svarade inte.'));
-      }
+      const results = await Promise.all(targets.map(async (t) => {
+        try {
+          const res = await snoApi({ action: 'analyzePropertyMap', id: t.prop.id, mapId: t.map.id });
+          if (res.status !== 'success') throw new Error(res.message);
+          return { t, found: aiToSuggestions(res, t.map, t.prop) };
+        } catch (err) { return { t, error: err.message || 'AI:n svarade inte.' }; }
+      }));
+      const found = results.flatMap(r => r.found || []);
+      const failed = results.filter(r => r.error);
+      if (found.length || !failed.length) { suggestions = found.concat(suggestions.filter(sg => sg.source !== 'ai')); renderSuggestions(); }
+      const notes = [
+        ...failed.map(r => `❌ ${snoEscape(r.t.prop.address)}: ${snoEscape(r.error)}`),
+        ...skipped.map(a => `⏭ ${snoEscape(a)}: kundkartan är inte utlagd – gör den aktiv och passa in den först`)
+      ];
+      const per = many ? results.filter(r => r.found).map(r => `${snoEscape(r.t.prop.address)} ${r.found.length}`).join(' · ') : '';
+      setStatus((found.length ? `🤖 ${found.length} förslag${per ? ' (' + per + ')' : ''}. Kontrollera mot kartan – <b>Ta med</b> det som stämmer.` : failed.length ? '' : 'AI:n hittade inga ytor. Rita av kundkartan själv.') + (notes.length ? '<br>' + notes.join('<br>') : ''));
+      done(found.length ? `✅ ${found.length} förslag från ${what}<br><small>Numrerade på kartan – tryck <b>Ta med</b> i listan</small>`
+        : failed.length ? '❌ ' + snoEscape(failed[0].error) : '🤷 AI:n hittade inga ytor<br><small>Rita av kundkartan själv</small>');
     }
 
     function renderKkFab() {
