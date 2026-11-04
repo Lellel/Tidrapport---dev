@@ -46,3 +46,12 @@ Bestämt med Daniel 2026-11-03. Byggt (Kod.gs: handleSendWelcomeKit, handleRedee
 - Fliken Datorlänkar sparar bara en hash av engångskoden.
 - Klaryta-admin kan bara skicka till personal i Klaryta (inte till admin eller ekonom).
 - Själv-länken: högst fem per dygn.
+
+## Ny personal – rutin (bestämt 2026-11-04)
+1. Lägg alltid till personen **i appen**: startsidan → Administratör → Lägg till & skicka välkomstpaket. Aldrig direkt i arket – då saknas nyckel, och mobilnumret kan tappa nollan.
+2. Kontrollera på **Personal-sidan → ⚠️ Att åtgärda** att personen inte står kvar där:
+   - *Ingen personlig länk / Välkomstpaket inte skickat* (läses ur fliken SMS-logg) → 📦 Välkomstpaket
+   - *Saknar mobil*, *Saknar e-post* (admin/ekonom), *Konstigt i arket* → ✏️ Ändra
+   - *Saknar avatar* → personen skapar sin kula på startsidan (bubblan överst)
+3. **Högtiderna** behöver inget per person: tomteluva, haröron m.m. läggs automatiskt på alla kulor (även initialer). Se docs/sasonger.md.
+4. När den gamla gemensamma nyckeln (API_TOKEN) är borttagen kommer man **bara** in med personlig länk – därför måste ⚠️-listan vara tom.

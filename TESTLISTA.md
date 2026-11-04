@@ -559,9 +559,12 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Ladda upp samma `Kod.gs` till **PROD**-versionens Apps Script med `./ladda-upp-kod.sh prod` (prod har en egen backend, klonad i `~/Dev-repot/AppsScript-prod`) → Ny version
 - [ ] Kör deploy (GitHub Actions → "Deploy to Production")
 - [ ] Öppna prod-appen och spara ett riktigt testpass
-- [ ] Skicka nya inloggningslänkar till alla förare
+- [ ] **Personal i prod-arket:** kolumnerna stämmer på varje rad (A namn, B e-post, C mobil, D roll, E behörighet, F bild, G bolag, H status, L nyckel) – Gemini-rester rättas (som Daniels rad i dev: e-post i D, "2242" i B, "✉️ Skicka Mail" i G)
+- [ ] **Personal-sidan i prod → ⚠️ Att åtgärda:** tom innan nyckeln stängs (alla har länk, mobil, e-post för admin/ekonom; avatarer så långt det går)
+- [ ] Skicka välkomstpaket (personlig länk) till **alla aktiva** – Personal-sidan visar vilka som saknar
 - [ ] iPhone-förare: ta bort den gamla appen från hemskärmen, öppna nya länken i Safari och lägg till appen igen via guiden (annars saknar hemskärmsappen nyckeln)
-- [ ] När alla har nya länkar: ta bort `API_TOKEN` ur `Config.gs` och `config.js`
+- [ ] När ⚠️-listan är tom: ta bort `API_TOKEN` ur `Config.gs` och `config.js` (den ligger publikt i config.js – med den kan vem som helst låtsas vara vilken användare som helst)
+- [ ] **Ny personal efter go-live:** läggs alltid till via appen (Lägg till & skicka välkomstpaket), aldrig direkt i arket – se docs/onboarding.md
 
 ## Knapprespons (knappar.js, 2026-11-04)
 - [ ] Tryck på valfri knapp i iPhone/iPad → knappen blir mörkare och lite mindre direkt
@@ -627,3 +630,8 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Ny yta nära grannens nål (grannen ibockad) får grannens adress
 - [ ] ＋ → Sträcka / markörer / Entré fungerar som förut; tryck på en färg/verktyg för att gå tillbaka till ytor
 - [ ] Tryck med fingret på en zon → kortet visar den; ändra slinga/anteckning → 💾 Spara ändringar
+
+## Personal-sidan: kontroll av ny personal (2026-11-04 – kräver ny Kod.gs)
+- [ ] Filtret **⚠️ Att åtgärda** visar personer som saknar länk, mobil, e-post (admin/ekonom), avatar eller har konstiga kolumner
+- [ ] Rad överst: "N personer har inte fått sin personliga länk"
+- [ ] Personkortet förklarar vad som ska göras; efter 📦 Välkomstpaket visas "✅ Välkomstpaket skickat <datum>"

@@ -777,6 +777,14 @@ function handleStaffOverview(auth) {
       (j.assigned || []).forEach(p => { (todayJobs[p] = todayJobs[p] || []).push(j.title || j.client || "Jobb"); });
     });
   } catch (e) { /* radarn saknas – visa ändå personalen */ }
+  // Senaste välkomstpaketet per mobilnummer (fliken SMS-logg: Tid, Till, …, Typ)
+  const kitSent = {};
+  const smsLog = getSS().getSheetByName("SMS-logg");
+  if (smsLog) smsLog.getDataRange().getValues().slice(1).forEach(r => {
+    if (String(r[4]) !== "välkomstpaket" || String(r[6]).indexOf("FEL") === 0) return;
+    const t = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10);
+    kitSent[String(r[1])] = t;
+  });
   const staff = [];
   getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
     if (!r[0] || !inScope(auth, r[6])) return;
@@ -787,7 +795,9 @@ function handleStaffOverview(auth) {
       company: companyOf(r[6]), status: status, active: status.toLowerCase() === "aktiv",
       avatar: (/^data:image\/(jpeg|png);base64,/.test(av) && av.length < 60000) || /^https:\/\//.test(av) ? av : "",
       today: todayJobs[name] || [],
-      canEdit: auth.isSuper || !(isAdminRow(r) || isEconomistRow(r))
+      canEdit: auth.isSuper || !(isAdminRow(r) || isEconomistRow(r)),
+      // Kontrollen på Personal-sidan (inget missas när ny personal läggs till)
+      hasKey: !!String(r[KEY_COLUMN - 1] || ""), kitSent: kitSent[toE164(r[2])] || "", hasAvatar: !!String(r[5] || "")
     });
   });
   staff.sort((a, b) => a.name.localeCompare(b.name, "sv"));

@@ -37,6 +37,9 @@
       background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
     .badge.warn { background: color-mix(in srgb, var(--t-warn) 18%, transparent); color: var(--t-warn); }
     .badge.bad { background: color-mix(in srgb, var(--t-danger) 15%, transparent); color: var(--t-danger); }
+    .pwarn { font-size: 12px; margin-top: 4px; color: var(--t-warn); font-weight: 600; }
+    .issues { background: color-mix(in srgb, var(--t-warn) 12%, transparent); border-radius: var(--t-r); padding: 10px 12px; margin-top: 12px; font-size: 13px; line-height: 1.5; }
+    .issues b { color: var(--t-warn); }
     .empty { color: var(--muted); font-size: 14px; padding: 18px; text-align: center; background: var(--card); border-radius: var(--t-r-card); }
 
     /* Personkortet (öppnas ovanpå listan) */
@@ -114,11 +117,28 @@
     return `<div class="orb${big ? ' big' : ''}" style="${style}">${p.avatar ? '' : esc(initials(p.name))}</div>`;
   }
 
+  // Kontrollen (docs/onboarding.md): så att inget missas när ny personal läggs till
+  const looksEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v || '').trim());
+  function issuesOf(p) {
+    if (!p.active) return [];
+    const out = [];
+    if (!p.hasKey || !p.kitSent) out.push(['link', p.hasKey ? 'Välkomstpaket inte skickat' : 'Ingen personlig länk', 'Tryck 📦 Välkomstpaket – annars kommer personen inte in när den gamla gemensamma nyckeln stängs.']);
+    if (!p.phone) out.push(['phone', 'Saknar mobil', 'Lägg till mobilnummer under ✏️ Ändra – länken skickas med SMS.']);
+    else if (telHref(p.phone).replace(/^\+46/, '0').replace(/\D/g, '').length < 9) out.push(['phone', 'Mobilnumret ser fel ut', 'Rätta under ✏️ Ändra.']);
+    if (p.email && !looksEmail(p.email)) out.push(['sheet', 'Konstigt i arket: e-postkolumnen', `Kolumn B innehåller "${p.email}" – rätta under ✏️ Ändra eller i fliken Personal.`]);
+    else if ((p.role === 'Admin' || p.role === 'Ekonom') && !p.email) out.push(['email', 'Saknar e-post', 'Admin och ekonom får inloggningen för datorn med mejl.']);
+    if (looksEmail(p.roleText)) out.push(['sheet', 'Konstigt i arket: rollkolumnen', 'Kolumn D innehåller en e-postadress – välj roll under ✏️ Ändra.']);
+    if (!p.hasAvatar) out.push(['avatar', 'Saknar avatar', 'Personen skapar sin kula på startsidan (tryck på bubblan överst). Högtidernas luvor och öron kommer ändå med automatiskt.']);
+    return out;
+  }
+
   function chipsHtml() {
     const roles = [['alla', 'Alla'], ['Förare', 'Förare'], ['UE', 'UE'], ['Admin', 'Admin'], ['Ekonom', 'Ekonom']]
       .filter(([k]) => k === 'alla' || data.staff.some(p => p.role === k));
     let h = roles.map(([k, t]) => `<button class="chip ${filter.role === k ? 'on' : ''}" onclick="setFilter('role','${k}')">${t}</button>`).join('');
     if (data.isSuper) h += ['alla', 'LPV', 'Klaryta'].map(c => `<button class="chip ${filter.company === c ? 'on' : ''}" onclick="setFilter('company','${c}')">${c === 'alla' ? 'Båda bolagen' : c}</button>`).join('');
+    const todo = data.staff.filter(p => issuesOf(p).length).length;
+    if (todo) h += `<button class="chip ${filter.issues ? 'on' : ''}" onclick="setFilter('issues', ${!filter.issues})">⚠️ Att åtgärda (${todo})</button>`;
     const off = data.staff.filter(p => !p.active).length;
     if (off) h += `<button class="chip ${filter.inactive ? 'on' : ''}" onclick="setFilter('inactive', ${!filter.inactive})">Visa inaktiva (${off})</button>`;
     $('chips').innerHTML = h;
@@ -129,19 +149,22 @@
     if (!data) return;
     chipsHtml();
     const q = $('q').value.trim().toLowerCase();
-    const list = data.staff.filter(p => (filter.inactive || p.active) && (filter.role === 'alla' || p.role === filter.role) &&
+    const list = data.staff.filter(p => (!filter.issues || issuesOf(p).length) && (filter.inactive || p.active) && (filter.role === 'alla' || p.role === filter.role) &&
       (filter.company === 'alla' || p.company === filter.company) &&
       (!q || [p.name, p.phone, p.email, p.roleText].join(' ').toLowerCase().includes(q)));
     $('count').textContent = `${data.staff.filter(p => p.active).length} aktiva`;
-    $('list').innerHTML = list.length ? '<div class="grid">' + list.map(p => `
+    const noLink = data.staff.filter(p => issuesOf(p).some(i => i[0] === 'link'));
+    $('list').innerHTML = (noLink.length && !filter.issues ? `<div class="issues" style="margin:0 0 12px"><b>⚠️ ${noLink.length} ${noLink.length === 1 ? 'person har' : 'personer har'} inte fått sin personliga länk</b> – ${esc(noLink.map(p => p.name).join(', '))}. Tryck på personen → 📦 Välkomstpaket.</div>` : '') +
+      (list.length ? '<div class="grid">' + list.map(p => `
       <button type="button" class="person ${p.active ? '' : 'off'}" onclick="openPerson(${JSON.stringify(p.name).replace(/"/g, '&quot;')})">
         ${orbHtml(p)}
         <div class="pinfo">
           <div class="pname">${esc(p.name)}${p.active ? '' : ` <span class="badge ${p.status.toLowerCase() === 'karantän' ? 'bad' : 'warn'}">${esc(p.status)}</span>`}</div>
           <div class="pmeta">${esc(p.role)} · ${esc(p.company)}</div>
           <div class="ptoday ${p.today.length ? '' : 'free'}">${p.today.length ? '📅 Idag: ' + esc(p.today.join(', ')) : 'Inget inplanerat idag'}</div>
+          ${issuesOf(p).length ? `<div class="pwarn">⚠️ ${esc(issuesOf(p).map(i => i[1]).join(' · '))}</div>` : ''}
         </div>
-      </button>`).join('') + '</div>' : '<div class="empty">Ingen i personalen matchar.</div>';
+      </button>`).join('') + '</div>' : '<div class="empty">Ingen i personalen matchar.</div>');
   }
 
   // ================= PERSONKORTET =================
@@ -164,6 +187,7 @@
       </div>
       <div class="contact">📱 <b>${esc(fixPhone(p.phone) || '–')}</b> &nbsp; ✉️ <b>${esc(p.email || '–')}</b>
         ${p.today.length ? `<br>📅 Idag: <b>${esc(p.today.join(', '))}</b>` : ''}</div>
+      ${issuesOf(p).length ? `<div class="issues">${issuesOf(p).map(i => `<div><b>⚠️ ${esc(i[1])}</b> – ${esc(i[2])}</div>`).join('')}</div>` : (p.kitSent ? `<div class="pmeta" style="margin-top:8px">✅ Välkomstpaket skickat ${esc(fmtDate(p.kitSent))}</div>` : '')}
       <div class="msg" id="pMsg"></div>
       <div class="form" id="form">
         <div class="g2">
