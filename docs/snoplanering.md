@@ -23,8 +23,15 @@ Resonerat med Daniel 2026-11-05. **Ej byggt** – vi resonerar vidare innan bygg
 - Föraren/handskottaren ser fastigheterna där hens kula ligger (kundkarta, zoner, "att tänka på").
 - En **UE-ansvarig** (markeras på Personal-sidan) ser allt som företagets kulor ligger på.
 
+## Tavlan (bestämt 2026-11-05)
+- **Fastighetskort** (ett per fastighet): fastighetens namn (kund/Brf) + adress, ⭐ prio, **ytor från Rita zoner** (Maskin m² / Hand m²), **✅ zoner klara**, **område**.
+- **Platser för kulor:** 🚜-hålet i rätt storlek (orange = stor, blå = liten; kula som inte passar studsar tillbaka) + 🧹-platser för handskottare (en eller flera, ＋ för fler; visas bara om fastigheten har handzoner).
+- **Sortering:** per område (rubrik per område), sedan adress.
+- **Kulpåsen** överst, en grupp per ägare (Egna / varje UE-företag). Varje kula visar hur många fastigheter den har (t.ex. "Kramer (Pelle) · 7").
+- **Flytta kulor:** dra med finger/penna – eller tryck på kulan och sedan på platsen (säkrare när man måste scrolla).
+- **Kartan** visar kulorna vid fastigheternas nålar (vem kör var); tomma hål syns som röda ringar.
+
 ## Kvar att resonera om
-- Tavlans utseende: kulpåsen + fastighetskorten, och kulorna på kartan (vem kör vad).
 - Hur Snöjour ska se ut för förare/handskottare/UE-ansvarig (lista, karta, ordning man kör).
 - Uppföljning/fakturering mot UE (vem gjorde vad, när).
 - Vad som händer med dagens slingor och förartilldelning i Rita zoner.
