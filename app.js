@@ -233,7 +233,10 @@ async function apiPost(payload) {
     // Inloggningen läggs sist så att ett fält i payload (t.ex. key) aldrig kan skriva över den
     body: JSON.stringify({ site: location.origin + location.pathname.replace(/[^/]*$/, ''), ...payload, ...getAuthFields() })
   });
-  return res.json();
+  // Svarar servern med något annat än data (t.ex. en felsida från Google) – säg vad, i stället för ett tyst fel
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch (e) { throw new Error(`Servern svarade inte med data (HTTP ${res.status}): ${text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90)}`); }
 }
 window.getAuthFields = getAuthFields;
 
@@ -916,7 +919,9 @@ async function fetchAdminUsers() {
       select.innerHTML = `<option value="">Fel vid hämtning: ${reason}</option>`;
     }
   } catch (err) {
-    select.innerHTML = '<option value="">Offline</option>';
+    // Visa varför (nätfel eller konstigt svar) – underlättar felsökning på iPad
+    const why = String((err && err.message) || 'ingen kontakt').replace(/[<>&"]/g, '').slice(0, 120);
+    select.innerHTML = `<option value="">Offline – ${why}</option>`;
   }
 }
 
