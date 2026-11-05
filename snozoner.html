@@ -71,6 +71,27 @@
     .kk-main { min-height: 48px; font-size: 14px; }
     .kk-small { min-height: 36px; font-size: 12px; background: transparent; }
     .kk-progress { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    /* Ett moment i taget: kort rad om nästa steg, hjälpen bakom ?, Klar – nästa alltid längst ner */
+    .step { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+    .step span { flex: 1; }
+    .help-btn { min-height: 30px; width: 30px; padding: 0; border-radius: 50%; font-size: 14px; flex: none; }
+    .help { font-size: 12px; line-height: 1.55; color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r); padding: 10px 12px; }
+    .help b { color: var(--text); }
+    .zone-sum { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .zone-sum:empty { display: none; }
+    .zone-sum b { color: var(--text); }
+    details.more summary { cursor: pointer; font-size: 12px; font-weight: 700; color: var(--muted); list-style: none; padding: 4px 0; }
+    details.more summary::-webkit-details-marker { display: none; }
+    details.more[open] summary { margin-bottom: 8px; }
+    details.more > div { display: flex; flex-direction: column; gap: 10px; }
+    .panel-foot { padding: 10px calc(14px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) 14px; border-top: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; gap: 6px; }
+    .panel-foot:empty { display: none; }
+    /* Panelen fälls in med fliken vid kartans kant */
+    .panel-tab { position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 620; min-height: 64px; width: 26px; padding: 0; border-radius: 10px 0 0 10px; border-right: none; background: var(--t-overlay); font-size: 16px; box-shadow: var(--t-shadow); }
+    body.panel-off .layout { grid-template-columns: 1fr 0; }
+    body.panel-off .panel { display: none; }
+    .map-toggle button.icon { width: 40px; padding: 0; font-size: 16px; }
+    .sno-legend { display: none !important; } /* färgerna syns i verktygsraden; förklaringen finns kvar i Snöjour */
     input[type=range] { padding: 0; }
     /* På kartan */
     .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 60px); /* under tillbaka-knappen */ left: calc(env(safe-area-inset-left) + 12px); z-index: 500; display: flex; gap: 6px; }
@@ -130,8 +151,15 @@
     @media (max-width: 800px) {
       .map-toast { max-width: calc(100% - 24px); }
       .layout { grid-template-columns: 1fr; grid-template-rows: 60vh auto; }
+      body.panel-off .layout { grid-template-columns: 1fr; grid-template-rows: calc(100dvh - 76px - env(safe-area-inset-bottom)) 0; }
+      .panel-tab { top: auto; bottom: 0; right: 50%; transform: translateX(50%); width: 64px; min-height: 26px; border-radius: 10px 10px 0 0; border-right: 1px solid var(--line); border-bottom: none; }
       .panel { border-left: none; border-top: 1px solid var(--line); }
       .sno-legend { display: none; }
+      /* Telefon: sidan scrollar (kartan överst, panelen under) – Klar-raden ligger kvar längst ner ovanför flikraden */
+      .layout { height: auto; min-height: 100%; }
+      .panel-body { flex: none; overflow: visible; }
+      .panel-foot { position: sticky; bottom: 0; z-index: 5; }
+      body.lpv-has-tabbar .panel-foot { bottom: calc(66px + env(safe-area-inset-bottom)); }
     }
   </style>
 </head>
@@ -141,10 +169,10 @@
     <div class="map-wrap">
       <div id="map"></div>
       <div class="map-toggle">
-        <button onclick="mapCtl.setTiles('sat')">🛰️ Satellit</button>
-        <button onclick="mapCtl.setTiles('street')">🗺️ Vägkarta</button>
-        <button id="btn-fs" onclick="toggleFullscreen()" title="Helskärm – döljer klockan och batteriet">⛶ Helskärm</button>
+        <button id="btn-tiles" onclick="toggleTiles()" title="Byt mellan satellit och vägkarta">🗺️ Vägkarta</button>
+        <button id="btn-fs" class="icon" onclick="toggleFullscreen()" title="Helskärm – döljer klockan och batteriet">⛶</button>
       </div>
+      <button class="panel-tab" id="panel-tab" onclick="togglePanel()" title="Dölj/visa panelen">⟩</button>
       <div class="sno-legend" id="sno-legend"></div>
       <div class="kk-fab" id="kk-fab"></div>
       <div class="map-toast" id="map-toast"></div>
@@ -174,44 +202,51 @@
       </div>
 
       <div class="panel-body" id="pane-fastighet">
+        <!-- Ett moment i taget (docs/ritprogram.md): kort rad om nästa steg, hjälpen bakom ? -->
+        <div class="step"><span id="step-text"></span><button class="help-btn" onclick="toggleHelp()" title="Tips och kortkommandon" aria-label="Hjälp">?</button></div>
+        <div class="help" id="help" hidden>
+          <b>Rita:</b> ✏️ penna ringar in (eller tryck ut hörn – tryck på första hörnet för att stänga), 🖌️ pensel målar, 🧽 sudd tar bort. Tryck på valt verktyg för färg och storlek. Allt sparas direkt, ↶ ångrar.<br>
+          <b>Färger:</b> 🔵 maskin · 🟠 hand · 🟣 upplag · 🔴 ej snöröjning (målas över det som inte ska röjas).<br>
+          <b>iPad:</b> Apple Pencil ritar, fingrarna flyttar och zoomar. Tryck med fingret på en zon för att ändra den.<br>
+          <b>Dator:</b> dra med musen för att rita, <b>mellanslag + dra</b> flyttar kartan, <b>⌘/Ctrl+Z</b> ångrar, <b>P B E</b> = penna/pensel/sudd, <b>[ ]</b> = storlek, <b>Esc</b> stänger.<br>
+          <b>⟩</b> vid kartans kant döljer panelen när du vill ha hela kartan.
+        </div>
+        <div class="status" id="status"></div>
         <div class="card" id="kk-card" style="display:none"></div>
+        <div class="zone-sum" id="zone-sum"></div>
 
-        <div class="card">
-          <div class="card-head"><span><span data-icon="forslag">💡</span> Förslag</span><button class="chip" id="btn-sugg" onclick="loadSuggestions()"><span data-icon="frankartan">🗺️</span> Från kartan</button></div>
+        <div class="card" id="sugg-card" hidden>
+          <div class="card-head"><span><span data-icon="forslag">💡</span> Förslag</span><button class="chip" onclick="suggestions = []; renderSuggestions()">✕ Rensa</button></div>
           <div class="zone-list" id="sugg-list"></div>
-          <div class="muted" id="sugg-empty">Tryck <b>🤖 Föreslå zoner</b> på kundkartan – eller <b>🗺️ Från kartan</b> för parkeringar och gångvägar ur OpenStreetMap.</div>
+          <div class="muted" id="sugg-empty" hidden></div>
         </div>
 
-        <div class="card zone-card">
+        <div class="card zone-card" id="zone-card" hidden>
           <div class="card-head" id="zone-head"></div>
-          <div class="muted" id="zone-help"></div>
-          <div class="status" id="status"></div>
+          <div class="muted" id="zone-help" hidden></div>
           <div>
             <label for="f-slinga">Slinga</label>
             <input id="f-slinga" list="slinga-list" placeholder="T.ex. Centrum 1">
             <datalist id="slinga-list"></datalist>
           </div>
-          <div class="row2">
-            <div>
-              <label for="f-property">Fastighet / Adress</label>
-              <input id="f-property" placeholder="T.ex. Drottninggatan 4" oninput="propertyAuto=false">
-            </div>
-            <div>
-              <label for="f-order">Ordning</label>
-              <input id="f-order" type="number" min="0" inputmode="numeric" placeholder="1">
-            </div>
+          <div>
+            <label for="f-property">Fastighet / Adress</label>
+            <input id="f-property" placeholder="T.ex. Drottninggatan 4" oninput="propertyAuto=false">
           </div>
+          <!-- Ordning används inte längre (2026-11-05) – fältet finns kvar dolt så att sparade värden behålls -->
+          <input id="f-order" type="hidden">
           <div>
             <label for="f-note">Anteckning</label>
             <textarea id="f-note" placeholder="T.ex. Snöupplag vid gaveln, se upp för låg grind"></textarea>
           </div>
           <div class="actions">
             <button class="ok" id="btn-save" onclick="saveCurrent()">💾 Spara zon</button>
-            <button onclick="cancelAll()">✕ Avbryt</button>
+            <button onclick="cancelAll()">✕ Stäng</button>
           </div>
           <button class="danger" id="btn-delete" onclick="deleteSelected()" style="display:none">🗑️ Ta bort zonen</button>
         </div>
       </div>
+      <div class="panel-foot" id="panel-foot"></div>
 
       <div class="panel-body" id="pane-zoner" hidden>
         <div class="muted">Tryck på en zon för att visa och ändra den.</div>
@@ -317,7 +352,7 @@
       if (drawType === 'stracka') return 'Dra med pennan eller tryck ut';
       if (instrument === 'pensel') return `Måla ${toolDef().label.toLowerCase()} · ${fmtW(brushW)}`;
       if (instrument === 'sudd') return eraseLasso ? 'Ringa in det som ska bort' : `Sudda · ${fmtW(eraseW)}`;
-      return 'Ringa in – eller tryck ut hörnen (tryck på första hörnet för att stänga)';
+      return 'Ringa in – eller tryck ut hörnen';
     }
     function setSize(v) {
       const w = Math.min(SIZE_MAX, Math.max(SIZE_MIN, Number(v) || 1));
@@ -352,6 +387,53 @@
 
     function setInstrument(k) { pickTool(k); }
 
+    // ---------- KARTKNAPPAR, PANELFLIKEN OCH HJÄLPEN ----------
+    let tilesNow = 'sat';
+    function toggleTiles() {
+      tilesNow = tilesNow === 'sat' ? 'street' : 'sat';
+      mapCtl.setTiles(tilesNow);
+      document.getElementById('btn-tiles').textContent = tilesNow === 'sat' ? '🗺️ Vägkarta' : '🛰️ Satellit';
+    }
+    // ⟩ döljer panelen så att kartan får hela skärmen; appen minns läget
+    const narrow = () => window.matchMedia('(max-width: 800px)').matches;
+    function setPanel(off) {
+      document.body.classList.toggle('panel-off', off);
+      const tab = document.getElementById('panel-tab');
+      tab.textContent = narrow() ? (off ? '⌃' : '⌄') : (off ? '⟨' : '⟩');
+      tab.title = off ? 'Visa panelen' : 'Dölj panelen – hela kartan';
+      try { localStorage.setItem('lpv_zon_panel', off ? 'av' : 'på'); } catch (e) { /* privat läge */ }
+      setTimeout(() => map.invalidateSize && map.invalidateSize(), 60);
+    }
+    function togglePanel() { setPanel(!document.body.classList.contains('panel-off')); }
+    function toggleHelp() { const h = document.getElementById('help'); h.hidden = !h.hidden; }
+
+    // Kort rad överst i panelen: vad är nästa steg just nu
+    function renderStep() {
+      const el = document.getElementById('step-text');
+      if (!el) return;
+      const m = currentProp ? kkMap() : null;
+      el.innerHTML = !currentProp ? '① Välj fastighet i sökfältet ovan.'
+        : kk.adjusting ? '② Lägg kundkartan rätt – 🤖 Placera automatiskt, eller dra och vrid den. Spara läget när den stämmer.'
+        : m && !m.place ? '② Kundkartan är inte utlagd – 🤖 Placera automatiskt eller ✋ Justera.'
+        : selectedZone ? 'Vald zon – ändra uppgifterna eller formen och spara.'
+        : (shape || drawingPoints.length) ? 'Tryck 💾 Spara när du är klar.'
+        : '③ Rita zonerna. Tryck ✅ Klar – nästa när fastigheten är färdig.';
+    }
+
+    // Summering per färg för fastigheten (och ibockade grannar)
+    function renderZoneSum() {
+      const el = document.getElementById('zone-sum');
+      if (!el) return;
+      if (!currentProp) { el.innerHTML = ''; return; }
+      const addrs = new Set(scopeProps().map(p => normAddr(p.address)));
+      const mine = zones.filter(z => addrs.has(normAddr(z.property)));
+      if (!mine.length) { el.innerHTML = '<span>Inga zoner ritade här än.</span>'; return; }
+      const sum = {}, other = mine.filter(z => snoZoneKind(z) !== 'polygon').length;
+      mine.filter(z => snoZoneKind(z) === 'polygon').forEach(z => { sum[z.type] = (sum[z.type] || 0) + (z.areaM2 || snoGeodesicArea(z.coords)); });
+      el.innerHTML = Object.keys(sum).map(t => `<span><i class="sw" style="background:${SNO_TYPES[t].color}"></i>${SHORT[t] || SNO_TYPES[t].label} <b>${fmtM2(sum[t])}</b></span>`).join('') +
+        (other ? `<span>📍 ${other} ${other === 1 ? 'markör/sträcka' : 'markörer/sträckor'}</span>` : '');
+    }
+
     // ---------- ZONEN DU RITAR (kortet i panelen) ----------
     function renderZoneCard() {
       const t = shape ? shape.type : selectedZone ? selectedZone.type : toolType();
@@ -363,11 +445,14 @@
       } else if (drawingPoints.length) info = def.kind === 'polygon' && drawingPoints.length >= 3 ? `<b>${fmtM2(snoGeodesicArea(drawingPoints))}</b>` : `${drawingPoints.length} ${drawingPoints.length === 1 ? 'punkt' : 'punkter'}`;
       const mark = def.color ? `<i class="sw" style="background:${def.color}"></i>` : (def.icon || '');
       document.getElementById('zone-head').innerHTML = `<span>${selectedZone ? '✏️ Vald zon' : '➕ Ny zon'}</span><small>${mark}${def.label}${info ? ' · ' + info : ''}</small>`;
+      // Kortet syns bara när något väntar på 💾 Spara: vald zon, form som ändras, utprickade punkter/markör/sträcka
+      document.getElementById('zone-card').hidden = !(selectedZone || shape || drawingPoints.length);
+      renderStep();
       const help = document.getElementById('zone-help');
       help.innerHTML = shape
         ? `Pennan lägger till, 🧽 sudden tar bort. Dra i hörnen – tryck på ett hörn tar bort det, tryck på en kantprick ger ett nytt.${shape.polys.length > 1 ? ` De ${shape.polys.length} delarna sparas som var sin zon.` : ''}${shape.tooMany ? '<br>🔍 Zooma in för att se hörnen.' : ''}`
         : selectedZone || drawingPoints.length ? '' : 'Rita direkt med ✏️ penna, 🖌️ pensel och 🧽 sudd nere till höger – allt sparas automatiskt och ↶ ångrar. Tryck på det valda verktyget för färg och storlek (🔴 Ej röjning = yta som inte ska snöröjas). Tryck med fingret på en zon för att ändra uppgifterna.<br><small>Dator: dra med musen för att rita, <b>mellanslag + dra</b> flyttar kartan, <b>⌘/Ctrl+Z</b> ångrar, <b>P B E</b> = penna/pensel/sudd, <b>[ ]</b> = storlek.</small>';
-      help.style.display = help.innerHTML ? 'block' : 'none';
+      help.hidden = true;
       document.getElementById('btn-delete').style.display = selectedZone ? 'block' : 'none';
       document.getElementById('btn-save').innerText = selectedZone ? '💾 Spara ändringar' : '💾 Spara zon';
       const auto = autoAddress(shape && shape.polys.length ? shape.polys[0] : drawingPoints);
@@ -577,6 +662,7 @@
           if (i >= 0) { map.removeLayer(zoneLayers[i]); shape.hidden = zoneLayers[i]; }
         }
         renderZoneList();
+        renderZoneSum();
     }
 
     // ---------- TILLDELA FÖRARE ----------
@@ -677,7 +763,7 @@
 
     async function loadSuggestions() {
       if (map.getZoom() < 16) { setStatus('Zooma in på adressen först, så letar jag inom kartbilden.'); return; }
-      const btn = document.getElementById('btn-sugg');
+      const btn = document.getElementById('btn-sugg') || {};
       btn.disabled = true;
       setStatus('💡 Letar efter parkeringar och gångvägar…');
       try {
@@ -708,7 +794,7 @@
           <span class="sugg-num">${i + 1}</span>
           <span onclick="showSuggestion(${i})">${sg.icon} ${snoEscape(sg.what)} <small>${sg.size ? sg.size + ' ' : ''}→ ${SNO_TYPES[sg.type].label}</small></span>
           <button onclick="takeSuggestion(${i})">Ta med</button><button onclick="dropSuggestion(${i})" title="Inte aktuell">✕</button></div>`).join('');
-      document.getElementById('sugg-empty').style.display = suggestions.length ? 'none' : 'block';
+      document.getElementById('sugg-card').hidden = !suggestions.length;
     }
 
     function showSuggestion(i) {
@@ -756,7 +842,7 @@
     }
     function fsUnsupported() { setStatus('Helskärm stöds inte här. Öppna <b>Rita zoner</b> i Safari och tryck <b>⛶ Helskärm</b> där.'); }
     function onFullscreenChange() {
-      document.getElementById('btn-fs').textContent = fsElement() ? '✕ Lämna helskärm' : '⛶ Helskärm';
+      document.getElementById('btn-fs').textContent = fsElement() ? '✕' : '⛶';
       setTimeout(() => map.invalidateSize && map.invalidateSize(), 200);
     }
 
@@ -772,7 +858,7 @@
       const t = document.getElementById('map-toast');
       t.innerHTML = html; t.classList.add('show');
       clearTimeout(toastTimer);
-      if (ms !== 0) toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3500);
+      if (ms !== 0) toastTimer = setTimeout(() => t.classList.remove('show'), ms || 2500);
     }
 
     function penMode() {
@@ -1779,33 +1865,41 @@
         <button class="${kk.gestures === 'map' ? 'on' : ''}" onclick="setGestures('map')"><span>🛰️</span>Satellit</button>`;
     }
 
+    // Kundkartans kort: fullt när kartan läggs ut/justeras, annars en kompakt rad (det sällan använda bakom ⋯ Mer).
+    // Klar – nästa / Senare sitter alltid i panelens fot.
     function renderKkCard() {
       renderKkFab();
+      renderStep(); renderZoneSum();
+      document.getElementById('panel-foot').innerHTML = currentProp ? progressHtml() : '';
       const el = document.getElementById('kk-card');
       const m = kkMap();
       if (!currentProp) { el.style.display = 'none'; return; }
       el.style.display = 'flex';
-      if (!m) { el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="fastighet">🏠</span> ${snoEscape(currentProp.address)}</span><span>${pinBtn()}</span></div><div class="status">${snoEscape(currentProp.kund || '')} Ingen kundkarta – rita från satellitbilden.</div>${neighborsHtml()}${progressHtml()}`; return; }
+      const vagkarta = `<button class="kk-small" id="btn-sugg" onclick="loadSuggestions()"><span data-icon="frankartan">🗺️</span> Förslag från vägkartan</button>`;
+      const nb = neighbors(currentProp).length;
+      const more = (inner) => inner.trim() ? `<details class="more"${group.length ? ' open' : ''}><summary>⋯ Mer${nb ? ` · 🏘️ ${nb} ${nb === 1 ? 'granne' : 'grannar'}${group.length ? ` (${group.length} med)` : ''}` : ''}</summary><div>${inner}</div></details>` : '';
+      const note = currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : '';
+      if (!m) {
+        el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="fastighet">🏠</span> ${snoEscape(currentProp.address)} <small>· ingen kundkarta</small></span><span>${pinBtn()}</span></div>
+          ${vagkarta}${more(note + neighborsHtml())}`;
+        return;
+      }
       const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" onchange="renderKkCard()"></div>`;
+      const placeBtn = `<button class="kk-small" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'place' ? '⏳ AI:n placerar kartan…' : '<span data-icon="ai">🤖</span> Placera automatiskt'}</button>`;
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Gesterna styr <b>${kk.gestures === 'kk' ? '🗺️ kundkartan' : '🛰️ satellitbilden'}</b> – byt med knappen till vänster på kartan.</div>
+          ${placeBtn}
           ${opacity}
-          <button class="kk-small" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'place' ? '⏳ AI:n placerar kartan…' : '<span data-icon="ai">🤖</span> Placera automatiskt'}</button>
           <div class="kk-row"><button class="ok" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
         return;
       }
       const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;
-      el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="kundkarta">📄</span> Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || ''))}</small></span>
-          <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button></span></div>
-        ${kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : `<div class="status">${snoEscape(m.label)}</div>`}
-        ${opacity}
-        <button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>
-        <button class="kk-small" onclick="adjustVisible()"><span data-icon="justera">✋</span> Justera läge</button>
-        ${m.place ? '' : `<button class="kk-small" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}><span data-icon="ai">🤖</span> Placera automatiskt</button>`}
-        ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}
-        ${neighborsHtml()}
-        <div class="kk-progress">${progressHtml()}</div>`;
+      const maps = kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : '';
+      el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="kundkarta">📄</span> Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || currentProp.address))}</small></span>
+          <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button><button class="kk-icon" title="Justera läge" onclick="adjustVisible()"><span data-icon="justera">✋</span></button></span></div>
+        ${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'place' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn}
+        ${more(maps + opacity + (m.place ? placeBtn : '') + vagkarta + note + neighborsHtml())}`;
     }
 
     function dropSuggestion(i) { suggestions.splice(i, 1); renderSuggestions(); }
@@ -1973,6 +2067,7 @@
     document.getElementById('sno-legend').innerHTML = snoLegendHtml();
     if (!snoIsAdmin()) document.getElementById('admin-banner').style.display = 'block';
     renderDock(); renderZoneCard();
+    try { setPanel(localStorage.getItem('lpv_zon_panel') === 'av'); } catch (e) { setPanel(false); }
     try { setTab(localStorage.getItem('lpv_zon_flik') || 'fastighet'); } catch (e) { setTab('fastighet'); }
     loadZones();
     if (snoIsAdmin()) { loadStaff(); loadProperties(); }
