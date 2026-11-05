@@ -72,3 +72,9 @@ Bestämt med Daniel 2026-11-04. Byggt samma dag (snozoner.html: paintOp, scopePr
 - I **✋ Justera**-läget byter raden nere på kartan till kundkartans verktyg: vad fingret flyttar (🗺️ kundkartan / 🛰️ satelliten), genomskinlighet, 🤖 Placera automatiskt, 💾 Spara läge / ✕ Avbryt. De stora gestknapparna till vänster är borta, panelen hänvisar bara till raden.
 - **AI-resultatet** ("5 av 7 punkter stämmer · ± 4 m") står kvar i raden tills läget sparas eller avbryts.
 - **⏳ snurrar** i hela appen (knappar.js byter tecknet mot ett animerat element).
+
+## 📌 Passa in med punkter ersätter AI-placeringen (2026-11-05)
+- AI-placeringen (Gemini matchar punkter mot OpenStreetMap) togs bort: snabb (ca 9 s) men osäker – i test stämde bara 3 av 6 punkter, resten var fel par med 25–70 m fel.
+- **📌 Passa in med punkter** (Justera-raden, eller kundkartans kort när kartan inte är utlagd): tryck på en punkt **på kundkartan** (orange), sedan på **samma punkt i satelliten** (grön) – två gånger. Läge, skala och vridning räknas ut exakt. En tredje punkt visar största avvikelse som kontroll. ↶ Ångra punkt, ✓ Klar med punkterna, 💾 Spara läge / ✕ Avbryt (återställer).
+- Under inpassningen flyttar fingret satelliten (zoom och panorering fritt); varje tryck är en punkt.
+- Testat i Chrome: två par ger exakt läge (0,00 m), tredje paret 0,00 m avvikelse, ångra/spara/avbryt.

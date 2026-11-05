@@ -124,6 +124,8 @@
     .dock-size { display: flex; align-items: center; gap: 10px; min-width: 230px; }
     .dock-size input[type=range] { flex: 1; accent-color: var(--accent); min-height: 32px; }
     .dock-size b { min-width: 46px; text-align: right; font-size: 14px; }
+    .pin-dot { pointer-events: none !important; }
+    .pin-dot div { width: 26px; height: 26px; border-radius: 50%; color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 1px 5px rgba(0,0,0,.6); }
     .dock-result { font-size: 13px; font-weight: 700; padding: 6px 8px; border-radius: var(--t-r); background: var(--card); border: 1px solid var(--line); max-width: 420px; }
     .dock-title { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; width: 100%; }
     /* Ringen som visar penselns/suddens storlek där pennan är */
@@ -324,16 +326,16 @@
     function renderDock() {
       // Justera kundkartan: raden visar kundkartans verktyg i stället för ritverktygen (man ritar inte under tiden)
       if (kk.adjusting && kk.layer) {
-        const busy = kk.busy === 'place';
         document.getElementById('tool-dock').innerHTML = `
-          <div class="dock-title">✋ Justera kundkartan</div>
-          <div class="dock-row"><span class="dock-hint" style="min-width:auto">Fingret flyttar</span>
+          <div class="dock-title">${pin.on ? '📌 Passa in kundkartan' : '✋ Justera kundkartan'}</div>
+          ${pin.on ? `<div class="dock-result">${pinText()}</div>
+            <div class="dock-row"><button onclick="undoPin()" ${pin.pending || pin.pairs.length ? '' : 'disabled'}>↶ Ångra punkt</button><button style="flex:1" onclick="stopPin()">✓ Klar med punkterna</button></div>`
+          : `<div class="dock-row"><span class="dock-hint" style="min-width:auto">Fingret flyttar</span>
             <button class="${kk.gestures === 'kk' ? 'active' : ''}" onclick="setGestures('kk')">🗺️ Kundkartan</button>
             <button class="${kk.gestures === 'map' ? 'active' : ''}" onclick="setGestures('map')">🛰️ Satelliten</button></div>
+            <div class="dock-row"><button style="flex:1" onclick="startPin()">📌 Passa in med punkter</button></div>`}
           <div class="dock-size"><span class="dock-hint">Genomskinlighet</span>
             <input type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" aria-label="Genomskinlighet"></div>
-          <div class="dock-row"><button style="flex:1" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}>${busy ? '⏳ AI:n placerar kartan…' : '🤖 Placera automatiskt'}</button></div>
-          ${kk.lastResult ? `<div class="dock-result">${kk.lastResult}</div>` : ''}
           <div class="dock-row"><button class="ok" style="flex:1" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
         return;
       }
@@ -430,8 +432,8 @@
       if (!el) return;
       const m = currentProp ? kkMap() : null;
       el.innerHTML = !currentProp ? '① Välj fastighet i sökfältet ovan.'
-        : kk.adjusting ? '② Lägg kundkartan rätt – 🤖 Placera automatiskt, eller dra och vrid den. Spara läget när den stämmer.'
-        : m && !m.place ? '② Kundkartan är inte utlagd – 🤖 Placera automatiskt eller ✋ Justera.'
+        : kk.adjusting ? (pin.on ? '② Passa in: följ instruktionen nere på kartan.' : '② Lägg kundkartan rätt – 📌 Passa in med punkter, eller dra och vrid den. Spara läget när den stämmer.')
+        : m && !m.place ? '② Kundkartan är inte utlagd – 📌 Passa in med punkter eller ✋ Justera.'
         : selectedZone ? 'Vald zon – ändra uppgifterna eller formen och spara.'
         : (shape || drawingPoints.length) ? 'Tryck 💾 Spara när du är klar.'
         : '③ Rita zonerna. Tryck ✅ Klar – nästa när fastigheten är färdig.';
@@ -497,6 +499,7 @@
     }
 
     function onMapClick(e) {
+      if (pin.on) { pinTap(e.latlng); return; } // 📌 Passa in: varje tryck är en punkt
       if (kk.adjusting || Date.now() < clickBlockUntil) return; // kundkartan justeras / pennan har just ritat
       const point = [e.latlng.lat, e.latlng.lng];
       if (drawType === 'entre') { if (shape) applyShapeOp([squareAround(point, ENTRE_SIZE)], false); else paintOp([squareAround(point, ENTRE_SIZE)], false, { type: 'hand', note: 'Entré' }); return; }
@@ -666,6 +669,8 @@
         // Mitt i en ritning blir tryck på en befintlig zon en ny punkt, annars väljs zonen.
         // Apple Pencil med pennan prickar hörn även ovanpå en zon – fingret väljer zonen.
         zoneLayers = zones.map(z => snoRenderZone(map, z, (zone, layer, e) => {
+          if (pin.on) { layer.closePopup(); pinTap(e.latlng); return; }
+          if (kk.adjusting) { layer.closePopup(); return; }
           if (lastPointer === 'pen' && isArea() && instrument === 'penna' && !shape) { layer.closePopup(); onMapClick(e); return; }
           // Entréer och markörer läggs ofta inne i en zon: då räknas trycket som ett tryck på kartan
           // Bara direkt efter ett drag spärras trycket (clickBlockUntil). Förut spärrades det också så länge Pensel/Sudd
@@ -1024,7 +1029,7 @@
         if (stroke) { if (e.pointerType === 'touch' && stroke.type === 'touch') endStroke(false); return; } // två fingrar = zooma
         if (e.target.closest('.leaflet-control, .edit-handle, .edit-mid, .tool-dock')) return; // hörnen dras av Leaflet
         // Medan kundkartan justeras flyttar pennan kundkartan – säg det, så att det inte ser ut som att ritningen tappades
-        if (kk.adjusting) { if (e.pointerType === 'pen' && penMode()) mapToast('✋ Du justerar kundkartan.<br><small>Tryck <b>💾 Spara läge</b> (eller ✕ Avbryt) för att börja rita.</small>', 4000); return; }
+        if (kk.adjusting) { if (e.pointerType === 'pen' && penMode() && !pin.on) mapToast('✋ Du justerar kundkartan.<br><small>Tryck <b>💾 Spara läge</b> (eller ✕ Avbryt) för att börja rita.</small>', 4000); return; }
         const mode = penMode();
         if (!mode) return;
         if (spaceDown) return; // mellanslag + dra = flytta kartan (dator)
@@ -1607,7 +1612,7 @@
     }
 
     function startAdjust() {
-      kk.adjusting = true; kk.gestures = 'kk'; kk.placeBefore = { ...kk.place }; kk.lastResult = null;
+      kk.adjusting = true; kk.gestures = 'kk'; kk.placeBefore = { ...kk.place }; endPin();
       cancelDrawing(); placeHandles(); applyGestureMode(); renderKkCard();
       setStatus('Dra med ett finger för att flytta kundkartan, vrid och nyp med två fingrar (eller använd <b>✥</b> och <b>⟳</b>). Byt till <b>🛰️ Satellit</b> (till vänster på kartan) för att flytta satellitbilden. Tryck sedan <b>Spara läge</b>.');
     }
@@ -1616,6 +1621,7 @@
 
     // ✕ Avbryt: kundkartan tillbaka där den låg när justeringen började
     function cancelAdjust() {
+      endPin();
       if (kk.placeBefore) kk.place = { ...kk.placeBefore };
       kk.adjusting = false; kk.dirty = false;
       placeHandles(); applyGestureMode();
@@ -1692,35 +1698,28 @@
       ['gesturestart', 'gesturechange'].forEach(ev => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
     }
 
-    // ---------- 🤖 PLACERA KUNDKARTAN AUTOMATISKT ----------
-    // 1) En OpenStreetMap-bild (4×4 kartbitar, zoom 18, ca 300 m) runt adressens nål byggs i appen.
-    // 2) Gemini hittar punkter som syns i båda bilderna (matchMapToOsm i Kod.gs) och säger om kundkartan är norrvänd.
-    // 3) Läge, skala och vridning räknas ut med minsta kvadrat; punkter som inte stämmer med resten (> 8 m fel) sorteras bort.
-    // Resultatet visas i Justera-läget – kontrollera och tryck 💾 Spara läge.
-    const OSM_Z = 18, OSM_N = 4;
-    async function osmSnapshot(center) {
-      const crs = L.CRS.EPSG3857, c = crs.latLngToPoint(L.latLng(center[0], center[1]), OSM_Z);
-      const size = OSM_N * 256, origin = L.point(c.x - size / 2, c.y - size / 2);
-      const cv = document.createElement('canvas'); cv.width = cv.height = size;
-      const ctx = cv.getContext('2d'); ctx.fillStyle = '#f2efe9'; ctx.fillRect(0, 0, size, size);
-      ctx.filter = 'contrast(1.4) saturate(1.3)'; // tydligare hus och vägar för AI:n (ignoreras där det inte stöds)
-      const tx0 = Math.floor(origin.x / 256), ty0 = Math.floor(origin.y / 256);
-      const jobs = [];
-      for (let tx = tx0; tx <= tx0 + OSM_N; tx++) for (let ty = ty0; ty <= ty0 + OSM_N; ty++) {
-        jobs.push(new Promise(res => {
-          const im = new Image(); im.crossOrigin = 'anonymous';
-          im.onload = () => { ctx.drawImage(im, tx * 256 - origin.x, ty * 256 - origin.y); res(true); };
-          im.onerror = () => res(false);
-          im.src = `https://tile.openstreetmap.org/${OSM_Z}/${tx}/${ty}.png`;
-        }));
-      }
-      const ok = (await Promise.all(jobs)).filter(Boolean).length;
-      if (!ok) throw new Error('Kunde inte hämta vägkartan (täckning?).');
-      return { dataUrl: cv.toDataURL('image/jpeg', 0.75), origin, size };
+    // ---------- 📌 PASSA IN KUNDKARTAN MED PUNKTER (2026-11-05) ----------
+    // Tryck på en punkt PÅ kundkartan (t.ex. en husknut) och sedan på samma punkt i satelliten – minst två gånger.
+    // Läge, skala och vridning räknas ut exakt ur punktparen (minsta kvadrat). Fler par ger en kontroll av hur väl det stämmer.
+    // Kundkartans punkt sparas i bildens koordinater, så den följer med när kartan flyttas. (Ersätter AI-placeringen, som var för osäker.)
+    const pin = { on: false, pairs: [], pending: null, layers: [], err: null };
+    function placeQ(pl) {
+      const k = 1 / Math.cos(pl.c[0] * Math.PI / 180), s = pl.w * k / kk.W;
+      const P = L.CRS.EPSG3857.project(L.latLng(pl.c[0], pl.c[1]));
+      return { k, q: [s * Math.cos(pl.rot), s * Math.sin(pl.rot)], C: [P.x, P.y] };
     }
-
+    // Kartläge ↔ kundkartans bildpunkt (bildens mitt = 0, y uppåt)
+    function toImg(ll) {
+      const { q, C } = placeQ(kk.place), P = L.CRS.EPSG3857.project(L.latLng(ll.lat, ll.lng));
+      const d = [P.x - C[0], P.y - C[1]], m2 = q[0] * q[0] + q[1] * q[1];
+      return [(d[0] * q[0] + d[1] * q[1]) / m2, (d[1] * q[0] - d[0] * q[1]) / m2];
+    }
+    function fromImg(z) {
+      const { q, C } = placeQ(kk.place);
+      return L.CRS.EPSG3857.unproject(L.point(C[0] + q[0] * z[0] - q[1] * z[1], C[1] + q[1] * z[0] + q[0] * z[1]));
+    }
     // Similaritet (skala + vridning + flytt) från punktpar, med komplexa tal: P = C + q·z
-    function fitSimilarity(pairs, fixRot) {
+    function fitSimilarity(pairs) {
       const n = pairs.length, mz = [0, 0], mP = [0, 0];
       pairs.forEach(p => { mz[0] += p.z[0] / n; mz[1] += p.z[1] / n; mP[0] += p.P[0] / n; mP[1] += p.P[1] / n; });
       let re = 0, im = 0, den = 0;
@@ -1729,73 +1728,65 @@
         re += X * a + Y * b; im += Y * a - X * b; den += a * a + b * b;
       });
       if (!den) return null;
-      let q = [re / den, fixRot ? 0 : im / den];
+      const q = [re / den, im / den];
       const C = [mP[0] - (q[0] * mz[0] - q[1] * mz[1]), mP[1] - (q[1] * mz[0] + q[0] * mz[1])];
       return { q, C, apply: (z) => [C[0] + q[0] * z[0] - q[1] * z[1], C[1] + q[1] * z[0] + q[0] * z[1]] };
     }
 
-    async function autoPlaceKk() {
-      const m = kkMap();
-      if (!m || kk.busy || !kk.W) return;
-      const prop = kp();
-      const center = hasPos(prop) ? [prop.lat, prop.lng] : kk.place.c;
-      kk.busy = 'place'; renderKkCard();
-      const tStart = Date.now();
-      mapToast('🤖 AI:n jämför kundkartan med vägkartan…<br><small>Tar 10–30 sekunder</small>', 0);
-      try {
-        const snap = await osmSnapshot(center);
-        // Bryts anslutningen (Safari: "Load failed", t.ex. om appen hamnade i bakgrunden) – ett nytt försök
-        let res;
-        try { res = await snoApi({ action: 'matchMapToOsm', id: prop.id, mapId: m.id, osm: snap.dataUrl }); }
-        catch (e1) {
-          try { res = await snoApi({ action: 'matchMapToOsm', id: prop.id, mapId: m.id, osm: snap.dataUrl }); }
-          catch (e2) { throw new Error('Anslutningen bröts medan AI:n jobbade (håll appen öppen under tiden) – försök igen.'); }
-        }
-        if (res.status !== 'success') throw new Error(res.message || 'AI:n svarade inte.');
-        const crs = L.CRS.EPSG3857, k = 1 / Math.cos(center[0] * Math.PI / 180);
-        // Kundkartans punkt i bildpixlar (y uppåt, mitten = 0) ↔ vägkartans punkt i projicerade meter
-        const pairs = (res.pairs || []).map(p => {
-          const ll = crs.pointToLatLng(L.point(snap.origin.x + p.osm[1] / 1000 * snap.size, snap.origin.y + p.osm[0] / 1000 * snap.size), OSM_Z);
-          const P = crs.project(ll);
-          return { z: [(p.map[1] / 1000 - 0.5) * kk.W, (0.5 - p.map[0] / 1000) * kk.H], P: [P.x, P.y], what: p.what };
-        });
-        if (pairs.length < 2) throw new Error('AI:n hittade för få gemensamma punkter.');
-        // Robust: prova alla punktpar, behåll modellen som flest punkter stämmer med (inom 8 m), räkna om på dem
-        const errM = (f, p) => { const a = f.apply(p.z); return Math.hypot(a[0] - p.P[0], a[1] - p.P[1]) / k; };
-        let best = null;
-        for (let i = 0; i < pairs.length; i++) for (let j = i + 1; j < pairs.length; j++) {
-          const f = fitSimilarity([pairs[i], pairs[j]], res.northUp);
-          if (!f) continue;
-          const inl = pairs.filter(p => errM(f, p) < 8);
-          const err = inl.reduce((s2, p) => s2 + errM(f, p), 0) / Math.max(1, inl.length);
-          if (!best || inl.length > best.inl.length || (inl.length === best.inl.length && err < best.err)) best = { inl, err };
-        }
-        if (!best || best.inl.length < 2) throw new Error('Punkterna stämde inte med varandra – placera kartan för hand.');
-        const f = fitSimilarity(best.inl, res.northUp);
-        const s = Math.hypot(f.q[0], f.q[1]), rot = Math.atan2(f.q[1], f.q[0]);
-        const ll = crs.unproject(L.point(f.C[0], f.C[1]));
-        const w = s * kk.W / k;
-        if (!(w > 15 && w < 3000)) throw new Error('Skalan blev orimlig – placera kartan för hand.');
-        const err = best.inl.reduce((s2, p) => s2 + errM(f, p), 0) / best.inl.length;
-        const before = { ...kk.place };
-        if (!kk.adjusting) startAdjust();
-        kk.placeBefore = before; // ✕ Avbryt går tillbaka till läget före AI:n
-        kk.place = { c: [ll.lat, ll.lng], w, rot };
-        kk.dirty = true;
-        if (kk.layer) kk.layer.update();
-        placeHandles(); renderGroupLayers();
-        map.fitBounds(L.latLngBounds(Object.values(kkCorners(kk.place))).pad(0.1));
-        kk.lastResult = `🤖 ${best.inl.length} av ${pairs.length} punkter stämmer · ± ${Math.max(1, Math.round(err))} m${res.scale ? ' · skala ' + snoEscape(res.scale) : ''} · ${Math.round((Date.now() - tStart) / 1000)} s<br><small style="font-weight:600">Kontrollera mot satelliten och spara – eller justera först.</small>`;
-        mapToast(`🤖 Förslag: ${best.inl.length} av ${pairs.length} punkter stämmer (± ${Math.max(1, Math.round(err))} m)` +
-          `${res.scale ? ' · skala ' + snoEscape(res.scale) : ''}<br><small>Kontrollera mot satelliten och tryck <b>💾 Spara läge</b></small>`, 7000);
-        setStatus(`🤖 AI-förslag: ${best.inl.length} punkter (${snoEscape(best.inl.map(p => p.what).filter(Boolean).slice(0, 3).join(', '))}). Justera vid behov och tryck <b>💾 Spara läge</b>.`);
-      } catch (err) {
-        kk.lastResult = '⚠️ ' + snoEscape(err.message || 'Det gick inte.') + '<br><small style="font-weight:600">Placera kartan för hand med ✥ och ⟳.</small>';
-        if (!kk.adjusting) mapToast('⚠️ ' + snoEscape(err.message || 'Det gick inte.') + '<br><small>Placera kartan för hand med ✥ och ⟳</small>', 6000);
-      } finally {
-        kk.busy = false; renderKkCard();
-        if (kk.adjusting) document.getElementById('map-toast').classList.remove('show'); // resultatet står i raden
+    function startPin() {
+      if (!kk.layer) return;
+      if (!kk.adjusting) startAdjust();
+      pin.on = true; pin.pairs = []; pin.pending = null; pin.err = null;
+      kk.gestures = 'map'; applyGestureMode(); // fingret flyttar satelliten, ett tryck sätter en punkt
+      drawPin(); renderDock(); renderStep();
+    }
+    function stopPin() { pin.on = false; pin.pending = null; drawPin(); kk.gestures = 'kk'; applyGestureMode(); renderDock(); renderStep(); }
+    function endPin() { pin.on = false; pin.pairs = []; pin.pending = null; pin.err = null; drawPin(); }
+    function pinTap(ll) {
+      if (!pin.pending) pin.pending = toImg(ll);
+      else {
+        const P = L.CRS.EPSG3857.project(L.latLng(ll.lat, ll.lng));
+        pin.pairs.push({ z: pin.pending, P: [P.x, P.y] });
+        pin.pending = null;
+        fitPins();
       }
+      drawPin(); renderDock();
+    }
+    function undoPin() {
+      if (pin.pending) pin.pending = null;
+      else if (pin.pairs.length) {
+        pin.pairs.pop();
+        if (pin.pairs.length >= 2) fitPins();
+        else if (kk.placeBefore) { kk.place = { ...kk.placeBefore }; pin.err = null; if (kk.layer) kk.layer.update(); placeHandles(); }
+      }
+      drawPin(); renderDock();
+    }
+    function fitPins() {
+      if (pin.pairs.length < 2) return;
+      const f = fitSimilarity(pin.pairs);
+      if (!f) return;
+      const s = Math.hypot(f.q[0], f.q[1]), rot = Math.atan2(f.q[1], f.q[0]);
+      const ll = L.CRS.EPSG3857.unproject(L.point(f.C[0], f.C[1]));
+      const k = 1 / Math.cos(ll.lat * Math.PI / 180);
+      kk.place = { c: [ll.lat, ll.lng], w: s * kk.W / k, rot };
+      kk.dirty = true;
+      if (kk.layer) kk.layer.update();
+      placeHandles();
+      pin.err = pin.pairs.length > 2 ? Math.max(...pin.pairs.map(p => { const a = f.apply(p.z); return Math.hypot(a[0] - p.P[0], a[1] - p.P[1]) / k; })) : null;
+    }
+    function drawPin() {
+      pin.layers.forEach(l => map.removeLayer(l)); pin.layers = [];
+      if (!pin.on) return;
+      const dot = (ll, color, label) => L.marker(ll, { icon: L.divIcon({ className: 'pin-dot', html: `<div style="background:${color}">${label}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }),
+        interactive: false, keyboard: false, zIndexOffset: 2500 }).addTo(map);
+      pin.pairs.forEach((p, i) => pin.layers.push(dot(L.CRS.EPSG3857.unproject(L.point(p.P[0], p.P[1])), '#16a34a', i + 1)));
+      if (pin.pending) pin.layers.push(dot(fromImg(pin.pending), '#f97316', pin.pairs.length + 1));
+    }
+    function pinText() {
+      const n = pin.pairs.length;
+      if (pin.pending) return `<b>${n + 1}b.</b> Tryck på <b>samma punkt i satelliten</b>.`;
+      if (n < 2) return `<b>${n + 1}a.</b> Tryck på en tydlig punkt <b>på kundkartan</b> – t.ex. en husknut${n ? ', gärna långt från den första' : ''}. Zooma och flytta kartan fritt.`;
+      return `✅ Inpassad med ${n} punkter${pin.err !== null ? ` · största avvikelse <b>${String(Math.round(pin.err * 10) / 10).replace('.', ',')} m</b>` : ''}.<br><small style="font-weight:600">Lägg till en punkt till för kontroll – eller spara.</small>`;
     }
 
     async function saveKkPlace() {
@@ -1804,6 +1795,7 @@
       try {
         const res = await snoApi({ action: 'savePropertyMapPlace', id: kp().id, mapId: m.id, place });
         if (res.status !== 'success') throw new Error(res.message);
+        endPin(); kk.gestures = 'kk';
         m.place = res.place; kk.place = { ...res.place }; kk.dirty = false; kk.adjusting = false;
         placeHandles(); applyGestureMode(); renderKkCard();
         setStatus('✅ Kundkartans läge sparat. Rita av zonerna, eller tryck <b>🤖 Föreslå zoner</b>.');
@@ -1913,17 +1905,17 @@
         return;
       }
       const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" onchange="renderKkCard()"></div>`;
-      const placeBtn = `<button class="kk-small" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'place' ? '⏳ AI:n placerar kartan…' : '<span data-icon="ai">🤖</span> Placera automatiskt'}</button>`;
+      const placeBtn = `<button class="kk-small" onclick="startPin()">📌 Passa in med punkter</button>`;
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
-          <div class="status" style="font-size:12px">Verktygen ligger nere på kartan: vad fingret flyttar, genomskinlighet, 🤖 Placera automatiskt och 💾 Spara läge. Dölj gärna panelen med ⟩.</div>`;
+          <div class="status" style="font-size:12px">Verktygen ligger nere på kartan: vad fingret flyttar, genomskinlighet, 📌 Passa in med punkter och 💾 Spara läge. Dölj gärna panelen med ⟩.</div>`;
         return;
       }
       const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;
       const maps = kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : '';
       el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="kundkarta">📄</span> Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || currentProp.address))}</small></span>
           <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button><button class="kk-icon" title="Justera läge" onclick="adjustVisible()"><span data-icon="justera">✋</span></button></span></div>
-        ${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'place' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn}
+        ${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn}
         ${more(maps + opacity + (m.place ? placeBtn : '') + vagkarta + note + neighborsHtml())}`;
     }
 

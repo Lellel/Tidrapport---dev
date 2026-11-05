@@ -646,8 +646,8 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Dator: dra med musen med ✏️ ringar in, 🖌️ målar, 🧽 suddar; klick sätter hörn
 - [ ] Mellanslag + dra flyttar kartan (även med pensel vald); ⌘/Ctrl+Z ångrar; P/B/E byter verktyg; [ ] ändrar storlek
 - [ ] 🔴 Ej röjning: målas som röd streckad yta, skär bort ur maskin/hand; syns i Snöjour och i förklaringen
-- [ ] Kundkarta som inte är utlagd → 🤖 Placera automatiskt → kartan hamnar ungefär rätt, Justera-läget öppnas; ✕ Avbryt återställer
-- [ ] Testa på en LandInfo-karta, en FKAB-snökarta och Kungsgatan 15 – notera hur många meter fel innan justering
+- [ ] Kundkarta som inte är utlagd → 📌 Passa in med punkter → kartan hamnar rätt; ✕ Avbryt återställer
+- [ ] Testa Passa in på en LandInfo-karta, en FKAB-snökarta och Kungsgatan 15 (flygfoto)
 - [ ] Vägkartan (🗺️) har tydligare kontrast; Natt-läget fortfarande rött
 
 ## Rita zoner – uppstädad panel (2026-11-05)
@@ -666,6 +666,6 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 ## Justera kundkartan från verktygsraden (2026-11-05)
 - [ ] ✋ Justera → raden nere på kartan visar: fingret flyttar kundkartan/satelliten, genomskinlighet, 🤖 Placera automatiskt, 💾 Spara läge / ✕ Avbryt
 - [ ] Genomskinligheten går att dra medan du tittar på kartan
-- [ ] 🤖 Placera automatiskt: ⏳ snurrar medan AI:n jobbar; resultatet ("X av Y punkter · ± N m" eller ⚠️ …) står kvar i raden
+- [ ] 📌 Passa in med punkter: tryck husknut på kundkartan (orange) → samma husknut i satelliten (grön), två gånger → kartan hamnar rätt; tredje punkt visar största avvikelse; ↶ Ångra punkt fungerar
 - [ ] 💾 Spara läge → ritverktygen kommer tillbaka
 - [ ] ⏳ snurrar även på andra ställen (t.ex. ikoner.html, AI:n läser kundkartan)
