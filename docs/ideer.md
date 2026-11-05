@@ -14,3 +14,6 @@ Mål: när en kund ringer visas kundens namn (och logga) på telefonen – i van
 **Loggor:** från kundens domän/mejldomän (loggtjänst), HubSpot-företag, eller uppladdad i appen; reserv = initialer i färg.
 **Att bestämma:** GDPR-text (kundnummer i personalens telefoner), om UE ska ha kontaktboken (förslag: nej), bara kunder med aktiva jobb?
 **Rekommendation:** väg 2. Väg 3 om appen ändå blir en riktig app (push, bakgrunds-GPS i Snöjour).
+
+## Animerat timglas (2026-11-05)
+Alla ⏳ som visas medan något väntar (t.ex. "⏳ AI:n placerar kartan…") vänds sakta upp och ner. Byggs i knappar.js (byter ⏳-tecknen mot ett animerat element) så att ingen sida behöver ändras. Tas efter att kartplaceringen är klar.
