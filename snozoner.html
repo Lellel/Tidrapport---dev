@@ -281,7 +281,8 @@
     // ---------- VERKTYGSLÅDAN (ritprogram, docs/ritprogram.md) ----------
     // Smal rad: ✏️ Penna · 🖌️ Pensel · 🧽 Sudd · färg (typ) · ＋ (sträcka/markörer) · ↶ · 📍.
     // Tryck på det valda verktyget (eller färgpricken) igen → storlek och färg. Rutan stängs när man börjar rita.
-    const AREA_TYPES = ['maskin', 'hand', 'upplag'];
+    const AREA_TYPES = ['maskin', 'hand', 'upplag', 'ej'];
+    const SHORT = { maskin: 'Maskin', hand: 'Hand', upplag: 'Upplag', ej: 'Ej röjning' };
     const fmtW = (w) => String(w).replace('.', ',') + ' m';
     function renderDock() {
       const area = isArea(), marker = MARKER_TYPES.includes(drawType) || drawType === 'stracka';
@@ -290,7 +291,7 @@
       let pop = '';
       if (toolPop && area) {
         const sizeOf = instrument === 'sudd' ? eraseW : brushW;
-        const typeRow = instrument !== 'sudd' ? `<div class="dock-title">Färg</div><div class="dock-row">${AREA_TYPES.map(t => `<button class="chip ${drawType === t ? 'on' : ''}" onclick="setType('${t}')"><i class="sw" style="background:${SNO_TYPES[t].color}"></i> ${SNO_TYPES[t].label.replace('Handskottning', 'Hand').replace('Maskinzon', 'Maskin').replace('Snöupplag', 'Upplag')}</button>`).join('')}</div>` : '';
+        const typeRow = instrument !== 'sudd' ? `<div class="dock-title">Färg</div><div class="dock-row">${AREA_TYPES.map(t => `<button class="chip ${drawType === t ? 'on' : ''}" onclick="setType('${t}')"><i class="sw" style="background:${SNO_TYPES[t].color}"></i> ${SHORT[t]}</button>`).join('')}</div>` : '';
         const sizeRow = instrument !== 'penna' ? `<div class="dock-title">Storlek</div><div class="dock-size">
             <input type="range" min="${SIZE_MIN}" max="${SIZE_MAX}" step="0.5" value="${sizeOf}" oninput="setSize(this.value)" aria-label="Storlek">
             <b id="size-val">${fmtW(sizeOf)}</b></div>` : '';
@@ -365,7 +366,7 @@
       const help = document.getElementById('zone-help');
       help.innerHTML = shape
         ? `Pennan lägger till, 🧽 sudden tar bort. Dra i hörnen – tryck på ett hörn tar bort det, tryck på en kantprick ger ett nytt.${shape.polys.length > 1 ? ` De ${shape.polys.length} delarna sparas som var sin zon.` : ''}${shape.tooMany ? '<br>🔍 Zooma in för att se hörnen.' : ''}`
-        : selectedZone || drawingPoints.length ? '' : 'Rita direkt med ✏️ penna, 🖌️ pensel och 🧽 sudd nere till höger – allt sparas automatiskt och ↶ ångrar. Tryck på det valda verktyget för färg och storlek. Tryck med fingret på en zon för att ändra uppgifterna.';
+        : selectedZone || drawingPoints.length ? '' : 'Rita direkt med ✏️ penna, 🖌️ pensel och 🧽 sudd nere till höger – allt sparas automatiskt och ↶ ångrar. Tryck på det valda verktyget för färg och storlek (🔴 Ej röjning = yta som inte ska snöröjas). Tryck med fingret på en zon för att ändra uppgifterna.<br><small>Dator: dra med musen för att rita, <b>mellanslag + dra</b> flyttar kartan, <b>⌘/Ctrl+Z</b> ångrar, <b>P B E</b> = penna/pensel/sudd, <b>[ ]</b> = storlek.</small>';
       help.style.display = help.innerHTML ? 'block' : 'none';
       document.getElementById('btn-delete').style.display = selectedZone ? 'block' : 'none';
       document.getElementById('btn-save').innerText = selectedZone ? '💾 Spara ändringar' : '💾 Spara zon';
@@ -923,7 +924,8 @@
         if (kk.adjusting) { if (e.pointerType === 'pen' && penMode()) mapToast('✋ Du justerar kundkartan.<br><small>Tryck <b>💾 Spara läge</b> (eller ✕ Avbryt) för att börja rita.</small>', 4000); return; }
         const mode = penMode();
         if (!mode) return;
-        const draws = e.pointerType === 'pen' || (mode === 'brush' && (e.pointerType === 'mouse' || !penSeen));
+        if (spaceDown) return; // mellanslag + dra = flytta kartan (dator)
+        const draws = e.pointerType === 'pen' || e.pointerType === 'mouse' || (mode === 'brush' && !penSeen);
         if (!draws) return;
         map.dragging.disable(); map.touchZoom.disable(); // handflatan mot skärmen ska inte zooma
         if (selectedZone && !shape) selectZone(null); // en vald markör ska inte hindra att man ritar
@@ -951,11 +953,38 @@
       el.addEventListener('pointerdown', (e) => { lastPointer = e.pointerType; moveRing(e); }, true);
     }
 
+    // ---------- TANGENTBORD (dator) ----------
+    // Mellanslag + dra = flytta kartan · ⌘/Ctrl+Z = ångra · P/B/E = penna/pensel/sudd · [ ] = mindre/större · Esc = stäng/släpp hörn
+    let spaceDown = false;
+    const typing = (e) => /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '') || (e.target && e.target.isContentEditable);
+    document.addEventListener('keydown', (e) => {
+      if (typing(e)) return;
+      if (e.code === 'Space') { e.preventDefault(); if (!spaceDown) { spaceDown = true; map.getContainer().style.cursor = 'grab'; document.getElementById('brush-ring').style.display = 'none'; } return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoPoint(); return; }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'p') pickToolKey('penna');
+      else if (k === 'b') pickToolKey('pensel');
+      else if (k === 'e') pickToolKey('sudd');
+      else if (k === '[' || k === ']') {
+        if (!isArea() || instrument === 'penna') return;
+        setSize((instrument === 'sudd' ? eraseW : brushW) + (k === ']' ? 0.5 : -0.5));
+        if (!toolPop) mapToast(`${instrument === 'sudd' ? '🧽' : '🖌️'} ${fmtW(instrument === 'sudd' ? eraseW : brushW)}`, 900);
+        renderDock();
+      } else if (e.key === 'Escape') {
+        if (toolPop || markerMenu) { toolPop = false; markerMenu = false; renderDock(); }
+        else if (drawingPoints.length) { drawingPoints = []; drawPreview(); }
+      }
+    });
+    document.addEventListener('keyup', (e) => { if (e.code === 'Space') { spaceDown = false; map.getContainer().style.cursor = ''; } });
+    window.addEventListener('blur', () => { spaceDown = false; });
+    function pickToolKey(k) { if (!isArea()) setType(lastArea); instrument = k; toolPop = false; markerMenu = false; renderDock(); }
+
     // Ringen visar penselns/suddens storlek där pennan (eller musen) är – även när pennan svävar över skärmen
     let lastPointer = '';
     function moveRing(e) {
       const ring = document.getElementById('brush-ring');
-      if (e.pointerType === 'touch' || penMode() !== 'brush' || kk.adjusting) { ring.style.display = 'none'; return; }
+      if (e.pointerType === 'touch' || penMode() !== 'brush' || kk.adjusting || spaceDown) { ring.style.display = 'none'; return; }
       const p = map.mouseEventToContainerPoint(e), d = Math.max(6, metersToPx(strokeWidth()));
       ring.style.cssText = `display:block;left:${p.x}px;top:${p.y}px;width:${d}px;height:${d}px`;
       ring.classList.toggle('erase', instrument === 'sudd');
@@ -1560,6 +1589,102 @@
       ['gesturestart', 'gesturechange'].forEach(ev => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
     }
 
+    // ---------- 🤖 PLACERA KUNDKARTAN AUTOMATISKT ----------
+    // 1) En OpenStreetMap-bild (4×4 kartbitar, zoom 18, ca 300 m) runt adressens nål byggs i appen.
+    // 2) Gemini hittar punkter som syns i båda bilderna (matchMapToOsm i Kod.gs) och säger om kundkartan är norrvänd.
+    // 3) Läge, skala och vridning räknas ut med minsta kvadrat; punkter som inte stämmer med resten (> 8 m fel) sorteras bort.
+    // Resultatet visas i Justera-läget – kontrollera och tryck 💾 Spara läge.
+    const OSM_Z = 18, OSM_N = 4;
+    async function osmSnapshot(center) {
+      const crs = L.CRS.EPSG3857, c = crs.latLngToPoint(L.latLng(center[0], center[1]), OSM_Z);
+      const size = OSM_N * 256, origin = L.point(c.x - size / 2, c.y - size / 2);
+      const cv = document.createElement('canvas'); cv.width = cv.height = size;
+      const ctx = cv.getContext('2d'); ctx.fillStyle = '#f2efe9'; ctx.fillRect(0, 0, size, size);
+      ctx.filter = 'contrast(1.4) saturate(1.3)'; // tydligare hus och vägar för AI:n (ignoreras där det inte stöds)
+      const tx0 = Math.floor(origin.x / 256), ty0 = Math.floor(origin.y / 256);
+      const jobs = [];
+      for (let tx = tx0; tx <= tx0 + OSM_N; tx++) for (let ty = ty0; ty <= ty0 + OSM_N; ty++) {
+        jobs.push(new Promise(res => {
+          const im = new Image(); im.crossOrigin = 'anonymous';
+          im.onload = () => { ctx.drawImage(im, tx * 256 - origin.x, ty * 256 - origin.y); res(true); };
+          im.onerror = () => res(false);
+          im.src = `https://tile.openstreetmap.org/${OSM_Z}/${tx}/${ty}.png`;
+        }));
+      }
+      const ok = (await Promise.all(jobs)).filter(Boolean).length;
+      if (!ok) throw new Error('Kunde inte hämta vägkartan (täckning?).');
+      return { dataUrl: cv.toDataURL('image/jpeg', 0.85), origin, size };
+    }
+
+    // Similaritet (skala + vridning + flytt) från punktpar, med komplexa tal: P = C + q·z
+    function fitSimilarity(pairs, fixRot) {
+      const n = pairs.length, mz = [0, 0], mP = [0, 0];
+      pairs.forEach(p => { mz[0] += p.z[0] / n; mz[1] += p.z[1] / n; mP[0] += p.P[0] / n; mP[1] += p.P[1] / n; });
+      let re = 0, im = 0, den = 0;
+      pairs.forEach(p => {
+        const a = p.z[0] - mz[0], b = p.z[1] - mz[1], X = p.P[0] - mP[0], Y = p.P[1] - mP[1];
+        re += X * a + Y * b; im += Y * a - X * b; den += a * a + b * b;
+      });
+      if (!den) return null;
+      let q = [re / den, fixRot ? 0 : im / den];
+      const C = [mP[0] - (q[0] * mz[0] - q[1] * mz[1]), mP[1] - (q[1] * mz[0] + q[0] * mz[1])];
+      return { q, C, apply: (z) => [C[0] + q[0] * z[0] - q[1] * z[1], C[1] + q[1] * z[0] + q[0] * z[1]] };
+    }
+
+    async function autoPlaceKk() {
+      const m = kkMap();
+      if (!m || kk.busy || !kk.W) return;
+      const prop = kp();
+      const center = hasPos(prop) ? [prop.lat, prop.lng] : kk.place.c;
+      kk.busy = 'place'; renderKkCard();
+      mapToast('🤖 AI:n jämför kundkartan med vägkartan…<br><small>Tar 10–30 sekunder</small>', 0);
+      try {
+        const snap = await osmSnapshot(center);
+        const res = await snoApi({ action: 'matchMapToOsm', id: prop.id, mapId: m.id, osm: snap.dataUrl });
+        if (res.status !== 'success') throw new Error(res.message || 'AI:n svarade inte.');
+        const crs = L.CRS.EPSG3857, k = 1 / Math.cos(center[0] * Math.PI / 180);
+        // Kundkartans punkt i bildpixlar (y uppåt, mitten = 0) ↔ vägkartans punkt i projicerade meter
+        const pairs = (res.pairs || []).map(p => {
+          const ll = crs.pointToLatLng(L.point(snap.origin.x + p.osm[1] / 1000 * snap.size, snap.origin.y + p.osm[0] / 1000 * snap.size), OSM_Z);
+          const P = crs.project(ll);
+          return { z: [(p.map[1] / 1000 - 0.5) * kk.W, (0.5 - p.map[0] / 1000) * kk.H], P: [P.x, P.y], what: p.what };
+        });
+        if (pairs.length < 2) throw new Error('AI:n hittade för få gemensamma punkter.');
+        // Robust: prova alla punktpar, behåll modellen som flest punkter stämmer med (inom 8 m), räkna om på dem
+        const errM = (f, p) => { const a = f.apply(p.z); return Math.hypot(a[0] - p.P[0], a[1] - p.P[1]) / k; };
+        let best = null;
+        for (let i = 0; i < pairs.length; i++) for (let j = i + 1; j < pairs.length; j++) {
+          const f = fitSimilarity([pairs[i], pairs[j]], res.northUp);
+          if (!f) continue;
+          const inl = pairs.filter(p => errM(f, p) < 8);
+          const err = inl.reduce((s2, p) => s2 + errM(f, p), 0) / Math.max(1, inl.length);
+          if (!best || inl.length > best.inl.length || (inl.length === best.inl.length && err < best.err)) best = { inl, err };
+        }
+        if (!best || best.inl.length < 2) throw new Error('Punkterna stämde inte med varandra – placera kartan för hand.');
+        const f = fitSimilarity(best.inl, res.northUp);
+        const s = Math.hypot(f.q[0], f.q[1]), rot = Math.atan2(f.q[1], f.q[0]);
+        const ll = crs.unproject(L.point(f.C[0], f.C[1]));
+        const w = s * kk.W / k;
+        if (!(w > 15 && w < 3000)) throw new Error('Skalan blev orimlig – placera kartan för hand.');
+        const err = best.inl.reduce((s2, p) => s2 + errM(f, p), 0) / best.inl.length;
+        const before = { ...kk.place };
+        if (!kk.adjusting) startAdjust();
+        kk.placeBefore = before; // ✕ Avbryt går tillbaka till läget före AI:n
+        kk.place = { c: [ll.lat, ll.lng], w, rot };
+        kk.dirty = true;
+        if (kk.layer) kk.layer.update();
+        placeHandles(); renderGroupLayers();
+        map.fitBounds(L.latLngBounds(Object.values(kkCorners(kk.place))).pad(0.1));
+        mapToast(`🤖 Förslag: ${best.inl.length} av ${pairs.length} punkter stämmer (± ${Math.max(1, Math.round(err))} m)` +
+          `${res.scale ? ' · skala ' + snoEscape(res.scale) : ''}<br><small>Kontrollera mot satelliten och tryck <b>💾 Spara läge</b></small>`, 7000);
+        setStatus(`🤖 AI-förslag: ${best.inl.length} punkter (${snoEscape(best.inl.map(p => p.what).filter(Boolean).slice(0, 3).join(', '))}). Justera vid behov och tryck <b>💾 Spara läge</b>.`);
+      } catch (err) {
+        mapToast('⚠️ ' + snoEscape(err.message || 'Det gick inte.') + '<br><small>Placera kartan för hand med ✥ och ⟳</small>', 6000);
+      } finally {
+        kk.busy = false; renderKkCard();
+      }
+    }
+
     async function saveKkPlace() {
       const m = kkMap();
       const place = { ...kk.place, ...(() => { const c = kkCorners(kk.place); return { tl: c.tl, tr: c.tr, bl: c.bl }; })() };
@@ -1666,6 +1791,7 @@
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Gesterna styr <b>${kk.gestures === 'kk' ? '🗺️ kundkartan' : '🛰️ satellitbilden'}</b> – byt med knappen till vänster på kartan.</div>
           ${opacity}
+          <button class="kk-small" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'place' ? '⏳ AI:n placerar kartan…' : '<span data-icon="ai">🤖</span> Placera automatiskt'}</button>
           <div class="kk-row"><button class="ok" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
         return;
       }
@@ -1676,6 +1802,7 @@
         ${opacity}
         <button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>
         <button class="kk-small" onclick="adjustVisible()"><span data-icon="justera">✋</span> Justera läge</button>
+        ${m.place ? '' : `<button class="kk-small" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}><span data-icon="ai">🤖</span> Placera automatiskt</button>`}
         ${currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : ''}
         ${neighborsHtml()}
         <div class="kk-progress">${progressHtml()}</div>`;

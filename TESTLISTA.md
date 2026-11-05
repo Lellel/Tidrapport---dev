@@ -641,3 +641,11 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Välj **Stalltvätt** → passet får 📋 Arbetsorder; stallet väljs automatiskt om stallets namn står i kalendertiteln
 - [ ] Avbryt → inget pass skapas, listan ser ut som vanligt nästa gång
 - [ ] **Radarjobb** stämplas in direkt utan fråga (som förut)
+
+## Rita zoner: dator, röd yta, automatisk placering (2026-11-05 – kräver ny Kod.gs)
+- [ ] Dator: dra med musen med ✏️ ringar in, 🖌️ målar, 🧽 suddar; klick sätter hörn
+- [ ] Mellanslag + dra flyttar kartan (även med pensel vald); ⌘/Ctrl+Z ångrar; P/B/E byter verktyg; [ ] ändrar storlek
+- [ ] 🔴 Ej röjning: målas som röd streckad yta, skär bort ur maskin/hand; syns i Snöjour och i förklaringen
+- [ ] Kundkarta som inte är utlagd → 🤖 Placera automatiskt → kartan hamnar ungefär rätt, Justera-läget öppnas; ✕ Avbryt återställer
+- [ ] Testa på en LandInfo-karta, en FKAB-snökarta och Kungsgatan 15 – notera hur många meter fel innan justering
+- [ ] Vägkartan (🗺️) har tydligare kontrast; Natt-läget fortfarande rött

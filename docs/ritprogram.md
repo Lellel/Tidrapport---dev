@@ -38,3 +38,9 @@ Bestämt med Daniel 2026-11-04. Byggt samma dag (snozoner.html: paintOp, scopePr
 - En vald zon (tryck med fingret) kan fortfarande ändras med hörnhandtagen – det sparas med 💾 som förut.
 - Målar man där en granne utanför omfattningen har en zon rörs grannens zon inte (ytorna kan då överlappa).
 - Ringen visas för pensel och sudd när Apple Pencil (eller musen) är över kartan.
+
+## Dator, röd yta och automatisk placering (2026-11-05)
+- **Dator:** dra med musen ritar med alla verktyg (penna ringar in, pensel/sudd målar, klick sätter hörn). **Mellanslag + dra** flyttar kartan. **⌘/Ctrl+Z** ångrar, **P B E** = penna/pensel/sudd, **[ ]** = mindre/större, **Esc** stänger rutan/släpper hörn.
+- **🔴 Ej röjning** (typ `ej`): yta som INTE ska snöröjas – röd och streckad, syns även i Snöjour. Målas som de andra färgerna och skär bort ur andra zoner där den målas.
+- **🤖 Placera automatiskt** (kundkartans kort, och i Justera-läget): appen bygger en OpenStreetMap-bild (zoom 18, ca 300 m) runt adressens nål, Gemini hittar gemensamma punkter (`matchMapToOsm` i Kod.gs) och om kartan är norrvänd. Appen räknar läge/skala/vridning (minsta kvadrat, punkter som avviker > 8 m sorteras bort) och öppnar Justera-läget med förslaget – kontrollera och 💾 Spara läge. ✕ Avbryt går tillbaka till läget före AI:n. Matematiken testad: 0,5 m fel med exakta punkter; precisionen i verkligheten beror på hur exakt Gemini pekar.
+- **Vägkartan** har mer kontrast (klassen `osm-tiles` i theme.css).

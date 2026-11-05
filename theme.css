@@ -71,6 +71,9 @@
 
 /* Kartan dämpas i mörka lägen; i Natt även rödtonad så den inte bländar i hytten */
 :root[data-theme="dark"] .leaflet-tile-pane img.leaflet-tile { filter: brightness(0.85); }
+/* Vägkartan (OpenStreetMap) är blek – mer kontrast och färg så att hus, vägar och tomtgränser syns (2026-11-05) */
+.leaflet-tile-pane .osm-tiles img.leaflet-tile { filter: contrast(1.35) saturate(1.35) brightness(0.96); }
+:root[data-theme="dark"] .leaflet-tile-pane .osm-tiles img.leaflet-tile { filter: brightness(0.85) contrast(1.35) saturate(1.35); }
 :root[data-theme="night"] .leaflet-tile-pane img.leaflet-tile { filter: brightness(0.42) sepia(1) saturate(2.6) hue-rotate(-38deg) contrast(1.1); }
 :root[data-theme="night"] .leaflet-overlay-pane svg, :root[data-theme="night"] .leaflet-marker-pane { filter: sepia(1) saturate(3) hue-rotate(-38deg) brightness(.75); }
 :root[data-theme="night"] .leaflet-control-attribution { background: rgba(0, 0, 0, 0.7) !important; color: var(--t-muted) !important; }

@@ -20,7 +20,9 @@ const SNO_TYPES = {
   trappa:   { label: 'Trappa',        icon: '🪜', kind: 'marker' },
   hinder:   { label: 'Övrigt hinder', icon: '❗', kind: 'marker' },
   // Snöupplag ritas som yta; äldre upplag är sparade som en punkt och visas då som 🏔️
-  upplag:   { label: 'Snöupplag',     icon: '🏔️', color: '#d946ef', kind: 'polygon', allowPoint: true }
+  upplag:   { label: 'Snöupplag',     icon: '🏔️', color: '#d946ef', kind: 'polygon', allowPoint: true },
+  // Yta som INTE ska snöröjas (t.ex. gräs, rabatt, privat uteplats) – röd och streckad (2026-11-05)
+  ej:       { label: 'Ej snöröjning', color: '#e11d48', kind: 'polygon', dashed: true }
 };
 
 // Zonens form: ett upplag med en enda punkt är en markör, annars gäller typen
@@ -31,7 +33,7 @@ function snoZoneKind(zone) {
 
 // Färgförklaring för kartan
 function snoLegendHtml() {
-  return ['maskin', 'hand', 'upplag', 'stracka'].map(t =>
+  return ['maskin', 'hand', 'upplag', 'stracka', 'ej'].map(t =>
     `<span><i style="background:${SNO_TYPES[t].color}"></i>${SNO_TYPES[t].label}</span>`).join('');
 }
 
@@ -78,7 +80,8 @@ function snoCreateMap(elementId) {
   const map = L.map(elementId, { zoomControl: false }).setView(SNO_FLEN_CENTER, 15);
   // Esri har inga riktiga satellitbilder på nivå 19 kring Flen ("Map data not yet available") –
   // använd nivå 18 och förstora den när man zoomar in mer (upp till 21 för noggrann ritning)
-  const layer = (name) => L.tileLayer(SNO_TILES[name], { maxZoom: 21, maxNativeZoom: name === 'sat' ? 18 : 19, attribution: SNO_ATTRIB[name] });
+  // Vägkartan (OpenStreetMap) får klassen osm-tiles → mer kontrast i theme.css (2026-11-05)
+  const layer = (name) => L.tileLayer(SNO_TILES[name], { maxZoom: 21, maxNativeZoom: name === 'sat' ? 18 : 19, attribution: SNO_ATTRIB[name], className: name === 'street' ? 'osm-tiles' : '' });
   let tiles = layer('sat').addTo(map);
   return {
     map,
@@ -126,7 +129,7 @@ function snoRenderZone(map, zone, onClick) {
   // bubblingMouseEvents: false = tryck på zonen räknas inte också som tryck på kartan
   const kind = snoZoneKind(zone);
   if (kind === 'polygon') {
-    layer = L.polygon(zone.coords, { color: def.color, fillColor: def.color, fillOpacity: 0.35, weight: 3, bubblingMouseEvents: false });
+    layer = L.polygon(zone.coords, { color: def.color, fillColor: def.color, fillOpacity: def.dashed ? 0.22 : 0.35, weight: 3, dashArray: def.dashed ? '8 6' : null, bubblingMouseEvents: false });
   } else if (kind === 'line') {
     layer = L.polyline(zone.coords, { color: def.color, weight: 6, bubblingMouseEvents: false });
   } else {

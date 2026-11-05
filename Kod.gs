@@ -184,7 +184,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getRadarData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "getWeather", "getAppIcons", "generateAppIcon"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "matchMapToOsm", "getWeather", "getAppIcons", "generateAppIcon"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -230,7 +230,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "setSlingaDrivers",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "matchMapToOsm", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
       "getStaffOverview", "getStaffHistory", "updateStaff",
       "saveStall", "addStallPhoto", "robotAlarm", "generateAppIcon", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
@@ -368,6 +368,7 @@ function doPost(e) {
     if (action === "createWidgetKey") return handleCreateWidgetKey(data, auth);
     if (action === "setPlowThreshold") return handleSetPlowThreshold(data);
     if (action === "analyzePropertyMap") return handleAnalyzePropertyMap(data);
+    if (action === "matchMapToOsm") return handleMatchMapToOsm(data);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
@@ -1085,7 +1086,8 @@ function handleSickReport(data) {
 // Fliken "Snözoner" skapas automatiskt. Geometri sparas som JSON [[lat,lng],...].
 // ==========================================
 const SNOW_HEADERS = ["Zon-ID", "Slinga", "Ordning", "Fastighet/Adress", "Typ", "Geometri (JSON)", "Yta (m2)", "Anteckning", "Uppdaterad av", "Uppdaterad"];
-const SNOW_TYPES = ["maskin", "hand", "stracka", "kantsten", "lucka", "trappa", "hinder", "upplag"];
+// "ej" = yta som INTE ska snöröjas (röd i Rita zoner, 2026-11-05)
+const SNOW_TYPES = ["maskin", "hand", "stracka", "kantsten", "lucka", "trappa", "hinder", "upplag", "ej"];
 const SNOW_MARKERS = ["kantsten", "lucka", "trappa", "hinder"];
 // Kolumner efter de tio första: fotot på hindret och hur säker GPS:en var när det lades ut
 const SNOW_EXTRA = ["Foto (Drive-ID)", "GPS-noggrannhet (m)"];
@@ -1799,6 +1801,48 @@ function handleSavePropertyMapPlace(data) {
 
 // AI läser kundens karta och föreslår zoner. Koordinater 0–1000 i bilden; appen räknar om dem
 // till kartan med hjälp av hörnen (kartan måste vara utlagd först).
+// Kundkartan placeras automatiskt (docs/ritprogram.md): appen skickar en OpenStreetMap-bild runt adressen,
+// Gemini hittar punkter som syns i båda bilderna (husknutar, korsningar) och läser om kartan är norrvänd.
+// Appen räknar sedan ut läge, skala och vridning av punkterna och visar förslaget för justering.
+function handleMatchMapToOsm(data) {
+  const hit = findRowById(getPropertySheet(), data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const m = propertyMaps(hit.row).find(x => x.id === data.mapId);
+  if (!m) return createJsonResponse({ status: "error", message: "Kartan hittades inte." });
+  const osm = String(data.osm || "").replace(/^data:image\/(jpeg|png);base64,/, "");
+  if (!/^[A-Za-z0-9+\/=]+$/.test(osm) || osm.length > 4000000) return createJsonResponse({ status: "error", message: "Kartbilden från appen saknas eller är för stor." });
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
+  let b64;
+  try { b64 = Utilities.base64Encode(DriveApp.getFileById(m.id).getBlob().getBytes()); }
+  catch (err) { return createJsonResponse({ status: "error", message: "Kunde inte läsa kundkartan: " + err.message }); }
+  const prompt =
+    "Bild 1 är en kunds karta över en fastighet (ritning, skötselkarta eller planritning). Bild 2 är en OpenStreetMap-karta över ungefär samma område, med norr rakt uppåt. " +
+    "Samma hus, vägar och tomter finns i båda bilderna, men skala, vridning och läge kan skilja. " +
+    "Uppgift: hitta 6–10 punkter som syns tydligt i BÅDA bilderna – helst hörn på hus (husknutar), annars vägkorsningar, tomthörn eller ändar på gångvägar. " +
+    "Sprid punkterna över hela området (inte alla på samma hus). Ta bara med punkter du är säker på finns i båda. " +
+    "Ange varje punkt som [y, x] normaliserat 0–1000 i respektive bild (0,0 = övre vänstra hörnet). " +
+    "Ange också om bild 1 är norrvänd (norrpil uppåt, eller ingen norrpil men texten rättvänd som på en vanlig karta) och skalan om den står på kartan. " +
+    "Svara ENDAST med JSON: {\"norrUpp\":true,\"skala\":\"1:500\",\"punkter\":[{\"karta\":[y,x],\"osm\":[y,x],\"vad\":\"kort beskrivning\"}]}";
+  try {
+    const response = geminiFetch("text", apiKey, {
+      method: "post", contentType: "application/json", muteHttpExceptions: true,
+      payload: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: b64 } }, { inlineData: { mimeType: "image/jpeg", data: osm } }, { text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }) });
+    const code = response.getResponseCode();
+    if (code !== 200) return createJsonResponse({ status: "error", message: code === 429 ? geminiErrorText(code, response.getContentText()) : "AI:n svarade inte (HTTP " + code + ")." });
+    const json = JSON.parse(response.getContentText());
+    const text = ((json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || []).map(p => p.text || "").join("");
+    const ai = JSON.parse(text.replace(/^```(json)?|```$/g, "").trim());
+    const okPt = (p) => Array.isArray(p) && p.length === 2 && p.every(n => isFinite(n) && n >= 0 && n <= 1000);
+    const pairs = (Array.isArray(ai.punkter) ? ai.punkter : []).filter(p => okPt(p.karta) && okPt(p.osm)).slice(0, 15)
+      .map(p => ({ map: [Number(p.karta[0]), Number(p.karta[1])], osm: [Number(p.osm[0]), Number(p.osm[1])], what: String(p.vad || "").slice(0, 60) }));
+    return createJsonResponse({ status: "success", northUp: ai.norrUpp !== false, scale: String(ai.skala || "").slice(0, 20), pairs: pairs });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: "AI:n kunde inte jämföra kartorna: " + err.message });
+  }
+}
+
 function handleAnalyzePropertyMap(data) {
   const hit = findRowById(getPropertySheet(), data.id);
   if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
