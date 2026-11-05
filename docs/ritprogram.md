@@ -54,3 +54,5 @@ Bestämt med Daniel 2026-11-04. Byggt samma dag (snozoner.html: paintOp, scopePr
 - Hjälptexter → en **?**-knapp med tips och kortkommandon.
 - Kartan: Satellit/Vägkarta blir en växlingsknapp, Helskärm bara ikon.
 - Flikarna Zoner och Förare som i dag.
+- **Bestämt 2026-11-05:** fältet **Ordning** tas bort ur zonformuläret (stannar i arket). Med kartan blir det självklart vem som kör vad.
+- **Huvudproblemet är visuellt brus:** panelen ska bara visa det som hör till momentet – Välja fastighet / Kundkartan / Rita / Tryckt på en zon. Förslag: förklaringen bort i Rita zoner (kvar i Snöjour), Satellit/Vägkarta en knapp, Helskärm ikon, hjälptexter bakom **?**, en kort rad "nästa steg". Ej byggt – Daniel vill resonera mer.
