@@ -46,3 +46,7 @@ Bestämt med Daniel 2026-11-03. Byggs med Blacksta-planeringen som mall.
 - Jobben har redan kolumnerna Site-Kontakt och Site-Telefon (fylls i automatiskt när en offert godkänns).
 - Förslag: arbetskortet på startsidan får raden "👤 Namn" med **📞 Ring** och **💬 SMS**; Radarns jobbruta får fälten Kontaktperson och Telefon (numret sparas med nollan).
 - **Vem ser numret:** förare och admin som är bemannade på jobbet. **Inte UE** – men admin ska kunna slå på det för ett jobb när en UE behöver kontakta kunden (t.ex. en bock "Visa kontakt för UE" i jobbrutan).
+
+## Kalenderjobb i Radarn (bestämt 2026-11-05, ej byggt – Daniel vill vänta)
+- Radarn har aldrig visat Google-kalendern (bara Kabanoss-prototyperna). I dag syns kalenderjobb bara som blå kort på startsidan (LPV-admin), via `jobsForDay` i Kod.gs.
+- Beslut: en egen rad **📅 Kalender** överst i tidslinjen med kalenderns jobb som gråa kort (bara visning). Tryck på ett → **Gör till radarjobb** för att bemanna det.
