@@ -2045,6 +2045,11 @@ function logRobotAlarmReport(stall, rowIndex, alarm, place, user) {
 // den rad som går just nu (senast startad om flera). Alla SMS loggas i fliken Robotlarm.
 function handleRobotAlarm(data, user) {
   const text = sanitize(data.text).slice(0, 300);
+  // Evoclean skickar SMS även när roboten är klar ("finished") – det är inget larm (2026-11-05)
+  if (/finish|färdig/i.test(text)) {
+    getSheetOrCreate(getSS(), "Robotlarm", ["Tidpunkt", "SMS", "Stall", "Rad", "Mottaget av"]).appendRow([nowStamp(), text, "(klar – inget larm)", "", sanitize(user)]);
+    return createJsonResponse({ status: "success", matched: false, finished: true, message: "Roboten är klar – inget larm." });
+  }
   const now = Date.now();
   const rows = getStallSheet().getDataRange().getValues();
   let best = null;

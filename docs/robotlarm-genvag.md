@@ -22,3 +22,4 @@ Servern tar inte emot SMS – den tar emot webbanrop. Telefonen som får roboten
 - Nyckeln ligger i genvägen – efter "Spärra & skapa ny länk" måste genvägen få den nya nyckeln.
 - Fungerar bara på telefonen som får SMS:et (täckning krävs). Robustare alternativ: 46elks-nummer med webhook (väg 2).
 - `robotAlarm` kräver admin på LPV.
+- SMS med "finished"/"färdig" (roboten klar) blir inget larm – servern loggar dem som klara. Den gamla genvägen "SMS-larm från Evoclean" (larmljud) ska ha villkoret *Meddelande innehåller inte finished*.
