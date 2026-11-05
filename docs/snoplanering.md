@@ -31,6 +31,12 @@ Resonerat med Daniel 2026-11-05. **Ej byggt** – vi resonerar vidare innan bygg
 - **Flytta kulor:** dra med finger/penna – eller tryck på kulan och sedan på platsen (säkrare när man måste scrolla).
 - **Kartan** visar kulorna vid fastigheternas nålar (vem kör var); tomma hål syns som röda ringar.
 
+## En kommundel i taget (bestämt 2026-11-05)
+- **Väljare överst** (Bettna, Hälleforsnäs, Flen Södra …): bara den kommundelens fastighetskort, kartan zoomar dit, och "3 av 8 fastigheter har traktor".
+- **Traktorkulor:** först de som är **stationerade** i kommundelen (traktorns Ort/uppställning), grupperade per ägare. Övriga hopfällda under **⋯ Övriga**, sorterade efter avstånd (närmast först) – om man behöver låna.
+- **Handskottarkulor:** syns i **alla** kommundelar, sorterade efter **avstånd** (närmast först, t.ex. "🧹 Ahmed · 3 km"). Avståndet räknas från personens **hemort/hemadress** (nytt valfritt fält på Personal-sidan, får kartpunkt automatiskt), annars från fastigheterna personen redan har fått, annars sist utan avstånd.
+- **Siffran på kulan:** antal fastigheter i kommundelen (och totalt om den kör på flera ställen), t.ex. "Kramer (Pelle) · 3 (av 9)".
+
 ## Kvar att resonera om
 - Hur Snöjour ska se ut för förare/handskottare/UE-ansvarig (lista, karta, ordning man kör).
 - Uppföljning/fakturering mot UE (vem gjorde vad, när).
