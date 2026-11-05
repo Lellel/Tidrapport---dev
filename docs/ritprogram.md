@@ -44,3 +44,13 @@ Bestämt med Daniel 2026-11-04. Byggt samma dag (snozoner.html: paintOp, scopePr
 - **🔴 Ej röjning** (typ `ej`): yta som INTE ska snöröjas – röd och streckad, syns även i Snöjour. Målas som de andra färgerna och skär bort ur andra zoner där den målas.
 - **🤖 Placera automatiskt** (kundkartans kort, och i Justera-läget): appen bygger en OpenStreetMap-bild (zoom 18, ca 300 m) runt adressens nål, Gemini hittar gemensamma punkter (`matchMapToOsm` i Kod.gs) och om kartan är norrvänd. Appen räknar läge/skala/vridning (minsta kvadrat, punkter som avviker > 8 m sorteras bort) och öppnar Justera-läget med förslaget – kontrollera och 💾 Spara läge. ✕ Avbryt går tillbaka till läget före AI:n. Matematiken testad: 0,5 m fel med exakta punkter; precisionen i verkligheten beror på hur exakt Gemini pekar.
 - **Vägkartan** har mer kontrast (klassen `osm-tiles` i theme.css).
+
+## Uppstädning av zonmodulen (förslag 2026-11-05, ej byggt – Daniel vill resonera mer)
+**Det som känns rörigt (Daniel):** zonformuläret, för mycket på en gång, knapparna på kartan, svårt att veta nästa steg.
+
+**Förslag:**
+- Panelen följer arbetsgången: fastighet + område i en rad → ① Kundkarta (🤖 Placera, ✋ Justera, 👁; resten bakom ⋯) → ② Rita (🤖 Föreslå zoner, 🗺️ Från vägkartan; förslagen syns bara när de finns; summering per färg i m²) → **✅ Klar – nästa / ⏭ Senare alltid längst ner**.
+- Zonformuläret (slinga, adress, ordning, anteckning, 🗑️) visas bara när man trycker på en zon. Nya zoner får fastighetens slinga automatiskt.
+- Hjälptexter → en **?**-knapp med tips och kortkommandon.
+- Kartan: Satellit/Vägkarta blir en växlingsknapp, Helskärm bara ikon.
+- Flikarna Zoner och Förare som i dag.
