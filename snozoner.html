@@ -1716,7 +1716,7 @@
       }
       const ok = (await Promise.all(jobs)).filter(Boolean).length;
       if (!ok) throw new Error('Kunde inte hämta vägkartan (täckning?).');
-      return { dataUrl: cv.toDataURL('image/jpeg', 0.85), origin, size };
+      return { dataUrl: cv.toDataURL('image/jpeg', 0.75), origin, size };
     }
 
     // Similaritet (skala + vridning + flytt) från punktpar, med komplexa tal: P = C + q·z
@@ -1744,7 +1744,13 @@
       mapToast('🤖 AI:n jämför kundkartan med vägkartan…<br><small>Tar 10–30 sekunder</small>', 0);
       try {
         const snap = await osmSnapshot(center);
-        const res = await snoApi({ action: 'matchMapToOsm', id: prop.id, mapId: m.id, osm: snap.dataUrl });
+        // Bryts anslutningen (Safari: "Load failed", t.ex. om appen hamnade i bakgrunden) – ett nytt försök
+        let res;
+        try { res = await snoApi({ action: 'matchMapToOsm', id: prop.id, mapId: m.id, osm: snap.dataUrl }); }
+        catch (e1) {
+          try { res = await snoApi({ action: 'matchMapToOsm', id: prop.id, mapId: m.id, osm: snap.dataUrl }); }
+          catch (e2) { throw new Error('Anslutningen bröts medan AI:n jobbade (håll appen öppen under tiden) – försök igen.'); }
+        }
         if (res.status !== 'success') throw new Error(res.message || 'AI:n svarade inte.');
         const crs = L.CRS.EPSG3857, k = 1 / Math.cos(center[0] * Math.PI / 180);
         // Kundkartans punkt i bildpixlar (y uppåt, mitten = 0) ↔ vägkartans punkt i projicerade meter
