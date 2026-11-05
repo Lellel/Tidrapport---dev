@@ -19,9 +19,16 @@ Resonerat med Daniel 2026-11-05. **Ej byggt** – vi resonerar vidare innan bygg
 - **Kulpåsen** delas per ägare – UE:s resurser blandas aldrig med våra i listan.
 - **På en fastighet får det blandas** (t.ex. UE plogar, våra handskottare tar entréerna).
 
-## Snöjour
-- Föraren/handskottaren ser fastigheterna där hens kula ligger (kundkarta, zoner, "att tänka på").
-- En **UE-ansvarig** (markeras på Personal-sidan) ser allt som företagets kulor ligger på.
+## Snöjour (bestämt 2026-11-05)
+- **Förare/handskottare** ser **Mina fastigheter** = där hens kula ligger. Kartan visar bara dem; den egna typen tydlig (föraren maskinytor, handskottaren handytor), 🔴 Ej röjning och hinder alltid.
+- **Ordning: närmast först** (GPS), ej klara överst, klara gröna sist. Överst "8 av 12 klara".
+- **Kortet:** namn, adress, ⭐, m² av egen typ, *att tänka på*, **Kör dit**, **📄 Kundkarta** (läggs över kartan vid behov) och stor **✅ Klar**.
+- **Delad fastighet:** var och en markerar sin del (🚜 klar / 🧹 klar); grön på tavlan när alla delar är klara, gul när påbörjad.
+- **UE-ansvarig** (markeras på Personal-sidan) ser alla företagets fastigheter med rad per förare ("Kalle 8/12"), kan markera klart åt sina förare. Ser inte LPV:s egna.
+- **Admin** ser allt; tavlan visar framstegen live.
+- **Tid:** ett **▶️ Starta snöpass / ⏹ Avsluta** för hela passet. Anteckningen skrivs automatiskt ("Snöjour: 12 fastigheter klara (Storgatan 3, …)"). Varje ✅ Klar sparar vem + klockslag → underlag för uppföljning/fakturering mot UE.
+- **Nollställning:** admin trycker **❄️ Nytt snöfall** på tavlan → alla fastigheter blir ogjorda (historiken sparas per snöfall). **Kulor och fastigheter ligger kvar som förra gången** om ingen flyttar dem.
+- **Utan täckning:** klar-markeringar köas i telefonen och skickas när nätet kommer tillbaka; listan och zonerna finns kvar från senaste laddningen.
 
 ## Tavlan (bestämt 2026-11-05)
 - **Fastighetskort** (ett per fastighet): fastighetens namn (kund/Brf) + adress, ⭐ prio, **ytor från Rita zoner** (Maskin m² / Hand m²), **✅ zoner klara**, **område**.
@@ -38,6 +45,5 @@ Resonerat med Daniel 2026-11-05. **Ej byggt** – vi resonerar vidare innan bygg
 - **Siffran på kulan:** antal fastigheter i kommundelen (och totalt om den kör på flera ställen), t.ex. "Kramer (Pelle) · 3 (av 9)".
 
 ## Kvar att resonera om
-- Hur Snöjour ska se ut för förare/handskottare/UE-ansvarig (lista, karta, ordning man kör).
 - Uppföljning/fakturering mot UE (vem gjorde vad, när).
-- Vad som händer med dagens slingor och förartilldelning i Rita zoner.
+- ~~Slingor~~: tas bort i samma bygge (Snöjour-filtrering, Hinder, tidrapportens "slinga X", widgeten, Slinga-fältet och Förare-fliken i Rita zoner).
