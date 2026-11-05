@@ -316,7 +316,8 @@
     // ---------- VERKTYGSLÅDAN (ritprogram, docs/ritprogram.md) ----------
     // Smal rad: ✏️ Penna · 🖌️ Pensel · 🧽 Sudd · färg (typ) · ＋ (sträcka/markörer) · ↶ · 📍.
     // Tryck på det valda verktyget (eller färgpricken) igen → storlek och färg. Rutan stängs när man börjar rita.
-    const AREA_TYPES = ['maskin', 'hand', 'upplag', 'ej'];
+    // Bara typer som finns i sno.js (en gammal sno.js i minnet ska inte få sidan att krascha)
+    const AREA_TYPES = ['maskin', 'hand', 'upplag', 'ej'].filter(t => SNO_TYPES[t]);
     const SHORT = { maskin: 'Maskin', hand: 'Hand', upplag: 'Upplag', ej: 'Ej röjning' };
     const fmtW = (w) => String(w).replace('.', ',') + ' m';
     function renderDock() {
