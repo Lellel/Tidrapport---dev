@@ -1740,6 +1740,7 @@
       const prop = kp();
       const center = hasPos(prop) ? [prop.lat, prop.lng] : kk.place.c;
       kk.busy = 'place'; renderKkCard();
+      const tStart = Date.now();
       mapToast('🤖 AI:n jämför kundkartan med vägkartan…<br><small>Tar 10–30 sekunder</small>', 0);
       try {
         const snap = await osmSnapshot(center);
@@ -1778,7 +1779,7 @@
         if (kk.layer) kk.layer.update();
         placeHandles(); renderGroupLayers();
         map.fitBounds(L.latLngBounds(Object.values(kkCorners(kk.place))).pad(0.1));
-        kk.lastResult = `🤖 ${best.inl.length} av ${pairs.length} punkter stämmer · ± ${Math.max(1, Math.round(err))} m${res.scale ? ' · skala ' + snoEscape(res.scale) : ''}<br><small style="font-weight:600">Kontrollera mot satelliten och spara – eller justera först.</small>`;
+        kk.lastResult = `🤖 ${best.inl.length} av ${pairs.length} punkter stämmer · ± ${Math.max(1, Math.round(err))} m${res.scale ? ' · skala ' + snoEscape(res.scale) : ''} · ${Math.round((Date.now() - tStart) / 1000)} s<br><small style="font-weight:600">Kontrollera mot satelliten och spara – eller justera först.</small>`;
         mapToast(`🤖 Förslag: ${best.inl.length} av ${pairs.length} punkter stämmer (± ${Math.max(1, Math.round(err))} m)` +
           `${res.scale ? ' · skala ' + snoEscape(res.scale) : ''}<br><small>Kontrollera mot satelliten och tryck <b>💾 Spara läge</b></small>`, 7000);
         setStatus(`🤖 AI-förslag: ${best.inl.length} punkter (${snoEscape(best.inl.map(p => p.what).filter(Boolean).slice(0, 3).join(', '))}). Justera vid behov och tryck <b>💾 Spara läge</b>.`);

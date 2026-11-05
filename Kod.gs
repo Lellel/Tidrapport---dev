@@ -1814,8 +1814,15 @@ function handleMatchMapToOsm(data) {
   if (!/^[A-Za-z0-9+\/=]+$/.test(osm) || osm.length > 4000000) return createJsonResponse({ status: "error", message: "Kartbilden från appen saknas eller är för stor." });
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
   if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
-  let b64;
-  try { b64 = Utilities.base64Encode(DriveApp.getFileById(m.id).getBlob().getBytes()); }
+  const t0 = Date.now();
+  // Kundkartan i lagom storlek (ca 1600 px) – snabbare för AI:n än originalet på flera MB. Faller tillbaka på originalet.
+  let b64 = "";
+  try {
+    const th = UrlFetchApp.fetch("https://drive.google.com/thumbnail?id=" + encodeURIComponent(m.id) + "&sz=w1600",
+      { headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true, followRedirects: true });
+    if (th.getResponseCode() === 200 && /^image\//.test(String(th.getHeaders()["Content-Type"] || th.getHeaders()["content-type"] || ""))) b64 = Utilities.base64Encode(th.getContent());
+  } catch (e) { b64 = ""; }
+  try { if (!b64) b64 = Utilities.base64Encode(DriveApp.getFileById(m.id).getBlob().getBytes()); }
   catch (err) { return createJsonResponse({ status: "error", message: "Kunde inte läsa kundkartan: " + err.message }); }
   const prompt =
     "Bild 1 är en kunds karta över en fastighet (ritning, skötselkarta eller planritning). Bild 2 är en OpenStreetMap-karta över ungefär samma område, med norr rakt uppåt. " +
@@ -1826,10 +1833,14 @@ function handleMatchMapToOsm(data) {
     "Ange också om bild 1 är norrvänd (norrpil uppåt, eller ingen norrpil men texten rättvänd som på en vanlig karta) och skalan om den står på kartan. " +
     "Svara ENDAST med JSON: {\"norrUpp\":true,\"skala\":\"1:500\",\"punkter\":[{\"karta\":[y,x],\"osm\":[y,x],\"vad\":\"kort beskrivning\"}]}";
   try {
-    const response = geminiFetch("text", apiKey, {
-      method: "post", contentType: "application/json", muteHttpExceptions: true,
-      payload: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: b64 } }, { inlineData: { mimeType: "image/jpeg", data: osm } }, { text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.1 } }) });
+    // Kort betänketid: uppgiften kräver ingen lång eftertanke, och full betänketid tog närmare en minut.
+    // Modeller som inte förstår thinkingConfig svarar 400 – då görs anropet om utan.
+    const body = (thinking) => JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: b64 } }, { inlineData: { mimeType: "image/jpeg", data: osm } }, { text: prompt }] }],
+      generationConfig: Object.assign({ responseMimeType: "application/json", temperature: 0.1 }, thinking ? { thinkingConfig: { thinkingBudget: 512 } } : {}) });
+    let response = geminiFetch("text", apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(true) });
+    if (response.getResponseCode() === 400 && /thinking/i.test(response.getContentText())) {
+      response = geminiFetch("text", apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(false) });
+    }
     const code = response.getResponseCode();
     if (code !== 200) return createJsonResponse({ status: "error", message: code === 429 ? geminiErrorText(code, response.getContentText()) : "AI:n svarade inte (HTTP " + code + ")." });
     const json = JSON.parse(response.getContentText());
@@ -1838,7 +1849,7 @@ function handleMatchMapToOsm(data) {
     const okPt = (p) => Array.isArray(p) && p.length === 2 && p.every(n => isFinite(n) && n >= 0 && n <= 1000);
     const pairs = (Array.isArray(ai.punkter) ? ai.punkter : []).filter(p => okPt(p.karta) && okPt(p.osm)).slice(0, 15)
       .map(p => ({ map: [Number(p.karta[0]), Number(p.karta[1])], osm: [Number(p.osm[0]), Number(p.osm[1])], what: String(p.vad || "").slice(0, 60) }));
-    return createJsonResponse({ status: "success", northUp: ai.norrUpp !== false, scale: String(ai.skala || "").slice(0, 20), pairs: pairs });
+    return createJsonResponse({ status: "success", northUp: ai.norrUpp !== false, scale: String(ai.skala || "").slice(0, 20), pairs: pairs, seconds: Math.round((Date.now() - t0) / 1000) });
   } catch (err) {
     return createJsonResponse({ status: "error", message: "AI:n kunde inte jämföra kartorna: " + err.message });
   }
