@@ -499,7 +499,7 @@
     }
 
     function onMapClick(e) {
-      if (pin.on) { pinTap(e.latlng); return; } // 📌 Passa in: varje tryck är en punkt
+      if (pin.on) { if (Date.now() > pinClickBlock) pinTap(e.latlng); return; } // 📌 Passa in: varje tryck är en punkt
       if (kk.adjusting || Date.now() < clickBlockUntil) return; // kundkartan justeras / pennan har just ritat
       const point = [e.latlng.lat, e.latlng.lng];
       if (drawType === 'entre') { if (shape) applyShapeOp([squareAround(point, ENTRE_SIZE)], false); else paintOp([squareAround(point, ENTRE_SIZE)], false, { type: 'hand', note: 'Entré' }); return; }
@@ -669,7 +669,7 @@
         // Mitt i en ritning blir tryck på en befintlig zon en ny punkt, annars väljs zonen.
         // Apple Pencil med pennan prickar hörn även ovanpå en zon – fingret väljer zonen.
         zoneLayers = zones.map(z => snoRenderZone(map, z, (zone, layer, e) => {
-          if (pin.on) { layer.closePopup(); pinTap(e.latlng); return; }
+          if (pin.on) { layer.closePopup(); if (Date.now() > pinClickBlock) pinTap(e.latlng); return; }
           if (kk.adjusting) { layer.closePopup(); return; }
           if (lastPointer === 'pen' && isArea() && instrument === 'penna' && !shape) { layer.closePopup(); onMapClick(e); return; }
           // Entréer och markörer läggs ofta inne i en zon: då räknas trycket som ett tryck på kartan
@@ -1024,7 +1024,26 @@
       if (!map || !map.dragging) return;
       const el = map.getContainer();
       // Fångas före Leaflet, så att kartan inte hinner börja flyttas av pennan
+      // 📌 Passa in: pennan/musen sätter punkter och flyttar aldrig kartan – en dutt får glida lite (15 px),
+      // punkten hamnar där spetsen först nuddade. Fingrarna flyttar och zoomar kartan som vanligt.
       el.addEventListener('pointerdown', (e) => {
+        if (!pin.on || (e.pointerType !== 'pen' && e.pointerType !== 'mouse')) return;
+        pinDown = { id: e.pointerId, p: map.mouseEventToContainerPoint(e), ll: map.mouseEventToLatLng(e) };
+        map.dragging.disable();
+        e.stopPropagation(); e.preventDefault();
+      }, true);
+      const pinUp = (e, ok) => {
+        if (!pinDown || e.pointerId !== pinDown.id) return;
+        const d = map.mouseEventToContainerPoint(e).distanceTo(pinDown.p), ll = pinDown.ll;
+        pinDown = null; map.dragging.enable();
+        pinClickBlock = Date.now() + 500; // kartans eget klick efteråt ska inte bli en punkt till
+        if (ok && d < 15) pinTap(ll);
+        e.stopPropagation();
+      };
+      el.addEventListener('pointerup', (e) => pinUp(e, true), true);
+      el.addEventListener('pointercancel', (e) => pinUp(e, false), true);
+      el.addEventListener('pointerdown', (e) => {
+        if (pinDown) return;
         if (e.pointerType === 'pen') penSeen = true;
         if (stroke) { if (e.pointerType === 'touch' && stroke.type === 'touch') endStroke(false); return; } // två fingrar = zooma
         if (e.target.closest('.leaflet-control, .edit-handle, .edit-mid, .tool-dock')) return; // hörnen dras av Leaflet
@@ -1703,6 +1722,7 @@
     // Läge, skala och vridning räknas ut exakt ur punktparen (minsta kvadrat). Fler par ger en kontroll av hur väl det stämmer.
     // Kundkartans punkt sparas i bildens koordinater, så den följer med när kartan flyttas. (Ersätter AI-placeringen, som var för osäker.)
     const pin = { on: false, pairs: [], pending: null, layers: [], err: null, savedOpacity: null };
+    let pinDown = null, pinClickBlock = 0;
     // Genomskinligheten byter efter steget: a = punkt på kundkartan (kundkartan tydlig), b = samma punkt i kartan under (kundkartan nästan borta)
     function pinOpacity() {
       if (!pin.on) return;
