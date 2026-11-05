@@ -63,7 +63,10 @@ async function snoApi(payload) {
     // Inloggningen läggs sist så att ett fält i payload (t.ex. key) aldrig kan skriva över den
     body: JSON.stringify({ site: location.origin + location.pathname.replace(/[^/]*$/, ''), ...payload, ...auth })
   });
-  return res.json();
+  // Svarar servern med något annat än data (t.ex. en felsida från Google) – säg vad, i stället för ett tyst fel
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch (e) { throw new Error(`Servern svarade inte med data (HTTP ${res.status}): ${text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90)}`); }
 }
 
 function snoEscape(text) {
