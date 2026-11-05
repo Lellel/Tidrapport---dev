@@ -1702,7 +1702,17 @@
     // Tryck på en punkt PÅ kundkartan (t.ex. en husknut) och sedan på samma punkt i satelliten – minst två gånger.
     // Läge, skala och vridning räknas ut exakt ur punktparen (minsta kvadrat). Fler par ger en kontroll av hur väl det stämmer.
     // Kundkartans punkt sparas i bildens koordinater, så den följer med när kartan flyttas. (Ersätter AI-placeringen, som var för osäker.)
-    const pin = { on: false, pairs: [], pending: null, layers: [], err: null };
+    const pin = { on: false, pairs: [], pending: null, layers: [], err: null, savedOpacity: null };
+    // Genomskinligheten byter efter steget: a = punkt på kundkartan (kundkartan tydlig), b = samma punkt i kartan under (kundkartan nästan borta)
+    function pinOpacity() {
+      if (!pin.on) return;
+      kk.opacity = pin.pending ? 0.2 : 0.9;
+      updateOverlays();
+    }
+    function restoreOpacity() {
+      if (pin.savedOpacity === null) return;
+      kk.opacity = pin.savedOpacity; pin.savedOpacity = null; updateOverlays();
+    }
     function placeQ(pl) {
       const k = 1 / Math.cos(pl.c[0] * Math.PI / 180), s = pl.w * k / kk.W;
       const P = L.CRS.EPSG3857.project(L.latLng(pl.c[0], pl.c[1]));
@@ -1737,11 +1747,13 @@
       if (!kk.layer) return;
       if (!kk.adjusting) startAdjust();
       pin.on = true; pin.pairs = []; pin.pending = null; pin.err = null;
+      if (pin.savedOpacity === null) pin.savedOpacity = kk.opacity;
       kk.gestures = 'map'; applyGestureMode(); // fingret flyttar satelliten, ett tryck sätter en punkt
+      pinOpacity();
       drawPin(); renderDock(); renderStep();
     }
-    function stopPin() { pin.on = false; pin.pending = null; drawPin(); kk.gestures = 'kk'; applyGestureMode(); renderDock(); renderStep(); }
-    function endPin() { pin.on = false; pin.pairs = []; pin.pending = null; pin.err = null; drawPin(); }
+    function stopPin() { restoreOpacity(); pin.on = false; pin.pending = null; drawPin(); kk.gestures = 'kk'; applyGestureMode(); renderDock(); renderStep(); }
+    function endPin() { restoreOpacity(); pin.on = false; pin.pairs = []; pin.pending = null; pin.err = null; drawPin(); }
     function pinTap(ll) {
       if (!pin.pending) pin.pending = toImg(ll);
       else {
@@ -1750,7 +1762,7 @@
         pin.pending = null;
         fitPins();
       }
-      drawPin(); renderDock();
+      pinOpacity(); drawPin(); renderDock();
     }
     function undoPin() {
       if (pin.pending) pin.pending = null;
@@ -1759,7 +1771,7 @@
         if (pin.pairs.length >= 2) fitPins();
         else if (kk.placeBefore) { kk.place = { ...kk.placeBefore }; pin.err = null; if (kk.layer) kk.layer.update(); placeHandles(); }
       }
-      drawPin(); renderDock();
+      pinOpacity(); drawPin(); renderDock();
     }
     function fitPins() {
       if (pin.pairs.length < 2) return;
@@ -1784,7 +1796,7 @@
     }
     function pinText() {
       const n = pin.pairs.length;
-      if (pin.pending) return `<b>${n + 1}b.</b> Tryck på <b>samma punkt i satelliten</b>.`;
+      if (pin.pending) return `<b>${n + 1}b.</b> Tryck på <b>samma punkt i kartan under</b> (satellit eller vägkarta) – kundkartan är nu nästan genomskinlig.`;
       if (n < 2) return `<b>${n + 1}a.</b> Tryck på en tydlig punkt <b>på kundkartan</b> – t.ex. en husknut${n ? ', gärna långt från den första' : ''}. Zooma och flytta kartan fritt.`;
       return `✅ Inpassad med ${n} punkter${pin.err !== null ? ` · största avvikelse <b>${String(Math.round(pin.err * 10) / 10).replace('.', ',')} m</b>` : ''}.<br><small style="font-weight:600">Lägg till en punkt till för kontroll – eller spara.</small>`;
     }
