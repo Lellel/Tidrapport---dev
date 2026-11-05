@@ -352,9 +352,10 @@ function getActivityIcon(name) {
 }
 
 function openSheet() { document.getElementById('sheetBackdrop')?.classList.add('active'); }
-function closeSheet() { document.getElementById('sheetBackdrop')?.classList.remove('active'); }
+function closeSheet() { document.getElementById('sheetBackdrop')?.classList.remove('active'); if (pendingCalendarJob !== null) resetActivitySheet(); }
 
 function selectActivity(name) {
+  if (pendingCalendarJob !== null) { const id = pendingCalendarJob; resetActivitySheet(); closeSheet(); clockInPlannedJob(id, name); return; }
   currentActivity = name;
   document.getElementById('selected-activity').innerHTML = `${name} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
   closeSheet();
@@ -512,7 +513,33 @@ async function fetchPlannedJobs() {
   }
 }
 
-function clockInPlannedJob(jobId) {
+// Kalenderjobb: "Stämpla in" frågar först vilken aktivitet passet ska ha (kalenderns titel förvald),
+// så att t.ex. Stalltvätt ger arbetsordern. Radarjobb stämplas in direkt som förut. (2026-11-05)
+let pendingCalendarJob = null;
+function askCalendarActivity(job) {
+  pendingCalendarJob = job.id;
+  const sheet = document.querySelector('#sheetBackdrop .sheet-container');
+  const label = sheet && sheet.querySelector('.section-label');
+  if (label) { label.dataset.orig = label.dataset.orig || label.textContent; label.textContent = 'Aktivitet för kalenderjobbet'; }
+  if (sheet && !document.getElementById('cal-activity-keep')) {
+    const keep = document.createElement('div');
+    keep.id = 'cal-activity-keep'; keep.className = 'sheet-item';
+    keep.style.fontWeight = '700';
+    sheet.querySelector('.sheet-header').after(keep);
+  }
+  const keep = document.getElementById('cal-activity-keep');
+  if (keep) { keep.textContent = '📅 ' + (job.title || 'Kalenderjobb') + ' (som i kalendern)'; keep.onclick = () => selectActivity(job.title || 'Kalenderjobb'); }
+  openSheet();
+}
+function resetActivitySheet() {
+  pendingCalendarJob = null;
+  const label = document.querySelector('#sheetBackdrop .section-label');
+  if (label && label.dataset.orig) label.textContent = label.dataset.orig;
+  const keep = document.getElementById('cal-activity-keep');
+  if (keep) keep.remove();
+}
+
+function clockInPlannedJob(jobId, chosenActivity) {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
@@ -522,6 +549,7 @@ function clockInPlannedJob(jobId) {
     console.error("Kunde inte hitta jobb med ID:", jobId, plannedJobs);
     return;
   }
+  if (job.source === 'kalender' && chosenActivity === undefined) { askCalendarActivity(job); return; }
 
   const ongoing = drafts.find(d => !d.end);
   if (ongoing) {
@@ -544,8 +572,9 @@ function clockInPlannedJob(jobId) {
     date: document.getElementById('input-date')?.value || new Date().toISOString().split('T')[0],
     user: currentUser,
     place: job.place || 'Okänd plats',
-    activity: job.title || 'Planerat jobb',
-    notes: job.description || '',
+    activity: chosenActivity || job.title || 'Planerat jobb',
+    // Kalenderns titel följer med i noteringen när en annan aktivitet valts (stallet känns igen på namnet)
+    notes: [chosenActivity && job.title && chosenActivity !== job.title ? job.title : '', job.description || ''].filter(Boolean).join(' · '),
     start: timeStr,
     end: '',
     images: []

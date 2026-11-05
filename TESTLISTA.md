@@ -635,3 +635,9 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Filtret **⚠️ Att åtgärda** visar personer som saknar länk, mobil, e-post (admin/ekonom), avatar eller har konstiga kolumner
 - [ ] Rad överst: "N personer har inte fått sin personliga länk"
 - [ ] Personkortet förklarar vad som ska göras; efter 📦 Välkomstpaket visas "✅ Välkomstpaket skickat <datum>"
+
+## Kalenderjobb: välj aktivitet vid instämpling (2026-11-05)
+- [ ] Stämpla in på ett **kalenderkort** → listan "Aktivitet för kalenderjobbet" med "📅 <kalendertitel> (som i kalendern)" överst
+- [ ] Välj **Stalltvätt** → passet får 📋 Arbetsorder; stallet väljs automatiskt om stallets namn står i kalendertiteln
+- [ ] Avbryt → inget pass skapas, listan ser ut som vanligt nästa gång
+- [ ] **Radarjobb** stämplas in direkt utan fråga (som förut)
