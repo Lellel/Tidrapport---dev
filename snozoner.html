@@ -124,6 +124,7 @@
     .dock-size { display: flex; align-items: center; gap: 10px; min-width: 230px; }
     .dock-size input[type=range] { flex: 1; accent-color: var(--accent); min-height: 32px; }
     .dock-size b { min-width: 46px; text-align: right; font-size: 14px; }
+    .dock-result { font-size: 13px; font-weight: 700; padding: 6px 8px; border-radius: var(--t-r); background: var(--card); border: 1px solid var(--line); max-width: 420px; }
     .dock-title { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; width: 100%; }
     /* Ringen som visar penselns/suddens storlek där pennan är */
     .brush-ring { position: absolute; z-index: 640; pointer-events: none; border: 2px solid rgba(255,255,255,.95); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.4); transform: translate(-50%, -50%); display: none; }
@@ -321,6 +322,21 @@
     const SHORT = { maskin: 'Maskin', hand: 'Hand', upplag: 'Upplag', ej: 'Ej röjning' };
     const fmtW = (w) => String(w).replace('.', ',') + ' m';
     function renderDock() {
+      // Justera kundkartan: raden visar kundkartans verktyg i stället för ritverktygen (man ritar inte under tiden)
+      if (kk.adjusting && kk.layer) {
+        const busy = kk.busy === 'place';
+        document.getElementById('tool-dock').innerHTML = `
+          <div class="dock-title">✋ Justera kundkartan</div>
+          <div class="dock-row"><span class="dock-hint" style="min-width:auto">Fingret flyttar</span>
+            <button class="${kk.gestures === 'kk' ? 'active' : ''}" onclick="setGestures('kk')">🗺️ Kundkartan</button>
+            <button class="${kk.gestures === 'map' ? 'active' : ''}" onclick="setGestures('map')">🛰️ Satelliten</button></div>
+          <div class="dock-size"><span class="dock-hint">Genomskinlighet</span>
+            <input type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" aria-label="Genomskinlighet"></div>
+          <div class="dock-row"><button style="flex:1" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}>${busy ? '⏳ AI:n placerar kartan…' : '🤖 Placera automatiskt'}</button></div>
+          ${kk.lastResult ? `<div class="dock-result">${kk.lastResult}</div>` : ''}
+          <div class="dock-row"><button class="ok" style="flex:1" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
+        return;
+      }
       const area = isArea(), marker = MARKER_TYPES.includes(drawType) || drawType === 'stracka';
       const tool = (key, icon, title) => `<button class="tool ${key} ${area && instrument === key ? 'active' : ''}" title="${title}" onclick="pickTool('${key}')"><span data-icon="${key}">${icon}</span></button>`;
       const swType = area ? toolType() : lastArea;
@@ -1591,7 +1607,7 @@
     }
 
     function startAdjust() {
-      kk.adjusting = true; kk.gestures = 'kk'; kk.placeBefore = { ...kk.place };
+      kk.adjusting = true; kk.gestures = 'kk'; kk.placeBefore = { ...kk.place }; kk.lastResult = null;
       cancelDrawing(); placeHandles(); applyGestureMode(); renderKkCard();
       setStatus('Dra med ett finger för att flytta kundkartan, vrid och nyp med två fingrar (eller använd <b>✥</b> och <b>⟳</b>). Byt till <b>🛰️ Satellit</b> (till vänster på kartan) för att flytta satellitbilden. Tryck sedan <b>Spara läge</b>.');
     }
@@ -1762,11 +1778,13 @@
         if (kk.layer) kk.layer.update();
         placeHandles(); renderGroupLayers();
         map.fitBounds(L.latLngBounds(Object.values(kkCorners(kk.place))).pad(0.1));
+        kk.lastResult = `🤖 ${best.inl.length} av ${pairs.length} punkter stämmer · ± ${Math.max(1, Math.round(err))} m${res.scale ? ' · skala ' + snoEscape(res.scale) : ''}<br><small style="font-weight:600">Kontrollera mot satelliten och spara – eller justera först.</small>`;
         mapToast(`🤖 Förslag: ${best.inl.length} av ${pairs.length} punkter stämmer (± ${Math.max(1, Math.round(err))} m)` +
           `${res.scale ? ' · skala ' + snoEscape(res.scale) : ''}<br><small>Kontrollera mot satelliten och tryck <b>💾 Spara läge</b></small>`, 7000);
         setStatus(`🤖 AI-förslag: ${best.inl.length} punkter (${snoEscape(best.inl.map(p => p.what).filter(Boolean).slice(0, 3).join(', '))}). Justera vid behov och tryck <b>💾 Spara läge</b>.`);
       } catch (err) {
-        mapToast('⚠️ ' + snoEscape(err.message || 'Det gick inte.') + '<br><small>Placera kartan för hand med ✥ och ⟳</small>', 6000);
+        kk.lastResult = '⚠️ ' + snoEscape(err.message || 'Det gick inte.') + '<br><small style="font-weight:600">Placera kartan för hand med ✥ och ⟳.</small>';
+        if (!kk.adjusting) mapToast('⚠️ ' + snoEscape(err.message || 'Det gick inte.') + '<br><small>Placera kartan för hand med ✥ och ⟳</small>', 6000);
       } finally {
         kk.busy = false; renderKkCard();
       }
@@ -1861,7 +1879,8 @@
 
     function renderKkFab() {
       const fab = document.getElementById('kk-fab');
-      fab.style.display = kk.adjusting && kk.layer ? 'flex' : 'none';
+      fab.style.display = 'none'; // gesterna ligger nu i verktygsraden (renderDock)
+      renderDock();
       fab.innerHTML = `<button class="${kk.gestures === 'kk' ? 'on' : ''}" onclick="setGestures('kk')"><span>🗺️</span>Kundkarta</button>
         <button class="${kk.gestures === 'map' ? 'on' : ''}" onclick="setGestures('map')"><span>🛰️</span>Satellit</button>`;
     }
@@ -1889,10 +1908,7 @@
       const placeBtn = `<button class="kk-small" onclick="autoPlaceKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'place' ? '⏳ AI:n placerar kartan…' : '<span data-icon="ai">🤖</span> Placera automatiskt'}</button>`;
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
-          <div class="status" style="font-size:12px">Gesterna styr <b>${kk.gestures === 'kk' ? '🗺️ kundkartan' : '🛰️ satellitbilden'}</b> – byt med knappen till vänster på kartan.</div>
-          ${placeBtn}
-          ${opacity}
-          <div class="kk-row"><button class="ok" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
+          <div class="status" style="font-size:12px">Verktygen ligger nere på kartan: vad fingret flyttar, genomskinlighet, 🤖 Placera automatiskt och 💾 Spara läge. Dölj gärna panelen med ⟩.</div>`;
         return;
       }
       const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;

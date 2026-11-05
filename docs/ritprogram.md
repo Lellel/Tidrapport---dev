@@ -67,3 +67,8 @@ Bestämt med Daniel 2026-11-04. Byggt samma dag (snozoner.html: paintOp, scopePr
 - **✅ Klar – nästa / ⏭ Senare** alltid i panelens fot (på telefon fast ovanför flikraden).
 - **Kartan:** en växlingsknapp Satellit/Vägkarta, Helskärm som ikon, förklaringen borttagen (kvar i Snöjour), kortare notiser.
 - Testat i Chrome med mus och syntetisk penna: inringning, klickade hörn, mellanslag+dra, B/]/⌘Z, penseldrag, röd yta, zonkort, panelflik, kartknapp – 17 av 17.
+
+## Verktygsraden följer momentet (2026-11-05)
+- I **✋ Justera**-läget byter raden nere på kartan till kundkartans verktyg: vad fingret flyttar (🗺️ kundkartan / 🛰️ satelliten), genomskinlighet, 🤖 Placera automatiskt, 💾 Spara läge / ✕ Avbryt. De stora gestknapparna till vänster är borta, panelen hänvisar bara till raden.
+- **AI-resultatet** ("5 av 7 punkter stämmer · ± 4 m") står kvar i raden tills läget sparas eller avbryts.
+- **⏳ snurrar** i hela appen (knappar.js byter tecknet mot ett animerat element).

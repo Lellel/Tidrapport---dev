@@ -61,6 +61,39 @@
     if (last && last.btn === btn) last.at = Date.now();
   }
 
+  // ⏳ som visas medan något väntar vänds sakta upp och ner (2026-11-05). Tecknet byts mot ett animerat element.
+  const hgCss = document.createElement('style');
+  hgCss.textContent = '.lpv-hourglass{display:inline-block;animation:lpv-hg 1.6s ease-in-out infinite}' +
+    '@keyframes lpv-hg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(360deg)}}' +
+    '@media (prefers-reduced-motion: reduce){.lpv-hourglass{animation:none}}';
+  (document.head || document.documentElement).appendChild(hgCss);
+  function wrapHourglasses(root) {
+    if (!root || !document.body) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) =>
+      n.nodeValue.indexOf('⏳') !== -1 && !(n.parentNode && (n.parentNode.classList && n.parentNode.classList.contains('lpv-hourglass') || /^(SCRIPT|STYLE|TEXTAREA|INPUT|OPTION|TITLE)$/.test(n.parentNode.nodeName)))
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(n => {
+      const parts = n.nodeValue.split('⏳'), frag = document.createDocumentFragment();
+      parts.forEach((t, i) => {
+        if (i) { const sp = document.createElement('span'); sp.className = 'lpv-hourglass'; sp.textContent = '⏳'; frag.appendChild(sp); }
+        if (t) frag.appendChild(document.createTextNode(t));
+      });
+      n.parentNode.replaceChild(frag, n);
+    });
+  }
+  let hgPending = false;
+  const startHourglass = () => {
+    wrapHourglasses(document.body);
+    new MutationObserver(() => {
+      if (hgPending) return;
+      hgPending = true;
+      setTimeout(() => { hgPending = false; wrapHourglasses(document.body); }, 30);
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startHourglass); else startHourglass();
+
   const origFetch = window.fetch;
   if (!origFetch) return;
   window.fetch = function () {

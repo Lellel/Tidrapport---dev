@@ -662,3 +662,10 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 ## Hemskärmsappen tappade inloggningen (rättat 2026-11-05)
 - [ ] iPhone/iPad: öppna din personliga länk i Safari → adressen behåller `key=` → Dela → Lägg till på hemskärmen → appen är inloggad (Rita zoner visar fastigheter, avatar och kulor syns)
 - [ ] En enhet utan inloggning blir inte längre "Daniel" (ingen reserv) – Rita zoner säger "inloggad som Okänd …"
+
+## Justera kundkartan från verktygsraden (2026-11-05)
+- [ ] ✋ Justera → raden nere på kartan visar: fingret flyttar kundkartan/satelliten, genomskinlighet, 🤖 Placera automatiskt, 💾 Spara läge / ✕ Avbryt
+- [ ] Genomskinligheten går att dra medan du tittar på kartan
+- [ ] 🤖 Placera automatiskt: ⏳ snurrar medan AI:n jobbar; resultatet ("X av Y punkter · ± N m" eller ⚠️ …) står kvar i raden
+- [ ] 💾 Spara läge → ritverktygen kommer tillbaka
+- [ ] ⏳ snurrar även på andra ställen (t.ex. ikoner.html, AI:n läser kundkartan)
