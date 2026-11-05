@@ -83,8 +83,13 @@
           : p.state === 'paused' ? `<button class="wo-btn go" onclick="woRobot(${r},'resume')">▶ Fortsätt</button><button class="wo-btn" onclick="woRobot(${r},'reset')">↺</button>`
           : `<button class="wo-btn" onclick="woRobot(${r},'reset')">↺ Börja om</button>`;
         const down = p.alarms.length ? `<div class="wo-muted">Stillestånd: <b style="color:#dc2626">${dur(p.downMin)}</b> (${p.alarms.length} larm: ${p.alarms.map(a => hhmm(a.at) + (a.cleared ? '–' + hhmm(a.cleared) : '–pågår')).join(', ')})</div>` : '';
-        return `<div class="wo-row"><div class="wo-rowhead"><b>Rad ${r + 1}</b><span class="wo-muted">${status}</span><span style="margin-left:auto;display:flex;gap:6px">${btns}</span></div>${down}
-          <div class="wo-boxes" style="grid-template-columns:repeat(${stall.boxesPerRow},1fr)">${boxes}</div></div>`;
+        const head = `<div class="wo-rowhead"><b>Rad ${r + 1}</b><span class="wo-muted">${status}</span><span style="margin-left:auto;display:flex;gap:6px">${btns}</span></div>${down}`;
+        const grid = `<div class="wo-boxes" style="grid-template-columns:repeat(${stall.boxesPerRow},1fr)">${boxes}</div>`;
+        // Rad 2 och 3 står rygg mot rygg i stallet: boxarna ritas tätt ihop, rad 3:s rubrik under sina boxar (2026-11-05)
+        const pair = stall.rows >= 4 ? (r === 1 ? 'top' : r === 2 ? 'bottom' : '') : '';
+        return pair === 'top' ? `<div class="wo-row wo-pair-top">${head}${grid}</div>`
+          : pair === 'bottom' ? `<div class="wo-row wo-pair-bottom">${grid}${head}</div>`
+          : `<div class="wo-row">${head}${grid}</div>`;
       }).join('')}
       <div class="wo-muted">Står roboten någon annanstans? Tryck på boxen där den är just nu.</div>`;
   }
@@ -158,7 +163,8 @@
         @keyframes woblink{50%{opacity:.35}}.wo-box.blink{animation:woblink 1s infinite}.wo-btn.danger{color:#dc2626}.wo-btn:disabled{opacity:.4}
         .wo-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#475569;margin-bottom:6px}.wo-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
         .wo-row{margin:8px 0}.wo-rowhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:4px}
-        .wo-boxes{display:grid;gap:2px}.wo-box{border:0;padding:0;height:26px;border-radius:3px;cursor:pointer;min-width:0}
+        .wo-boxes{display:grid;gap:2px}.wo-box{border:0;padding:0;height:12px;border-radius:2px;cursor:pointer;min-width:0}
+        .wo-row.wo-pair-top{margin-bottom:0}.wo-row.wo-pair-bottom{margin-top:2px}.wo-pair-bottom .wo-rowhead{margin:4px 0 0}
         .wo-step{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid #e2e8f0;font-size:15px;line-height:1.45}
         .wo-step input{width:22px;height:22px;margin-top:2px;flex:0 0 22px}.wo-step img,.wo-editstep img{display:block;width:100%;max-width:420px;border-radius:12px;margin-top:8px}
         .wo-num{flex:0 0 24px;height:24px;border-radius:50%;background:#0284c7;color:#fff;font-weight:800;font-size:13px;display:inline-flex;align-items:center;justify-content:center}
