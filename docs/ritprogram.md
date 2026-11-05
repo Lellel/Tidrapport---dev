@@ -55,4 +55,15 @@ Bestämt med Daniel 2026-11-04. Byggt samma dag (snozoner.html: paintOp, scopePr
 - Kartan: Satellit/Vägkarta blir en växlingsknapp, Helskärm bara ikon.
 - Flikarna Zoner och Förare som i dag.
 - **Bestämt 2026-11-05:** fältet **Ordning** tas bort ur zonformuläret (stannar i arket). Med kartan blir det självklart vem som kör vad.
-- **Huvudproblemet är visuellt brus:** panelen ska bara visa det som hör till momentet – Välja fastighet / Kundkartan / Rita / Tryckt på en zon. Förslag: förklaringen bort i Rita zoner (kvar i Snöjour), Satellit/Vägkarta en knapp, Helskärm ikon, hjälptexter bakom **?**, en kort rad "nästa steg". Ej byggt – Daniel vill resonera mer.
+- **Huvudproblemet är visuellt brus:** panelen ska bara visa det som hör till momentet – Välja fastighet / Kundkartan / Rita / Tryckt på en zon. Förslag: förklaringen bort i Rita zoner (kvar i Snöjour), Satellit/Vägkarta en knapp, Helskärm ikon, hjälptexter bakom **?**, en kort rad "nästa steg". Byggt 2026-11-05 (se nedan).
+
+## Uppstädningen – byggd 2026-11-05
+- **⟩-fliken** vid kartans kant (⌄ på telefon) fäller in panelen; kartan får hela skärmen. Läget sparas (`lpv_zon_panel`).
+- **Ett moment i taget:** steg-rad överst (① välj fastighet · ② lägg kundkartan · ③ rita), **?** visar tips och kortkommandon.
+- **Kundkartans kort** kompakt när man ritar: 📍 👁 ✋ + 🤖 Föreslå zoner; genomskinlighet, fler kartor, Placera automatiskt, Förslag från vägkartan, anteckning och grannar bakom **⋯ Mer**. Fullt kort bara vid utläggning/Justera.
+- **Summering** per färg (m²) för fastigheten och ibockade grannar.
+- **Zonkortet** visas bara när något väntar på 💾 Spara (vald zon, form som ändras, markör/sträcka/utprickade punkter). **Ordning** borttagen.
+- **Förslag-kortet** visas bara när det finns förslag.
+- **✅ Klar – nästa / ⏭ Senare** alltid i panelens fot (på telefon fast ovanför flikraden).
+- **Kartan:** en växlingsknapp Satellit/Vägkarta, Helskärm som ikon, förklaringen borttagen (kvar i Snöjour), kortare notiser.
+- Testat i Chrome med mus och syntetisk penna: inringning, klickade hörn, mellanslag+dra, B/]/⌘Z, penseldrag, röd yta, zonkort, panelflik, kartknapp – 17 av 17.

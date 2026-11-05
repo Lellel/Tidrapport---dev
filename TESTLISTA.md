@@ -649,3 +649,12 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] Kundkarta som inte är utlagd → 🤖 Placera automatiskt → kartan hamnar ungefär rätt, Justera-läget öppnas; ✕ Avbryt återställer
 - [ ] Testa på en LandInfo-karta, en FKAB-snökarta och Kungsgatan 15 – notera hur många meter fel innan justering
 - [ ] Vägkartan (🗺️) har tydligare kontrast; Natt-läget fortfarande rött
+
+## Rita zoner – uppstädad panel (2026-11-05)
+- [ ] Steg-raden överst stämmer med vad du gör (välj fastighet → lägg kundkartan → rita)
+- [ ] **?** visar tips och kortkommandon
+- [ ] Kundkartans kort är kompakt; ⋯ Mer innehåller genomskinlighet, grannar, Placera automatiskt, Förslag från vägkartan
+- [ ] Zonkortet syns bara när du trycker på en zon (eller ritar markör/sträcka) – inget Ordning-fält
+- [ ] ✅ Klar – nästa / ⏭ Senare alltid längst ner (telefon: ovanför flikraden)
+- [ ] ⟩ vid kartans kant döljer panelen – hela kartan att rita på; ⟨ tar tillbaka den; läget minns
+- [ ] Kartknappen växlar Satellit/Vägkarta; ⛶ helskärm
