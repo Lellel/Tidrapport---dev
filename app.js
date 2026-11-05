@@ -96,15 +96,22 @@ if (appUrlParams.has('admin')) {
 
 // Personlig nyckel från inloggningslänken (?user=Namn&key=...). Sparas i telefonen
 // och tas bort ur adressfältet så att den inte syns på skärmdumpar.
+// UNDANTAG iPhone/iPad i Safari: där ligger den kvar, annars får "Dela → Lägg till på hemskärmen" ingen
+// nyckel med sig (hemskärmsappen har eget minne) och appen blir utloggad (2026-11-05).
+const iosBrowser = (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
+  && !(navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
 if (appUrlParams.has('key')) {
   localStorage.setItem('lpv_key', appUrlParams.get('key'));
-  const cleanParams = new URLSearchParams(window.location.search);
-  cleanParams.delete('key');
-  const cleanQuery = cleanParams.toString();
-  history.replaceState(null, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : ''));
+  if (!iosBrowser) {
+    const cleanParams = new URLSearchParams(window.location.search);
+    cleanParams.delete('key');
+    const cleanQuery = cleanParams.toString();
+    history.replaceState(null, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : ''));
+  }
 }
 
-window.currentUser = appUrlParams.get('user') || localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || 'Daniel';
+// Ingen reserv: en enhet utan inloggning ska inte bli någon (förut 'Daniel' – gav admin via den gamla gemensamma nyckeln)
+window.currentUser = appUrlParams.get('user') || localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || '';
 var currentUser = window.currentUser;
 let isAdmin = localStorage.getItem('lpv_is_admin') === 'true';
 // UE lägger inte till ÄTA (de är oftast lösningen på ÄTA) – knappen döljs

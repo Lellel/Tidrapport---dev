@@ -658,3 +658,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] ✅ Klar – nästa / ⏭ Senare alltid längst ner (telefon: ovanför flikraden)
 - [ ] ⟩ vid kartans kant döljer panelen – hela kartan att rita på; ⟨ tar tillbaka den; läget minns
 - [ ] Kartknappen växlar Satellit/Vägkarta; ⛶ helskärm
+
+## Hemskärmsappen tappade inloggningen (rättat 2026-11-05)
+- [ ] iPhone/iPad: öppna din personliga länk i Safari → adressen behåller `key=` → Dela → Lägg till på hemskärmen → appen är inloggad (Rita zoner visar fastigheter, avatar och kulor syns)
+- [ ] En enhet utan inloggning blir inte längre "Daniel" (ingen reserv) – Rita zoner säger "inloggad som Okänd …"

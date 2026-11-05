@@ -1,5 +1,5 @@
 window.GAS_API_URL = window.GAS_API_URL || (window.CONFIG && window.CONFIG.API_URL) || 'https://script.google.com/macros/s/AKfycbyn-mxt1REReA0T4UC4lmf-cbDPcDkv5X5WCJapqyZ06d76tKzxsaCBgaYqTeFfmYPekw/exec';
-window.currentUser = window.currentUser || localStorage.getItem('lpv_user_name') || 'Daniel';
+window.currentUser = window.currentUser || localStorage.getItem('lpv_user_name') || '';
 var currentUser = window.currentUser;
 
 // Avataren sparas per användare, så att den inte följer med till nästa person på samma telefon.
