@@ -1350,7 +1350,7 @@
     async function loadProperties() {
       try {
         const res = await snoApi({ action: 'getProperties' });
-        if (res.status !== 'success') return;
+        if (res.status !== 'success') { setStatus('❌ Fastigheterna kunde inte hämtas: ' + snoEscape(res.message || 'okänt fel')); return; }
         properties = res.properties || [];
         renderPropList();
         setInterval(refreshProperties, 60000);
@@ -1363,7 +1363,7 @@
           if (first) { openProperty(first); setStatus(`Nu: <b>${snoEscape(first.address)}</b>. Rita zonerna och tryck <b>✅ Klar – nästa</b>.`); }
           else if (properties.length) setStatus(area ? `🎉 Allt i ${snoEscape(area)} är klart (eller upptaget av någon annan)!` : '🎉 Alla fastigheter är klara!');
         }
-      } catch (err) { /* utan nät: fastighetslistan saknas, resten fungerar */ }
+      } catch (err) { setStatus('❌ Fastigheterna kunde inte hämtas: ' + snoEscape((err && err.message) || 'ingen kontakt')); }
     }
     const me = snoCurrentUser();
     const takenByOther = (p) => p.claimedBy && p.claimedBy !== me;
