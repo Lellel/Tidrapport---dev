@@ -235,7 +235,8 @@ function doPost(e) {
       "getStaffOverview", "getStaffHistory", "updateStaff",
       "saveStall", "addStallPhoto", "robotAlarm", "generateAppIcon", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
-      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
+      // Säg vem enheten är inloggad som – underlättar när en enhet har fel namn eller den gamla gemensamma nyckeln
+      return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör (inloggad som \"" + auth.user + "\"" + (auth.legacy ? " med den gamla gemensamma nyckeln – öppna din personliga länk" : "") + ")." });
     }
     // Bara admin på LPV: inställningar, importer, HubSpot och stallregistret. (Snöplaneringen är gemensam.)
     const lpvAdminOnly = ["saveOfferSettings", "importCustomers", "hubspotImport", "hubspotSyncPending", "saveStall", "addStallPhoto", "robotAlarm",
