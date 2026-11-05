@@ -1794,6 +1794,7 @@
         if (!kk.adjusting) mapToast('⚠️ ' + snoEscape(err.message || 'Det gick inte.') + '<br><small>Placera kartan för hand med ✥ och ⟳</small>', 6000);
       } finally {
         kk.busy = false; renderKkCard();
+        if (kk.adjusting) document.getElementById('map-toast').classList.remove('show'); // resultatet står i raden
       }
     }
 
