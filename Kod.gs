@@ -181,7 +181,7 @@ function doGet(e) {
 // Anrop som bara läser behöver inte köa bakom varandra. Bara det som skriver låses,
 // så att tio förare som skickar pass samtidigt kl 05 inte väntar på admin som läser kartan.
 // generateTractorAvatar låses inte heller: AI:n tar 10-30 s och skriver bara en cell på slutet.
-const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getFleet", "getProperties", "getRadarData",
+const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getSnowJour", "getSnowBoard", "getFleet", "getProperties", "getRadarData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
   "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "getWeather", "getAppIcons", "generateAppIcon"]; // getOfferForCustomer/respondOffer låser själva när de skriver
@@ -228,7 +228,7 @@ function doPost(e) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning (" + authFailReason(data) + "). Be om en ny inloggningslänk." });
     }
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
-      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "setSlingaDrivers",
+      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
@@ -330,7 +330,12 @@ function doPost(e) {
     if (action === "save_time_report") return handleSaveTimeReport(data);
     if (action === "save_ata") return handleSaveAta(data);
     if (action === "getSnowZones") return handleGetSnowZones(auth);
-    if (action === "setSlingaDrivers") return handleSetSlingaDrivers(data, auth.user);
+    if (action === "getSnowJour") return handleGetSnowJour(auth);
+    if (action === "markSnowDone") return handleMarkSnowDone(data, auth);
+    if (action === "getSnowBoard") return handleGetSnowBoard(auth);
+    if (action === "saveSnowPerson") return handleSaveSnowPerson(data, auth);
+    if (action === "assignSnow") return handleAssignSnow(data);
+    if (action === "newSnowfall") return handleNewSnowfall(auth);
     if (action === "getOffers") return handleGetOffers(auth);
     if (action === "recolorHouse") return handleRecolorHouse(data);
     if (action === "geocode") {
@@ -786,10 +791,11 @@ function handleStaffOverview(auth) {
     const t = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10);
     kitSent[String(r[1])] = t;
   });
-  const staff = [];
+  const staff = [], snowPeople = readSnowPeople();
   getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
     if (!r[0] || !inScope(auth, r[6])) return;
     const name = String(r[0]).trim(), status = String(r[7] || "").trim() || "Aktiv";
+    const sp = snowPerson(snowPeople, name);
     const av = String(r[5] || "");
     staff.push({
       name: name, email: String(r[1] || ""), phone: String(r[2] || ""), role: staffRoleName(r), roleText: String(r[3] || ""),
@@ -798,11 +804,16 @@ function handleStaffOverview(auth) {
       today: todayJobs[name] || [],
       canEdit: auth.isSuper || !(isAdminRow(r) || isEconomistRow(r)),
       // Kontrollen på Personal-sidan (inget missas när ny personal läggs till)
-      hasKey: !!String(r[KEY_COLUMN - 1] || ""), kitSent: kitSent[toE164(r[2])] || "", hasAvatar: !!String(r[5] || "")
+      hasKey: !!String(r[KEY_COLUMN - 1] || ""), kitSent: kitSent[toE164(r[2])] || "", hasAvatar: !!String(r[5] || ""),
+      // Snöplaneringen (fliken Snöresurser): ägare, handskottare, UE-ansvarig, hemort
+      snow: { owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home }
     });
   });
   staff.sort((a, b) => a.name.localeCompare(b.name, "sv"));
-  return createJsonResponse({ status: "success", staff: staff, isSuper: !!auth.isSuper, me: auth.user, roles: STAFF_ROLES, statuses: STAFF_STATUSES });
+  const owners = {};
+  Object.keys(snowPeople).forEach(n => { if (snowPeople[n].owner !== "Egna") owners[snowPeople[n].owner] = true; });
+  Object.values(readFleetMap()).forEach(t => { if (t.owner !== "Egna") owners[t.owner] = true; });
+  return createJsonResponse({ status: "success", staff: staff, isSuper: !!auth.isSuper, me: auth.user, roles: STAFF_ROLES, statuses: STAFF_STATUSES, ueCompanies: Object.keys(owners).sort() });
 }
 
 // Tidigare projekt: personens tidrapporter grupperade per plats, med egenkontrollerna personen skapat.
@@ -1099,45 +1110,8 @@ function getSnowSheet() {
   return sheet;
 }
 
-// Fliken "Slingor": vilka förare som är tilldelade varje slinga (admin bestämmer)
-const SLINGA_HEADERS = ["Slinga", "Förare (kommaseparerade)", "Uppdaterad av", "Uppdaterad"];
-
-function getSlingaSheet() {
-  return getSheetOrCreate(getSS(), "Slingor", SLINGA_HEADERS);
-}
-
-function readSlingaAssignments() {
-  const rows = getSlingaSheet().getDataRange().getValues();
-  const assignments = {};
-  for (let i = 1; i < rows.length; i++) {
-    if (!rows[i][0]) continue;
-    assignments[String(rows[i][0])] = String(rows[i][1] || "").split(",").map(s => s.trim()).filter(Boolean);
-  }
-  return assignments;
-}
-
-function handleSetSlingaDrivers(data, savedBy) {
-  const slinga = sanitize(data.slinga);
-  if (!slinga) return createJsonResponse({ status: "error", message: "Ange vilken slinga." });
-  const drivers = (Array.isArray(data.drivers) ? data.drivers : []).map(d => sanitize(d).replace(/,/g, " ")).filter(Boolean);
-  const sheet = getSlingaSheet();
-  const rowData = [slinga, drivers.join(", "), sanitize(savedBy),
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm")];
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === slinga) {
-      sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
-      return createJsonResponse({ status: "success", slinga: slinga, drivers: drivers });
-    }
-  }
-  sheet.appendRow(rowData);
-  return createJsonResponse({ status: "success", slinga: slinga, drivers: drivers });
-}
-
-// Admin får alla zoner + tilldelningar. Förare får bara zoner i sina tilldelade slingor.
+// Admin får alla zoner. Övriga får zonerna på fastigheterna där deras kula ligger (docs/snoplanering.md).
 function handleGetSnowZones(auth) {
-  const assignments = readSlingaAssignments();
-  const mySlingor = Object.keys(assignments).filter(s => assignments[s].indexOf(auth.user) !== -1);
   const rows = getSnowSheet().getDataRange().getValues();
   const zones = [];
   for (let i = 1; i < rows.length; i++) {
@@ -1146,8 +1120,6 @@ function handleGetSnowZones(auth) {
     try { coords = JSON.parse(rows[i][5] || "[]"); } catch (err) { coords = []; }
     zones.push({
       id: String(rows[i][0]),
-      slinga: String(rows[i][1] || ""),
-      order: Number(rows[i][2] || 0),
       property: String(rows[i][3] || ""),
       type: String(rows[i][4] || "maskin"),
       coords: coords,
@@ -1157,10 +1129,9 @@ function handleGetSnowZones(auth) {
       accuracy: rows[i][11] === "" || rows[i][11] === undefined ? null : Number(rows[i][11])
     });
   }
-  if (auth.isAdmin) {
-    return createJsonResponse({ status: "success", zones: zones, assignments: assignments, mySlingor: mySlingor });
-  }
-  return createJsonResponse({ status: "success", zones: zones.filter(z => mySlingor.indexOf(z.slinga) !== -1), mySlingor: mySlingor });
+  if (auth.isAdmin) return createJsonResponse({ status: "success", zones: zones });
+  const mine = mySnowAddresses(auth);
+  return createJsonResponse({ status: "success", zones: zones.filter(z => mine[snowAddrKey(z.property)]) });
 }
 
 function handleSaveSnowZone(zone, savedBy) {
@@ -1182,8 +1153,8 @@ function handleSaveSnowZone(zone, savedBy) {
     : (existing ? existing.row[11] : "");
   const rowData = [
     id,
-    sanitize(zone.slinga),
-    Number(zone.order) || 0,
+    "", // Slinga (borttagen 2026-11-05)
+    0,  // Ordning (borttagen)
     sanitize(zone.property),
     zone.type,
     JSON.stringify(coords.map(c => [Number(Number(c[0]).toFixed(7)), Number(Number(c[1]).toFixed(7))])),
@@ -1203,16 +1174,14 @@ function handleSaveSnowZone(zone, savedBy) {
   return createJsonResponse({ status: "success", id: id });
 }
 
-// Hinderguiden (snohinder.html): förare får lägga ut nya hinder på sina egna slingor, admin överallt
+// Hinderguiden (snohinder.html): förare får lägga ut nya hinder på sina egna fastigheter, admin överallt
 function handleSaveSnowHazard(data, auth) {
   const zone = data.zone || {};
   if (SNOW_MARKERS.indexOf(zone.type) === -1) return createJsonResponse({ status: "error", message: "Välj vilket sorts hinder det är." });
   if (!Array.isArray(zone.coords) || zone.coords.length !== 1) return createJsonResponse({ status: "error", message: "Hindret saknar position." });
   if (!sanitize(zone.property)) return createJsonResponse({ status: "error", message: "Välj adress först." });
   if (!auth.isAdmin) {
-    const assignments = readSlingaAssignments();
-    const mine = Object.keys(assignments).filter(s => assignments[s].indexOf(auth.user) !== -1);
-    if (mine.indexOf(String(zone.slinga || "")) === -1) return createJsonResponse({ status: "error", message: "Du kan bara lägga ut hinder på dina egna slingor." });
+    if (!mySnowAddresses(auth)[snowAddrKey(zone.property)]) return createJsonResponse({ status: "error", message: "Du kan bara lägga ut hinder på dina egna fastigheter." });
     delete zone.id; // förare lägger till nya, ändrar inte befintliga
   }
   return handleSaveSnowZone(zone, auth.user);
@@ -1297,6 +1266,201 @@ function handleDeleteSnowZone(zoneId) {
 }
 
 // ==========================================
+// 4b2. SNÖTAVLAN: kulor på fastighetskorten, snöfall och ✅ Klar (docs/snoplanering.md, 2026-11-05)
+// Kulor: traktorer (fliken Traktorer: Ägare + Förare) och handskottare (personer, fliken Snöresurser).
+// Tilldelningen ligger på fastighetskortet (Traktor (ID), Handskottare (JSON)) och ligger kvar mellan snöfallen.
+// Snöfall: admin trycker ❄️ Nytt snöfall -> alla fastigheter ogjorda. Klar-markeringarna loggas per snöfall.
+// ==========================================
+const SNOW_PEOPLE_HEADERS = ["Namn", "Ägare", "Handskottare", "UE-ansvarig", "Hemort", "Lat", "Lng", "Uppdaterad"];
+const SNOWFALL_HEADERS = ["Snöfall-ID", "Tid", "Fastighets-ID", "Adress", "Del", "Enhet", "Ägare", "Markerad av"];
+
+function getSnowPeopleSheet() { return getSheetOrCreate(getSS(), "Snöresurser", SNOW_PEOPLE_HEADERS); }
+function getSnowfallSheet() { return getSheetOrCreate(getSS(), "Snöfall-logg", SNOWFALL_HEADERS); }
+
+// { namn: { owner, shoveler, ueLead, home, lat, lng } } – personer utan rad räknas som Egna
+function readSnowPeople() {
+  const out = {};
+  getSnowPeopleSheet().getDataRange().getValues().slice(1).forEach(r => {
+    if (!r[0]) return;
+    const name = String(r[0]).trim();
+    out[name] = { name: name, owner: String(r[1] || "").trim() || "Egna", shoveler: isTrue(r[2]), ueLead: isTrue(r[3]),
+      home: String(r[4] || ""), lat: r[5] === "" ? null : Number(r[5]), lng: r[6] === "" ? null : Number(r[6]) };
+  });
+  return out;
+}
+function snowPerson(people, name) {
+  return people[String(name || "").trim()] || { name: String(name || ""), owner: "Egna", shoveler: false, ueLead: false, home: "", lat: null, lng: null };
+}
+
+function snowAddrKey(text) { return String(text || "").trim().toLowerCase().replace(/\s+/g, " "); }
+
+function readFleetMap() {
+  const out = {};
+  getFleetSheet().getDataRange().getValues().slice(1).forEach(r => { if (r[0]) out[String(r[0])] = tractorFromRow(r); });
+  return out;
+}
+
+// Får den inloggade se/markera enheten? Admin: allt. Förare: sin traktor. Handskottare: sig själv.
+// UE-ansvarig: alla enheter med samma ägare som hen.
+function snowUnitVisible(auth, me, part, unit, fleet, people) {
+  if (auth.isAdmin) return true;
+  if (part === "traktor") {
+    const t = fleet[unit];
+    if (!t) return false;
+    return t.driver === auth.user || (me.ueLead && t.owner === me.owner);
+  }
+  return unit === auth.user || (me.ueLead && snowPerson(people, unit).owner === me.owner);
+}
+
+// Fastigheterna den inloggade ser i Snöjour (admin: alla)
+function snowVisibleProperties(auth, ctx) {
+  ctx = ctx || {};
+  const fleet = ctx.fleet || readFleetMap(), people = ctx.people || readSnowPeople();
+  const me = snowPerson(people, auth.user);
+  const props = ctx.properties || getPropertySheet().getDataRange().getValues().slice(1).filter(r => r[0]).map(propertyFromRow);
+  return props.filter(p => auth.isAdmin ||
+    (p.tractorId && snowUnitVisible(auth, me, "traktor", p.tractorId, fleet, people)) ||
+    p.shovelers.some(n => snowUnitVisible(auth, me, "hand", n, fleet, people)));
+}
+
+function mySnowAddresses(auth) {
+  const out = {};
+  snowVisibleProperties(auth).forEach(p => { out[snowAddrKey(p.address)] = true; });
+  return out;
+}
+
+function currentSnowfall() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("SNOFALL") || "null"); } catch (e) { return null; }
+}
+
+function readSnowDone(snowfallId) {
+  const out = [];
+  if (!snowfallId) return out;
+  getSnowfallSheet().getDataRange().getValues().slice(1).forEach(r => {
+    if (String(r[0]) !== snowfallId) return;
+    out.push({ time: r[1] instanceof Date ? Utilities.formatDate(r[1], Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm") : String(r[1] || ""),
+      propertyId: String(r[2]), part: String(r[4]), unit: String(r[5]), owner: String(r[6] || ""), by: String(r[7] || "") });
+  });
+  return out;
+}
+
+// Tavlan (admin): personer med snöuppgifter, pågående snöfall och vad som är klart
+function handleGetSnowBoard(auth) {
+  const people = readSnowPeople();
+  const staff = [];
+  getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
+    if (!r[0] || !inScope(auth, r[6])) return;
+    const status = String(r[7] || "").trim() || "Aktiv";
+    if (status.toLowerCase() !== "aktiv") return;
+    const name = String(r[0]).trim(), sp = snowPerson(people, name);
+    staff.push({ name: name, role: staffRoleName(r), owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home, lat: sp.lat, lng: sp.lng });
+  });
+  staff.sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  const sf = currentSnowfall();
+  return createJsonResponse({ status: "success", people: staff, snowfall: sf, done: sf ? readSnowDone(sf.id) : [] });
+}
+
+// Personal-sidan: ägare (Egna / UE-företag), handskottare, UE-ansvarig och hemort
+function handleSaveSnowPerson(data, auth) {
+  const st = getStaffSheet(), hit = st ? findStaffRow(st, data.name) : null;
+  if (!hit || !inScope(auth, hit.row[6])) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
+  const name = String(hit.row[0]).trim();
+  const sheet = getSnowPeopleSheet(), rows = sheet.getDataRange().getValues();
+  let rowNumber = 0, old = null;
+  for (let i = 1; i < rows.length; i++) if (String(rows[i][0]).trim() === name) { rowNumber = i + 1; old = rows[i]; }
+  const home = sanitize(data.home).slice(0, 120);
+  let lat = old ? old[5] : "", lng = old ? old[6] : "", note = "";
+  if (!home) { lat = ""; lng = ""; }
+  else if (!old || String(old[4] || "") !== home || old[5] === "") {
+    try {
+      const geo = geocodeAddress(home, "");
+      if (geo) { lat = Number(geo.lat.toFixed(6)); lng = Number(geo.lng.toFixed(6)); }
+      else { lat = ""; lng = ""; note = "Hittade inte hemorten på kartan – avståndet räknas från personens fastigheter."; }
+    } catch (e) { note = "Kartsökningen misslyckades: " + e.message; }
+  }
+  const rowData = [name, sanitize(data.owner).slice(0, 60) || "Egna", data.shoveler ? "TRUE" : "FALSE", data.ueLead ? "TRUE" : "FALSE", home, lat, lng, nowStamp()];
+  if (rowNumber) sheet.getRange(rowNumber, 1, 1, rowData.length).setValues([rowData]); else sheet.appendRow(rowData);
+  return createJsonResponse({ status: "success", person: snowPerson(readSnowPeople(), name), note: note });
+}
+
+// Lägg/ta bort kulor på ett fastighetskort. tractorId: "" = tomt hål, undefined = rör inte.
+function handleAssignSnow(data) {
+  const sheet = getPropertySheet(), hit = findRowById(sheet, data.propertyId);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const p = propertyFromRow(hit.row);
+  let tractorId = p.tractorId, shovelers = p.shovelers;
+  if (data.tractorId !== undefined) {
+    tractorId = sanitize(data.tractorId);
+    if (tractorId) {
+      const t = readFleetMap()[tractorId];
+      if (!t) return createJsonResponse({ status: "error", message: "Traktorn hittades inte." });
+      if (t.size === "stor" && p.size === "liten" && !p.forced) return createJsonResponse({ status: "error", message: "En stor traktor får inte plats på " + p.address + " (litet hål)." });
+    }
+  }
+  if (Array.isArray(data.shovelers)) {
+    const seen = {};
+    shovelers = data.shovelers.map(n => sanitize(n).slice(0, 60)).filter(n => n && !seen[n] && (seen[n] = true)).slice(0, 8);
+  }
+  sheet.getRange(hit.rowNumber, PROPERTY_HEADERS.length + 6, 1, 2).setValues([[tractorId, JSON.stringify(shovelers)]]);
+  hit.row[16] = tractorId; hit.row[17] = JSON.stringify(shovelers);
+  return createJsonResponse({ status: "success", property: propertyFromRow(hit.row) });
+}
+
+function handleNewSnowfall(auth) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const sf = { id: "S-" + Utilities.formatDate(new Date(), tz, "yyMMdd-HHmm"), start: nowStamp(), by: auth.user };
+  PropertiesService.getScriptProperties().setProperty("SNOFALL", JSON.stringify(sf));
+  return createJsonResponse({ status: "success", snowfall: sf });
+}
+
+// ✅ Klar (eller ångra) för en del av en fastighet: part "traktor" (unit = traktor-ID) eller "hand" (unit = namn).
+// data.at = när det trycktes (telefonen köar markeringar utan täckning och skickar senare).
+function handleMarkSnowDone(data, auth) {
+  const part = data.part === "hand" ? "hand" : "traktor", unit = sanitize(data.unit);
+  const hit = findRowById(getPropertySheet(), data.propertyId);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const p = propertyFromRow(hit.row);
+  if (part === "traktor" ? p.tractorId !== unit : p.shovelers.indexOf(unit) === -1) return createJsonResponse({ status: "error", message: "Den kulan ligger inte längre på " + p.address + "." });
+  const fleet = readFleetMap(), people = readSnowPeople();
+  if (!snowUnitVisible(auth, snowPerson(people, auth.user), part, unit, fleet, people)) return createJsonResponse({ status: "error", message: "Du kan bara markera dina egna fastigheter." });
+  let sf = currentSnowfall();
+  if (!sf) { sf = JSON.parse(handleNewSnowfall({ user: auth.user }).getContent()).snowfall; }
+  const sheet = getSnowfallSheet(), rows = sheet.getDataRange().getValues();
+  const match = r => String(r[0]) === sf.id && String(r[2]) === p.id && String(r[4]) === part && String(r[5]) === unit;
+  if (data.undo) {
+    for (let i = rows.length - 1; i >= 1; i--) if (match(rows[i])) sheet.deleteRow(i + 1);
+  } else if (!rows.some(match)) {
+    const at = Number(data.at);
+    const when = isFinite(at) && at > Date.now() - 86400000 && at <= Date.now() + 60000 ? new Date(at) : new Date();
+    const owner = part === "traktor" ? (fleet[unit] ? fleet[unit].owner : "") : snowPerson(people, unit).owner;
+    sheet.appendRow([sf.id, Utilities.formatDate(when, Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm"), p.id, p.address, part, unit, owner, auth.user]);
+  }
+  return createJsonResponse({ status: "success", snowfall: sf, done: readSnowDone(sf.id).filter(d => d.propertyId === p.id) });
+}
+
+// Snöjour: fastigheterna där mina kulor ligger (UE-ansvarig: företagets, admin: alla) med zoner och status
+function handleGetSnowJour(auth) {
+  const fleet = readFleetMap(), people = readSnowPeople(), me = snowPerson(people, auth.user);
+  const props = snowVisibleProperties(auth, { fleet: fleet, people: people });
+  const sf = currentSnowfall(), done = sf ? readSnowDone(sf.id) : [];
+  const addr = {};
+  props.forEach(p => { addr[snowAddrKey(p.address)] = true; });
+  const zones = JSON.parse(handleGetSnowZones({ isAdmin: true }).getContent()).zones.filter(z => addr[snowAddrKey(z.property)]);
+  const out = props.map(p => {
+    const t = p.tractorId ? fleet[p.tractorId] : null;
+    const parts = [];
+    if (t) parts.push({ part: "traktor", unit: t.id, label: t.model + (t.driver ? " (" + t.driver + ")" : ""), driver: t.driver, owner: t.owner,
+      mine: t.driver === auth.user, canMark: snowUnitVisible(auth, me, "traktor", t.id, fleet, people) });
+    p.shovelers.forEach(n => parts.push({ part: "hand", unit: n, label: n, driver: n, owner: snowPerson(people, n).owner,
+      mine: n === auth.user, canMark: snowUnitVisible(auth, me, "hand", n, fleet, people) }));
+    return { id: p.id, address: p.address, ort: p.ort, omrade: p.omrade, kund: p.kund, lat: p.lat, lng: p.lng, priority: p.priority, note: p.note,
+      maps: p.maps.filter(m => m.place), parts: parts, done: done.filter(d => d.propertyId === p.id) };
+  });
+  return createJsonResponse({ status: "success", user: auth.user, isAdmin: !!auth.isAdmin, owner: me.owner, ueLead: !!me.ueLead,
+    snowfall: sf, properties: out, zones: zones });
+}
+
+// ==========================================
 // 4c. SNÖPLANERING: TRAKTORER & FASTIGHETSKORT
 // Två storlekar: "stor" och "liten". En liten kula passar i båda hålen,
 // en stor kula bara i det stora – om inte fastigheten är tvingad.
@@ -1305,9 +1469,16 @@ const FLEET_HEADERS = ["Traktor-ID", "Tillverkare & modell", "Storlek", "Ort / U
 const PROPERTY_HEADERS = ["Fastighets-ID", "Adress", "Ort", "Lat", "Lng", "Storlek", "Tvinga stor", "Prioritet", "Foton (Drive-ID)", "Anteckning", "Uppdaterad"];
 const SIZES = ["stor", "liten"];
 
-function getFleetSheet() { return getSheetOrCreate(getSS(), "Traktorer", FLEET_HEADERS); }
-// Kolumner efter de elva första: kunden, området (förslag på slinga) och kundens kartor (snöunderlaget)
-const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus", "Pågår (namn|tid)"];
+// Ägare (Egna eller UE-företag) och fast förare – kolumnerna efter de åtta första (2026-11-05)
+const FLEET_EXTRA = ["Ägare", "Förare"];
+function getFleetSheet() {
+  const sheet = getSheetOrCreate(getSS(), "Traktorer", FLEET_HEADERS.concat(FLEET_EXTRA));
+  const head = sheet.getRange(1, FLEET_HEADERS.length + 1, 1, FLEET_EXTRA.length).getValues()[0];
+  if (head.some((h, i) => h !== FLEET_EXTRA[i])) sheet.getRange(1, FLEET_HEADERS.length + 1, 1, FLEET_EXTRA.length).setValues([FLEET_EXTRA]);
+  return sheet;
+}
+// Kolumner efter de elva första: kunden, området (kommundel), kundens kartor (snöunderlaget) och kulorna på kortet
+const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus", "Pågår (namn|tid)", "Traktor (ID)", "Handskottare (JSON)"];
 const CLAIM_MINUTES = 30; // så länge en fastighet räknas som upptagen av den som öppnat den
 function getPropertySheet() {
   const sheet = getSheetOrCreate(getSS(), "Fastigheter", PROPERTY_HEADERS.concat(PROPERTY_EXTRA));
@@ -1421,7 +1592,9 @@ function tractorFromRow(row) {
     base: String(row[3] || ""),
     active: row[4] === "" ? true : isTrue(row[4]),
     avatarUrl: driveImageUrl(String(row[5] || "")),
-    note: String(row[6] || "")
+    note: String(row[6] || ""),
+    owner: String(row[8] || "").trim() || "Egna",
+    driver: String(row[9] || "").trim()
   };
 }
 
@@ -1438,8 +1611,10 @@ function handleSaveTractor(t) {
   const id = t.id ? String(t.id) : ("T-" + Utilities.getUuid().slice(0, 8));
   const existing = findRowById(sheet, id);
   const size = SIZES.indexOf(t.size) !== -1 ? t.size : (suggestTractorSize(t.model) || "stor");
+  const owner = t.owner !== undefined ? (sanitize(t.owner).slice(0, 60) || "Egna") : (existing ? String(existing.row[8] || "") || "Egna" : "Egna");
+  const driver = t.driver !== undefined ? sanitize(t.driver).slice(0, 60) : (existing ? String(existing.row[9] || "") : "");
   const rowData = [id, sanitize(t.model), size, sanitize(t.base), t.active === false ? "FALSE" : "TRUE",
-    existing ? existing.row[5] : "", sanitize(t.note), nowStamp()];
+    existing ? existing.row[5] : "", sanitize(t.note), nowStamp(), owner, driver];
   upsertById(sheet, rowData);
   return createJsonResponse({ status: "success", tractor: tractorFromRow(rowData), suggestedSize: suggestTractorSize(t.model) });
 }
@@ -1620,7 +1795,9 @@ function propertyFromRow(row) {
     omrade: String(row[12] || ""),
     maps: propertyMaps(row).map(m => ({ id: m.id, label: m.label || "", place: m.place || null, url: driveImageUrl(m.id, 2000) })),
     zoneStatus: String(row[14] || ""),
-    claimedBy: activeClaim(row[15])
+    claimedBy: activeClaim(row[15]),
+    tractorId: String(row[16] || ""),
+    shovelers: parseJsonCell(row[17], []).filter(n => typeof n === "string")
   };
 }
 
@@ -1685,7 +1862,8 @@ function handleSaveProperty(p) {
     nowStamp()
   ];
   upsertById(sheet, rowData);
-  return createJsonResponse({ status: "success", property: propertyFromRow(rowData), geocodeNote: geocodeNote });
+  // Kolumnerna efter de elva första (kund, kartor, kulor …) rörs inte – skicka med dem i svaret
+  return createJsonResponse({ status: "success", property: propertyFromRow(existing ? rowData.concat(existing.row.slice(rowData.length)) : rowData), geocodeNote: geocodeNote });
 }
 
 // Import från kalkylark: max 50 rader per anrop (appen skickar i omgångar och visar förlopp).
@@ -2938,25 +3116,17 @@ function handleWidget(params) {
     site: PropertiesService.getScriptProperties().getProperty("SITE_URL") || DEFAULT_SITE_URL });
 }
 
-// Vilka väderområden en förare har: slingorna -> fastigheterna -> ort/område (Flen Norra -> Flen)
+// Vilka väderområden en förare har: fastigheterna där kulan ligger -> ort/område (Flen Norra -> Flen)
 function vaderOmradeFor(text) {
   const t = String(text || "").toLowerCase();
   return Object.keys(VADER_OMRADEN).find(k => t.indexOf(k.toLowerCase()) !== -1) || "";
 }
 
 function myWeatherAreas(user) {
-  const assignments = readSlingaAssignments();
-  const mine = Object.keys(assignments).filter(s => assignments[s].indexOf(user) !== -1);
-  if (!mine.length) return [];
-  const orter = {};
-  getPropertySheet().getDataRange().getValues().slice(1).forEach(r => { if (r[1]) orter[String(r[1]).trim().toLowerCase()] = String(r[12] || r[2] || ""); });
+  const info = readStaffAuth(user);
+  const auth = { user: String(user), isAdmin: false, company: info ? info.company : "LPV" };
   const out = {};
-  mine.forEach(s => { const a = vaderOmradeFor(s); if (a) out[a] = true; });
-  getSnowSheet().getDataRange().getValues().slice(1).forEach(r => {
-    if (mine.indexOf(String(r[1])) === -1) return;
-    const a = vaderOmradeFor(orter[String(r[3]).trim().toLowerCase()] || r[3]);
-    if (a) out[a] = true;
-  });
+  snowVisibleProperties(auth).forEach(p => { const a = vaderOmradeFor(p.omrade || p.ort) || vaderOmradeFor(p.ort); if (a) out[a] = true; });
   return Object.keys(out);
 }
 

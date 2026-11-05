@@ -204,7 +204,7 @@ async function checkWeatherNotice() {
     box.remove();
   };
 }
-// Mini-mätarna överst på startsidan för den som har en snöslinga
+// Mini-mätarna överst på startsidan för den som har snöfastigheter (kulan på kortet)
 function renderWeatherMini(res, names) {
   const a = names.map(n => res.areas[n] && Object.assign({ name: n }, res.areas[n])).filter(Boolean)
     .sort((x, y) => Math.max(y.plog, y.sand) - Math.max(x.plog, x.sand))[0];

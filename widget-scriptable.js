@@ -76,7 +76,7 @@ function meterColumn(stack, title, value, label, size) {
 
 function meters(w, d) {
   const a = d.areas[0];
-  if (!a) { text(w, "Ingen snöslinga kopplad till dig.", 13, C.muted); return; }
+  if (!a) { text(w, "Inga snöfastigheter kopplade till dig.", 13, C.muted); return; }
   const head = w.addStack(); text(head, "❄️ " + a.name, 12, C.muted, true); head.addSpacer();
   if (d.offline) text(head, "utan nät", 10, C.muted);
   w.addSpacer(4);
@@ -116,14 +116,14 @@ function jobs(w, d) {
 // Låsskärmen: rund mätare, eller en rad med båda
 function lockScreen(w, d) {
   const a = d.areas[0];
-  if (family === "accessoryInline") { w.addText(a ? `🚜 ${a.plog}%  🪣 ${a.sand}%` : "LPV: ingen slinga"); return; }
+  if (family === "accessoryInline") { w.addText(a ? `🚜 ${a.plog}%  🪣 ${a.sand}%` : "LPV: ingen snö"); return; }
   if (family === "accessoryCircular") {
     const v = a ? Math.max(a.plog, a.sand) : 0;
     w.addImage(gauge(v, 60)).imageSize = new Size(52, 32);
     const t = w.addText((a && a.sand > a.plog ? "🪣" : "🚜") + v + "%"); t.font = Font.boldSystemFont(12); t.centerAlignText();
     return;
   }
-  if (!a) { w.addText("Ingen snöslinga"); return; }
+  if (!a) { w.addText("Ingen snö"); return; }
   const t1 = w.addText(`🚜 ${a.plog}%  ${a.plogLabel}`); t1.font = Font.boldSystemFont(13);
   const t2 = w.addText(`🪣 ${a.sand}%  ${a.sandLabel}`); t2.font = Font.systemFont(12);
   const t3 = w.addText(a.name); t3.font = Font.systemFont(10);

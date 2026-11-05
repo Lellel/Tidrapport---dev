@@ -354,6 +354,8 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 
 ## 9. Snöjour – förarens vy (telefon)
 
+> ⚠️ Slingorna ersattes av kulor 2026-11-05 – punkterna om slingor nedan gäller inte längre. Se **Snötavlan & nya Snöjour** längst ner.
+
 Öppnas via knappen **❄️ Snöjour – karta & GPS** under formuläret.
 - [ ] Telefonen frågar om platsåtkomst → Tillåt → "📍 GPS aktiv" och en blå prick på kartan
 - [ ] **📍 Följ mig** håller kartan centrerad när du rör dig, drar du i kartan slutar den följa
@@ -669,3 +671,31 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] 📌 Passa in med punkter: tryck husknut på kundkartan (orange) → samma husknut i satelliten (grön), två gånger → kartan hamnar rätt; tredje punkt visar största avvikelse; ↶ Ångra punkt fungerar
 - [ ] 💾 Spara läge → ritverktygen kommer tillbaka
 - [ ] ⏳ snurrar även på andra ställen (t.ex. ikoner.html, AI:n läser kundkartan)
+
+## Snötavlan & nya Snöjour – kulor i stället för slingor (2026-11-05 – kräver ny Kod.gs)
+Förberedelse (Personal-sidan → ✏️ Ändra → ❄️ Snö):
+- [ ] Bocka i **🧹 Handskottare** på några och fyll i **hemort** – de dyker upp i kulpåsen, närmast först.
+- [ ] UE-personer: skriv **UE-företag** i Ägare (t.ex. Snöbröderna AB). Bocka i **UE-ansvarig** på den som ska se företagets alla fastigheter.
+- [ ] Snöplanering → 🚜 Traktorer: sätt **Ort / uppställning**, **Ägare** och **Förare** på varje traktor.
+
+Tavlan (Snöplanering → 🎯 Tavla, iPad):
+- [ ] Välj kommundel överst – bara den kommundelens kort, kartan zoomar dit, "x av y fastigheter har traktor".
+- [ ] Kulpåsen: stationerade traktorer per ägare, ⋯ Övriga närmast först, handskottare närmast först med avstånd.
+- [ ] Tryck på en kula → tryck på ett hål: kulan läggs där. Dra med fingret/pennan fungerar också.
+- [ ] Stor traktor på litet hål studsar tillbaka.
+- [ ] Handskottare läggs i 🧹-platserna (syns där det finns handzoner).
+- [ ] Tryck/dra en lagd kula tillbaka till påsen tar bort den. Lagd kula till ett annat kort flyttar den.
+- [ ] Kartan: kulor vid nålarna, tomt hål = röd ring, 🧹-bricka.
+- [ ] ❄️ Nytt snöfall nollställer alla ✅ – kulorna ligger kvar.
+
+Snöjour (telefon):
+- [ ] Förare: ser bara fastigheterna där hans kula ligger, närmast först. Handytor bleka.
+- [ ] Handskottare: ser sina fastigheter, maskinytor bleka.
+- [ ] ✅ Klar → kortet blir grönt (gult om någon annan del är kvar), hamnar sist. ↶ Ångra fungerar.
+- [ ] Flygplansläge → ✅ Klar → "väntar på täckning" → slå av flygplansläget → skickas.
+- [ ] ▶️ Starta snöpass / ⏹ Avsluta: passet i tidrapporten heter "Snöjour <kommundel>" med anteckningen "Snöjour: N fastigheter klara (…)".
+- [ ] 📄 Kundkarta på kortet lägger kundkartan över kartan.
+- [ ] UE-ansvarig: ser företagets fastigheter, en rad per förare (Kalle 3/8), kan markera klart åt dem.
+- [ ] Tavlan på iPaden blir grön/gul inom någon minut när förarna trycker Klar.
+- [ ] ⚠️ Lägg ut hinder: förare kan bara välja sina egna fastigheter.
+- [ ] Rita zoner: inget Slinga-fält, ingen Förare-flik.

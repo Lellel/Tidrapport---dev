@@ -28,16 +28,35 @@
     .timer { text-align: center; font-size: 13px; color: var(--muted); }
     .timer b { color: var(--text); font-size: 22px; font-variant-numeric: tabular-nums; display: block; }
     .gps-status { font-size: 12px; color: var(--muted); }
-    .obj { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--t-r); background: var(--panel); }
-    .obj-num { width: 28px; height: 28px; border-radius: 50%; background: var(--t-btn); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
-    .obj-body { flex: 1; min-width: 0; }
-    .obj-title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .obj { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-left: 6px solid var(--line); border-radius: var(--t-r); background: var(--panel); }
+    .obj.done { border-left-color: var(--ok); opacity: .75; }
+    .obj.part { border-left-color: var(--warn); }
+    .obj-title { font-weight: 800; font-size: 15px; }
     .obj-meta { font-size: 12px; color: var(--muted); }
-    .obj-note { font-size: 12px; color: var(--warn); margin-top: 2px; }
-    .obj a { color: var(--accent); font-size: 12px; font-weight: 700; text-decoration: none; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--t-r); white-space: nowrap; }
+    .obj-note { font-size: 13px; color: var(--warn); }
+    .obj-parts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .obj-parts span { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--t-btn); }
+    .obj-parts span.ok { background: rgba(34,197,94,.2); color: var(--ok); }
+    .obj-actions { display: flex; gap: 6px; }
+    .obj-actions > * { flex: 1; }
+    .obj-actions a, .obj-actions button.small { display: flex; align-items: center; justify-content: center; min-height: 40px; color: var(--accent); font-size: 13px; font-weight: 700; text-decoration: none; border: 1px solid var(--line); border-radius: var(--t-r); background: transparent; }
+    .obj-actions button.small.on { background: var(--accent); color: var(--t-on-accent); }
+    .btn-done { width: 100%; background: var(--ok); border-color: var(--ok); color: #fff; font-size: 16px; min-height: 52px; }
+    .btn-undo { width: 100%; min-height: 40px; font-size: 13px; background: transparent; color: var(--muted); }
+    .progress { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); }
+    .progress b { color: var(--text); font-size: 18px; }
+    .bar { height: 8px; border-radius: 999px; background: var(--t-btn); overflow: hidden; }
+    .bar > div { height: 100%; background: var(--ok); }
+    .who { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+    .who button { min-height: 36px; border-radius: 999px; font-size: 12px; padding: 0 12px; white-space: nowrap; flex-shrink: 0; }
+    .who button.active { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .queue { font-size: 12px; color: var(--warn); }
     .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px 0; }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
     .me-dot { width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(59,130,246,.35); }
+    .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 3px solid #fff; background: var(--danger); box-shadow: 0 1px 4px rgba(0,0,0,.6); }
+    .pin-dot.done { background: var(--ok); }
+    .pin-dot.part { background: var(--warn); }
     .sno-legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: calc(100% - 120px); padding: 5px 9px; border-radius: 10px; background: var(--t-overlay); font-size: 11px; font-weight: 600; pointer-events: none; }
     .sno-legend span { display: inline-flex; align-items: center; gap: 5px; }
     .sno-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(255,255,255,.7); }
@@ -47,7 +66,7 @@
   <header>
     <a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
     <h1><span data-icon="snojour">❄️</span> Snöjour</h1>
-    <span style="display:flex;gap:8px;align-items:center;"><span data-theme-slot></span><a href="snozoner.html" id="link-draw" style="visibility:hidden;">Rita ✏️</a></span>
+    <span style="display:flex;gap:8px;align-items:center;"><span data-theme-slot></span><a href="planering.html" id="link-plan" style="visibility:hidden;">Tavla 🎯</a></span>
   </header>
 
   <div class="map-wrap">
@@ -62,9 +81,11 @@
 
   <div class="sheet">
     <div id="vader-box"></div>
-    <select id="slinga-select" onchange="selectSlinga(this.value)"></select>
+    <div id="progress-box"></div>
+    <div id="who-box"></div>
     <div id="time-box"></div>
     <div class="gps-status" id="gps-status">GPS startar…</div>
+    <div class="queue" id="queue-box"></div>
     <div id="obj-list"></div>
   </div>
 
@@ -76,15 +97,16 @@
   <script src="sno.js"></script>
   <script src="vader.js"></script>
   <script>
+    // Snöjour (docs/snoplanering.md): mina fastigheter = där min kula ligger. Närmast först, ✅ Klar per del.
+    // UE-ansvarig ser företagets fastigheter, admin alla. Klar-markeringar köas utan täckning.
     let mapCtl, map;
-    let zones = [];
-    let mySlingor = [];
-    let zoneLayers = [];
-    let currentSlinga = localStorage.getItem('lpv_sno_slinga') || '';
+    let jour = null;           // svaret från getSnowJour
+    let zoneLayers = [], pinLayers = [];
+    let who = '';              // filter för UE-ansvarig/admin: en förare/handskottare
     let myPos = null, meMarker = null, accuracyCircle = null;
-    let following = false;
-    let tilesSat = true;
-    let timerInterval = null;
+    let following = false, tilesSat = true, timerInterval = null;
+    let kkLayer = null, kkProp = null;
+    const me = snoCurrentUser();
 
     // ---------- PASS / TID (sparas som vanligt pass i tidrapportens utkorg) ----------
     function loadDrafts() {
@@ -111,36 +133,49 @@
       return diff;
     }
     function activeSnowDraft() {
-      return loadDrafts().find(d => d.snoSlinga && !d.end);
+      return loadDrafts().find(d => (d.snoPass || d.snoSlinga) && !d.end);
     }
+    // Mina ✅ i det här passet (för anteckningen i tidrapporten)
+    function loadMine() { try { return JSON.parse(localStorage.getItem('lpv_sno_klara') || '[]'); } catch (e) { return []; } }
+    function saveMine(list) { try { localStorage.setItem('lpv_sno_klara', JSON.stringify(list.slice(-200))); } catch (e) { /* full */ } }
 
-    function startSlinga() {
-      if (!currentSlinga) return;
+    function startPass() {
       const drafts = loadDrafts();
       const ongoing = drafts.find(d => !d.end);
       if (ongoing) {
-        if (!confirm(`Du har redan "${ongoing.activity}" (${ongoing.place}) pågående.\n\nStämpla ut det och starta ${currentSlinga}?`)) return;
+        if (!confirm(`Du har redan "${ongoing.activity}" (${ongoing.place}) pågående.\n\nStämpla ut det och starta snöpasset?`)) return;
         ongoing.end = nowHHMM();
         ongoing.totalHours = hoursBetween(ongoing.start, ongoing.end).toFixed(1);
       }
-      const count = zonesInSlinga().filter(z => snoZoneKind(z) !== 'marker' && z.type !== 'upplag').length;
       drafts.push({
         id: Date.now(), type: 'nya', ataNumber: '', date: localDate(), user: snoCurrentUser(),
-        place: currentSlinga, activity: 'Snöröjning', notes: `Snöjour: slinga ${currentSlinga} (${count} objekt)`,
-        start: nowHHMM(), end: '', totalHours: '0.0', images: [], snoSlinga: currentSlinga
+        place: 'Snöjour', activity: 'Snöröjning', notes: 'Snöjour', start: nowHHMM(), end: '', totalHours: '0.0', images: [],
+        snoPass: true, startedAt: Date.now()
       });
       saveDrafts(drafts);
       renderTimeBox();
     }
 
-    function stopSlinga() {
+    function stopPass() {
       const drafts = loadDrafts();
-      const draft = drafts.find(d => d.snoSlinga && !d.end);
+      const draft = drafts.find(d => (d.snoPass || d.snoSlinga) && !d.end);
       if (!draft) return;
+      const since = draft.startedAt || draft.id || 0;
+      const seen = new Set();
+      const klara = loadMine().filter(k => k.at >= since && !seen.has(k.pid) && seen.add(k.pid));
+      // Platsen = kommundelen där de flesta klara fastigheterna ligger
+      const count = {};
+      klara.forEach(k => { if (k.area) count[k.area] = (count[k.area] || 0) + 1; });
+      const area = Object.keys(count).sort((a, b) => count[b] - count[a])[0];
       draft.end = nowHHMM();
       draft.totalHours = hoursBetween(draft.start, draft.end).toFixed(1);
+      if (draft.snoPass) {
+        draft.place = area ? 'Snöjour ' + area : 'Snöjour';
+        const names = klara.map(k => k.address);
+        draft.notes = klara.length ? `Snöjour: ${klara.length} ${klara.length === 1 ? 'fastighet' : 'fastigheter'} klara (${names.slice(0, 15).join(', ')}${names.length > 15 ? ' …' : ''})` : 'Snöjour';
+      }
       saveDrafts(drafts);
-      alert(`Klart! ${draft.place}: ${draft.start}–${draft.end} (${draft.totalHours} h).\n\nPasset skickas från Tidrapporten.`);
+      alert(`Klart! ${draft.place}: ${draft.start}–${draft.end} (${draft.totalHours} h).${klara.length ? `\n${klara.length} fastigheter klara.` : ''}\n\nPasset skickas från Tidrapporten.`);
       window.location.href = 'index.html';
     }
 
@@ -154,117 +189,252 @@
           const start = new Date(); start.setHours(h, m, 0, 0);
           let mins = Math.floor((Date.now() - start) / 60000);
           if (mins < 0) mins += 1440; // startade före midnatt
-          box.innerHTML = `<div class="timer">Plogar ${snoEscape(draft.place)} sedan ${draft.start}<b>${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} min</b></div>
-            <button class="btn-stop" style="width:100%; margin-top:8px;" onclick="stopSlinga()">⏹ Klar med slingan</button>`;
+          box.innerHTML = `<div class="timer">Snöpass sedan ${draft.start}<b>${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} min</b></div>
+            <button class="btn-stop" style="width:100%; margin-top:8px;" onclick="stopPass()">⏹ Avsluta snöpasset</button>`;
         };
         update();
         timerInterval = setInterval(update, 30000);
       } else {
-        box.innerHTML = currentSlinga
-          ? `<button class="btn-start" style="width:100%;" onclick="startSlinga()">▶️ Starta ${snoEscape(currentSlinga)}</button>`
-          : '';
+        box.innerHTML = jour && jour.properties.length ? `<button class="btn-start" style="width:100%;" onclick="startPass()">▶️ Starta snöpass</button>` : '';
       }
     }
 
-    // ---------- SLINGOR & OBJEKT ----------
-    function zonesInSlinga() {
-      return zones.filter(z => !currentSlinga || z.slinga === currentSlinga).sort((a, b) => a.order - b.order);
+    // ---------- FASTIGHETERNA ----------
+    const isLead = () => jour && (jour.isAdmin || jour.ueLead);
+    const doneOf = (p, part, unit) => p.done.find(d => d.part === part && d.unit === unit);
+    function visibleParts(p) { return p.parts.filter(x => !who || x.driver === who); }
+    // Delar jag ska trycka Klar på: mina egna – eller (UE-ansvarig/admin) alla jag får markera i filtret
+    function myParts(p) { return p.parts.filter(x => x.canMark && (x.mine || (isLead() && (!who || x.driver === who)))); }
+    function stateOf(p) {
+      const parts = p.parts;
+      const n = parts.filter(x => doneOf(p, x.part, x.unit)).length;
+      return !parts.length || !n ? '' : n === parts.length ? 'done' : 'part';
+    }
+    function finishedForMe(p) {
+      const mine = myParts(p);
+      return mine.length ? mine.every(x => doneOf(p, x.part, x.unit)) : stateOf(p) === 'done';
+    }
+    function listProps() {
+      if (!jour) return [];
+      const list = jour.properties.filter(p => !who || p.parts.some(x => x.driver === who));
+      const dist = (p) => myPos && p.lat !== null ? snoDistance(myPos, [p.lat, p.lng]) : 1e12;
+      return list.sort((a, b) => finishedForMe(a) - finishedForMe(b) || (b.priority - a.priority) * (myPos ? 0 : 1) || dist(a) - dist(b) || a.address.localeCompare(b.address, 'sv'));
+    }
+    // Vilken zontyp är min? Förare: maskin, handskottare: hand (den andra visas blek)
+    function myZoneFocus() {
+      if (!jour || isLead()) return '';
+      const kinds = new Set(jour.properties.flatMap(p => p.parts.filter(x => x.mine).map(x => x.part)));
+      return kinds.size === 1 ? (kinds.has('traktor') ? 'maskin' : 'hand') : '';
+    }
+    function areaOfProp(p, type) {
+      return jour.zones.filter(z => snoAddrKey(z.property) === snoAddrKey(p.address) && z.type === type).reduce((s, z) => s + (Number(z.areaM2) || 0), 0);
     }
 
-    function selectSlinga(name) {
-      currentSlinga = name;
-      localStorage.setItem('lpv_sno_slinga', name);
-      renderZones();
-      renderTimeBox();
-      fitToSlinga();
+    function renderProgress() {
+      const list = jour ? jour.properties.filter(p => !who || p.parts.some(x => x.driver === who)) : [];
+      const done = list.filter(finishedForMe).length;
+      const sf = jour && jour.snowfall;
+      document.getElementById('progress-box').innerHTML = list.length ? `<div class="progress"><span><b>${done} av ${list.length}</b> klara</span><span>❄️ ${sf ? 'Snöfall sedan ' + snoEscape(sf.start.slice(5)) : 'Inget snöfall startat'}</span></div>
+        <div class="bar"><div style="width:${Math.round(done / list.length * 100)}%"></div></div>` : '';
+      // UE-ansvarig/admin: en rad per förare/handskottare
+      const box = document.getElementById('who-box');
+      if (!isLead() || !jour.properties.length) { box.innerHTML = ''; return; }
+      const people = {};
+      jour.properties.forEach(p => p.parts.forEach(x => {
+        const o = people[x.driver || x.label] || (people[x.driver || x.label] = { n: 0, d: 0, icon: x.part === 'traktor' ? '🚜' : '🧹' });
+        o.n++; if (doneOf(p, x.part, x.unit)) o.d++;
+      }));
+      const names = Object.keys(people).sort((a, b) => a.localeCompare(b, 'sv'));
+      box.innerHTML = `<div class="who"><button class="${who ? '' : 'active'}" onclick="setWho('')">Alla</button>${names.map(n =>
+        `<button class="${who === n ? 'active' : ''}" onclick="setWho(this.dataset.n)" data-n="${snoEscape(n)}">${people[n].icon} ${snoEscape(n)} ${people[n].d}/${people[n].n}</button>`).join('')}</div>`;
     }
-
-    // Admin ser alla slingor. Förare ser bara de slingor admin har tilldelat dem.
-    function renderSlingaSelect() {
-      const admin = snoIsAdmin();
-      const slingor = admin ? snoSlingor(zones) : mySlingor.filter(s => zones.some(z => z.slinga === s));
-      const active = activeSnowDraft();
-      if (active) currentSlinga = active.snoSlinga;
-      if (currentSlinga && !slingor.includes(currentSlinga)) currentSlinga = '';
-      if (!admin && !currentSlinga && slingor.length) currentSlinga = slingor[0];
-      const select = document.getElementById('slinga-select');
-      select.style.display = (!admin && slingor.length <= 1) ? 'none' : 'block';
-      select.innerHTML = (admin ? `<option value="">Alla slingor (${zones.length} objekt)</option>` : '') +
-        slingor.map(s => `<option value="${snoEscape(s)}" ${s === currentSlinga ? 'selected' : ''}>${snoEscape(s)}</option>`).join('');
-    }
-
-    function renderZones() {
-      zoneLayers.forEach(l => map.removeLayer(l));
-      zoneLayers = zonesInSlinga().map(z => snoRenderZone(map, z));
-      renderList();
-    }
+    function setWho(n) { who = n; renderAll(); fitToList(); }
 
     function renderList() {
-      const list = zonesInSlinga();
+      const el = document.getElementById('obj-list');
+      if (!jour) return;
+      const list = listProps();
       if (!list.length) {
-        document.getElementById('obj-list').innerHTML = snoIsAdmin()
-          ? '<div class="empty">Inga zoner ritade ännu.</div>'
-          : '<div class="empty">Du har ingen slinga tilldelad ännu.<br>Arbetsledaren lägger upp den åt dig.</div>';
+        el.innerHTML = jour.isAdmin ? '<div class="empty">Inga fastigheter med kulor ännu. Lägg ut kulor på 🎯 Tavlan.</div>'
+          : '<div class="empty">Du har inga fastigheter ännu.<br>Arbetsledaren lägger din kula på fastigheterna i Snöplaneringen.</div>';
         return;
       }
-      document.getElementById('obj-list').innerHTML = list.map((z, i) => {
-        const center = snoCenter(z.coords);
-        const def = SNO_TYPES[z.type];
-        const dist = myPos ? ` · ${snoFormatDistance(snoDistance(myPos, center))} bort` : '';
-        return `<div class="obj">
-          <div class="obj-num" onclick="focusZone('${snoEscape(z.id)}')">${def.icon || (i + 1)}</div>
-          <div class="obj-body" onclick="focusZone('${snoEscape(z.id)}')">
-            <div class="obj-title">${snoEscape(z.property)}</div>
-            <div class="obj-meta">${def.label}${z.areaM2 ? ' · ' + Math.round(z.areaM2).toLocaleString('sv-SE') + ' m²' : ''}${currentSlinga ? '' : ' · ' + snoEscape(z.slinga)}${dist}</div>
-            ${z.note ? `<div class="obj-note">${snoEscape(z.note)}</div>` : ''}
+      const focus = myZoneFocus();
+      el.innerHTML = list.map(p => {
+        const st = stateOf(p), mine = myParts(p);
+        const dist = myPos && p.lat !== null ? ' · ' + snoFormatDistance(snoDistance(myPos, [p.lat, p.lng])) + ' bort' : '';
+        const maskin = areaOfProp(p, 'maskin'), hand = areaOfProp(p, 'hand');
+        const m2 = (v) => Math.round(v).toLocaleString('sv-SE') + ' m²';
+        const areas = focus === 'maskin' ? (maskin ? '🔵 ' + m2(maskin) : '') : focus === 'hand' ? (hand ? '🟠 ' + m2(hand) : '')
+          : [maskin ? '🔵 ' + m2(maskin) : '', hand ? '🟠 ' + m2(hand) : ''].filter(Boolean).join(' · ');
+        const showParts = isLead() || p.parts.length > 1;
+        const parts = showParts ? `<div class="obj-parts">${visibleParts(p).map(x => { const d = doneOf(p, x.part, x.unit);
+          return `<span class="${d ? 'ok' : ''}">${x.part === 'traktor' ? '🚜' : '🧹'} ${snoEscape(x.label)}${d ? ' ✅ ' + snoEscape(d.time.slice(11)) : ''}</span>`; }).join('')}</div>` : '';
+        const pos = p.lat !== null ? `${p.lat},${p.lng}` : encodeURIComponent(p.address + (p.ort ? ', ' + p.ort : ''));
+        const buttons = mine.map(x => {
+          const d = doneOf(p, x.part, x.unit), lbl = mine.length > 1 || !x.mine ? ` ${x.part === 'traktor' ? '🚜' : '🧹'} ${snoEscape(x.label)}` : '';
+          const args = `'${snoEscape(p.id)}','${x.part}','${snoEscape(x.unit).replace(/&#39;/g, "\\'")}'`;
+          return d ? `<button class="btn-undo" onclick="markDone(${args}, true)">↶ Ångra klar${lbl} (${snoEscape(d.time.slice(11))})</button>`
+            : `<button class="btn-done" onclick="markDone(${args}, false)">✅ Klar${lbl}</button>`;
+        }).join('');
+        return `<div class="obj ${st}" id="o-${snoEscape(p.id)}">
+          <div onclick="focusProp('${snoEscape(p.id)}')">
+            <div class="obj-title">${p.priority ? '⭐ ' : ''}${snoEscape(p.address)}</div>
+            <div class="obj-meta">${[snoEscape(p.kund), areas].filter(Boolean).join(' · ')}${dist}</div>
           </div>
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${center[0]},${center[1]}" target="_blank" rel="noopener">Kör dit</a>
+          ${p.note ? `<div class="obj-note">⚠️ ${snoEscape(p.note)}</div>` : ''}
+          ${parts}
+          <div class="obj-actions">
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
+            ${p.maps.length ? `<button class="small ${kkProp === p.id ? 'on' : ''}" onclick="toggleKundkarta('${snoEscape(p.id)}')">📄 Kundkarta</button>` : ''}
+          </div>
+          ${buttons}
         </div>`;
       }).join('');
     }
 
-    function focusZone(id) {
-      const zone = zones.find(z => z.id === id);
-      if (!zone) return;
+    function renderMap() {
+      zoneLayers.forEach(l => map.removeLayer(l));
+      pinLayers.forEach(l => map.removeLayer(l));
+      if (!jour || SNO_MAP_MISSING) { zoneLayers = []; pinLayers = []; return; }
+      const list = listProps(), keys = new Set(list.map(p => snoAddrKey(p.address)));
+      const focus = myZoneFocus();
+      zoneLayers = jour.zones.filter(z => keys.has(snoAddrKey(z.property))).map(z => {
+        const layer = snoRenderZone(map, z);
+        // Den andra typen (föraren: handytor, handskottaren: maskinytor) visas blek
+        if (focus && (z.type === 'maskin' || z.type === 'hand') && z.type !== focus && layer.setStyle) layer.setStyle({ fillOpacity: 0.1, opacity: 0.35, weight: 2 });
+        return layer;
+      });
+      pinLayers = list.filter(p => p.lat !== null).map(p => {
+        const m = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: `<div class="pin-dot ${finishedForMe(p) ? 'done' : stateOf(p)}"></div>`, iconSize: [16, 16] }) }).addTo(map);
+        m.bindTooltip(snoEscape(p.address));
+        m.on('click', () => { const el = document.getElementById('o-' + p.id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+        return m;
+      });
+    }
+
+    function renderAll() { renderProgress(); renderList(); renderMap(); renderTimeBox(); renderQueue(); }
+
+    function focusProp(id) {
+      const p = jour.properties.find(x => x.id === id);
+      if (!p) return;
       following = false; updateFollowButton();
-      map.setView(snoCenter(zone.coords), 18);
+      const pts = jour.zones.filter(z => snoAddrKey(z.property) === snoAddrKey(p.address)).flatMap(z => z.coords);
+      if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 19 });
+      else if (p.lat !== null) map.setView([p.lat, p.lng], 18);
+    }
+    function fitToList() {
+      const pts = listProps().filter(p => p.lat !== null).map(p => [p.lat, p.lng]);
+      if (pts.length && !SNO_MAP_MISSING) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 17 });
     }
 
-    function fitToSlinga() {
-      const pts = zonesInSlinga().flatMap(z => z.coords);
-      if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 18 });
+    // 📄 Kundkarta: läggs över kartan för en fastighet i taget
+    function toggleKundkarta(id) {
+      if (kkLayer) { map.removeLayer(kkLayer); kkLayer = null; }
+      if (kkProp === id) { kkProp = null; renderList(); return; }
+      const p = jour.properties.find(x => x.id === id);
+      const m = p && p.maps[0];
+      if (!m) return;
+      kkProp = id;
+      kkLayer = snoKundOverlay(map, m.url, m.place, 0.75);
+      focusProp(id);
+      renderList();
     }
 
-    function applyZones(fromCache) {
-      renderSlingaSelect();
-      renderZones();
-      renderTimeBox();
-      if (!fromCache || !zoneLayers.length) fitToSlinga();
+    // ---------- ✅ KLAR (köas i telefonen och skickas när det finns täckning) ----------
+    function loadQueue() { try { return JSON.parse(localStorage.getItem('lpv_sno_queue') || '[]'); } catch (e) { return []; } }
+    function saveQueue(q) { try { localStorage.setItem('lpv_sno_queue', JSON.stringify(q)); } catch (e) { /* full */ } }
+    function renderQueue() {
+      const n = loadQueue().length;
+      document.getElementById('queue-box').textContent = n ? `⏳ ${n} ${n === 1 ? 'markering väntar' : 'markeringar väntar'} på täckning – skickas automatiskt.` : '';
+    }
+    function stamp(ms) {
+      const d = new Date(ms), z = (v) => String(v).padStart(2, '0');
+      return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
     }
 
-    // Visa senast hämtade zoner direkt, uppdatera sedan från servern i bakgrunden
-    async function loadZones() {
-      let cache = {};
-      try { cache = JSON.parse(localStorage.getItem('lpv_sno_cache') || '{}'); } catch (e) { cache = {}; }
-      if (Array.isArray(cache.zones)) {
-        zones = cache.zones; mySlingor = cache.mySlingor || [];
-        applyZones(true);
-        fitToSlinga();
-      }
+    function markDone(pid, part, unit, undo) {
+      const p = jour.properties.find(x => x.id === pid);
+      if (!p) return;
+      const at = Date.now();
+      // Direkt på skärmen
+      p.done = p.done.filter(d => !(d.part === part && d.unit === unit));
+      if (!undo) p.done.push({ part, unit, time: stamp(at), by: me, propertyId: pid });
+      const mineList = loadMine().filter(k => !(k.pid === pid && k.part === part && k.unit === unit));
+      if (!undo) mineList.push({ pid, part, unit, address: p.address, area: p.omrade || p.ort || '', at });
+      saveMine(mineList);
+      const q = loadQueue().filter(x => !(x.propertyId === pid && x.part === part && x.unit === unit));
+      q.push({ propertyId: pid, part, unit, undo: !!undo, at });
+      saveQueue(q);
+      saveCache();
+      renderAll();
+      flushQueue();
+    }
+
+    let flushing = false;
+    async function flushQueue() {
+      if (flushing) return;
+      flushing = true;
       try {
-        const res = await snoApi({ action: 'getSnowZones' });
+        let q = loadQueue();
+        while (q.length) {
+          const item = q[0];
+          let res;
+          try { res = await snoApi({ action: 'markSnowDone', ...item }); }
+          catch (e) { break; } // ingen täckning – försök igen senare
+          q = loadQueue().filter(x => !(x.propertyId === item.propertyId && x.part === item.part && x.unit === item.unit && x.at === item.at));
+          saveQueue(q);
+          const p = jour && jour.properties.find(x => x.id === item.propertyId);
+          if (res.status === 'success') {
+            if (p) {
+              // Behåll en nyare markering som ännu inte skickats
+              const pending = q.filter(x => x.propertyId === item.propertyId);
+              p.done = res.done.concat(p.done.filter(d => pending.some(x => x.part === d.part && x.unit === d.unit) && !res.done.some(r => r.part === d.part && r.unit === d.unit)));
+            }
+            if (res.snowfall && jour) jour.snowfall = res.snowfall;
+          } else {
+            alert('❌ ' + (res.message || 'Markeringen kunde inte sparas.'));
+            loadJour();
+          }
+        }
+      } finally {
+        flushing = false;
+        saveCache();
+        renderAll();
+      }
+    }
+    window.addEventListener('online', flushQueue);
+
+    // ---------- HÄMTA ----------
+    function saveCache() { if (jour) try { localStorage.setItem('lpv_sno_jour', JSON.stringify(jour)); } catch (e) { /* full */ } }
+
+    async function loadJour(first) {
+      if (first) {
+        try { jour = JSON.parse(localStorage.getItem('lpv_sno_jour') || 'null'); } catch (e) { jour = null; }
+        if (jour && jour.user !== me) jour = null; // annan inloggning på samma enhet
+        if (jour) { renderAll(); fitToList(); }
+      }
+      if (loadQueue().length) await flushQueue();
+      try {
+        const res = await snoApi({ action: 'getSnowJour' });
         if (res.status !== 'success') {
-          if (!zones.length) document.getElementById('obj-list').innerHTML = `<div class="empty">❌ ${snoEscape(res.message || 'Kunde inte hämta zoner.')}</div>`;
+          if (!jour) document.getElementById('obj-list').innerHTML = `<div class="empty">❌ ${snoEscape(res.message || 'Kunde inte hämta.')}</div>`;
           return;
         }
-        const changed = JSON.stringify(res.zones) !== JSON.stringify(cache.zones) || JSON.stringify(res.mySlingor) !== JSON.stringify(cache.mySlingor);
-        zones = res.zones || [];
-        mySlingor = res.mySlingor || [];
-        localStorage.setItem('lpv_sno_cache', JSON.stringify({ zones, mySlingor }));
-        if (changed) applyZones(Array.isArray(cache.zones));
+        const hadNone = !jour;
+        // Markeringar som fortfarande väntar i kön ska synas tills de skickats
+        const q = loadQueue();
+        res.properties.forEach(p => q.filter(x => x.propertyId === p.id).forEach(x => {
+          p.done = p.done.filter(d => !(d.part === x.part && d.unit === x.unit));
+          if (!x.undo) p.done.push({ part: x.part, unit: x.unit, time: stamp(x.at), by: me, propertyId: p.id });
+        }));
+        jour = res;
+        saveCache();
+        renderAll();
+        if (hadNone || first) fitToList();
       } catch (err) {
-        if (Array.isArray(cache.zones)) document.getElementById('gps-status').innerText = 'Ingen kontakt – visar senast sparade zoner.';
-        else applyZones(false);
+        document.getElementById('gps-status').innerText = jour ? 'Ingen kontakt – visar senast hämtade.' : 'Ingen kontakt med servern.';
+        if (!jour) document.getElementById('obj-list').innerHTML = '<div class="empty">Ingen täckning och inget sparat ännu.</div>';
       }
     }
 
@@ -295,6 +465,7 @@
       mapCtl.setTiles(tilesSat ? 'sat' : 'street');
     }
 
+    let lastListPos = null;
     function startGps() {
       if (!('geolocation' in navigator)) {
         document.getElementById('gps-status').innerText = 'GPS stöds inte i den här webbläsaren.';
@@ -303,16 +474,19 @@
       navigator.geolocation.watchPosition((pos) => {
         myPos = [pos.coords.latitude, pos.coords.longitude];
         const acc = Math.round(pos.coords.accuracy);
-        if (!meMarker) {
-          meMarker = L.marker(myPos, { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18] }), zIndexOffset: 1000 }).addTo(map);
-          accuracyCircle = L.circle(myPos, { radius: acc, color: '#3b82f6', weight: 1, fillOpacity: 0.1 }).addTo(map);
-        } else {
-          meMarker.setLatLng(myPos);
-          accuracyCircle.setLatLng(myPos).setRadius(acc);
+        if (!SNO_MAP_MISSING) {
+          if (!meMarker) {
+            meMarker = L.marker(myPos, { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18] }), zIndexOffset: 1000 }).addTo(map);
+            accuracyCircle = L.circle(myPos, { radius: acc, color: '#3b82f6', weight: 1, fillOpacity: 0.1 }).addTo(map);
+          } else {
+            meMarker.setLatLng(myPos);
+            accuracyCircle.setLatLng(myPos).setRadius(acc);
+          }
         }
         if (following) map.setView(myPos, map.getZoom());
         document.getElementById('gps-status').innerText = `📍 GPS aktiv (±${acc} m)`;
-        renderList();
+        // Sortera om (närmast först) när man flyttat sig 50 m
+        if (!lastListPos || snoDistance(lastListPos, myPos) > 50) { lastListPos = myPos; renderList(); }
       }, (err) => {
         document.getElementById('gps-status').innerText = err.code === 1
           ? 'GPS nekad. Tillåt plats för den här sidan i telefonens inställningar.'
@@ -324,11 +498,15 @@
     if (!SNO_MAP_MISSING) document.getElementById('sno-legend').innerHTML = snoLegendHtml();
     map = mapCtl.map;
     map.on('dragstart', () => { following = false; updateFollowButton(); });
-    if (snoIsAdmin()) document.getElementById('link-draw').style.visibility = 'visible';
-    loadZones();
+    if (snoIsAdmin()) document.getElementById('link-plan').style.visibility = 'visible';
+    renderTimeBox();
+    loadJour(true);
     startGps();
     loadWeather();
     setInterval(loadWeather, 10 * 60000);
+    // Andras ✅ (och nytt snöfall) syns inom två minuter; kön skickas så fort det finns täckning
+    setInterval(() => { if (!document.hidden) loadJour(false); }, 120000);
+    setInterval(() => { if (loadQueue().length) flushQueue(); }, 30000);
   </script>
 </body>
 </html>

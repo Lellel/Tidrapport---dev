@@ -114,6 +114,52 @@
     .imp-table th { color: var(--muted); font-weight: 700; }
     .bar { height: 10px; border-radius: 999px; background: var(--card); overflow: hidden; }
     .bar > div { height: 100%; background: var(--ok); width: 0; transition: width .3s; }
+
+    /* TAVLAN (docs/snoplanering.md): kulpåse + fastighetskort med hål */
+    .tabs.three { grid-template-columns: 1fr 1fr 1fr; }
+    .sf { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r); padding: 8px 10px; font-size: 12px; color: var(--muted); }
+    .sf b { color: var(--text); }
+    .sf button { min-height: 34px; font-size: 12px; flex-shrink: 0; }
+    .bag { background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .bag.target { outline: 3px dashed var(--accent); outline-offset: -3px; }
+    .bag-return { background: var(--accent); color: var(--t-on-accent); border-radius: var(--t-r); padding: 8px; text-align: center; font-weight: 800; font-size: 13px; }
+    .bag-title { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .bag-owner { font-size: 12px; font-weight: 700; margin-top: 2px; }
+    .bag-group { display: flex; flex-wrap: wrap; gap: 6px 4px; }
+    .bag .more { min-height: 32px; font-size: 12px; }
+    .kchip { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 70px; text-align: center; font-size: 10px; color: var(--muted); line-height: 1.2; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    .kchip b { color: var(--text); font-size: 11px; word-break: break-word; }
+    .kchip .kula, .placed .kula { box-shadow: inset 0 -4px 10px rgba(0,0,0,.45), 0 3px 8px rgba(0,0,0,.45); }
+    .picked .kula { outline: 4px solid var(--accent); outline-offset: 2px; }
+    .kula.hk { --kula-color: #a78bfa; font-weight: 800; color: #1e1b4b; }
+    .bcard { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--line); border-radius: var(--t-r); padding: 10px; }
+    .bcard.done { border-left-color: var(--ok); }
+    .bcard.part { border-left-color: var(--warn); }
+    .bcard.flash { box-shadow: 0 0 0 3px var(--accent); }
+    .bcard-body { flex: 1; min-width: 0; }
+    .hole { border-radius: 50%; border: 3px dashed var(--line); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; color: var(--muted); position: relative; }
+    .hole.stor { width: 60px; height: 60px; border-color: var(--stor); }
+    .hole.liten { width: 44px; height: 44px; border-color: var(--liten); }
+    .hole.none { width: 50px; height: 50px; border-color: var(--danger); font-size: 12px; }
+    .hole.forced { box-shadow: 0 0 0 3px rgba(239,68,68,.35); }
+    .hole.filled { border-style: solid; }
+    .target-ok .hole, .target-ok .slot { background: rgba(56,189,248,.12); }
+    .slots { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+    .slot { width: 36px; height: 36px; border-radius: 50%; border: 2px dashed #a78bfa; display: flex; align-items: center; justify-content: center; color: #a78bfa; font-weight: 800; flex-shrink: 0; }
+    .placed { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    .donechk { position: absolute; right: -4px; bottom: -4px; background: var(--ok); color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; z-index: 3; }
+    .bounce { animation: bounce .45s; }
+    @keyframes bounce { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+    .ghost { position: fixed; pointer-events: none; z-index: 3000; transform: translate(-50%, -50%) scale(1.15); opacity: .92; }
+    .drop-hover { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 50%; }
+    .bag.drop-hover { border-radius: var(--t-r-card); }
+    .grp-head { font-size: 12px; font-weight: 800; color: var(--muted); margin: 6px 0 -2px; }
+    .mk { position: relative; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .mk .kula { width: 100%; height: 100%; font-size: 13px; }
+    .mk.empty { border: 3px solid var(--danger); background: rgba(239,68,68,.25); }
+    .mk.done { box-shadow: 0 0 0 3px var(--ok); }
+    .mk.part { box-shadow: 0 0 0 3px var(--warn); }
+    .mk i { position: absolute; right: -8px; top: -6px; background: #a78bfa; color: #1e1b4b; font-style: normal; font-weight: 800; font-size: 10px; border-radius: 9px; padding: 0 4px; border: 1px solid #fff; }
   </style>
 </head>
 <body>
@@ -134,8 +180,9 @@
           <a href="snozoner.html">Rita zoner →</a>
         <span data-theme-slot></span></div>
         <h1><span data-icon="sno">❄️</span> Snöplanering</h1>
-        <div class="tabs">
-          <button id="tab-props" class="active" onclick="showTab('props')"><span data-icon="fastighet">🏠</span> Fastigheter</button>
+        <div class="tabs three">
+          <button id="tab-board" onclick="showTab('board')">🎯 Tavla</button>
+          <button id="tab-props" onclick="showTab('props')"><span data-icon="fastighet">🏠</span> Fastigheter</button>
           <button id="tab-fleet" onclick="showTab('fleet')"><span data-icon="sno">🚜</span> Traktorer</button>
         </div>
       </div>
@@ -155,7 +202,7 @@
     let mapCtl, map;
     let properties = [], fleet = [];
     let pins = [];
-    let tab = 'props';
+    let tab = (() => { try { return localStorage.getItem('lpv_plan_tab') || 'board'; } catch (e) { return 'board'; } })();
     let filter = 'alla';
     let search = '';
     let selectedId = null;
@@ -176,15 +223,16 @@
 
     function showTab(name) {
       tab = name;
-      document.getElementById('tab-props').classList.toggle('active', name === 'props');
-      document.getElementById('tab-fleet').classList.toggle('active', name === 'fleet');
-      message = '';
-      render();
+      try { localStorage.setItem('lpv_plan_tab', name); } catch (e) { /* privat läge */ }
+      ['board', 'props', 'fleet'].forEach(n => document.getElementById('tab-' + n).classList.toggle('active', n === name));
+      message = ''; picked = null;
+      render(); renderPins();
+      if (name === 'board') fitToKommundel();
     }
 
     function render() {
-      document.getElementById('panel-body').innerHTML = tab === 'props' ? renderProps() : renderFleet();
-      if (dataLoaded) { try { localStorage.setItem('lpv_plan_cache', JSON.stringify({ properties, fleet })); } catch (e) { /* full lagring */ } }
+      document.getElementById('panel-body').innerHTML = tab === 'board' ? renderBoard() : tab === 'props' ? renderProps() : renderFleet();
+      if (dataLoaded) { try { localStorage.setItem('lpv_plan_cache', JSON.stringify({ properties, fleet, zonesAll, people, snowfall, doneList })); } catch (e) { /* full lagring */ } }
     }
 
     // ================= FASTIGHETER =================
@@ -193,7 +241,7 @@
       return p.size === 'stor' ? 'Stor' : (p.forced ? 'Liten (tvingad stor)' : 'Liten');
     }
     function fitText(p) {
-      if (!p.size) return 'Välj storlek nedan för att kortet ska kunna ingå i en slinga.';
+      if (!p.size) return 'Välj storlek nedan så att en traktorkula kan läggas på kortet.';
       if (p.size === 'stor') return 'Passar: 🟠 stor kula och 🔵 liten kula';
       return p.forced ? 'Passar: 🔵 liten kula + 🟠 stor kula (tvingad – gränsfall)' : 'Passar: 🔵 bara liten kula – en stor får inte plats';
     }
@@ -218,7 +266,7 @@
           <div class="stat"><b style="color:${missing ? 'var(--danger)' : 'var(--ok)'}">${missing}</b>saknar storlek</div>
           <div class="stat"><b>${new Set(properties.map(p => p.ort).filter(Boolean)).size}</b>orter</div>
         </div>
-        ${missing === 0 && properties.length ? '<div class="muted" style="text-align:center;">✅ Alla kort har storlek – redo att generera slingor</div>' : ''}
+        ${missing === 0 && properties.length ? '<div class="muted" style="text-align:center;">✅ Alla kort har storlek – redo att lägga ut kulor på 🎯 Tavla</div>' : ''}
         ${sel ? renderDetail(sel) : renderNewForm()}
         <div class="msg" id="msg">${message}</div>
         <input placeholder="🔍 Sök adress eller ort" value="${snoEscape(search)}" oninput="search=this.value; document.getElementById('plist').innerHTML = renderPropList()">
@@ -417,6 +465,7 @@
 
     function renderPins() {
       pins.forEach(l => map.removeLayer(l));
+      if (tab === 'board') { pins = boardPins(); return; }
       pins = properties.filter(p => p.lat !== null).map(p => {
         const cls = `pin ${p.size || 'none'}${p.priority ? ' prio' : ''}`;
         const size = p.size === 'stor' ? 18 : p.size === 'liten' ? 12 : 14;
@@ -426,6 +475,377 @@
         marker.on('click', () => { showTab('props'); selectProperty(p.id); });
         return marker;
       });
+    }
+
+    // ================= TAVLAN (docs/snoplanering.md) =================
+    // Fastighetskorten har ett 🚜-hål (stor/liten) och 🧹-platser. Kulorna ligger i kulpåsen per ägare
+    // (Egna / UE-företag) och läggs på korten genom att dra – eller trycka på kulan och sedan på platsen.
+    let zonesAll = [], people = [], avatars = {}, snowfall = null, doneList = [];
+    let kommundel = (() => { try { return localStorage.getItem('lpv_plan_kd') || ''; } catch (e) { return ''; } })();
+    let picked = null;      // { kind: 'traktor'|'hand', id, from: fastighets-ID eller null }
+    let showOthers = false;
+    let drag = null;        // pågående drag med finger/penna/mus
+    let suppressClick = false;
+
+    const sv = (a, b) => String(a).localeCompare(String(b), 'sv');
+    const kdOf = (p) => String(p.omrade || p.ort || 'Utan område').trim();
+    const propById = (id) => properties.find(p => p.id === id);
+    const tractorById = (id) => fleet.find(t => t.id === id);
+    const personByName = (n) => people.find(x => x.name === n) || { name: n, owner: 'Egna', shoveler: true, lat: null, lng: null };
+    const ownerLabel = (o) => o === 'Egna' ? '🏠 Egna' : '🤝 ' + o;
+    function kommundelar() { return [...new Set(properties.map(kdOf))].sort(sv); }
+    function currentKd() {
+      const list = kommundelar();
+      if (!list.includes(kommundel)) kommundel = list[0] || '';
+      return kommundel;
+    }
+    function kdProps(kd = currentKd()) { return properties.filter(p => kdOf(p) === kd); }
+    function setKommundel(kd) {
+      kommundel = kd; picked = null; showOthers = false;
+      try { localStorage.setItem('lpv_plan_kd', kd); } catch (e) { /* privat läge */ }
+      render(); renderPins(); fitToKommundel();
+    }
+    function fitToKommundel() {
+      const pts = kdProps().filter(p => p.lat !== null).map(p => [p.lat, p.lng]);
+      if (pts.length && map.fitBounds) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 });
+    }
+
+    // Ytor per fastighet ur Rita zoner
+    let zoneStatsCache = null;
+    function zoneStats(p) {
+      if (!zoneStatsCache) {
+        zoneStatsCache = {};
+        zonesAll.forEach(z => {
+          const k = snoAddrKey(z.property), o = zoneStatsCache[k] || (zoneStatsCache[k] = { maskin: 0, hand: 0 });
+          if (z.type === 'maskin' || z.type === 'hand') o[z.type] += Number(z.areaM2) || 0;
+        });
+      }
+      return zoneStatsCache[snoAddrKey(p.address)] || { maskin: 0, hand: 0 };
+    }
+    const m2 = (v) => Math.round(v).toLocaleString('sv-SE') + ' m²';
+
+    // Status i pågående snöfall: alla delar klara = grön, någon = gul
+    function partsOf(p) {
+      return (p.tractorId ? [{ part: 'traktor', unit: p.tractorId }] : []).concat((p.shovelers || []).map(n => ({ part: 'hand', unit: n })));
+    }
+    function isDone(p, part, unit) { return doneList.some(d => d.propertyId === p.id && d.part === part && d.unit === unit); }
+    function stateOf(p) {
+      const parts = partsOf(p);
+      const n = parts.filter(x => isDone(p, x.part, x.unit)).length;
+      return !parts.length || !n ? '' : n === parts.length ? 'done' : 'part';
+    }
+
+    // Var en kula hör hemma (för avstånd): traktorns uppställningsort, personens hemort, annars där den redan kör
+    function centroid(list) {
+      const pts = list.filter(p => p.lat !== null);
+      return pts.length ? [pts.reduce((s, p) => s + p.lat, 0) / pts.length, pts.reduce((s, p) => s + p.lng, 0) / pts.length] : null;
+    }
+    function tractorHome(t) {
+      const b = String(t.base || '').trim().toLowerCase();
+      const there = b ? properties.filter(p => { const k = kdOf(p).toLowerCase(), o = String(p.ort || '').toLowerCase(); return k === b || o === b || (b.length > 3 && (k.includes(b) || b.includes(k))); }) : [];
+      return centroid(there) || centroid(properties.filter(p => p.tractorId === t.id));
+    }
+    function personHome(x) {
+      return x.lat !== null && x.lat !== undefined ? [x.lat, x.lng] : centroid(properties.filter(p => (p.shovelers || []).includes(x.name)));
+    }
+    function stationedHere(t, kd) {
+      const b = String(t.base || '').trim().toLowerCase(), k = kd.toLowerCase();
+      return !!b && (b === k || (b.length > 3 && (k.includes(b) || b.includes(k))) || kdProps(kd).some(p => String(p.ort || '').toLowerCase() === b));
+    }
+    function distText(home, center) { return home && center ? snoFormatDistance(snoDistance(home, center)) : ''; }
+
+    // Kulor
+    function tractorKula(t, px) {
+      const inner = t.avatarUrl ? `<img src="${snoEscape(t.avatarUrl)}" alt="">` : '🚜';
+      return `<div class="kula" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .45)}px;--kula-color:${brandColor(t.model)}">${inner}</div>`;
+    }
+    function initials(n) { return String(n).split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase(); }
+    function handKula(name, px) {
+      const av = avatars[name];
+      return `<div class="kula hk" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .36)}px">${av ? `<img src="${snoEscape(av)}" alt="">` : snoEscape(initials(name))}</div>`;
+    }
+    function shortModel(t) { return String(t.model).split(/\s+/).slice(0, 2).join(' '); }
+    function countText(kind, id, kd) {
+      const has = (p) => kind === 'traktor' ? p.tractorId === id : (p.shovelers || []).includes(id);
+      const here = kdProps(kd).filter(has).length, all = properties.filter(has).length;
+      return all === here ? String(here) : `${here} (av ${all})`;
+    }
+    function chip(kind, id, sub) {
+      const isPicked = picked && picked.kind === kind && picked.id === id && !picked.from;
+      if (kind === 'traktor') {
+        const t = tractorById(id);
+        return `<div class="kchip${isPicked ? ' picked' : ''}" data-kula="traktor" data-id="${snoEscape(id)}">${tractorKula(t, t.size === 'stor' ? 50 : 38)}
+          <b>${snoEscape(shortModel(t))}</b>${t.driver ? snoEscape(t.driver) + ' · ' : ''}${sub}</div>`;
+      }
+      return `<div class="kchip${isPicked ? ' picked' : ''}" data-kula="hand" data-id="${snoEscape(id)}">${handKula(id, 38)}<b>${snoEscape(id.split(' ')[0])}</b>${sub}</div>`;
+    }
+
+    function renderBag(kd, center) {
+      const active = fleet.filter(t => t.active);
+      const owners = (list, ownerOf) => [...new Set(list.map(ownerOf))].sort((a, b) => (a !== 'Egna') - (b !== 'Egna') || sv(a, b));
+      const here = active.filter(t => stationedHere(t, kd));
+      const others = active.filter(t => !stationedHere(t, kd))
+        .map(t => ({ t, home: tractorHome(t) }))
+        .sort((a, b) => (a.home && center ? snoDistance(a.home, center) : 1e9) - (b.home && center ? snoDistance(b.home, center) : 1e9));
+      const hands = people.filter(x => x.shoveler)
+        .map(x => ({ x, home: personHome(x) }))
+        .sort((a, b) => (a.home && center ? snoDistance(a.home, center) : 1e9) - (b.home && center ? snoDistance(b.home, center) : 1e9) || sv(a.x.name, b.x.name));
+      const returning = picked && picked.from;
+      let html = `<div class="bag${returning ? ' target' : ''}" data-drop="pase">`;
+      if (returning) html += `<div class="bag-return">↩ Tryck här (eller släpp kulan här) för att ta bort den från ${snoEscape(propById(picked.from)?.address || 'kortet')}</div>`;
+      html += `<div class="bag-title">🚜 Stationerade i ${snoEscape(kd)}</div>`;
+      if (!here.length) html += `<div class="muted">Ingen traktor har ${snoEscape(kd)} som uppställning (Traktorer → Ort / uppställning).</div>`;
+      owners(here, t => t.owner || 'Egna').forEach(o => {
+        html += `<div class="bag-owner">${snoEscape(ownerLabel(o))}</div><div class="bag-group">${here.filter(t => (t.owner || 'Egna') === o).map(t => chip('traktor', t.id, '· ' + countText('traktor', t.id, kd))).join('')}</div>`;
+      });
+      if (others.length) {
+        html += `<button class="more" onclick="showOthers=!showOthers; render()">${showOthers ? '▾' : '⋯'} Övriga traktorer (${others.length}) – närmast först</button>`;
+        if (showOthers) owners(others.map(o => o.t), t => t.owner || 'Egna').forEach(o => {
+          html += `<div class="bag-owner">${snoEscape(ownerLabel(o))}</div><div class="bag-group">${others.filter(x => (x.t.owner || 'Egna') === o).map(x => {
+            const d = distText(x.home, center);
+            return chip('traktor', x.t.id, (d ? d + ' · ' : '') + countText('traktor', x.t.id, kd));
+          }).join('')}</div>`;
+        });
+      }
+      html += `<div class="bag-title" style="margin-top:4px;">🧹 Handskottare – närmast först</div>`;
+      if (!hands.length) html += `<div class="muted">Inga handskottare ännu – bocka i "Handskottare" på Personal-sidan.</div>`;
+      owners(hands.map(h => h.x), x => x.owner || 'Egna').forEach(o => {
+        html += `<div class="bag-owner">${snoEscape(ownerLabel(o))}</div><div class="bag-group">${hands.filter(h => (h.x.owner || 'Egna') === o).map(h => {
+          const d = distText(h.home, center);
+          return chip('hand', h.x.name, (d ? d + ' · ' : '') + countText('hand', h.x.name, kd));
+        }).join('')}</div>`;
+      });
+      return html + '</div>';
+    }
+
+    function renderBoardCard(p) {
+      const t = p.tractorId ? tractorById(p.tractorId) : null;
+      const zs = zoneStats(p), st = stateOf(p);
+      const holeSize = p.size === 'stor' ? 60 : p.size === 'liten' ? 44 : 50;
+      const tPicked = picked && picked.kind === 'traktor' && picked.from === p.id;
+      const hole = `<div class="hole ${holeClass(p)}${t ? ' filled' : ''}" data-drop="traktor" data-pid="${snoEscape(p.id)}">${t
+        ? `<div class="placed${tPicked ? ' picked' : ''}" data-kula="traktor" data-id="${snoEscape(t.id)}" data-from="${snoEscape(p.id)}">${tractorKula(t, holeSize - 8)}</div>${isDone(p, 'traktor', t.id) ? '<span class="donechk">✓</span>' : ''}`
+        : (p.size ? '🚜' : '?')}</div>`;
+      const needHand = zs.hand > 0 || (p.shovelers || []).length;
+      const slots = needHand ? `<div class="slots">${(p.shovelers || []).map(n => {
+          const pk = picked && picked.kind === 'hand' && picked.id === n && picked.from === p.id;
+          return `<div class="placed${pk ? ' picked' : ''}" style="position:relative" data-kula="hand" data-id="${snoEscape(n)}" data-from="${snoEscape(p.id)}" title="${snoEscape(n)}">${handKula(n, 36)}${isDone(p, 'hand', n) ? '<span class="donechk">✓</span>' : ''}</div>`;
+        }).join('')}<div class="slot" data-drop="hand" data-pid="${snoEscape(p.id)}" title="Lägg en handskottare här">${(p.shovelers || []).length ? '＋' : '🧹'}</div></div>` : '';
+      const who = [t ? `🚜 ${snoEscape(shortModel(t))}${t.driver ? ' (' + snoEscape(t.driver) + ')' : ''}${t.owner && t.owner !== 'Egna' ? ' · ' + snoEscape(t.owner) : ''}` : '', (p.shovelers || []).length ? '🧹 ' + p.shovelers.map(snoEscape).join(', ') : ''].filter(Boolean).join(' · ');
+      return `<div class="bcard ${st}" id="bc-${snoEscape(p.id)}">
+        ${hole}
+        <div class="bcard-body">
+          <div class="pcard-title">${snoEscape(p.address)}${p.priority ? '<span class="badge prio">⭐</span>' : ''}${p.zoneStatus === 'klar' ? ' <span title="Zonerna är ritade">✅</span>' : ''}</div>
+          <div class="pcard-meta">${p.kund ? snoEscape(p.kund) + ' · ' : ''}${zs.maskin ? '🔵 ' + m2(zs.maskin) : ''}${zs.maskin && zs.hand ? ' · ' : ''}${zs.hand ? '🟠 ' + m2(zs.hand) : ''}${!zs.maskin && !zs.hand ? 'Inga zoner ritade' : ''}${!p.size ? ' · ⚠️ storlek saknas' : ''}</div>
+          ${who ? `<div class="pcard-meta">${who}</div>` : ''}
+          ${slots}
+        </div>
+      </div>`;
+    }
+
+    function renderBoard() {
+      if (!properties.length) return `<div class="msg" id="msg">${message}</div><div class="muted">Inga fastigheter ännu – lägg till under 🏠 Fastigheter.</div>`;
+      const kd = currentKd(), list = kdProps(kd);
+      const center = centroid(list);
+      const withT = list.filter(p => p.tractorId).length;
+      const assigned = list.filter(p => partsOf(p).length), doneN = assigned.filter(p => stateOf(p) === 'done').length;
+      const orter = [...new Set(list.map(p => p.ort || ''))];
+      const sorted = [...list].sort((a, b) => sv(a.ort || '', b.ort || '') || sv(a.address, b.address));
+      let cards = '', lastOrt = null;
+      sorted.forEach(p => {
+        if (orter.length > 1 && (p.ort || '') !== lastOrt) { lastOrt = p.ort || ''; cards += `<div class="grp-head">${snoEscape(lastOrt || 'Utan ort')}</div>`; }
+        cards += renderBoardCard(p);
+      });
+      return `
+        <select onchange="setKommundel(this.value)">${kommundelar().map(k => `<option ${k === kd ? 'selected' : ''} value="${snoEscape(k)}">${snoEscape(k)} (${kdProps(k).length})</option>`).join('')}</select>
+        <div class="muted" style="text-align:center;"><b style="color:${withT === list.length ? 'var(--ok)' : 'var(--text)'}">${withT} av ${list.length}</b> fastigheter har traktor${picked ? ' · <b style="color:var(--accent)">Tryck på ett hål för kulan</b>' : ''}</div>
+        <div class="sf"><span>❄️ ${snowfall ? `Snöfall sedan <b>${snoEscape(snowfall.start.slice(5))}</b> · <b>${doneN} av ${assigned.length}</b> klara` : 'Inget snöfall startat'}</span>
+          <button onclick="newSnowfall()">❄️ Nytt snöfall</button></div>
+        <div class="msg" id="msg">${message}</div>
+        ${renderBag(kd, center)}
+        <div style="display:flex; flex-direction:column; gap:6px;">${cards}</div>
+        <div class="muted">Dra en kula till ett hål – eller tryck på kulan och sedan på hålet. Dra en lagd kula tillbaka till påsen för att ta bort den.</div>`;
+    }
+
+    // Kulorna på kartan: traktorn vid fastighetens nål, tomt hål = röd ring, 🧹-antal som bricka
+    function boardPins() {
+      return kdProps().filter(p => p.lat !== null).map(p => {
+        const t = p.tractorId ? tractorById(p.tractorId) : null;
+        const px = p.size === 'liten' ? 24 : 30, st = stateOf(p), n = (p.shovelers || []).length;
+        const html = `<div class="mk ${t ? st : 'empty'}" style="width:${px}px;height:${px}px">${t ? tractorKula(t, px) : ''}${n ? `<i>🧹${n > 1 ? n : ''}</i>` : ''}</div>`;
+        const m = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html, iconSize: [px, px] }) }).addTo(map);
+        m.bindTooltip(`${snoEscape(p.address)}${t ? ' · ' + snoEscape(t.model) + (t.driver ? ' (' + snoEscape(t.driver) + ')' : '') : ' · ingen traktor'}${n ? ' · 🧹 ' + p.shovelers.map(snoEscape).join(', ') : ''}`);
+        m.on('click', () => {
+          if (picked) { dropOn({ type: picked.kind, pid: p.id }); return; }
+          const el = document.getElementById('bc-' + p.id);
+          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); }
+        });
+        return m;
+      });
+    }
+
+    // Spara en ändring på kortet direkt på skärmen, sedan på servern (backa vid fel)
+    async function assign(pid, changes) {
+      const p = propById(pid);
+      if (!p) return;
+      const before = { tractorId: p.tractorId || '', shovelers: [...(p.shovelers || [])] };
+      Object.assign(p, changes);
+      render(); renderPins();
+      try {
+        const res = await snoApi({ action: 'assignSnow', propertyId: pid, ...changes });
+        if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
+        p.tractorId = res.property.tractorId; p.shovelers = res.property.shovelers;
+      } catch (err) {
+        Object.assign(p, before);
+        message = '❌ ' + snoEscape(err.message);
+      }
+      if (tab === 'board') { render(); renderPins(); }
+    }
+
+    function fits(t, p) { return !(t.size === 'stor' && p.size === 'liten' && !p.forced); }
+    function bounce(pid, text) {
+      message = text; render();
+      const el = document.querySelector(`#bc-${CSS.escape(pid)} .hole`);
+      if (el) el.classList.add('bounce');
+    }
+
+    function dropOn(target) {
+      const k = picked;
+      picked = null;
+      if (!k) return;
+      if (target.type === 'pase') {
+        if (k.from) {
+          const f = propById(k.from);
+          if (k.kind === 'traktor') assign(f.id, { tractorId: '' });
+          else assign(f.id, { shovelers: f.shovelers.filter(n => n !== k.id) });
+          message = '↩ Tillbaka i påsen';
+        }
+        render(); renderPins(); return;
+      }
+      const p = propById(target.pid);
+      if (!p || k.from === p.id) { render(); return; }
+      if (k.kind !== target.type) { bounce(p.id, k.kind === 'traktor' ? '🚫 Traktorn ska i 🚜-hålet (den runda platsen till vänster).' : '🚫 Handskottare läggs i 🧹-platserna under adressen.'); return; }
+      if (k.kind === 'traktor') {
+        const t = tractorById(k.id);
+        if (!p.size) { bounce(p.id, `🚫 ${snoEscape(p.address)} saknar storlek – välj stor/liten under 🏠 Fastigheter först.`); return; }
+        if (!fits(t, p)) { bounce(p.id, `🚫 ${snoEscape(t.model)} är stor – ${snoEscape(p.address)} har ett litet hål.`); return; }
+        if (k.from) assign(k.from, { tractorId: '' });
+        message = p.tractorId && p.tractorId !== t.id ? `🔁 ${snoEscape(tractorById(p.tractorId)?.model || 'Förra traktorn')} tillbaka i påsen` : '';
+        assign(p.id, { tractorId: t.id });
+      } else {
+        if ((p.shovelers || []).includes(k.id)) { render(); return; }
+        if (k.from) { const f = propById(k.from); assign(f.id, { shovelers: f.shovelers.filter(n => n !== k.id) }); }
+        message = '';
+        assign(p.id, { shovelers: [...(p.shovelers || []), k.id] });
+      }
+    }
+
+    // Tryck: välj kula → tryck på plats. Drag: håll på kulan och dra till platsen.
+    function dropTargetAt(x, y) {
+      const el = document.elementFromPoint(x, y);
+      const d = el && el.closest('[data-drop]');
+      if (d) return { el: d, type: d.dataset.drop, pid: d.dataset.pid };
+      const card = el && el.closest('.bcard');
+      if (card && drag) return { el: card.querySelector(drag.kind === 'traktor' ? '[data-drop="traktor"]' : '[data-drop="hand"]') || card, type: drag.kind, pid: card.id.slice(3) };
+      return null;
+    }
+    function setupBoardInput() {
+      const body = document.getElementById('panel-body');
+      body.addEventListener('click', (e) => {
+        if (tab !== 'board') return;
+        if (suppressClick) { suppressClick = false; e.stopPropagation(); return; }
+        const k = e.target.closest('[data-kula]');
+        if (k) {
+          e.stopPropagation();
+          const sel = { kind: k.dataset.kula, id: k.dataset.id, from: k.dataset.from || null };
+          if (picked && picked.kind === sel.kind && picked.id === sel.id && picked.from === sel.from) picked = null;
+          else if (picked && sel.from) { dropOn({ type: picked.kind, pid: sel.from }); return; }
+          else picked = sel;
+          render(); return;
+        }
+        const d = e.target.closest('[data-drop]');
+        if (d && picked) { dropOn({ type: d.dataset.drop, pid: d.dataset.pid }); return; }
+        const card = e.target.closest('.bcard');
+        if (card && picked) { dropOn({ type: picked.kind, pid: card.id.slice(3) }); return; }
+        if (card && !e.target.closest('button, select, input')) {
+          const p = propById(card.id.slice(3));
+          if (p && p.lat !== null) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 16));
+        }
+      });
+      body.addEventListener('pointerdown', (e) => {
+        if (tab !== 'board' || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        const k = e.target.closest('[data-kula]');
+        if (!k) return;
+        drag = { kind: k.dataset.kula, id: k.dataset.id, from: k.dataset.from || null, x: e.clientX, y: e.clientY, src: k, ghost: null, over: null, pointerId: e.pointerId };
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (!drag || e.pointerId !== drag.pointerId) return;
+        if (!drag.ghost) {
+          if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+          const kula = drag.src.querySelector('.kula');
+          drag.ghost = kula.cloneNode(true);
+          drag.ghost.classList.add('ghost');
+          document.body.appendChild(drag.ghost);
+          picked = { kind: drag.kind, id: drag.id, from: drag.from };
+          drag.src.style.opacity = '.35';
+          const bag = document.querySelector('.bag');
+          if (bag && drag.from) bag.classList.add('target');
+        }
+        e.preventDefault();
+        drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px';
+        const t = dropTargetAt(e.clientX, e.clientY);
+        if (drag.over && (!t || t.el !== drag.over)) drag.over.classList.remove('drop-hover');
+        if (t && t.el) { t.el.classList.add('drop-hover'); drag.over = t.el; } else drag.over = null;
+        // Rulla panelen när kulan dras nära kanten
+        const pb = document.getElementById('panel-body'), r = pb.getBoundingClientRect();
+        if (e.clientY > r.bottom - 50) pb.scrollTop += 14; else if (e.clientY < r.top + 50) pb.scrollTop -= 14;
+      }, { passive: false });
+      const end = (e) => {
+        if (!drag || e.pointerId !== drag.pointerId) return;
+        const d = drag; drag = null;
+        if (!d.ghost) return; // vanligt tryck – sköts av click
+        d.ghost.remove();
+        suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
+        const t = e.type === 'pointerup' ? dropTargetAt(e.clientX, e.clientY) : null;
+        if (t) {
+          dropOn({ type: t.type, pid: t.pid });
+        } else {
+          // Släppt på kartan → närmaste fastighetsnål
+          const mapEl = document.getElementById('map'), mr = mapEl.getBoundingClientRect();
+          if (e.type === 'pointerup' && e.clientX >= mr.left && e.clientX <= mr.right && e.clientY >= mr.top && e.clientY <= mr.bottom && map.containerPointToLatLng) {
+            const ll = map.containerPointToLatLng([e.clientX - mr.left, e.clientY - mr.top]);
+            let best = null;
+            kdProps().filter(p => p.lat !== null).forEach(p => {
+              const pt = map.latLngToContainerPoint([p.lat, p.lng]), dpx = Math.hypot(pt.x - (e.clientX - mr.left), pt.y - (e.clientY - mr.top));
+              if (dpx < 40 && (!best || dpx < best.d)) best = { p, d: dpx };
+            });
+            if (best && ll) { dropOn({ type: picked.kind, pid: best.p.id }); return; }
+          }
+          picked = null; render();
+        }
+      };
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
+    }
+
+    async function newSnowfall() {
+      if (!confirm('Starta ett nytt snöfall?\n\nAlla fastigheter blir ogjorda (✅ nollställs). Kulorna ligger kvar där de ligger.')) return;
+      const res = await snoApi({ action: 'newSnowfall' });
+      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message || 'Kunde inte starta.')); return; }
+      snowfall = res.snowfall; doneList = [];
+      message = '❄️ Nytt snöfall startat – förarna ser alla sina fastigheter som ogjorda.';
+      render(); renderPins();
+    }
+
+    async function refreshBoardStatus() {
+      if (tab !== 'board' || document.hidden || drag || picked) return;
+      try {
+        const res = await snoApi({ action: 'getSnowBoard' });
+        if (res.status !== 'success') return;
+        const changed = JSON.stringify([res.snowfall, res.done]) !== JSON.stringify([snowfall, doneList]);
+        people = res.people; snowfall = res.snowfall; doneList = res.done || [];
+        if (changed && !drag && !picked) { render(); renderPins(); }
+      } catch (e) { /* ingen täckning – försök igen om en stund */ }
     }
 
     // ================= TRAKTORER =================
@@ -457,7 +877,11 @@
             ${kulaHtml(t)}
             <div class="tcard-body">
               <div class="tcard-title">${snoEscape(t.model)}</div>
-              <div class="muted">${snoEscape(t.base || 'Ingen uppställning angiven')}</div>
+              <input value="${snoEscape(t.base)}" placeholder="Ort / uppställning, t.ex. Bettna" onchange="updateTractor('${snoEscape(t.id)}', { base: this.value.trim() })">
+              <div class="row">
+                <select onchange="setTractorOwner('${snoEscape(t.id)}', this.value)" title="Ägare">${ownerOptions(t.owner || 'Egna')}</select>
+                <select onchange="updateTractor('${snoEscape(t.id)}', { driver: this.value })" title="Förare">${driverOptions(t)}</select>
+              </div>
               <div class="size-toggle">
                 <button class="stor ${t.size === 'stor' ? 'active' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'stor' })">🟠 Stor</button>
                 <button class="liten ${t.size === 'liten' ? 'active' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'liten' })">🔵 Liten</button>
@@ -469,6 +893,32 @@
               </div>
             </div>
           </div>`).join('') || '<div class="muted">Inga traktorer ännu.</div>'}`;
+    }
+
+    // Ägare (Egna / UE-företag) och fast förare – föraren väljs bland personer med samma ägare (Personal-sidan)
+    function allOwners() {
+      return ['Egna', ...[...new Set(people.map(x => x.owner).concat(fleet.map(t => t.owner)).filter(o => o && o !== 'Egna'))].sort(sv)];
+    }
+    function ownerOptions(cur) {
+      const list = allOwners();
+      if (!list.includes(cur)) list.push(cur);
+      return list.map(o => `<option value="${snoEscape(o)}" ${o === cur ? 'selected' : ''}>${snoEscape(ownerLabel(o))}</option>`).join('') + '<option value="__new">➕ Nytt UE-företag…</option>';
+    }
+    function driverOptions(t) {
+      const owner = t.owner || 'Egna';
+      const list = people.filter(x => (x.owner || 'Egna') === owner).map(x => x.name);
+      if (t.driver && !list.includes(t.driver)) list.unshift(t.driver);
+      return `<option value="">👷 Ingen förare</option>` + list.map(n => `<option value="${snoEscape(n)}" ${n === t.driver ? 'selected' : ''}>👷 ${snoEscape(n)}</option>`).join('');
+    }
+    function setTractorOwner(id, value) {
+      let owner = value;
+      if (value === '__new') {
+        owner = (prompt('Namn på UE-företaget (t.ex. Snöbröderna AB):') || '').trim();
+        if (!owner) { render(); return; }
+      }
+      const t = tractorById(id);
+      const keepDriver = t.driver && (personByName(t.driver).owner || 'Egna') === owner;
+      updateTractor(id, { owner, driver: keepDriver ? t.driver : '' });
     }
 
     async function saveTractor(t) {
@@ -765,16 +1215,22 @@
       try { cache = JSON.parse(localStorage.getItem('lpv_plan_cache') || 'null'); } catch (e) { cache = null; }
       if (cache) {
         properties = cache.properties || []; fleet = cache.fleet || [];
+        zonesAll = cache.zonesAll || []; zoneStatsCache = null; people = cache.people || []; snowfall = cache.snowfall || null; doneList = cache.doneList || [];
         dataLoaded = true;
-        render(); renderPins(); fitToProperties();
+        render(); renderPins(); if (tab === 'board') fitToKommundel(); else fitToProperties();
       } else {
         setMessage('Hämtar…');
       }
       try {
-        const [pRes, fRes] = await Promise.all([snoApi({ action: 'getProperties' }), snoApi({ action: 'getFleet' })]);
+        const [pRes, fRes, bRes, zRes] = await Promise.all([snoApi({ action: 'getProperties' }), snoApi({ action: 'getFleet' }),
+          snoApi({ action: 'getSnowBoard' }), snoApi({ action: 'getSnowZones' })]);
         if (pRes.status !== 'success') { message = '❌ ' + snoEscape(pRes.message || 'Kunde inte hämta.'); render(); return; }
         properties = pRes.properties || [];
         fleet = fRes.status === 'success' ? fRes.fleet : fleet;
+        if (bRes.status === 'success') { people = bRes.people || []; snowfall = bRes.snowfall; doneList = bRes.done || []; }
+        if (zRes.status === 'success') { zonesAll = zRes.zones || []; zoneStatsCache = null; }
+        // Avatarerna (handskottarnas kulor) i bakgrunden
+        snoApi({ action: 'getAvatars' }).then(r => { if (r.status === 'success') { avatars = r.avatars || {}; if (tab === 'board') render(); } }).catch(() => {});
         dataLoaded = true;
         if (message === 'Hämtar…') message = '';
       } catch (err) {
@@ -782,13 +1238,16 @@
       }
       render();
       renderPins();
-      if (!cache) fitToProperties();
+      if (!cache) { if (tab === 'board') fitToKommundel(); else fitToProperties(); }
     }
 
     mapCtl = snoCreateMap('map');
     map = mapCtl.map;
     map.setZoom(11, { animate: false }); // utan animering, annars kan den skriva över fitToProperties
     map.on('click', onMapClick);
+    ['board', 'props', 'fleet'].forEach(n => document.getElementById('tab-' + n).classList.toggle('active', n === tab));
+    setupBoardInput();
+    setInterval(refreshBoardStatus, 60000);
     render();
     if (!snoIsAdmin()) { message = '⚠️ Snöplaneringen är bara för admin. Logga in med din admin-länk.'; render(); }
     loadAll();

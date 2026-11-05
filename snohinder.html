@@ -118,10 +118,10 @@
     const MEASURE_MS = 10000;
 
     let mapCtl, map, tilesSat = true;
-    let zones = [], mySlingor = [];
+    let zones = [];
     let mode = localStorage.getItem('lpv_hinder_mode') || (matchMedia('(max-width: 799px)').matches ? 'gps' : 'map');
     let step = 'adress';
-    let addr = null;            // { property, slinga }
+    let addr = null;            // { property }
     let hz = null;              // hindret som läggs ut just nu
     let suggestions = [];       // fler hinder som AI:n såg på adressen
     let lastSaved = null;
@@ -140,10 +140,9 @@
       const by = {};
       zones.forEach(z => {
         if (!z.property) return;
-        const a = by[z.property] || (by[z.property] = { property: z.property, slinga: z.slinga, coords: [], hazards: 0 });
+        const a = by[z.property] || (by[z.property] = { property: z.property, coords: [], hazards: 0 });
         a.coords.push(...z.coords);
         if (SNO_TYPES[z.type] && snoZoneKind(z) === 'marker') a.hazards++;
-        if (!a.slinga && z.slinga) a.slinga = z.slinga;
       });
       const list = Object.values(by).map(a => ({ ...a, center: snoCenter(a.coords) }));
       if (myPos) list.forEach(a => { a.dist = snoDistance(myPos, a.center); });
@@ -153,7 +152,7 @@
     function chooseAddress(i) {
       const a = addresses().filter(matchSearch)[i];
       if (!a) return;
-      addr = { property: a.property, slinga: a.slinga };
+      addr = { property: a.property };
       suggestions = [];
       showAddress();
       startHazard();
@@ -161,9 +160,8 @@
 
     function chooseNewAddress() {
       const property = document.getElementById('new-prop').value.trim();
-      const slinga = document.getElementById('new-slinga').value.trim();
       if (!property) { errorText = 'Skriv adressen.'; render(); return; }
-      addr = { property, slinga };
+      addr = { property };
       suggestions = [];
       showAddress();
       startHazard();
@@ -358,7 +356,7 @@
       if (!hz.type) { errorText = 'Välj vilket sorts hinder det är.'; render(); return; }
       if (!hz.pos) { errorText = 'Hindret saknar position.'; render(); return; }
       busy = true; errorText = ''; render();
-      const zone = { type: hz.type, coords: [hz.pos], property: addr.property, slinga: addr.slinga || '', order: 0, note: hz.note,
+      const zone = { type: hz.type, coords: [hz.pos], property: addr.property, note: hz.note,
         photoId: hz.photoId, accuracy: mode === 'gps' && !hz.moved ? hz.accuracy : null };
       try {
         const res = await snoApi({ action: 'saveSnowHazard', zone });
@@ -423,9 +421,9 @@
       const list = addresses().filter(matchSearch);
       const admin = snoIsAdmin();
       const items = list.map((a, i) => `<button class="item" onclick="chooseAddress(${i})">
-          <span class="grow"><b>${esc(a.property)}</b><small>${esc(a.slinga || 'Ingen slinga')}${a.hazards ? ` · ${a.hazards} hinder` : ''}</small></span>
+          <span class="grow"><b>${esc(a.property)}</b><small>${a.hazards ? `${a.hazards} hinder` : 'Inga hinder ännu'}</small></span>
           <small>${a.dist !== undefined ? snoFormatDistance(a.dist) : ''}</small></button>`).join('');
-      const empty = admin ? 'Inga adresser ännu – lägg till en ny nedan.' : 'Du har inga slingor tilldelade ännu. Arbetsledaren lägger upp dem.';
+      const empty = admin ? 'Inga adresser ännu – lägg till en ny nedan.' : 'Du har inga fastigheter ännu. Arbetsledaren lägger din kula på dem i Snöplaneringen.';
       return `<h2>Vilken adress?</h2>
         <p class="help">${mode === 'gps' ? 'Närmast dig visas först.' : 'Välj adressen där hindret finns.'}</p>
         <input id="search" placeholder="🔍 Sök adress" value="${esc(search)}" oninput="search=this.value; renderList()">
@@ -433,8 +431,6 @@
         ${admin ? `<details><summary style="cursor:pointer; color:var(--accent); font-weight:700; padding:8px 0;">➕ Ny adress</summary>
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
             <div><label for="new-prop">Adress</label><input id="new-prop" placeholder="T.ex. Drottninggatan 4"></div>
-            <div><label for="new-slinga">Slinga</label><input id="new-slinga" list="slinga-list" placeholder="T.ex. Centrum 1"></div>
-            <datalist id="slinga-list">${snoSlingor(zones).map(s => `<option value="${esc(s)}">`).join('')}</datalist>
             <button onclick="chooseNewAddress()">Fortsätt →</button>
           </div></details>` : ''}
         ${errHtml()}`;
@@ -506,7 +502,7 @@
           <button style="min-height:40px; padding:0 12px;" onclick="placeSuggestion(${i})">Lägg ut</button>
           <button style="min-height:40px; padding:0 10px;" title="Stämmer inte" onclick="suggestions.splice(${i},1); render()">✕</button></div>`).join('');
       return `<h2>✅ Sparat!</h2>
-        <p class="help">${def(lastSaved.type).icon} ${def(lastSaved.type).label} vid <b>${esc(lastSaved.property)}</b> syns nu för förarna på slingan.</p>
+        <p class="help">${def(lastSaved.type).icon} ${def(lastSaved.type).label} vid <b>${esc(lastSaved.property)}</b> syns nu för förarna på fastigheten.</p>
         ${sugg ? `<div><label>AI:n såg fler hinder på bilderna</label><div class="list">${sugg}</div></div>` : ''}
         <button class="primary" onclick="startHazard()">➕ Nästa hinder på samma adress</button>
         <button onclick="changeAddress()">🏠 Byt adress</button>
@@ -541,12 +537,10 @@
         const res = await snoApi({ action: 'getSnowZones' });
         if (res.status !== 'success') { if (!quiet) { errorText = res.message || 'Kunde inte hämta adresserna.'; render(); } return; }
         zones = res.zones || [];
-        mySlingor = res.mySlingor || [];
-        if (!snoIsAdmin()) zones = zones.filter(z => mySlingor.includes(z.slinga));
         if (step === 'adress') render();
       } catch (err) {
         if (!quiet) {
-          try { const c = JSON.parse(localStorage.getItem('lpv_sno_cache') || '{}'); zones = c.zones || []; mySlingor = c.mySlingor || []; } catch (e) { zones = []; }
+          try { const c = JSON.parse(localStorage.getItem('lpv_sno_jour') || '{}'); zones = c.zones || []; } catch (e) { zones = []; }
           errorText = 'Ingen kontakt med servern – visar senast sparade adresser. Hindren sparas när du har täckning.';
           render();
         }

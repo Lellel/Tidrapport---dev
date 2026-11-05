@@ -61,6 +61,8 @@
     h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 22px 0 8px; }
     .form { display: none; background: var(--card); border-radius: var(--t-r-card); padding: 12px; margin-top: 10px; }
     .form.open { display: block; }
+    .form label.chk { display: flex; gap: 8px; align-items: center; text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--t-text); margin: 10px 0 0; }
+    .form label.chk input { width: 20px; height: 20px; flex-shrink: 0; }
     .form label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin: 10px 0 4px; }
     .form .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
     .form .actions { display: flex; gap: 8px; margin-top: 12px; }
@@ -173,6 +175,8 @@
     if (!p) return;
     current = p;
     const tel = telHref(p.phone);
+    const sn = p.snow || { owner: 'Egna', shoveler: false, ueLead: false, home: '' };
+    const snowText = [sn.owner !== 'Egna' ? '🤝 ' + sn.owner : '', sn.shoveler ? '🧹 Handskottare' : '', sn.ueLead ? 'UE-ansvarig' : '', sn.home ? '🏠 ' + sn.home : ''].filter(Boolean).join(' · ');
     const roleOpts = (data.isSuper ? data.roles : data.roles.filter(r => r !== 'Admin' && r !== 'Ekonom'));
     $('sheet').innerHTML = `
       <div class="shead">${orbHtml(p, true)}
@@ -186,7 +190,7 @@
         <button type="button" class="${p.canEdit ? '' : 'disabled'}" onclick="$('form').classList.toggle('open')">✏️ Ändra</button>
       </div>
       <div class="contact">📱 <b>${esc(fixPhone(p.phone) || '–')}</b> &nbsp; ✉️ <b>${esc(p.email || '–')}</b>
-        ${p.today.length ? `<br>📅 Idag: <b>${esc(p.today.join(', '))}</b>` : ''}</div>
+        ${p.today.length ? `<br>📅 Idag: <b>${esc(p.today.join(', '))}</b>` : ''}${snowText ? `<br>❄️ ${esc(snowText)}` : ''}</div>
       ${issuesOf(p).length ? `<div class="issues">${issuesOf(p).map(i => `<div><b>⚠️ ${esc(i[1])}</b> – ${esc(i[2])}</div>`).join('')}</div>` : (p.kitSent ? `<div class="pmeta" style="margin-top:8px">✅ Välkomstpaket skickat ${esc(fmtDate(p.kitSent))}</div>` : '')}
       <div class="msg" id="pMsg"></div>
       <div class="form" id="form">
@@ -198,6 +202,14 @@
           ${data.isSuper ? `<div><label for="fCompany">Bolag</label><select id="fCompany">${['LPV', 'Klaryta'].map(c => `<option ${c === p.company ? 'selected' : ''}>${c}</option>`).join('')}</select></div>` : ''}
         </div>
         <div class="note">Inaktiv = döljs i listan. Karantän spärrar dessutom inloggningen. Namnet ändras i fliken Personal.</div>
+        <h3 style="margin-top:14px">❄️ Snö</h3>
+        <div class="g2">
+          <div><label for="fOwner">Ägare (vems resurs)</label><input id="fOwner" list="ueList" value="${esc(sn.owner === 'Egna' ? '' : sn.owner)}" placeholder="Egna – eller UE-företag"><datalist id="ueList">${(data.ueCompanies || []).map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>
+          <div><label for="fHome">Hemort / hemadress</label><input id="fHome" value="${esc(sn.home)}" placeholder="T.ex. Bettna"></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="fShovel" ${sn.shoveler ? 'checked' : ''}> 🧹 Handskottare (får en kula i snöplaneringen)</label>
+        <label class="chk"><input type="checkbox" id="fUeLead" ${sn.ueLead ? 'checked' : ''}> 🤝 UE-ansvarig (ser allt som företagets kulor ligger på i Snöjour)</label>
+        <div class="note">Tomt = Egna (LPV). Förare kopplas till traktorn under Snöplanering → Traktorer. Hemorten används för att visa närmaste handskottare.</div>
         <div class="actions"><button type="button" class="btn primary" onclick="savePerson()">💾 Spara</button><button type="button" class="btn" onclick="$('form').classList.remove('open')">Avbryt</button></div>
       </div>
       <h3>Tidigare projekt</h3>
@@ -250,9 +262,18 @@
     let res;
     try { res = await snoApi(payload); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
     if (res.status !== 'success') { msg('❌ ' + (res.message || 'Kunde inte spara.'), true); return; }
+    // Snöuppgifterna sparas i fliken Snöresurser
+    const sn = p.snow || {}, snow = { owner: $('fOwner').value.trim() || 'Egna', home: $('fHome').value.trim(), shoveler: $('fShovel').checked, ueLead: $('fUeLead').checked };
+    let note = '';
+    if (snow.owner !== (sn.owner || 'Egna') || snow.home !== (sn.home || '') || snow.shoveler !== !!sn.shoveler || snow.ueLead !== !!sn.ueLead) {
+      let r2;
+      try { r2 = await snoApi({ action: 'saveSnowPerson', name: p.name, ...snow }); } catch (e) { r2 = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+      if (r2.status !== 'success') { msg('❌ Snö: ' + (r2.message || 'Kunde inte spara.'), true); return; }
+      note = r2.note || '';
+    }
     await load(true);
     openPerson(p.name);
-    msg('✅ Sparat');
+    msg(note ? '⚠️ ' + note : '✅ Sparat', !!note);
   }
 
   // Samma välkomstpaket som på startsidan (SMS + mejl för admin/ekonom + kvittens till dig)

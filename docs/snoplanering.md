@@ -1,6 +1,6 @@
 # Snöplanering – fastigheter som arbetsorder, traktorer som kulor
 
-Resonerat med Daniel 2026-11-05. **Ej byggt** – vi resonerar vidare innan bygget.
+Resonerat med Daniel 2026-11-05. **Byggt samma dag** (se "Hur det blev" längst ner). Kvar att resonera om: uppföljning/fakturering mot UE.
 
 ## Grundidé
 - **Fastigheten = arbetsorderkort** med ett **hål** i rätt storlek (🟠 stor / 🔵 liten, ⚠️ tvinga stor för gränsfall) – finns redan i Snöplanering.
@@ -47,3 +47,12 @@ Resonerat med Daniel 2026-11-05. **Ej byggt** – vi resonerar vidare innan bygg
 ## Kvar att resonera om
 - Uppföljning/fakturering mot UE (vem gjorde vad, när).
 - ~~Slingor~~: tas bort i samma bygge (Snöjour-filtrering, Hinder, tidrapportens "slinga X", widgeten, Slinga-fältet och Förare-fliken i Rita zoner).
+
+## Hur det blev (byggt 2026-11-05)
+- **Kod.gs:** fliken **Snöresurser** (Namn, Ägare, Handskottare, UE-ansvarig, Hemort, Lat, Lng). Traktorer fick kolumnerna **Ägare** och **Förare**, Fastigheter fick **Traktor (ID)** och **Handskottare (JSON)**. Fliken **Snöfall-logg** (en rad per ✅ Klar: snöfall, tid, fastighet, del, enhet, ägare, vem). Pågående snöfall i Script Properties (`SNOFALL`).
+- **Anrop:** `getSnowBoard`, `assignSnow`, `newSnowfall`, `saveSnowPerson` (admin), `getSnowJour`, `markSnowDone` (alla). `getSnowZones` och hindren filtreras på fastigheterna där ens kula ligger. Väderområdena (Plogometern, widgeten) räknas också därifrån.
+- **Behörighet:** förare = sin traktor, handskottare = sig själv, UE-ansvarig = allt med samma ägare, admin = allt.
+- **Slingorna är borta:** fliken Slingor används inte längre (kan raderas i arket), kolumnerna Slinga/Ordning i Snözoner lämnas tomma. Rita zoner har bara flikarna Fastighet och Zoner.
+- **Kommundel** = fastighetens Område (annars Ort). Traktorn räknas som stationerad om Ort / uppställning matchar kommundelen.
+- **Kulor som släpps på kartan** hamnar på närmaste fastighetsnål (inom 40 px).
+- Testat i Chrome med låtsasserver: tavlan 30/30, Snöjour förare 19/19, handskottare 2/2, UE-ansvarig 4/4, admin 5/5, Personal 4/4.

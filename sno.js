@@ -141,7 +141,6 @@ function snoRenderZone(map, zone, onClick) {
   }
   const title = `<b>${snoEscape(zone.property || 'Utan adress')}</b><br>${def.label}` +
     (zone.areaM2 ? ` · ${Math.round(zone.areaM2).toLocaleString('sv-SE')} m²` : '') +
-    (zone.slinga ? `<br>Slinga: ${snoEscape(zone.slinga)}` : '') +
     (zone.note ? `<br><i>${snoEscape(zone.note)}</i>` : '') +
     (zone.photoUrl ? `<br><img src="${snoEscape(zone.photoUrl)}" alt="Foto" style="width:180px;max-width:100%;border-radius:8px;margin-top:6px;">` : '');
   layer.bindPopup(title);
@@ -149,8 +148,9 @@ function snoRenderZone(map, zone, onClick) {
   return layer.addTo(map);
 }
 
-function snoSlingor(zones) {
-  return [...new Set(zones.map(z => z.slinga).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'sv'));
+// Zoner kopplas till fastigheten via adressen (Fastighet/Adress i fliken Snözoner)
+function snoAddrKey(text) {
+  return String(text || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function snoLineLength(coords) {
@@ -229,4 +229,39 @@ async function snoOsmSuggestions(bounds) {
     }
   });
   return out;
+}
+
+// Kundkartan som bild över kartan i Snöjour (samma läge som i Rita zoner: hörnen tl/tr/bl, annars mitt/bredd/vridning)
+function snoPlaceCorners(place, W, H) {
+  if (place.tl && place.tr && place.bl) return place;
+  const crs = L.CRS.EPSG3857, c = crs.project(L.latLng(place.c[0], place.c[1]));
+  const k = 1 / Math.cos(place.c[0] * Math.PI / 180), hw = place.w / 2 * k, hh = hw * H / W;
+  const ex = [Math.cos(place.rot), Math.sin(place.rot)], ey = [-Math.sin(place.rot), Math.cos(place.rot)];
+  const at = (sx, sy) => { const ll = crs.unproject(L.point(c.x + sx * hw * ex[0] + sy * hh * ey[0], c.y + sx * hw * ex[1] + sy * hh * ey[1])); return [ll.lat, ll.lng]; };
+  return { tl: at(-1, 1), tr: at(1, 1), bl: at(-1, -1) };
+}
+// Lägger kundkartan (url + place) på kartan när bilden laddats. Returnerar lagret (ta bort med map.removeLayer).
+function snoKundOverlay(map, url, place, opacity) {
+  if (SNO_MAP_MISSING) return null;
+  const Layer = L.Layer.extend({
+    onAdd(m) {
+      if (!m.getPane('kundkarta')) { m.createPane('kundkarta'); m.getPane('kundkarta').style.zIndex = 350; }
+      this._img = L.DomUtil.create('img', '', m.getPane('kundkarta'));
+      Object.assign(this._img.style, { position: 'absolute', left: '0', top: '0', transformOrigin: '0 0', opacity: String(opacity || 0.75), pointerEvents: 'none', visibility: 'hidden' });
+      this._img.onload = () => { this._W = this._img.naturalWidth; this._H = this._img.naturalHeight; this._img.style.width = this._W + 'px'; this._img.style.height = this._H + 'px'; this.update(); };
+      this._img.src = url;
+      m.on('zoomend viewreset', this.update, this);
+      m.on('zoomstart', this._hide, this);
+    },
+    onRemove(m) { L.DomUtil.remove(this._img); m.off('zoomend viewreset', this.update, this); m.off('zoomstart', this._hide, this); },
+    _hide() { this._img.style.visibility = 'hidden'; },
+    update() {
+      if (!this._map || !this._W) return;
+      const c = snoPlaceCorners(place, this._W, this._H), p = (ll) => this._map.latLngToLayerPoint(ll);
+      const tl = p(c.tl), tr = p(c.tr), bl = p(c.bl);
+      this._img.style.transform = `matrix(${(tr.x - tl.x) / this._W},${(tr.y - tl.y) / this._W},${(bl.x - tl.x) / this._H},${(bl.y - tl.y) / this._H},${tl.x},${tl.y})`;
+      this._img.style.visibility = 'visible';
+    }
+  });
+  return new Layer().addTo(map);
 }

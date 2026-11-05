@@ -23,7 +23,7 @@
     .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 0; }
     .pick { display: grid; grid-template-columns: 1fr 1.4fr; gap: 6px; }
-    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
     .tabs button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
     label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
     input, textarea, select { width: 100%; padding: 10px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font-size: 16px !important; } /* 16 px: iPad zoomar inte in */
@@ -200,7 +200,6 @@
         <div class="tabs">
           <button id="tab-fastighet" class="active" onclick="setTab('fastighet')"><span data-icon="fastighet">🏠</span> Fastighet</button>
           <button id="tab-zoner" onclick="setTab('zoner')"><span data-icon="zonlista">🗂️</span> Zoner <span id="zone-count"></span></button>
-          <button id="tab-forare" onclick="setTab('forare')"><span data-icon="forare">👷</span> Förare</button>
         </div>
       </div>
 
@@ -228,11 +227,6 @@
           <div class="card-head" id="zone-head"></div>
           <div class="muted" id="zone-help" hidden></div>
           <div>
-            <label for="f-slinga">Slinga</label>
-            <input id="f-slinga" list="slinga-list" placeholder="T.ex. Centrum 1">
-            <datalist id="slinga-list"></datalist>
-          </div>
-          <div>
             <label for="f-property">Fastighet / Adress</label>
             <input id="f-property" placeholder="T.ex. Drottninggatan 4" oninput="propertyAuto=false">
           </div>
@@ -256,10 +250,6 @@
         <div class="zone-list" id="zone-list"></div>
       </div>
 
-      <div class="panel-body" id="pane-forare" hidden>
-        <div class="muted">Tryck på ett namn för att tilldela eller ta bort. Föraren ser bara sina slingor i Snöjour.</div>
-        <div class="zone-list" id="assign-list"></div>
-      </div>
     </aside>
   </div>
 
@@ -285,8 +275,6 @@
     let drawingPoints = [];            // utprickade hörn (tryck/GPS), sträckor och markörer
     let previewLayer = null;
     let selectedZone = null;
-    let assignments = {};
-    let staff = [];
     let markerMenu = false;
 
     function setStatus(html) { document.getElementById('status').innerHTML = html; }
@@ -309,7 +297,8 @@
 
     // ---------- FLIKAR ----------
     function setTab(t) {
-      ['fastighet', 'zoner', 'forare'].forEach(k => {
+      if (t !== 'zoner') t = 'fastighet'; // Förare-fliken är borttagen (slingorna ersatta av kulor 2026-11-05)
+      ['fastighet', 'zoner'].forEach(k => {
         document.getElementById('pane-' + k).hidden = k !== t;
         document.getElementById('tab-' + k).classList.toggle('active', k === t);
       });
@@ -541,7 +530,6 @@
 
     function readForm() {
       return {
-        slinga: document.getElementById('f-slinga').value.trim(),
         property: document.getElementById('f-property').value.trim(),
         order: Number(document.getElementById('f-order').value) || 0,
         note: document.getElementById('f-note').value.trim()
@@ -618,7 +606,6 @@
       if (zone) {
         drawingPoints = [];
         if (previewLayer) { map.removeLayer(previewLayer); previewLayer = null; }
-        document.getElementById('f-slinga').value = zone.slinga;
         document.getElementById('f-property').value = zone.property;
         propertyAuto = false;
         document.getElementById('f-order').value = zone.order || '';
@@ -633,14 +620,13 @@
     }
 
     function renderZoneList() {
-      const sorted = [...zones].sort((a, b) => a.slinga.localeCompare(b.slinga, 'sv') || a.order - b.order);
+      const sorted = [...zones].sort((a, b) => a.property.localeCompare(b.property, 'sv') || String(a.type).localeCompare(String(b.type)));
       document.getElementById('zone-count').innerText = `(${zones.length})`;
       document.getElementById('zone-list').innerHTML = sorted.map(z => `
         <div class="zone-item" onclick="focusZone('${snoEscape(z.id)}')">
-          <span>${SNO_TYPES[z.type]?.icon || '■'} ${snoEscape(z.property)}<br><small>${snoEscape(z.slinga || 'Ingen slinga')} · #${z.order}</small></span>
+          <span>${SNO_TYPES[z.type]?.icon || '■'} ${snoEscape(z.property)}<br><small>${SNO_TYPES[z.type]?.label || ''}</small></span>
           <small>${z.areaM2 ? Math.round(z.areaM2).toLocaleString('sv-SE') + ' m²' : SNO_TYPES[z.type]?.label || ''}</small>
         </div>`).join('') || '<div class="status">Inga zoner ännu.</div>';
-      document.getElementById('slinga-list').innerHTML = snoSlingor(zones).map(s => `<option value="${snoEscape(s)}">`).join('');
     }
 
     function focusZone(id) {
@@ -656,9 +642,7 @@
         const res = await snoApi({ action: 'getSnowZones' });
         if (res.status !== 'success') { setStatus('❌ ' + snoEscape(res.message || 'Kunde inte hämta zoner.')); return; }
         zones = res.zones || [];
-        assignments = res.assignments || {};
         renderZoneLayers();
-        renderAssignments();
       } catch (err) {
         setStatus('❌ Ingen kontakt med servern.');
       }
@@ -685,48 +669,6 @@
         }
         renderZoneList();
         renderZoneSum();
-    }
-
-    // ---------- TILLDELA FÖRARE ----------
-    async function loadStaff() {
-      try {
-        const res = await snoApi({ action: 'getUsers' });
-        if (res.status === 'success') staff = res.users.filter(u => !/karantän/i.test(u.status || ''));
-      } catch (err) { staff = []; }
-      renderAssignments();
-    }
-
-    function renderAssignments() {
-      const el = document.getElementById('assign-list');
-      const slingor = [...new Set([...snoSlingor(zones), ...Object.keys(assignments)])].sort((a, b) => a.localeCompare(b, 'sv'));
-      if (!slingor.length) { el.innerHTML = '<div class="status">Rita en zon med ett slingnamn först.</div>'; return; }
-      el.innerHTML = slingor.map(slinga => {
-        const assigned = assignments[slinga] || [];
-        const count = zones.filter(z => z.slinga === slinga).length;
-        const names = [...new Set([...staff.map(u => u.name), ...assigned])];
-        return `<div class="slinga-card">
-          <div class="slinga-card-head"><span>${snoEscape(slinga)}</span><small>${count} objekt</small></div>
-          ${assigned.length ? '' : '<div class="warn">⚠️ Ingen förare tilldelad</div>'}
-          <div class="chips">${names.map(n => `<button class="chip ${assigned.includes(n) ? 'on' : ''}" data-slinga="${snoEscape(slinga)}" data-name="${snoEscape(n)}" onclick="toggleDriver(this)">${assigned.includes(n) ? '✓ ' : ''}${snoEscape(n)}</button>`).join('') || '<span class="status">Hämtar personal…</span>'}</div>
-        </div>`;
-      }).join('');
-    }
-
-    async function toggleDriver(btn) {
-      const slinga = btn.dataset.slinga, name = btn.dataset.name;
-      const before = assignments[slinga] || [];
-      const after = before.includes(name) ? before.filter(n => n !== name) : [...before, name];
-      assignments[slinga] = after;
-      renderAssignments();
-      try {
-        const res = await snoApi({ action: 'setSlingaDrivers', slinga, drivers: after });
-        if (res.status !== 'success') throw new Error(res.message);
-        mapToast(`✅ ${snoEscape(slinga)}: ${after.length ? snoEscape(after.join(', ')) : 'ingen förare'}`);
-      } catch (err) {
-        assignments[slinga] = before;
-        renderAssignments();
-        mapToast('❌ Kunde inte spara tilldelningen. ' + snoEscape(err.message || ''), 5000);
-      }
     }
 
     // ---------- PÅ PLATS: punkt där jag står (GPS-medelvärde i fem sekunder) ----------
@@ -1270,7 +1212,7 @@
         if (merge.length) { write(merge[0], res); merge.slice(1).forEach(z => { touch(z); dels.push(z.id); }); }
         else {
           const form = readForm();
-          res.forEach(c => saves.push({ id: newZoneId(), type: T, property: owner, slinga: form.slinga, order: form.order, note: opt.note || '', coords: c, areaM2: snoGeodesicArea(c) }));
+          res.forEach(c => saves.push({ id: newZoneId(), type: T, property: owner, note: opt.note || '', coords: c, areaM2: snoGeodesicArea(c) }));
         }
       }
       if (!saves.length && !dels.length) { if (erase) mapToast('🧽 Inget att sudda här.'); return; }
@@ -1442,7 +1384,6 @@
 
     function openProperty(p) {
       document.getElementById('f-fastighet').value = propLabel(p);
-      document.getElementById('f-slinga').value = '';
       document.getElementById('f-note').value = '';
       suggestions = []; renderSuggestions();
       chooseProperty(propLabel(p));
@@ -1510,8 +1451,6 @@
       if (!takenByOther(p)) claim(p);
       selectZone(null);
       document.getElementById('f-property').value = p.address;
-      const sl = document.getElementById('f-slinga');
-      if (!sl.value) sl.value = p.omrade || p.ort || '';
       if (p.note && !document.getElementById('f-note').value) document.getElementById('f-note').placeholder = p.note;
       if (p.lat !== null) map.setView([p.lat, p.lng], 18);
       setPropPin(p);
@@ -2119,7 +2058,7 @@
     try { setPanel(localStorage.getItem('lpv_zon_panel') === 'av'); } catch (e) { setPanel(false); }
     try { setTab(localStorage.getItem('lpv_zon_flik') || 'fastighet'); } catch (e) { setTab('fastighet'); }
     loadZones();
-    if (snoIsAdmin()) { loadStaff(); loadProperties(); }
+    if (snoIsAdmin()) { loadProperties(); }
   </script>
 </body>
 </html>
