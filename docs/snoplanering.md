@@ -56,3 +56,26 @@ Resonerat med Daniel 2026-11-05. **Byggt samma dag** (se "Hur det blev" längst 
 - **Kommundel** = fastighetens Område (annars Ort). Traktorn räknas som stationerad om Ort / uppställning matchar kommundelen.
 - **Kulor som släpps på kartan** hamnar på närmaste fastighetsnål (inom 40 px).
 - Testat i Chrome med låtsasserver: tavlan 30/30, Snöjour förare 19/19, handskottare 2/2, UE-ansvarig 4/4, admin 5/5, Personal 4/4.
+
+## Snöplaneringen som Radarn (bestämt 2026-11-06, ej byggt)
+Samma utseende och arbetssätt som Radarn (radar.html), men:
+- **Traktorremsan** ligger där Radarns **orderbok** är (överst, fällbar): traktorkulorna med förare och antal fastigheter, ⋯ Övriga kommundelar.
+- **Kulpåsen** (vänster, fällbar): 👷 förare och 🧹 handskottare. Handskottarna sorterade närmast först.
+- **Planeringsytan** (där Radarns tidslinje är) är **ingen tidslinje**: fastigheterna som **kort i ett rutnät**, ungefär som orderbokens kort.
+
+**Listen:** ← Hem · ❄️ Snöplanering · [🏠 Fastigheter | 🚜 Traktorer | 🗺️ Karta] · ‹ kommundel › · ❄️ Snöfall 04:10 · 8/12 · ❄️ Nytt snöfall · [Kulpåse] [Traktorer].
+
+**Förare på traktorn:** dra föraren från kulpåsen till traktorkulan i remsan → fast par tills man ändrar. Traktorn tar med föraren till alla sina fastigheter. En förare som sitter på en traktor plockas ner till **Upptagna** (hopfällt, som i Radarn). Handskottare stannar kvar (kan ha flera fastigheter).
+
+**🏠 Fastighetsvyn:** rutnät med kort per kommundel.
+- **⚠️ Väntar på traktor** överst: kort utan traktor (rött tomt hål). Kortet flyttar ner till sin ort när det fått traktor. Tom grupp → "✅ Alla har traktor" i listen.
+- Under: korten per ort, sedan adress. Dra traktor från remsan till hålet, person från kulpåsen till 🧹-platsen. Dra tillbaka för att ta bort.
+- Under ett snöfall blir korten gröna/gula men **står kvar på sin plats**.
+
+**🚜 Traktorvyn:** en rad per traktor med dess fastigheter som kort.
+- Raden **⚠️ Utan traktor** överst (som orderboken). Dra en **fastighet** till en traktors rad = tilldela; tillbaka = ta bort; till annan rad = byt. Kort som inte passar (stor traktor, litet hål) studsar.
+- Sist på varje rad: antal fastigheter och m² (vem som har för mycket). Ingen tidsberäkning.
+
+**🗺️ Kartvyn:** kulorna vid nålarna, fastigheter utan traktor som röda ringar. Kulpåse och traktorremsa finns kvar – kulor kan släppas på nålarna.
+
+**Detaljruta** (tryck på ett kort, som jobbrutan i Radarn): adress, kund, ⭐, ytor, att tänka på, kulorna (ta bort), status i snöfallet, länkar till Rita zoner och kundkartan.
