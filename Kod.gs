@@ -1704,15 +1704,16 @@ function driveImageUrl(fileId, width) {
 // frågar vi vilka modeller nyckeln har och tar nyaste stabila Flash. Sparas i 6 h; vid 404 slås det upp på nytt.
 function geminiModel(kind, apiKey, fresh) {
   const cache = CacheService.getScriptCache(), ck = "GEMINI_MODEL_" + kind;
+  if (kind === "pro") return "gemini-3.1-pro-preview"; // test av Föreslå punkter (2026-11-06) – Google pekar själv på den
   if (!fresh) { const hit = cache.get(ck); if (hit) return hit; }
-  const fallback = kind === "image" ? "gemini-2.5-flash-image" : "gemini-2.5-flash";
+  const fallback = kind === "image" ? "gemini-2.5-flash-image" : kind === "pro" ? "gemini-3.1-pro-preview" : "gemini-2.5-flash";
   try {
     const res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + apiKey, { muteHttpExceptions: true });
     if (res.getResponseCode() !== 200) return fallback;
     const models = (JSON.parse(res.getContentText()).models || [])
       .filter(m => (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0)
       .map(m => String(m.name).replace(/^models\//, ""))
-      .filter(n => /^gemini-[\d.]+-flash/.test(n) && !/lite|tts|live|audio|embedding|thinking|exp|\d{3,}$/.test(n))
+      .filter(n => (kind === "pro" ? /^gemini-[\d.]+-pro/ : /^gemini-[\d.]+-flash/).test(n) && !/lite|tts|live|audio|embedding|thinking|exp|\d{3,}$/.test(n))
       .filter(n => kind === "image" ? /image/.test(n) : !/image/.test(n));
     const ver = n => parseFloat((n.match(/^gemini-([\d.]+)/) || [])[1]) || 0;
     // Stabil före preview (preview stängs fortare), sedan nyaste version
@@ -2192,10 +2193,13 @@ function handleSuggestMapPoints(data) {
   try { if (!b64) b64 = Utilities.base64Encode(DriveApp.getFileById(m.id).getBlob().getBytes()); }
   catch (err) { return createJsonResponse({ status: "error", message: "Kunde inte läsa kundkartan: " + err.message }); }
   const landinfo = /landinfo/i.test(String(m.label || ""));
+  const osm = data.source === "osm";
   const prompt =
-    "Bild 1 är en kunds karta över en fastighet (" + String(m.label || "karta") + ")" + (landinfo ? ", en LandInfo-skötselkarta som ligger nästan norrvänd" : "") + ". " +
-    "Bild 2 är ett flygfoto (satellitbild) över ungefär samma område, med norr rakt uppåt. Skala och läge skiljer sig mellan bilderna. " +
-    "Uppgift: peka ut 4 punkter som syns tydligt i BÅDA bilderna och är exakt samma sak i verkligheten – helst yttre hörn på hus (husknutar), annars tydliga hörn där asfalt möter gräs eller gatuhörn. " +
+    "Bild 1 är en kunds karta över en fastighet (" + String(m.label || "karta") + ")" + (landinfo ? ", en LandInfo-skötselkarta som ligger nästan norrvänd. Husen är ritade som vita ytor med tunn svart kant (ofta med diagonala streck). Lila och röda linjer är fastighetsgränser – INTE hus" : "") + ". " +
+    (osm ? "Bild 2 är en ritad karta från OpenStreetMap över ungefär samma område, med norr rakt uppåt: grå ytor med svart kant = husens grundytor, tunna grå linjer = gator. Skala och läge skiljer sig mellan bilderna. " +
+      "Uppgift: peka ut 4 HUSHÖRN (yttre hörn på husens grundytor) som finns i BÅDA bilderna och är samma hörn på samma hus. Använd aldrig fastighetsgränser, gräs eller asfaltkanter – bara hörn på hus. "
+    : "Bild 2 är ett flygfoto (satellitbild) över ungefär samma område, med norr rakt uppåt. Skala och läge skiljer sig mellan bilderna. " +
+      "Uppgift: peka ut 4 punkter som syns tydligt i BÅDA bilderna och är exakt samma sak i verkligheten – helst yttre hörn på hus (husknutar), annars tydliga hörn där asfalt möter gräs eller gatuhörn. ") +
     "Sprid punkterna över bilden, så långt från varandra som möjligt (inte alla på samma hus). Välj bara punkter du är säker på; hellre 3 säkra än 4 osäkra. " +
     "Ange varje punkt som [y, x] normaliserat 0–1000 i respektive bild (0,0 = övre vänstra hörnet). Peka så exakt du kan på själva hörnet. " +
     "Räkna INTE ut skala, vridning eller läge – ange bara punkterna. " +
@@ -2203,19 +2207,21 @@ function handleSuggestMapPoints(data) {
   try {
     const body = (thinking) => JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: b64 } }, { inlineData: { mimeType: "image/jpeg", data: sat } }, { text: prompt }] }],
       generationConfig: Object.assign({ responseMimeType: "application/json", responseSchema: POINTS_SCHEMA, temperature: 0.1 }, thinking ? { thinkingConfig: { thinkingBudget: 2048 } } : {}) });
-    let response = geminiFetch("text", apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(true) });
+    const kind = data.model === "pro" ? "pro" : "text";
+    let response = geminiFetch(kind, apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(true) });
     if (response.getResponseCode() === 400 && /thinking/i.test(response.getContentText())) {
-      response = geminiFetch("text", apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(false) });
+      response = geminiFetch(kind, apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(false) });
     }
     const code = response.getResponseCode();
-    if (code !== 200) return createJsonResponse({ status: "error", message: code === 429 ? geminiErrorText(code, response.getContentText()) : "AI:n svarade inte (HTTP " + code + ")." });
+    if (code !== 200) return createJsonResponse({ status: "error", message: code === 429 ? geminiErrorText(code, response.getContentText()) : "AI:n svarade inte (HTTP " + code + "): " + response.getContentText().slice(0, 200) });
     const json = JSON.parse(response.getContentText());
     const cand = json.candidates && json.candidates[0];
     const text = ((cand && cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
     const pairs = parsePointPairs(text);
     const out = { status: "success", pairs: pairs, seconds: Math.round((Date.now() - t0) / 1000) };
     // Inga punkter: skicka med en bit av svaret så att vi ser varför (form, stopporsak)
-    if (!pairs.length) out.raw = "modell " + geminiModel("text", apiKey) + (cand && cand.finishReason ? ", stopp " + cand.finishReason : ", inget svar" + (json.promptFeedback ? " (" + JSON.stringify(json.promptFeedback).slice(0, 120) + ")" : "")) + ": " + (text ? text.slice(0, 300) : "(tom text)");
+    out.model = geminiModel(kind, apiKey);
+    if (!pairs.length) out.raw = "modell " + out.model + (cand && cand.finishReason ? ", stopp " + cand.finishReason : ", inget svar" + (json.promptFeedback ? " (" + JSON.stringify(json.promptFeedback).slice(0, 120) + ")" : "")) + ": " + (text ? text.slice(0, 300) : "(tom text)");
     return createJsonResponse(out);
   } catch (err) {
     return createJsonResponse({ status: "error", message: "AI:n kunde inte jämföra bilderna: " + err.message });
