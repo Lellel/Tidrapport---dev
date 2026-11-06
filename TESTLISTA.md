@@ -699,3 +699,10 @@ Snöjour (telefon):
 - [ ] Tavlan på iPaden blir grön/gul inom någon minut när förarna trycker Klar.
 - [ ] ⚠️ Lägg ut hinder: förare kan bara välja sina egna fastigheter.
 - [ ] Rita zoner: inget Slinga-fält, ingen Förare-flik.
+
+## 🤖 Föreslå punkter (2026-11-06)
+- [ ] S Järnvägsg 3 / Kungsbrog 2: ✋ Justera → 🤖 Föreslå punkter → godkänt nära 88,9 m och 0,4° (eller ⚠️ med siffror) – ✕ Avbryt så att facit ligger kvar
+- [ ] Karta som inte är utlagd → 🤖 Föreslå punkter → godkänt: punkterna syns (gröna), 💾 Spara läge; underkänt: "⚠️ Passa in själv"
+- [ ] Spara en LandInfo-karta vriden > 3° → frågan om punkterna stämmer; Avbryt sparar inte
+- [ ] ⋯ Mer → 🤖 Föreslå punkter för alla ej utlagda → räknaren går, ⏹ Stoppa fungerar, godkända visar "🤖 AI-inpassad"
+- [ ] Passa in Auragatan 4 och Salstagatan 16 (ligger i standardläget)

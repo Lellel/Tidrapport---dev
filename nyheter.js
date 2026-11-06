@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-06-foresla-punkter', datum: '2026-11-06', roller: ['admin'], modul: 'sno',
+    titel: '🤖 Föreslå punkter för kundkartan',
+    text: 'AI:n pekar ut gemensamma punkter i kundkartan och satelliten, appen räknar läget och godkänner bara om det stämmer inom 2 m. Kan köras för alla kartor som inte är utlagda (⋯ Mer). LandInfo-kartor som sparas mer än 3° vridna ger en varning.' },
   { id: '2026-11-06-passa-in-grannar', datum: '2026-11-06', roller: ['admin'], modul: 'sno',
     titel: 'Passa in: grannarnas kartor döljs',
     text: 'När du passar in en kundkarta med 📌 döljs grannarnas kartor, så att du inte råkar pricka på fel karta. De visas igen när du är klar.' },

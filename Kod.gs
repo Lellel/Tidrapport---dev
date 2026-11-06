@@ -184,7 +184,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getSnowJour", "getSnowBoard", "getFleet", "getProperties", "getRadarData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "getWeather", "getAppIcons", "generateAppIcon"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "suggestMapPoints", "getWeather", "getAppIcons", "generateAppIcon"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -233,7 +233,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "suggestMapPoints", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
       "getStaffOverview", "getStaffHistory", "updateStaff",
       "saveStall", "addStallPhoto", "robotAlarm", "generateAppIcon", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
@@ -380,6 +380,7 @@ function doPost(e) {
     if (action === "createWidgetKey") return handleCreateWidgetKey(data, auth);
     if (action === "setPlowThreshold") return handleSetPlowThreshold(data);
     if (action === "analyzePropertyMap") return handleAnalyzePropertyMap(data);
+    if (action === "suggestMapPoints") return handleSuggestMapPoints(data);
     if (action === "removePropertyPhoto") return handleRemovePropertyPhoto(data.id, data.photoId);
     if (action === "saveSnowZone") return handleSaveSnowZone(data.zone, auth.user);
     if (action === "deleteSnowZone") return handleDeleteSnowZone(data.zoneId);
@@ -2135,6 +2136,8 @@ function handleSavePropertyMapPlace(data) {
   const pl = data.place || {};
   const pt = (p) => Array.isArray(p) && p.length === 2 && isFinite(p[0]) && isFinite(p[1]) ? [Number(Number(p[0]).toFixed(7)), Number(Number(p[1]).toFixed(7))] : null;
   const place = { c: pt(pl.c), w: Number(pl.w), rot: Number(pl.rot) || 0, tl: pt(pl.tl), tr: pt(pl.tr), bl: pt(pl.bl) };
+  // 🤖 AI-inpassad (Föreslå punkter, kör alla): största avvikelse i m och antal punkter – visas så att någon granskar läget
+  if (pl.ai && isFinite(pl.ai.err)) place.ai = { err: Math.round(Number(pl.ai.err) * 10) / 10, n: Math.min(20, Math.max(0, Math.round(Number(pl.ai.n) || 0))), at: Utilities.formatDate(new Date(), "Europe/Stockholm", "yyyy-MM-dd") };
   if (!place.c || !place.tl || !place.tr || !place.bl || !(place.w > 1 && place.w < 5000)) return createJsonResponse({ status: "error", message: "Ogiltigt läge." });
   const maps = propertyMaps(hit.row);
   const m = maps.find(x => x.id === data.mapId);
@@ -2142,6 +2145,59 @@ function handleSavePropertyMapPlace(data) {
   m.place = place;
   sheet.getRange(hit.rowNumber, 14).setValue(JSON.stringify(maps));
   return createJsonResponse({ status: "success", place: place });
+}
+
+// 🤖 Föreslå punkter (docs/ritprogram.md, 2026-11-06): appen skickar en satellitbild (Esri, norr upp) runt adressen.
+// Gemini pekar BARA ut 3–4 punktpar – samma sak i kundkartan och i satellitbilden, som [y, x] 0–1000 i respektive bild.
+// Läge, skala och vridning räknar appen själv (samma minsta kvadrat som 📌 Passa in) och godkänner bara om punkterna stämmer.
+function handleSuggestMapPoints(data) {
+  const hit = findRowById(getPropertySheet(), data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const m = propertyMaps(hit.row).find(x => x.id === data.mapId);
+  if (!m) return createJsonResponse({ status: "error", message: "Kartan hittades inte." });
+  const sat = String(data.sat || "").replace(/^data:image\/(jpeg|png);base64,/, "");
+  if (!/^[A-Za-z0-9+\/=]+$/.test(sat) || sat.length < 100 || sat.length > 4000000) return createJsonResponse({ status: "error", message: "Satellitbilden från appen saknas eller är för stor." });
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) return createJsonResponse({ status: "error", message: "GEMINI_API_KEY saknas i Script Properties." });
+  const t0 = Date.now();
+  // Kundkartan i ca 1600 px – snabbare för AI:n än originalet. Faller tillbaka på originalet.
+  let b64 = "";
+  try {
+    const th = UrlFetchApp.fetch("https://drive.google.com/thumbnail?id=" + encodeURIComponent(m.id) + "&sz=w1600",
+      { headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true, followRedirects: true });
+    const ct = String(th.getHeaders()["Content-Type"] || th.getHeaders()["content-type"] || "");
+    if (th.getResponseCode() === 200 && /^image\//.test(ct)) b64 = Utilities.base64Encode(th.getContent());
+  } catch (e) { b64 = ""; }
+  try { if (!b64) b64 = Utilities.base64Encode(DriveApp.getFileById(m.id).getBlob().getBytes()); }
+  catch (err) { return createJsonResponse({ status: "error", message: "Kunde inte läsa kundkartan: " + err.message }); }
+  const landinfo = /landinfo/i.test(String(m.label || ""));
+  const prompt =
+    "Bild 1 är en kunds karta över en fastighet (" + String(m.label || "karta") + ")" + (landinfo ? ", en LandInfo-skötselkarta som ligger nästan norrvänd" : "") + ". " +
+    "Bild 2 är ett flygfoto (satellitbild) över ungefär samma område, med norr rakt uppåt. Skala och läge skiljer sig mellan bilderna. " +
+    "Uppgift: peka ut 4 punkter som syns tydligt i BÅDA bilderna och är exakt samma sak i verkligheten – helst yttre hörn på hus (husknutar), annars tydliga hörn där asfalt möter gräs eller gatuhörn. " +
+    "Sprid punkterna över bilden, så långt från varandra som möjligt (inte alla på samma hus). Välj bara punkter du är säker på; hellre 3 säkra än 4 osäkra. " +
+    "Ange varje punkt som [y, x] normaliserat 0–1000 i respektive bild (0,0 = övre vänstra hörnet). Peka så exakt du kan på själva hörnet. " +
+    "Räkna INTE ut skala, vridning eller läge – ange bara punkterna. " +
+    "Svara ENDAST med JSON: {\"punkter\":[{\"karta\":[y,x],\"satellit\":[y,x],\"vad\":\"kort beskrivning\"}]}";
+  try {
+    const body = (thinking) => JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: b64 } }, { inlineData: { mimeType: "image/jpeg", data: sat } }, { text: prompt }] }],
+      generationConfig: Object.assign({ responseMimeType: "application/json", temperature: 0.1 }, thinking ? { thinkingConfig: { thinkingBudget: 2048 } } : {}) });
+    let response = geminiFetch("text", apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(true) });
+    if (response.getResponseCode() === 400 && /thinking/i.test(response.getContentText())) {
+      response = geminiFetch("text", apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(false) });
+    }
+    const code = response.getResponseCode();
+    if (code !== 200) return createJsonResponse({ status: "error", message: code === 429 ? geminiErrorText(code, response.getContentText()) : "AI:n svarade inte (HTTP " + code + ")." });
+    const json = JSON.parse(response.getContentText());
+    const text = ((json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || []).map(p => p.text || "").join("");
+    const ai = JSON.parse(text.replace(/^```(json)?|```$/g, "").trim());
+    const okPt = (p) => Array.isArray(p) && p.length === 2 && p.every(n => isFinite(n) && n >= 0 && n <= 1000);
+    const pairs = (Array.isArray(ai.punkter) ? ai.punkter : []).filter(p => p && okPt(p.karta) && okPt(p.satellit)).slice(0, 6)
+      .map(p => ({ map: [Number(p.karta[0]), Number(p.karta[1])], sat: [Number(p.satellit[0]), Number(p.satellit[1])], what: String(p.vad || "").slice(0, 60) }));
+    return createJsonResponse({ status: "success", pairs: pairs, seconds: Math.round((Date.now() - t0) / 1000) });
+  } catch (err) {
+    return createJsonResponse({ status: "error", message: "AI:n kunde inte jämföra bilderna: " + err.message });
+  }
 }
 
 // AI läser kundens karta och föreslår zoner. Koordinater 0–1000 i bilden; appen räknar om dem

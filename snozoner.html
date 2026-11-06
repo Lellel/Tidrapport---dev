@@ -323,7 +323,8 @@
           : `<div class="dock-row"><span class="dock-hint" style="min-width:auto">Fingret flyttar</span>
             <button class="${kk.gestures === 'kk' ? 'active' : ''}" onclick="setGestures('kk')">🗺️ Kundkartan</button>
             <button class="${kk.gestures === 'map' ? 'active' : ''}" onclick="setGestures('map')">🛰️ Satelliten</button></div>
-            <div class="dock-row"><button style="flex:1" onclick="startPin()">📌 Passa in med punkter</button></div>`}
+            <div class="dock-row"><button style="flex:1" onclick="startPin()">📌 Passa in med punkter</button><button style="flex:1" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '🤖 Föreslå punkter'}</button></div>`}
+          ${kk.aiResult ? `<div class="dock-result">${kk.aiResult}</div>` : ''}
           <div class="dock-size"><span class="dock-hint">Genomskinlighet</span>
             <input type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" aria-label="Genomskinlighet"></div>
           <div class="dock-row"><button class="ok" style="flex:1" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
@@ -422,7 +423,7 @@
       if (!el) return;
       const m = currentProp ? kkMap() : null;
       el.innerHTML = !currentProp ? '① Välj fastighet i sökfältet ovan.'
-        : kk.adjusting ? (pin.on ? '② Passa in: följ instruktionen nere på kartan.' : '② Lägg kundkartan rätt – 📌 Passa in med punkter, eller dra och vrid den. Spara läget när den stämmer.')
+        : kk.adjusting ? (pin.on ? '② Passa in: följ instruktionen nere på kartan.' : '② Lägg kundkartan rätt – 📌 Passa in med punkter, 🤖 Föreslå punkter, eller dra och vrid den. Spara läget när den stämmer.')
         : m && !m.place ? '② Kundkartan är inte utlagd – 📌 Passa in med punkter eller ✋ Justera.'
         : selectedZone ? 'Vald zon – ändra uppgifterna eller formen och spara.'
         : (shape || drawingPoints.length) ? 'Tryck 💾 Spara när du är klar.'
@@ -1571,7 +1572,7 @@
     }
 
     function startAdjust() {
-      kk.adjusting = true; kk.gestures = 'kk'; kk.placeBefore = { ...kk.place }; endPin();
+      kk.adjusting = true; kk.gestures = 'kk'; kk.placeBefore = { ...kk.place }; kk.aiResult = null; endPin();
       cancelDrawing(); placeHandles(); applyGestureMode(); renderKkCard();
       setStatus('Dra med ett finger för att flytta kundkartan, vrid och nyp med två fingrar (eller använd <b>✥</b> och <b>⟳</b>). Byt till <b>🛰️ Satellit</b> (till vänster på kartan) för att flytta satellitbilden. Tryck sedan <b>Spara läge</b>.');
     }
@@ -1763,13 +1764,145 @@
       return `✅ Inpassad med ${n} punkter${pin.err !== null ? ` · största avvikelse <b>${String(Math.round(pin.err * 10) / 10).replace('.', ',')} m</b>` : ''}.<br><small style="font-weight:600">Lägg till en punkt till för kontroll – eller spara.</small>`;
     }
 
+    // ---------- 🤖 FÖRESLÅ PUNKTER (2026-11-06) ----------
+    // Appen bygger en satellitbild (Esri, zoom 18, ca 300 m, norr upp) runt adressens nål. Gemini pekar BARA ut 3–4 punktpar
+    // (suggestMapPoints i Kod.gs). Läget räknar appen med fitSimilarity – samma som 📌 Passa in – och godkänner bara om
+    // största avvikelse < 2 m och (LandInfo) vridningen < 3°. Annars: ⚠️ passa in själv. Gemini räknar aldrig läge/skala/vridning.
+    const SAT_Z = 18, SAT_N = 4, AI_MAX_ERR = 2, LANDINFO_MAX_ROT = 3;
+    const isLandInfo = (m) => /LandInfo/i.test((m && m.label) || '');
+    const fmtNum = (x) => String(Math.round(x * 10) / 10).replace('.', ',');
+    async function satSnapshot(center) {
+      const crs = L.CRS.EPSG3857, c = crs.latLngToPoint(L.latLng(center[0], center[1]), SAT_Z);
+      const size = SAT_N * 256, origin = L.point(Math.round(c.x - size / 2), Math.round(c.y - size / 2));
+      const cv = document.createElement('canvas'); cv.width = cv.height = size;
+      const ctx = cv.getContext('2d'); ctx.fillStyle = '#777'; ctx.fillRect(0, 0, size, size);
+      const tx0 = Math.floor(origin.x / 256), ty0 = Math.floor(origin.y / 256), jobs = [];
+      for (let tx = tx0; tx <= tx0 + SAT_N; tx++) for (let ty = ty0; ty <= ty0 + SAT_N; ty++) {
+        jobs.push(new Promise(res => {
+          const im = new Image(); im.crossOrigin = 'anonymous';
+          im.onload = () => { ctx.drawImage(im, tx * 256 - origin.x, ty * 256 - origin.y); res(true); };
+          im.onerror = () => res(false);
+          im.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${SAT_Z}/${ty}/${tx}`;
+        }));
+      }
+      if (!(await Promise.all(jobs)).some(Boolean)) throw new Error('Kunde inte hämta satellitbilden (täckning?).');
+      return { dataUrl: cv.toDataURL('image/jpeg', 0.85), origin, size };
+    }
+    // Geminis punkter (0–1000 i bilderna) → punktpar som 📌 Passa in använder: z = kundkartans bildpunkt, P = projicerade meter
+    function aiPairs(res, snap, W, H) {
+      const crs = L.CRS.EPSG3857;
+      return (res.pairs || []).map(p => {
+        const P = crs.project(crs.pointToLatLng(L.point(snap.origin.x + p.sat[1] / 1000 * snap.size, snap.origin.y + p.sat[0] / 1000 * snap.size), SAT_Z));
+        return { z: [(p.map[1] / 1000 - 0.5) * W, (0.5 - p.map[0] / 1000) * H], P: [P.x, P.y], what: p.what };
+      });
+    }
+    // Räkna läget och döm: ok bara om alla punkter stämmer inom 2 m (och LandInfo ligger rak)
+    function judgePairs(pairs, W, m) {
+      if (pairs.length < 3) return { ok: false, why: `AI:n hittade bara ${pairs.length} säkra punkter (minst 3 behövs för en kontroll)` };
+      const f = fitSimilarity(pairs);
+      if (!f) return { ok: false, why: 'punkterna gick inte att räkna på' };
+      const ll = L.CRS.EPSG3857.unproject(L.point(f.C[0], f.C[1]));
+      const k = 1 / Math.cos(ll.lat * Math.PI / 180), s = Math.hypot(f.q[0], f.q[1]), rot = Math.atan2(f.q[1], f.q[0]);
+      const place = { c: [ll.lat, ll.lng], w: s * W / k, rot };
+      const err = Math.max(...pairs.map(p => { const a = f.apply(p.z); return Math.hypot(a[0] - p.P[0], a[1] - p.P[1]) / k; }));
+      const rotDeg = Math.abs(rot * 180 / Math.PI), facts = `${pairs.length} punkter · avvikelse ${fmtNum(err)} m · vridning ${fmtNum(rotDeg)}° · bredd ${Math.round(place.w)} m`;
+      if (!(place.w > 15 && place.w < 3000)) return { ok: false, place, err, rotDeg, facts, why: 'skalan blev orimlig' };
+      if (err >= AI_MAX_ERR) return { ok: false, place, err, rotDeg, facts, why: `punkterna avviker ${fmtNum(err)} m (gräns ${AI_MAX_ERR} m)` };
+      if (isLandInfo(m) && rotDeg >= LANDINFO_MAX_ROT) return { ok: false, place, err, rotDeg, facts, why: `kartan blev vriden ${fmtNum(rotDeg)}° – LandInfo ska ligga rak` };
+      return { ok: true, place, err, rotDeg, facts };
+    }
+    // Hela kedjan för en karta: satellitbild runt adressen → Gemini → punktpar → bedömning
+    async function aiSuggest(prop, m, W, H) {
+      const snap = await satSnapshot([prop.lat, prop.lng]);
+      const call = () => snoApi({ action: 'suggestMapPoints', id: prop.id, mapId: m.id, sat: snap.dataUrl });
+      let res;
+      try { res = await call(); } catch (e1) { res = await call(); } // ett nytt försök om anslutningen bröts
+      if (res.status !== 'success') throw new Error(res.message || 'AI:n svarade inte.');
+      const pairs = aiPairs(res, snap, W, H);
+      return { pairs, seconds: res.seconds, ...judgePairs(pairs, W, m) };
+    }
+
+    // Knappen på en karta: godkänt → Justera-läget med punkterna (📌, kan kompletteras) – kontrollera och 💾 Spara läge
+    async function suggestPointsKk() {
+      const m = kkMap(), prop = kp();
+      if (!m || !kk.layer || kk.busy) return;
+      if (!hasPos(prop)) { setStatus('📍 Fastigheten saknar position – peka ut den i Snöplanering först.'); return; }
+      kk.busy = 'points'; renderDock(); renderKkCard();
+      mapToast('🤖 AI:n letar gemensamma punkter i kundkartan och satelliten…<br><small>Tar 10–40 sekunder</small>', 0);
+      try {
+        const r = await aiSuggest(prop, m, kk.W, kk.H);
+        if (!kk.adjusting) startAdjust();
+        if (r.ok) {
+          pin.on = true; pin.pairs = r.pairs.map(p => ({ z: p.z, P: p.P })); pin.pending = null;
+          if (pin.savedOpacity === null) pin.savedOpacity = kk.opacity;
+          kk.gestures = 'map'; applyGestureMode(); renderGroupLayers();
+          fitPins(); pinOpacity(); drawPin();
+          map.fitBounds(L.latLngBounds(Object.values(kkCorners(kk.place))).pad(0.1));
+          kk.aiResult = `🤖 Godkänt: ${r.facts}<br><small style="font-weight:600">Titta att husen ligger rätt och tryck 💾 Spara läge.</small>`;
+          mapToast(`🤖 Förslag godkänt · ${fmtNum(r.err)} m<br><small>Kontrollera mot satelliten och tryck <b>💾 Spara läge</b></small>`, 6000);
+        } else {
+          kk.aiResult = `⚠️ Passa in själv – ${snoEscape(r.why)}.${r.facts ? `<br><small>${r.facts}</small>` : ''}`;
+          mapToast('⚠️ Passa in själv<br><small>' + snoEscape(r.why) + '</small>', 6000);
+        }
+      } catch (err) {
+        kk.aiResult = '⚠️ Passa in själv – ' + snoEscape(err.message || 'det gick inte') + '.';
+        mapToast('⚠️ ' + snoEscape(err.message || 'Det gick inte.'), 6000);
+      } finally { kk.busy = false; renderDock(); renderKkCard(); }
+    }
+
+    // Kör alla: kartor som inte är utlagda (och vars fastighet har position). Godkända sparas direkt, märkta 🤖 så att någon granskar.
+    const aiRun = { on: false, stop: false, done: 0, total: 0, okN: 0, log: [] };
+    const aiTargets = () => properties.filter(p => inArea(p) && hasPos(p)).flatMap(p => (p.maps || []).filter(m => !m.place).map(m => ({ p, m })));
+    function imgSize(url) {
+      return new Promise((res, rej) => { const im = new Image(); im.onload = () => res([im.naturalWidth, im.naturalHeight]); im.onerror = () => rej(new Error('kundkartan kunde inte laddas')); im.src = url; });
+    }
+    async function runAllSuggest() {
+      if (aiRun.on) { aiRun.stop = true; renderKkCard(); return; }
+      const list = aiTargets();
+      if (!list.length) { setStatus('Alla kundkartor (med position) är redan utlagda.'); return; }
+      if (!confirm(`🤖 Föreslå punkter för ${list.length} kundkartor som inte är utlagda?\n\nDe som blir godkända (avvikelse < ${AI_MAX_ERR} m${', LandInfo < ' + LANDINFO_MAX_ROT + '°'}) sparas direkt och märks 🤖 – granska dem sedan. Tar ca ${Math.max(1, Math.round(list.length * 25 / 3 / 60))} minuter. Håll sidan öppen.`)) return;
+      Object.assign(aiRun, { on: true, stop: false, done: 0, total: list.length, okN: 0, log: [] });
+      renderKkCard();
+      const worker = async () => {
+        while (list.length && !aiRun.stop) {
+          const { p, m } = list.shift();
+          try {
+            const [W, H] = await imgSize(m.url);
+            const r = await aiSuggest(p, m, W, H);
+            if (r.ok) {
+              const c = kkCorners(r.place, W, H);
+              const res = await snoApi({ action: 'savePropertyMapPlace', id: p.id, mapId: m.id, place: { ...r.place, tl: c.tl, tr: c.tr, bl: c.bl, ai: { err: r.err, n: r.pairs.length } } });
+              if (res.status !== 'success') throw new Error(res.message || 'kunde inte spara');
+              m.place = res.place; aiRun.okN++;
+              aiRun.log.push(`✅ ${snoEscape(p.address)}: ${r.facts}`);
+            } else aiRun.log.push(`⚠️ ${snoEscape(p.address)}: passa in själv – ${snoEscape(r.why)}`);
+          } catch (err) { aiRun.log.push(`❌ ${snoEscape(p.address)}: ${snoEscape(err.message || 'fel')}`); }
+          aiRun.done++; renderAiRun();
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]);
+      aiRun.on = false; renderAiRun(); renderGroupLayers(); renderKkCard();
+      if (currentProp && kkMap() && !kk.adjusting && kkMap().place && kkMap().place.ai) showCustomerMap();
+      mapToast(`🤖 Klart: ${aiRun.okN} av ${aiRun.done} kundkartor inpassade<br><small>Resten: passa in själv (listan i panelen)</small>`, 8000);
+    }
+    function renderAiRun() {
+      const el = document.getElementById('ai-run');
+      if (!el) return;
+      el.innerHTML = aiRun.total ? `<div><b>🤖 ${aiRun.done} av ${aiRun.total}</b> · ${aiRun.okN} inpassade${aiRun.on ? (aiRun.stop ? ' · stoppar…' : ' · ⏳ pågår') : ' · klart'}</div>
+        <div style="max-height:180px;overflow:auto;font-size:12px">${aiRun.log.slice().reverse().join('<br>')}</div>` : '';
+    }
+
     async function saveKkPlace() {
       const m = kkMap();
+      // LandInfo-kartorna är norrvända – mer än 3° vriden betyder nästan alltid ett felaktigt punktpar
+      const rotDeg = Math.abs(kk.place.rot * 180 / Math.PI);
+      if (isLandInfo(m) && rotDeg > LANDINFO_MAX_ROT && !confirm(`Kundkartan är vriden ${fmtNum(rotDeg)}°.\n\nLandInfo-kartor ska ligga nästan raka – stämmer punkterna?\n\nOK = spara ändå · Avbryt = rätta först`)) return false;
       const place = { ...kk.place, ...(() => { const c = kkCorners(kk.place); return { tl: c.tl, tr: c.tr, bl: c.bl }; })() };
+      delete place.ai; // sparat av en människa = granskat
       try {
         const res = await snoApi({ action: 'savePropertyMapPlace', id: kp().id, mapId: m.id, place });
         if (res.status !== 'success') throw new Error(res.message);
-        endPin(); kk.gestures = 'kk';
+        endPin(); kk.gestures = 'kk'; kk.aiResult = null;
         m.place = res.place; kk.place = { ...res.place }; kk.dirty = false; kk.adjusting = false;
         placeHandles(); applyGestureMode(); renderKkCard();
         setStatus('✅ Kundkartans läge sparat. Rita av zonerna, eller tryck <b>🤖 Föreslå zoner</b>.');
@@ -1871,7 +2004,7 @@
       el.style.display = 'flex';
       const vagkarta = `<button class="kk-small" id="btn-sugg" onclick="loadSuggestions()"><span data-icon="frankartan">🗺️</span> Förslag från vägkartan</button>`;
       const nb = neighbors(currentProp).length;
-      const more = (inner) => inner.trim() ? `<details class="more"${group.length ? ' open' : ''}><summary>⋯ Mer${nb ? ` · 🏘️ ${nb} ${nb === 1 ? 'granne' : 'grannar'}${group.length ? ` (${group.length} med)` : ''}` : ''}</summary><div>${inner}</div></details>` : '';
+      const more = (inner) => inner.trim() ? `<details class="more"${group.length || aiRun.total ? ' open' : ''}><summary>⋯ Mer${nb ? ` · 🏘️ ${nb} ${nb === 1 ? 'granne' : 'grannar'}${group.length ? ` (${group.length} med)` : ''}` : ''}</summary><div>${inner}</div></details>` : '';
       const note = currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : '';
       if (!m) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="fastighet">🏠</span> ${snoEscape(currentProp.address)} <small>· ingen kundkarta</small></span><span>${pinBtn()}</span></div>
@@ -1880,17 +2013,25 @@
       }
       const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" onchange="renderKkCard()"></div>`;
       const placeBtn = `<button class="kk-small" onclick="startPin()">📌 Passa in med punkter</button>`;
+      const aiBtn = `<button class="kk-small" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '<span data-icon="ai">🤖</span> Föreslå punkter'}</button>`;
+      const nAll = aiTargets().length;
+      const allBtn = aiRun.on || nAll || aiRun.total ? `<button class="kk-small" onclick="runAllSuggest()">${aiRun.on ? (aiRun.stop ? '⏳ Stoppar…' : '⏹ Stoppa kör alla') : `🤖 Föreslå punkter för alla ej utlagda (${nAll})`}</button><div class="status" id="ai-run" style="font-size:12px"></div>` : '';
+      const aiMark = m.place && m.place.ai ? `<div class="status" style="font-size:12px">🤖 AI-inpassad ${snoEscape(m.place.ai.at || '')} · ${m.place.ai.n} punkter, ${fmtNum(m.place.ai.err)} m – granska mot satelliten och 💾 spara (✋ Justera) när den stämmer.</div>` : '';
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
-          <div class="status" style="font-size:12px">Verktygen ligger nere på kartan: vad fingret flyttar, genomskinlighet, 📌 Passa in med punkter och 💾 Spara läge. Dölj gärna panelen med ⟩.</div>`;
+          <div class="status" style="font-size:12px">Verktygen ligger nere på kartan: vad fingret flyttar, genomskinlighet, 📌 Passa in med punkter, 🤖 Föreslå punkter och 💾 Spara läge. Dölj gärna panelen med ⟩.</div>
+          ${allBtn}`;
+        renderAiRun();
         return;
       }
       const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;
       const maps = kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : '';
       el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="kundkarta">📄</span> Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || currentProp.address))}</small></span>
           <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button><button class="kk-icon" title="Justera läge" onclick="adjustVisible()"><span data-icon="justera">✋</span></button></span></div>
-        ${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn}
-        ${more(maps + opacity + (m.place ? placeBtn : '') + vagkarta + note + neighborsHtml())}`;
+        ${aiMark}${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'points' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn + aiBtn}
+        ${kk.aiResult && !kk.adjusting ? `<div class="status" style="font-size:12px">${kk.aiResult}</div>` : ''}
+        ${more(maps + opacity + (m.place ? placeBtn + aiBtn : '') + allBtn + vagkarta + note + neighborsHtml())}`;
+      renderAiRun();
     }
 
     function dropSuggestion(i) { suggestions.splice(i, 1); renderSuggestions(); }
