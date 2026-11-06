@@ -31,7 +31,7 @@ Administratörerna vill bara se det som gäller snön just nu. Vilka delar av ap
 - **In i panelen:** Daniels vanliga konto ser 🎛️ Moduler → saknar enheten SU-inloggning: **Skicka SU-länk till min e-post** → engångslänk (en gång, 15 minuter) → enheten är SU-inloggad i 30 dagar eller tills utloggning/spärr. Bara en hash av koden sparas.
 - **Nödutgångar (körs i Apps Script-editorn):** `suNodatkomst` mejlar en ny SU-länk även om appen eller Personal är trasig; `suSparraAlla` loggar ut alla SU-enheter.
 - **Skydd av Daniels vanliga konto:** andra admins kan inte sätta det i karantän, göra det inaktivt eller ta bort admin.
-- Öppet: SU-e-post – Google-kontot som äger skriptet eller jobbmejlen?
+- SU-e-post: Daniels jobbmejl (samma konto som äger skriptet). Sätts i `SU_EPOST`.
 
 ## Plogometern och Sandometern i mobilappen
 - **Varje person väljer själv** i telefonen, längst ner på startsidan vid Läge: 🌨️ Väder: [🚜 Plogometern] [🪣 Sandometern]. Båda på från början.
