@@ -2138,8 +2138,12 @@ function handleSavePropertyMapPlace(data) {
   const pl = data.place || {};
   const pt = (p) => Array.isArray(p) && p.length === 2 && isFinite(p[0]) && isFinite(p[1]) ? [Number(Number(p[0]).toFixed(7)), Number(Number(p[1]).toFixed(7))] : null;
   const place = { c: pt(pl.c), w: Number(pl.w), rot: Number(pl.rot) || 0, tl: pt(pl.tl), tr: pt(pl.tr), bl: pt(pl.bl) };
-  // 🤖 AI-inpassad (Föreslå punkter, kör alla): största avvikelse i m och antal punkter – visas så att någon granskar läget
-  if (pl.ai && isFinite(pl.ai.err)) place.ai = { err: Math.round(Number(pl.ai.err) * 10) / 10, n: Math.min(20, Math.max(0, Math.round(Number(pl.ai.n) || 0))), at: Utilities.formatDate(new Date(), "Europe/Stockholm", "yyyy-MM-dd") };
+  // 🤖 AI-inpassad (Föreslå punkter, kör alla, Claudes kartpassning): största avvikelse i m, antal punkter och underlaget
+  // avvikelsen mättes mot (kommun = kommunens hus, osm, overture, gemini) – visas som nivå så att någon granskar läget
+  if (pl.ai && isFinite(pl.ai.err)) {
+    place.ai = { err: Math.round(Number(pl.ai.err) * 10) / 10, n: Math.min(40, Math.max(0, Math.round(Number(pl.ai.n) || 0))), at: Utilities.formatDate(new Date(), "Europe/Stockholm", "yyyy-MM-dd") };
+    if (["kommun", "osm", "overture", "gemini"].indexOf(pl.ai.src) >= 0) place.ai.src = pl.ai.src;
+  }
   if (!place.c || !place.tl || !place.tr || !place.bl || !(place.w > 1 && place.w < 5000)) return createJsonResponse({ status: "error", message: "Ogiltigt läge." });
   const maps = propertyMaps(hit.row);
   const m = maps.find(x => x.id === data.mapId);

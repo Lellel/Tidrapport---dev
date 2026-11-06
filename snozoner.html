@@ -1773,6 +1773,13 @@
     const SAT_Z = 18, SAT_N = 4, AI_MAX_ERR = 2, LANDINFO_MAX_ROT = 3;
     const isLandInfo = (m) => /LandInfo/i.test((m && m.label) || '');
     const fmtNum = (x) => String(Math.round(x * 10) / 10).replace('.', ',');
+    // Noggrannhet för AI-inpassade kartor: avvikelsen gäller bara mot underlaget – kommunens hus är samma grundkarta som kundkartan.
+    // Saknas underlag (äldre inpassningar) räknas det som OSM. 🟢 < 1 m mot kommunen, 🟡 1–2 m, 🟠 2 m eller mer / annat underlag.
+    const AI_SRC = { kommun: 'kommunens hus', osm: 'OpenStreetMap', overture: 'Overture', gemini: 'satellit (Gemini)' };
+    function aiLevel(ai) {
+      const src = ai.src || 'osm', lvl = src !== 'kommun' || ai.err >= 2 ? '🟠 Granska noga' : ai.err >= 1 ? '🟡 Säker' : '🟢 Mycket säker';
+      return `${lvl} · ${ai.n} punkter, största avvikelse ${fmtNum(ai.err)} m mot ${AI_SRC[src] || snoEscape(src)}`;
+    }
     async function satSnapshot(center) {
       const crs = L.CRS.EPSG3857, c = crs.latLngToPoint(L.latLng(center[0], center[1]), SAT_Z);
       const size = SAT_N * 256, origin = L.point(Math.round(c.x - size / 2), Math.round(c.y - size / 2));
@@ -1875,7 +1882,7 @@
             const r = await aiSuggest(p, m, W, H);
             if (r.ok) {
               const c = kkCorners(r.place, W, H);
-              const res = await snoApi({ action: 'savePropertyMapPlace', id: p.id, mapId: m.id, place: { ...r.place, tl: c.tl, tr: c.tr, bl: c.bl, ai: { err: r.err, n: r.pairs.length } } });
+              const res = await snoApi({ action: 'savePropertyMapPlace', id: p.id, mapId: m.id, place: { ...r.place, tl: c.tl, tr: c.tr, bl: c.bl, ai: { err: r.err, n: r.pairs.length, src: 'gemini' } } });
               if (res.status !== 'success') throw new Error(res.message || 'kunde inte spara');
               m.place = res.place; aiRun.okN++;
               aiRun.log.push(`✅ ${snoEscape(p.address)}: ${r.facts}`);
@@ -1946,7 +1953,7 @@
       if (!x || kkMap() !== x.m) return `<div class="kk-row"><button onclick="reviewNext()">▶ Fortsätt granska (${left} kvar)</button><button onclick="stopReview('Granskningen avslutad.')">⏹ Avsluta</button></div>`;
       const ai = x.m.place && x.m.place.ai;
       return `<div class="status" style="font-size:13px"><b>🤖 Granska · ${left} kvar</b>${x.p.maps.length > 1 ? ` · ${snoEscape(x.m.label || 'Karta ' + (x.i + 1))}` : ''}<br>
-          <small>${ai ? `${ai.n} punkter, största avvikelse ${fmtNum(ai.err)} m. ` : ''}Stämmer kundkartan mot satelliten?</small></div>
+          <small>${ai ? aiLevel(ai) + '. ' : ''}Stämmer kundkartan mot kartan under?</small></div>
         <div class="kk-row"><button class="ok" onclick="reviewOk()" ${review.ready ? '' : 'disabled'}>${review.ready ? '✅ Stämmer – nästa' : '⏳ Laddar…'}</button><button onclick="adjustVisible()">✋ Justera</button></div>
         <div class="kk-row"><button onclick="reviewSkip()">⏭ Hoppa över</button><button onclick="reviewWrong()">❌ Fel – ta bort läget</button><button onclick="stopReview('Granskningen avslutad.')">⏹ Avsluta</button></div>`;
     }
@@ -2076,7 +2083,7 @@
       const aiBtn = `<button class="kk-small" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '<span data-icon="ai">🤖</span> Föreslå punkter'}</button>`;
       const nAll = aiTargets().length;
       const allBtn = aiRun.on || nAll || aiRun.total ? `<button class="kk-small" onclick="runAllSuggest()">${aiRun.on ? (aiRun.stop ? '⏳ Stoppar…' : '⏹ Stoppa kör alla') : `🤖 Föreslå punkter för alla ej utlagda (${nAll})`}</button><div class="status" id="ai-run" style="font-size:12px"></div>` : '';
-      const aiMark = review.on ? '' : m.place && m.place.ai ? `<div class="status" style="font-size:12px">🤖 AI-inpassad ${snoEscape(m.place.ai.at || '')} · ${m.place.ai.n} punkter, ${fmtNum(m.place.ai.err)} m – granska mot satelliten och 💾 spara (✋ Justera) när den stämmer.</div>` : '';
+      const aiMark = review.on ? '' : m.place && m.place.ai ? `<div class="status" style="font-size:12px">🤖 AI-inpassad ${snoEscape(m.place.ai.at || '')} · ${aiLevel(m.place.ai)} – granska och 💾 spara (✋ Justera) när den stämmer.</div>` : '';
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Verktygen ligger nere på kartan: vad fingret flyttar, genomskinlighet, 📌 Passa in med punkter, 🤖 Föreslå punkter och 💾 Spara läge. Dölj gärna panelen med ⟩.</div>

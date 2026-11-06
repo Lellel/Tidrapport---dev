@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-07-granska-ai', datum: '2026-11-07', roller: ['admin'], modul: 'sno',
+    titel: '🤖 Granska AI-inpassade kundkartor',
+    text: 'Kartor som AI:n passat in har 🤖 i adresslistan. 🤖 Granska AI-inpassade (⋯ på kundkartans kort) går igenom dem en i taget: ✅ Stämmer, ✋ Justera, ⏭ Hoppa över eller ❌ Fel. Varje karta visar hur säker den är – 🟢 under 1 m mot kommunens hus, 🟡 1–2 m, 🟠 granska noga.' },
   { id: '2026-11-06-foresla-punkter', datum: '2026-11-06', roller: ['admin'], modul: 'sno',
     titel: '🤖 Föreslå punkter för kundkartan',
     text: 'AI:n pekar ut gemensamma punkter i kundkartan och satelliten, appen räknar läget och godkänner bara om det stämmer inom 2 m. Kan köras för alla kartor som inte är utlagda (⋯ Mer). LandInfo-kartor som sparas mer än 3° vridna ger en varning.' },

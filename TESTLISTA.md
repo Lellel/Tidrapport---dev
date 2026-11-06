@@ -710,4 +710,5 @@ Snöjour (telefon):
 - [ ] ✋ Justera i granskningen → 💾 Spara läge → nästa öppnas; ✕ Avbryt → tillbaka till granskningskortet
 - [ ] ⏭ Hoppa över → kartan behåller 🤖; ❌ Fel – ta bort läget → frågar, kartan blir "inte utlagd"
 - [ ] Sista → "🎉 Inget kvar att granska" (med antal överhoppade); ⏹ Avsluta avbryter när som helst
+- [ ] Granskningskortet och kartkortet visar nivå: 🟢 (< 1 m mot kommunens hus), 🟡 (1–2 m), 🟠 (≥ 2 m eller OSM/satellit) – t.ex. Kungsgatan 1 Malmköping 🟢, äldre Flen-kartor 🟠
 - [ ] Passa in Auragatan 4 och Salstagatan 16 (ligger i standardläget)
