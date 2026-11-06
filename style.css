@@ -802,3 +802,6 @@ body.not-super .lpv-only { display: none !important; }
 
 /* Natt: inga färgklot i bakgrunden */
 :root[data-theme="night"] body::before, :root[data-theme="night"] body::after { display: none; }
+
+/* hidden ska alltid vinna (t.ex. 🎛️ Moduler som bara syns för SU) */
+.su-only[hidden] { display: none !important; }

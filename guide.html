@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="stylesheet" href="theme.css">
   <script src="theme.js"></script>
+  <script src="moduler.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Bruksanvisning</title>
   <!-- Bruksanvisning per roll: guide.html?roll=forare|handskottare|ue|ekonom|admin (annars den inloggades roll).
@@ -155,9 +156,9 @@
   </details>
 
   <!-- ===================== SNÖ ===================== -->
-  <h2 class="del" data-roller="forare handskottare ue admin">Snö</h2>
+  <h2 data-modul="sno" class="del" data-roller="forare handskottare ue admin">Snö</h2>
 
-  <details data-roller="forare handskottare ue admin">
+  <details data-roller="forare handskottare ue admin" data-modul="sno">
     <summary>❄️ Snöjour – ditt snöpass</summary>
     <div class="body">
       <ol>
@@ -173,14 +174,14 @@
     </div>
   </details>
 
-  <details data-roller="ue admin">
+  <details data-roller="ue admin" data-modul="sno">
     <summary>👥 UE-ansvarig: hela företagets fastigheter</summary>
     <div class="body">
       <p>Är du UE-ansvarig ser du alla fastigheter som ditt företag har, med en rad per förare (t.ex. "Kalle 8/12"). Du kan markera klart åt dina förare.</p>
     </div>
   </details>
 
-  <details data-roller="forare handskottare ue admin">
+  <details data-roller="forare handskottare ue admin" data-modul="sno">
     <summary>⚠️ Lägg ut ett hinder</summary>
     <div class="body">
       <ol>
@@ -193,18 +194,19 @@
     </div>
   </details>
 
-  <details data-roller="forare handskottare ue admin">
+  <details data-roller="forare handskottare ue admin" data-modul="sno">
     <summary>🌨️ Plogometern, Sandometern och widgeten</summary>
     <div class="body">
       <p>Appen bevakar vädret i ditt område. Du får en notis när det är dags: <b>"Ladda kaffebryggaren"</b> (snö på väg), <b>"Starta kaffebryggaren"</b> (dags att plogas) och <b>"Avblåst"</b>.</p>
+      <p><b>Välj själv vilka mätare du vill ha:</b> längst ner på startsidan under <b>Väder</b> – tryck på 🚜 Plogometern eller 🪣 Sandometern för att slå av eller på. Den du stänger av syns inte och ger inga notiser.</p>
       <p>Mätarna syns överst på startsidan och i Snöjour. Vill du ha dem på hemskärmen: tryck <b>📱 Widget på hemskärmen</b> och följ stegen (gratisappen Scriptable, ca 3 minuter).</p>
     </div>
   </details>
 
   <!-- ===================== EKONOMI ===================== -->
-  <h2 class="del" data-roller="ekonom admin">Ekonomi</h2>
+  <h2 data-modul="ekonomi" class="del" data-roller="ekonom admin">Ekonomi</h2>
 
-  <details data-roller="ekonom admin">
+  <details data-roller="ekonom admin" data-modul="ekonomi">
     <summary>💰 Fakturaunderlag</summary>
     <div class="body">
       <p>Öppna <b>Ekonomi</b> (startsidan eller Mer-menyn). Här finns allt som är utfört men inte fakturerat.</p>
@@ -225,7 +227,7 @@
   <!-- ===================== ADMIN ===================== -->
   <h2 class="del" data-roller="admin">Arbetsledning</h2>
 
-  <details data-roller="admin">
+  <details data-roller="admin" data-modul="personal">
     <summary>👥 Personal och välkomstpaket</summary>
     <div class="body">
       <ul>
@@ -239,7 +241,7 @@
     </div>
   </details>
 
-  <details data-roller="admin">
+  <details data-roller="admin" data-modul="radar">
     <summary>🔭 Radarn – planera jobben</summary>
     <div class="body">
       <ul>
@@ -251,14 +253,14 @@
     </div>
   </details>
 
-  <details data-roller="admin">
+  <details data-roller="admin" data-modul="offerter">
     <summary>📄 Offerter och kunder</summary>
     <div class="body">
       <p>Skapa offert eller ÄTA i <b>Offerter</b>, välj mall och skicka med SMS eller mejl. Kunden godkänner eller avböjer med länken. Kundregistret finns under <b>💼 Kunder</b>.</p>
     </div>
   </details>
 
-  <details data-roller="admin">
+  <details data-roller="admin" data-modul="sno">
     <summary>🚜 Snöplaneringen – tavlan</summary>
     <div class="body">
       <ul>
@@ -272,7 +274,7 @@
     </div>
   </details>
 
-  <details data-roller="admin">
+  <details data-roller="admin" data-modul="sno">
     <summary>✏️ Rita snözoner</summary>
     <div class="body">
       <ul>
@@ -283,7 +285,7 @@
     </div>
   </details>
 
-  <details data-roller="admin">
+  <details data-roller="admin" data-modul="sno">
     <summary>🌨️ Vädervyn</summary>
     <div class="body">
       <p><b>Väder</b> (Mer-menyn) visar alla områden med timprognos, vägyta och kamera. Ändra gränsen under <b>Plogas från</b>. <b>🔄 Mät nu</b> hämtar nytt direkt.</p>
@@ -327,7 +329,7 @@
     document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.roll === roll));
     document.querySelectorAll('[data-roller]').forEach(el => { el.hidden = el.dataset.roller.split(' ').indexOf(roll) === -1; });
     document.getElementById('sub').textContent = 'För ' + (roll === 'ue' ? 'UE' : ROLLER[roll].toLowerCase()) + '. Senast uppdaterad ' + senast + '.';
-    const mine = nyheter.filter(n => n.roller.indexOf(roll) !== -1).slice(0, 5);
+    const mine = nyheter.filter(n => n.roller.indexOf(roll) !== -1 && (!n.modul || !window.lpvModuleOn || window.lpvModuleOn(n.modul))).slice(0, 5);
     document.getElementById('nytt').hidden = !mine.length;
     document.getElementById('nytt-lista').innerHTML = mine.map(n =>
       '<li><b>' + esc(n.titel) + '</b> <span class="d">' + esc(n.datum) + '</span><br>' + esc(n.text) + '</li>').join('');

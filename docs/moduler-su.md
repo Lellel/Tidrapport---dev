@@ -1,6 +1,6 @@
 # Moduler per person, SU-panelen och väderval
 
-Bestämt med Daniel 2026-11-06. **Inte byggt.**
+Bestämt med Daniel 2026-11-06. **Byggt samma dag** (Kod.gs: readModules, handleSuCall, suNodatkomst, suSparraAlla; moduler.html; theme.js: lpvApplyModules; vader.js: lpvVaderVal).
 
 ## Bakgrund
 Administratörerna vill bara se det som gäller snön just nu. Vilka delar av appen en person ser ska kunna styras per person, och det ska bara Daniel (SU) kunna ändra.
@@ -13,9 +13,9 @@ Administratörerna vill bara se det som gäller snön just nu. Vilka delar av ap
 | 📄 Offerter & kunder | Offerter, ÄTA, kundregister |
 | 💰 Ekonomi | Fakturaunderlag |
 | 👥 Personal | Personalöversikt, välkomstpaket, nya personer |
-| 🐄 Stalltvätt | Arbetsorder och robotlarm |
 | ⏱️ Tidrapport | Syns alltid |
 
+- **Stalltvätt är ingen modul:** den har ingen menyknapp, arbetsordern visas bara när man stämplar in på ett stalljobb.
 - Ingen bock = allt som rollen ger (inget ändras förrän SU bockar).
 - En avbockad modul **döljs** i alla menyer (sidomeny, flikrad, Mer, admin-knappar), i bruksanvisningen, i "Nytt sedan sist" och i välkomstmejlet. Den **spärras inte** – behörigheten följer fortfarande rollen.
 - Lagras i en ny kolumn **Moduler** i Personal. Appen läser den via `me` när den startar.
@@ -37,3 +37,9 @@ Administratörerna vill bara se det som gäller snön just nu. Vilka delar av ap
 - **Varje person väljer själv** i telefonen, längst ner på startsidan vid Läge: 🌨️ Väder: [🚜 Plogometern] [🪣 Sandometern]. Båda på från början.
 - Det som stängs av försvinner från startsidan och Snöjour, och ger inga notiser.
 - Sparas per telefon. Widgeten styrs som förut av sin egen parameter.
+
+## Så sätts SU upp (en gång)
+Apps Script → ⚙️ Projektinställningar → Skriptegenskaper → lägg till `SU_NAMN` = namnet exakt som i Personal (Daniel) och `SU_EPOST` = SU-e-posten. Utan dem finns ingen SU och panelen går inte att öppna.
+
+## Hur döljningen fungerar
+`me` ger `modules` (null = allt) och `su`. Appen sparar dem i `lpv_modules`/`lpv_su`. `theme.js` (lpvApplyModules) döljer alla länkar och knappar som leder till en dold moduls sidor, och element med `data-modul`. Bruksanvisningens avsnitt har `data-modul`; nyheter i `nyheter.js` kan ha `modul`.

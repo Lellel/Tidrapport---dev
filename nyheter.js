@@ -2,13 +2,16 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-06-vaderval', datum: '2026-11-06', roller: ['forare', 'handskottare', 'ue', 'admin'], modul: 'sno',
+    titel: 'Välj vilka vädermätare du vill ha',
+    text: 'Längst ner på startsidan under Väder: slå av eller på 🚜 Plogometern och 🪣 Sandometern. Den du stänger av syns inte och ger inga notiser.' },
   { id: '2026-11-06-guide', datum: '2026-11-06', roller: ['forare', 'handskottare', 'ue', 'ekonom', 'admin'],
     titel: 'Bruksanvisning för din roll',
     text: 'Tryck 📖 Bruksanvisning på startsidan. Här står alltid hur appen fungerar just nu, och vad som är nytt.' },
-  { id: '2026-11-06-snoplanering', datum: '2026-11-06', roller: ['admin'],
+  { id: '2026-11-06-snoplanering', datum: '2026-11-06', roller: ['admin'], modul: 'sno',
     titel: 'Snöplaneringen är ny',
     text: 'Tavlan ser ut som Radarn: traktorremsan överst, kulpåsen till vänster och fastigheterna som kort. Fastigheter och traktorer ändras under ⚙️ Register.' },
-  { id: '2026-11-05-snojour', datum: '2026-11-05', roller: ['forare', 'handskottare', 'ue', 'admin'],
+  { id: '2026-11-05-snojour', datum: '2026-11-05', roller: ['forare', 'handskottare', 'ue', 'admin'], modul: 'sno',
     titel: 'Snöjour visar dina fastigheter',
     text: 'Du ser fastigheterna där din kula ligger, närmast först. Tryck ✅ Klar på varje fastighet när du är färdig. Slingorna finns inte längre.' }
 ];
@@ -33,7 +36,8 @@ window.lpvGuideRoll = function () {
   let seen = '';
   try { seen = localStorage.getItem('lpv_nytt_sett') || ''; } catch (e) { return; }
   const roll = window.lpvGuideRoll();
-  const mine = window.LPV_NYHETER.filter(n => n.roller.indexOf(roll) !== -1);
+  const modOk = (n) => !n.modul || !window.lpvModuleOn || window.lpvModuleOn(n.modul);
+  const mine = window.LPV_NYHETER.filter(n => n.roller.indexOf(roll) !== -1 && modOk(n));
   if (!mine.length) return;
   const latest = mine[0];
   const markSeen = () => { try { localStorage.setItem('lpv_nytt_sett', latest.datum + '|' + latest.id); } catch (e) { /* privat läge */ } };

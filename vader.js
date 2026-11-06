@@ -7,7 +7,7 @@
   const css = document.createElement('style');
   css.id = 'vader-css';
   css.textContent = `
-    .vx-meters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .vx-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; }
     .vx-meter { position: relative; border-radius: 18px; padding: 10px 10px 12px; background: rgba(255,255,255,.06); border: 1px solid rgba(148,163,184,.25); overflow: hidden; min-width: 0; text-align: center; }
     .vx-meter h4 { margin: 0; font-size: 14px; font-weight: 800; text-align: left; }
     .vx-meter svg { display: block; width: 100%; height: auto; }
@@ -83,8 +83,17 @@ function vxBrewer(level, title, text) {
   </div>`;
 }
 
-function vxMeters(a) {
-  return `<div class="vx-meters">${vxGauge('🚜 Plogometern', a.plog, 'plog', a.plogWhy, a.plogWhen)}${vxGauge('🪣 Sandometern', a.sand, 'sand', a.sandWhy, a.sandWhen)}</div>`;
+// Personens val i mobilappen (startsidan → Väder): vilka mätare som visas och ger notiser. Båda på från början.
+window.lpvVaderVal = function () {
+  try { const v = JSON.parse(localStorage.getItem('lpv_vader_val') || 'null'); if (v && typeof v === 'object') return { plog: v.plog !== false, sand: v.sand !== false }; } catch (e) { /* privat läge */ }
+  return { plog: true, sand: true };
+};
+
+// all = true: visa båda oavsett val (adminens vädervy)
+function vxMeters(a, all) {
+  const v = all ? { plog: true, sand: true } : window.lpvVaderVal();
+  const parts = (v.plog ? vxGauge('🚜 Plogometern', a.plog, 'plog', a.plogWhy, a.plogWhen) : '') + (v.sand ? vxGauge('🪣 Sandometern', a.sand, 'sand', a.sandWhy, a.sandWhen) : '');
+  return parts ? `<div class="vx-meters">${parts}</div>` : '';
 }
 
 function vxAge(at) {

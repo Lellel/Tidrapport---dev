@@ -221,6 +221,9 @@ function doPost(e) {
     if (action === "getOfferForCustomer") return handleGetOfferForCustomer(data);
     if (action === "redeemPcLink") return handleRedeemPcLink(data);
     if (action === "respondOffer") return handleRespondOffer(data);
+    // SU-panelen (moduler.html): egen engångslänk + SU-session, se docs/moduler-su.md
+    if (action === "suRedeem") return handleSuRedeem(data);
+    if (action === "suCall") return handleSuCall(data);
 
     // --- INLOGGNING: personlig nyckel (eller gamla gemensamma nyckeln under övergången) ---
     const auth = authenticate(data);
@@ -265,6 +268,7 @@ function doPost(e) {
 
     // --- ROUTER ---
     if (action === "me") return createJsonResponse({ status: "success", user: auth.user, role: auth.role || "", company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist,
+      modules: (readStaffAuth(auth.user) || {}).modules || null, su: isSuUser(auth.user),
       guideRoll: guideRollFor([auth.isAdmin ? "admin" : "", auth.isEconomist || /^ekonom$/i.test(auth.role || "") ? "ekonom" : "", /^ue$/i.test(auth.role || "") ? "ue" : ""].filter(Boolean), auth.user) });
     // Offerter: Klaryta-admin får bara röra Klarytas offerter
     if ((action === "sendOffer" || action === "cancelOffer") && !auth.isSuper) {
@@ -320,6 +324,7 @@ function doPost(e) {
     }
     if (action === "sendPcLink") return handleSendPcLink(data, auth);
     if (action === "getUserKey") {
+      if (isSuUser(data.targetUser) && !isSuUser(auth.user)) return createJsonResponse({ status: "error", message: "Den här personens länk kan bara hanteras av personen själv." });
       if (!auth.isSuper) {
         const st = findStaffRow(getStaffSheet(), data.targetUser);
         if (!st || !inScope(auth, st.row[6]) || isAdminRow(st.row) || isEconomistRow(st.row)) return createJsonResponse({ status: "error", message: "Åtkomst nekad: bara admin på LPV kan hantera den personens länk." });
@@ -396,6 +401,7 @@ function doPost(e) {
     if (action === "getStaffOverview") return handleStaffOverview(auth);
     if (action === "getStaffHistory") return handleStaffHistory(data, auth);
     if (action === "updateStaff") return handleUpdateStaff(data, auth);
+    if (action === "suRequestLink") return handleSuRequestLink(data, auth);
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
 
@@ -463,7 +469,8 @@ function readStaffAuth(name) {
     isEconomist: isEconomistRow(hit.row),
     role: String(hit.row[3] || "").trim(),
     company: companyOf(hit.row[6]),
-    quarantined: String(hit.row[7] || "").toLowerCase() === "karantän"
+    quarantined: String(hit.row[7] || "").toLowerCase() === "karantän",
+    modules: readModules(hit.row)
   };
   cache.put(cacheKey, JSON.stringify(info), AUTH_CACHE_SECONDS);
   return info;
@@ -646,9 +653,10 @@ function welcomeMailFrame(brand, heading, inner) {
 }
 
 // Kontorsdelarna per roll. LPV-admin når allt; Klaryta-admin bara sina delar.
-function welcomeSections(roles, isSuper, site) {
+function welcomeSections(roles, isSuper, site, modules) {
   const items = [];
-  const add = (icon, title, page, text) => items.push('<tr><td style="padding:8px 10px 8px 0;font-size:22px;vertical-align:top">' + icon + '</td><td style="padding:8px 0">' +
+  const PAGE_MODULE = { "radar.html": "radar", "offerter.html": "offerter", "offerter.html?view=customers": "offerter", "planering.html": "sno", "snozoner.html": "sno", "ekonomi.html": "ekonomi", "personal.html": "personal" };
+  const add = (icon, title, page, text) => (modules && PAGE_MODULE[page] && modules.indexOf(PAGE_MODULE[page]) === -1) ? 0 : items.push('<tr><td style="padding:8px 10px 8px 0;font-size:22px;vertical-align:top">' + icon + '</td><td style="padding:8px 0">' +
     '<a href="' + escHtml(site + page) + '" style="font-weight:700;color:#0a6fe0;text-decoration:none">' + title + '</a><br><span style="color:#475569;font-size:14px">' + text + '</span></td></tr>');
   if (roles.indexOf("admin") !== -1) {
     add("🔭", "Radarn", "radar.html", "Planera jobben: dra in personal, maskiner och verktyg på tidslinjen. Personalen får notis när något ändras.");
@@ -729,7 +737,7 @@ function handleSendWelcomeKit(data, auth) {
       MailApp.sendEmail({ to: email, subject: "Välkommen – så kommer du igång", name: brandDisplayName(brand),
         htmlBody: welcomeMailFrame(brand, "Välkommen, " + firstName(name) + "!", intro +
           "<p><b>1. Logga in på datorn</b> – länken fungerar en gång och i " + PC_LINK_DAYS + " dagar:</p>" + pcButtonHtml(link) +
-          "<p><b>2. Det här når du</b> (öppna länkarna på samma dator efter steg 1):</p>" + welcomeSections(roles, isSuper, site) +
+          "<p><b>2. Det här når du</b> (öppna länkarna på samma dator efter steg 1):</p>" + welcomeSections(roles, isSuper, site, readModules(row)) +
           "<p><b>3. Bruksanvisningen</b> – hur allt fungerar just nu, och vad som är nytt:</p>" + guideButtonHtml(guideUrl) +
           '<p style="font-size:14px">Behöver du logga in på en annan dator senare: tryck <b>💻 Logga in på en dator</b> i appen på telefonen.</p>' +
           safariTipHtml()) });
@@ -895,6 +903,8 @@ function handleUpdateStaff(data, auth) {
   if (!auth.isSuper && (role === "Admin" || role === "Ekonom")) return createJsonResponse({ status: "error", message: "Bara admin på LPV kan ge admin- eller ekonombehörighet." });
   if (self && role !== "Admin") return createJsonResponse({ status: "error", message: "Du kan inte ta bort din egen admin-behörighet." });
   if (self && status !== "Aktiv") return createJsonResponse({ status: "error", message: "Du kan inte göra dig själv inaktiv." });
+  if (isSuUser(name) && !self && (role !== staffRoleName(row) || status !== (String(row[7] || "").trim() || "Aktiv")))
+    return createJsonResponse({ status: "error", message: "Den här personens roll och status kan bara ändras av personen själv." });
   const email = sanitize(data.email).replace(/^'/, "").slice(0, 120);
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return createJsonResponse({ status: "error", message: "E-postadressen ser inte rätt ut." });
   const phone = sanitize(data.phone).replace(/^'/, "").slice(0, 20);
@@ -913,6 +923,145 @@ function handleUpdateStaff(data, auth) {
   sheet.getRange(r, 8).setValue(status);
   clearStaffAuthCache(name);
   return createJsonResponse({ status: "success", user: name });
+}
+
+// ==========================================
+// MODULER PER PERSON & SU-PANELEN (se docs/moduler-su.md, 2026-11-06)
+// Kolumn M i Personal: tom = allt rollen ger, annars t.ex. "tid,sno". Modulerna DÖLJS i appen, spärras inte.
+// SU = Skriptegenskaperna SU_NAMN och SU_EPOST (kan inte ändras från appen). SU loggar in i panelen med en
+// engångslänk till SU_EPOST (en gång, 15 min) som ger en SU-session på enheten (30 dagar). Bara hashar sparas.
+// Nödutgångar i editorn: suNodatkomst() mejlar en ny länk, suSparraAlla() loggar ut alla SU-enheter.
+// ==========================================
+const MODULES_COLUMN = 13; // Kolumn M
+const MODULES = ["tid", "sno", "radar", "offerter", "ekonomi", "personal"];
+const SU_LINK_MINUTES = 15, SU_SESSION_DAYS = 30;
+
+function readModules(row) {
+  const t = String((row && row[MODULES_COLUMN - 1]) || "").trim().toLowerCase();
+  if (!t) return null;
+  const list = t.split(/[\s,;]+/).filter(m => MODULES.indexOf(m) !== -1);
+  if (list.indexOf("tid") === -1) list.unshift("tid"); // Tidrapport syns alltid
+  return list;
+}
+
+function suProps() { return PropertiesService.getScriptProperties(); }
+function suName() { return String(suProps().getProperty("SU_NAMN") || "").trim(); }
+function suEmail() { return String(suProps().getProperty("SU_EPOST") || "").trim(); }
+function isSuUser(name) { const n = suName(); return !!n && String(name || "").trim() === n; }
+function suList(key) { try { return JSON.parse(suProps().getProperty(key) || "[]"); } catch (e) { return []; } }
+function suSaveList(key, list) { suProps().setProperty(key, JSON.stringify(list.slice(-20))); }
+function suToken() { return Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "").slice(0, 16); }
+
+function suMailLink(site) {
+  const to = suEmail();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) throw new Error("SU_EPOST saknas i Skriptegenskaper.");
+  const now = Date.now();
+  const links = suList("SU_LANKAR").filter(x => x.exp > now && !x.used);
+  if (links.filter(x => x.at > now - 3600000).length >= 5) throw new Error("Fem SU-länkar senaste timmen. Vänta en stund.");
+  const token = suToken();
+  links.push({ h: pcLinkHash(token), at: now, exp: now + SU_LINK_MINUTES * 60000 });
+  suSaveList("SU_LANKAR", links);
+  const link = site + "moduler.html?su=" + token;
+  MailApp.sendEmail({ to: to, subject: "🎛️ SU-inloggning", name: "Appen",
+    htmlBody: welcomeMailFrame("lpv", "SU-inloggning", "<p>Här är länken till 🎛️ Moduler. Den fungerar <b>en gång</b> och i <b>" + SU_LINK_MINUTES + " minuter</b>.</p>" +
+      '<p style="margin:22px 0"><a href="' + escHtml(link) + '" style="background:#0a6fe0;color:#fff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;display:inline-block">🎛️ Öppna Moduler</a></p>' +
+      '<p style="color:#64748b;font-size:13px">Bad du inte om länken? Kör suSparraAlla i Apps Script och byt lösenord på ditt konto.</p>') });
+  return maskEmail(to);
+}
+
+// Daniels vanliga konto ber om en SU-länk (knappen syns bara för SU)
+function handleSuRequestLink(data, auth) {
+  if (!isSuUser(auth.user)) return createJsonResponse({ status: "error", message: "Åtkomst nekad." });
+  try { return createJsonResponse({ status: "success", sentTo: suMailLink(siteUrlFor(data)) }); }
+  catch (err) { return createJsonResponse({ status: "error", message: err.message }); }
+}
+
+// Engångslänken byts mot en SU-session på enheten
+function handleSuRedeem(data) {
+  const token = String(data.token || "").replace(/[^A-Za-z0-9]/g, "");
+  const fail = { status: "error", message: "SU-länken har redan använts eller gått ut. Be om en ny." };
+  if (token.length < 30 || !suName()) return createJsonResponse(fail);
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const now = Date.now(), h = pcLinkHash(token), links = suList("SU_LANKAR");
+    const hit = links.find(x => x.h === h && !x.used && x.exp > now);
+    if (!hit) return createJsonResponse(fail);
+    hit.used = now;
+    suSaveList("SU_LANKAR", links.filter(x => x.exp > now));
+    const session = suToken();
+    const sessions = suList("SU_SESSIONER").filter(x => x.exp > now);
+    sessions.push({ h: pcLinkHash(session), at: now, exp: now + SU_SESSION_DAYS * 86400000 });
+    suSaveList("SU_SESSIONER", sessions);
+    return createJsonResponse({ status: "success", session: session, user: suName(), days: SU_SESSION_DAYS });
+  } finally { lock.releaseLock(); }
+}
+
+function suSessionValid(session) {
+  const s = String(session || "").replace(/[^A-Za-z0-9]/g, "");
+  if (s.length < 30 || !suName()) return false;
+  const h = pcLinkHash(s), now = Date.now();
+  return suList("SU_SESSIONER").some(x => x.h === h && x.exp > now);
+}
+
+// Allt i panelen går härigenom – kräver en giltig SU-session
+function handleSuCall(data) {
+  if (!suSessionValid(data.session)) return createJsonResponse({ status: "error", code: "su_login", message: "SU-inloggningen gäller inte längre. Be om en ny SU-länk." });
+  const op = String(data.op || "");
+  const sheet = getStaffSheet();
+  if (op === "staff") {
+    const rows = sheet.getDataRange().getValues().slice(1).filter(r => r[0]);
+    return createJsonResponse({ status: "success", su: suName(), modules: MODULES, staff: rows.map(r => ({
+      name: String(r[0]).trim(), role: staffRoleName(r), company: companyOf(r[6]), status: String(r[7] || "").trim() || "Aktiv",
+      modules: readModules(r), su: isSuUser(r[0]) })) });
+  }
+  if (op === "setModules") {
+    const names = Array.isArray(data.names) ? data.names.map(n => String(n).trim()).filter(Boolean).slice(0, 200) : [];
+    let mods = data.modules === null ? null : (Array.isArray(data.modules) ? data.modules.filter(m => MODULES.indexOf(m) !== -1) : undefined);
+    if (mods === undefined || !names.length) return createJsonResponse({ status: "error", message: "Välj personer och moduler." });
+    if (mods && mods.indexOf("tid") === -1) mods.unshift("tid");
+    const done = [];
+    names.forEach(n => {
+      const hit = findStaffRow(sheet, n);
+      if (!hit) return;
+      sheet.getRange(hit.rowNumber, MODULES_COLUMN).setValue(mods ? mods.join(",") : "");
+      clearStaffAuthCache(hit.row[0]);
+      done.push(String(hit.row[0]).trim());
+    });
+    if (sheet.getRange(1, MODULES_COLUMN).getValue() === "") sheet.getRange(1, MODULES_COLUMN).setValue("Moduler").setFontWeight("bold").setBackground("#f3f3f3");
+    return createJsonResponse({ status: "success", updated: done });
+  }
+  if (op === "resetMyLogin") {
+    const hit = findStaffRow(sheet, suName());
+    if (!hit) return createJsonResponse({ status: "error", message: "SU_NAMN (" + suName() + ") finns inte i Personal." });
+    revokeWidgetKeys(hit.row[0]);
+    const key = Utilities.getUuid().replace(/-/g, "");
+    sheet.getRange(hit.rowNumber, KEY_COLUMN).setValue(key);
+    sheet.getRange(hit.rowNumber, 4).setValue("Admin");
+    sheet.getRange(hit.rowNumber, 5).setValue("TRUE");
+    sheet.getRange(hit.rowNumber, 8).setValue("Aktiv");
+    clearStaffAuthCache(hit.row[0]);
+    const site = siteUrlFor(data);
+    return createJsonResponse({ status: "success", loginUrl: site + "index.html?user=" + encodeURIComponent(String(hit.row[0]).trim()) + "&key=" + key + "&admin=true" });
+  }
+  if (op === "logout") {
+    const h = pcLinkHash(String(data.session).replace(/[^A-Za-z0-9]/g, ""));
+    suSaveList("SU_SESSIONER", suList("SU_SESSIONER").filter(x => x.h !== h));
+    return createJsonResponse({ status: "success" });
+  }
+  return createJsonResponse({ status: "error", message: "Okänd åtgärd." });
+}
+
+// NÖDUTGÅNG – kör i Apps Script-editorn: mejlar en ny SU-länk till SU_EPOST
+function suNodatkomst() {
+  const site = PropertiesService.getScriptProperties().getProperty("SITE_URL") || DEFAULT_SITE_URL;
+  Logger.log("✅ SU-länk skickad till " + suMailLink(site) + " (gäller " + SU_LINK_MINUTES + " minuter).");
+}
+
+// NÖDUTGÅNG – kör i Apps Script-editorn: loggar ut alla SU-enheter och gör alla SU-länkar ogiltiga
+function suSparraAlla() {
+  suProps().deleteProperty("SU_SESSIONER");
+  suProps().deleteProperty("SU_LANKAR");
+  Logger.log("✅ Alla SU-inloggningar och SU-länkar är spärrade.");
 }
 
 function getDocSecret() {

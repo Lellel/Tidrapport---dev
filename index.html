@@ -4,6 +4,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
   <meta charset="UTF-8">
   <title>LPV & Klaryta v3.0</title>
+  <script src="moduler.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -84,6 +85,7 @@
       <div class="sheet-item" onclick="location.href='personal.html'"><span data-icon="personal">👥</span>&nbsp; Personal</div>
       <div class="sheet-item" onclick="location.href='ikoner.html'"><span data-icon="ikoner">🎨</span>&nbsp; Appikoner</div>
       <div class="sheet-item" onclick="location.href='guide.html'"><span>📖</span>&nbsp; Bruksanvisning</div>
+      <div class="sheet-item su-only" hidden onclick="location.href='moduler.html'"><span>🎛️</span>&nbsp; Moduler</div>
     </div>
   </div>
 
@@ -212,6 +214,13 @@
           <button type="button" data-theme-val="night">Natt</button>
         </div>
       </div>
+      <div class="theme-picker" data-modul="sno">
+        <div class="theme-picker-label">Väder</div>
+        <div class="seg" id="vader-val" style="grid-template-columns: 1fr 1fr;" role="group" aria-label="Vilka vädermätare som visas">
+          <button type="button" data-vader="plog" aria-pressed="true">🚜 Plogometern</button>
+          <button type="button" data-vader="sand" aria-pressed="true">🪣 Sandometern</button>
+        </div>
+      </div>
       <button type="button" class="main-btn" style="grid-column: 1 / -1; margin-top: 10px;" onclick="location.href='guide.html'">📖 Bruksanvisning</button>
       <button type="button" class="main-btn" style="grid-column: 1 / -1; margin-top: 10px;" onclick="location.href='widget.html'">📱 Widget på hemskärmen</button>
       <button type="button" class="main-btn" style="grid-column: 1 / -1; margin-top: 10px;" onclick="sendPcLinkToMe()">💻 Logga in på en dator</button>
@@ -286,6 +295,7 @@
           <button type="button" class="main-btn admin-nav-btn" onclick="location.href='planering.html'">❄️ Snöplanering – tavla, fastigheter &amp; traktorer</button>
           <button type="button" class="main-btn admin-nav-btn" onclick="location.href='ekonomi.html'">💰 Ekonomi – fakturaunderlag</button>
           <button type="button" class="main-btn admin-nav-btn" onclick="location.href='personal.html'">👥 Personal – översikt</button>
+          <button type="button" class="main-btn admin-nav-btn su-only" hidden onclick="location.href='moduler.html'">🎛️ Moduler – vem ser vad</button>
         </div>
       </div>
     </aside>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
+  <script src="moduler.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Moduler</title>
+  <!-- SU-panelen (docs/moduler-su.md): vilka moduler varje person ser. Kräver en egen SU-inloggning
+       (engångslänk till SU_EPOST) – fungerar även när det vanliga kontot är spärrat. -->
+  <style>
+    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--t-font); font-size: var(--t-fs); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 60px); }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    h1 { font-size: var(--t-fs-title); margin: 16px 0 4px; }
+    .sub { color: var(--muted); font-size: var(--t-fs-small); margin: 0 0 14px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 16px; margin-bottom: 12px; }
+    .btn { min-height: 44px; padding: 0 16px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 15px var(--t-font); cursor: pointer; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .btn.danger { color: var(--danger); }
+    .btn:disabled { opacity: .5; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .msg { margin: 10px 0 0; font-size: var(--t-fs-small); }
+    .msg.ok { color: var(--ok); } .msg.err { color: var(--danger); }
+    .person { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; padding: 12px 0; border-top: 1px solid var(--line); }
+    .person:first-child { border-top: 0; }
+    .person input[type=checkbox] { width: 22px; height: 22px; margin-top: 2px; }
+    .name { font-weight: 700; }
+    .meta { color: var(--muted); font-size: var(--t-fs-small); margin: 2px 0 8px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--t-btn); color: var(--muted); font: 700 13px var(--t-font); cursor: pointer; }
+    .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--card); color: var(--muted); margin-left: 6px; }
+    .bar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
+  <h1>🎛️ Moduler</h1>
+  <p class="sub">Vilka delar av appen varje person ser. Ingen bock ändrad = allt rollen ger. ⏱️ Tidrapport syns alltid. Modulerna döljs – behörigheten följer fortfarande rollen.</p>
+
+  <!-- Inte SU-inloggad på den här enheten -->
+  <div class="card" id="login" hidden>
+    <h2 style="margin:0 0 6px;font-size:17px">SU-inloggning krävs</h2>
+    <p class="sub" style="margin:0 0 12px">Du får en länk till din SU-e-post. Den fungerar en gång och i 15 minuter. Enheten är sedan inloggad i 30 dagar.</p>
+    <button class="btn primary" id="btn-link" type="button">✉️ Skicka SU-länk till min e-post</button>
+    <p class="msg" id="login-msg"></p>
+    <p class="sub" style="margin:12px 0 0">Kommer du inte in alls? Öppna Apps Script och kör <b>suNodatkomst</b> – då kommer en ny länk.</p>
+  </div>
+
+  <!-- Panelen -->
+  <div id="panel" hidden>
+    <div class="bar">
+      <div class="row">
+        <button class="btn primary" type="button" id="btn-sno">❄️ Bara snö för markerade</button>
+        <button class="btn" type="button" id="btn-allt">↺ Allt igen för markerade</button>
+        <button class="btn" type="button" id="btn-mark">Markera alla admins</button>
+      </div>
+      <p class="msg" id="msg"></p>
+    </div>
+    <div class="card" id="list"></div>
+    <div class="card">
+      <h2 style="margin:0 0 6px;font-size:17px">Om något gått snett</h2>
+      <div class="row">
+        <button class="btn" type="button" id="btn-reset">🔑 Återställ min vanliga inloggning</button>
+        <button class="btn danger" type="button" id="btn-logout">Logga ut SU på den här enheten</button>
+      </div>
+      <p class="msg" id="reset-msg"></p>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="knappar.js"></script>
+<script>
+(function () {
+  const MODS = [['sno', '❄️ Snö'], ['radar', '🔭 Radarn'], ['offerter', '📄 Offerter & kunder'], ['ekonomi', '💰 Ekonomi'], ['personal', '👥 Personal']];
+  const SITE = location.origin + location.pathname.replace(/[^/]*$/, '');
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ls = { get: (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
+    set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { /* privat läge */ } } };
+  let staff = [], marked = new Set();
+
+  async function post(body) {
+    const res = await fetch(CONFIG.API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow', body: JSON.stringify({ site: SITE, ...body }) });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch (e) { return { status: 'error', message: 'Servern svarade inte med data (HTTP ' + res.status + ').' }; }
+  }
+  const su = (op, extra) => post({ action: 'suCall', session: ls.get('lpv_su_session'), op, ...extra });
+  const say = (el, text, ok) => { el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); };
+
+  function showLogin() { $('panel').hidden = true; $('login').hidden = false; }
+
+  async function load() {
+    const r = await su('staff').catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
+    if (r.code === 'su_login') { ls.set('lpv_su_session', ''); return showLogin(); }
+    if (r.status !== 'success') { $('panel').hidden = false; say($('msg'), '❌ ' + (r.message || 'Kunde inte hämta.')); return; }
+    staff = r.staff; $('login').hidden = true; $('panel').hidden = false; render();
+  }
+
+  function render() {
+    $('list').innerHTML = staff.map((p, i) => {
+      const all = !p.modules;
+      const chips = MODS.map(([k, label]) => `<button type="button" class="chip" data-i="${i}" data-m="${k}" aria-pressed="${all || p.modules.indexOf(k) !== -1}">${esc(label)}</button>`).join('');
+      return `<div class="person"><input type="checkbox" data-mark="${i}" ${marked.has(p.name) ? 'checked' : ''} aria-label="Markera ${esc(p.name)}">
+        <div><div class="name">${esc(p.name)}${p.su ? '<span class="tag">SU</span>' : ''}${all ? '<span class="tag">Allt</span>' : ''}</div>
+        <div class="meta">${esc(p.role)} · ${esc(p.company)}${p.status !== 'Aktiv' ? ' · ' + esc(p.status) : ''}</div>
+        <div class="chips">${chips}</div></div></div>`;
+    }).join('') || '<p class="sub">Ingen personal hittades.</p>';
+  }
+
+  async function save(names, modules) {
+    say($('msg'), '⏳ Sparar…', true);
+    const r = await su('setModules', { names, modules }).catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
+    if (r.code === 'su_login') { ls.set('lpv_su_session', ''); return showLogin(); }
+    if (r.status !== 'success') return say($('msg'), '❌ ' + (r.message || 'Kunde inte spara.'));
+    staff.forEach(p => { if (r.updated.indexOf(p.name) !== -1) p.modules = modules ? ['tid'].concat(modules.filter(m => m !== 'tid')) : null; });
+    render();
+    say($('msg'), '✅ Sparat för ' + r.updated.join(', ') + '. Gäller nästa gång de öppnar appen.', true);
+  }
+
+  $('list').addEventListener('click', (e) => {
+    const c = e.target.closest('.chip');
+    if (c) {
+      const p = staff[+c.dataset.i];
+      const cur = p.modules ? p.modules.filter(m => m !== 'tid') : MODS.map(x => x[0]);
+      const next = cur.indexOf(c.dataset.m) !== -1 ? cur.filter(m => m !== c.dataset.m) : cur.concat(c.dataset.m);
+      // Alla bockade = Allt (tom kolumn)
+      save([p.name], MODS.every(([k]) => next.indexOf(k) !== -1) ? null : next);
+    }
+  });
+  $('list').addEventListener('change', (e) => {
+    const i = e.target.dataset.mark; if (i === undefined) return;
+    const n = staff[+i].name; e.target.checked ? marked.add(n) : marked.delete(n);
+  });
+  $('btn-mark').onclick = () => { staff.filter(p => p.role === 'Admin' && !p.su).forEach(p => marked.add(p.name)); render(); };
+  $('btn-sno').onclick = () => marked.size ? save([...marked], ['sno']) : say($('msg'), 'Markera personer först.');
+  $('btn-allt').onclick = () => marked.size ? save([...marked], null) : say($('msg'), 'Markera personer först.');
+
+  $('btn-link').onclick = async () => {
+    $('btn-link').disabled = true; say($('login-msg'), '⏳ Skickar…', true);
+    const r = await post({ action: 'suRequestLink', user: ls.get('lpv_user') || ls.get('lpv_user_name'), key: ls.get('lpv_key') }).catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
+    $('btn-link').disabled = false;
+    say($('login-msg'), r.status === 'success' ? '✅ Skickat till ' + r.sentTo + '. Öppna mejlet på den här enheten.' : '❌ ' + (r.message || 'Kunde inte skicka.') +
+      (/Ogiltig inloggning|Åtkomst nekad/.test(r.message || '') ? ' Kör suNodatkomst i Apps Script i stället.' : ''), r.status === 'success');
+  };
+
+  $('btn-reset').onclick = async () => {
+    if (!confirm('Ge ditt vanliga konto en ny inloggning?\n\nDin gamla länk slutar fungera på alla enheter. Admin och status Aktiv återställs.')) return;
+    const r = await su('resetMyLogin').catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
+    if (r.status !== 'success') return say($('reset-msg'), '❌ ' + (r.message || 'Kunde inte återställa.'));
+    $('reset-msg').className = 'msg ok';
+    $('reset-msg').innerHTML = '✅ Klart. <a href="' + esc(r.loginUrl) + '">Logga in den här enheten med nya länken</a>. Spara länken – andra enheter behöver den också.';
+  };
+
+  $('btn-logout').onclick = async () => {
+    await su('logout').catch(() => {});
+    ls.set('lpv_su_session', ''); showLogin();
+  };
+
+  // Engångslänken från mejlet (?su=KOD) byts mot en SU-session och tas bort ur adressfältet
+  (async () => {
+    const token = new URLSearchParams(location.search).get('su');
+    if (token) {
+      try { history.replaceState(null, '', location.pathname); } catch (e) { /* ok */ }
+      const r = await post({ action: 'suRedeem', token }).catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
+      if (r.status === 'success') ls.set('lpv_su_session', r.session);
+      else { showLogin(); return say($('login-msg'), '❌ ' + (r.message || 'Länken fungerade inte.')); }
+    }
+    if (ls.get('lpv_su_session')) load(); else showLogin();
+  })();
+})();
+</script>
+</body>
+</html>

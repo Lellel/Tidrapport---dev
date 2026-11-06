@@ -134,6 +134,11 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
     localStorage.setItem('lpv_company', me.company);
     localStorage.setItem('lpv_role', me.role || '');
     localStorage.setItem('lpv_guide_roll', me.guideRoll || ''); // vilken bruksanvisning (nyheter.js, guide.html)
+    // Moduler per person (SU-panelen) och om det är SU själv – styr bara vad som visas, servern avgör behörigheten
+    localStorage.setItem('lpv_modules', me.modules ? JSON.stringify(me.modules) : '');
+    localStorage.setItem('lpv_su', me.su ? 'true' : 'false');
+    if (window.lpvApplyModules) window.lpvApplyModules();
+    showSuLinks();
     applyRoleUI();
     localStorage.setItem('lpv_is_super', me.isSuper ? 'true' : 'false');
     document.body.classList.toggle('not-super', !me.isSuper);
@@ -175,6 +180,29 @@ async function checkPlanningNotices() {
 document.addEventListener('DOMContentLoaded', checkPlanningNotices);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkPlanningNotices(); });
 
+// 🎛️ Moduler (SU-panelen) syns bara för SU. Servern kräver ändå en egen SU-inloggning.
+function showSuLinks() {
+  let su = false;
+  try { su = localStorage.getItem('lpv_su') === 'true'; } catch (e) { su = false; }
+  document.querySelectorAll('.su-only').forEach(el => { el.hidden = !su; });
+}
+document.addEventListener('DOMContentLoaded', showSuLinks);
+
+// Väder: varje person väljer själv Plogometern och/eller Sandometern (sparas i telefonen, docs/moduler-su.md)
+function initVaderVal() {
+  const box = document.getElementById('vader-val');
+  if (!box || typeof lpvVaderVal !== 'function') return;
+  const paint = () => { const v = lpvVaderVal(); box.querySelectorAll('[data-vader]').forEach(b => b.setAttribute('aria-pressed', v[b.dataset.vader] ? 'true' : 'false')); };
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-vader]'); if (!b) return;
+    const v = lpvVaderVal(); v[b.dataset.vader] = !v[b.dataset.vader];
+    try { localStorage.setItem('lpv_vader_val', JSON.stringify(v)); } catch (err) { /* privat läge */ }
+    paint(); checkWeatherNotice();
+  });
+  paint();
+}
+document.addEventListener('DOMContentLoaded', initVaderVal);
+
 // Vädernotis: när Plogometern/Sandometern byter läge i förarens område ("Ladda kaffebryggaren" 70 %,
 // "Starta kaffebryggaren" 90 %, "Avblåst"). Visas en gång per ändring, när appen öppnas.
 async function checkWeatherNotice() {
@@ -186,14 +214,19 @@ async function checkWeatherNotice() {
   try { seen = JSON.parse(localStorage.getItem('lpv_vader_sett') || '{}'); } catch (e) { seen = {}; }
   const names = res.mine || Object.keys(res.areas || {});
   renderWeatherMini(res, names);
-  const fresh = names.filter(n => res.areas[n] && res.areas[n].changeId && seen[n] !== res.areas[n].changeId && Date.now() - (res.areas[n].changedAt || 0) < 18 * 3600000);
+  // Bara mätarna personen valt: ingen notis för en mätare som är avstängd
+  const val = typeof lpvVaderVal === 'function' ? lpvVaderVal() : { plog: true, sand: true };
+  const rel = (a) => Math.max(val.plog ? a.plog : 0, val.sand ? a.sand : 0);
+  const fresh = (val.plog || val.sand) ? names.filter(n => res.areas[n] && res.areas[n].changeId && seen[n] !== res.areas[n].changeId && Date.now() - (res.areas[n].changedAt || 0) < 18 * 3600000
+    && (res.areas[n].level === 0 || rel(res.areas[n]) >= 50)) : [];
   document.getElementById('vader-notice')?.remove();
   if (!fresh.length) return;
   const top = fresh.map(n => res.areas[n]).sort((a, b) => b.level - a.level)[0];
   const box = document.createElement('div');
   box.id = 'vader-notice';
   box.style.cssText = 'margin:0 0 12px;padding:14px;border-radius:18px;background:#0f1d33;color:#e7eef7;box-shadow:0 8px 24px rgba(15,29,51,.35);';
-  const title = top.level >= 2 ? (top.sand > top.plog ? 'Ut och sanda!' : 'Starta kaffebryggaren!') : top.level === 1 ? (top.sand > top.plog ? 'Fyll sandspridaren' : 'Ladda kaffebryggaren') : 'Avblåst – sov vidare';
+  const sandFirst = val.sand && (!val.plog || top.sand > top.plog);
+  const title = top.level >= 2 ? (sandFirst ? 'Ut och sanda!' : 'Starta kaffebryggaren!') : top.level === 1 ? (sandFirst ? 'Fyll sandspridaren' : 'Ladda kaffebryggaren') : 'Avblåst – sov vidare';
   box.innerHTML = vxBrewer(top.level, title, fresh.map(n => String(res.areas[n].notice || '').replace(/^[^:]*?(–|!)\s*/, '')).join(' ')) +
     `<div style="display:flex;gap:8px;margin-top:10px;"><button type="button" id="vader-ok" style="flex:1;min-height:44px;border:0;border-radius:12px;background:#fff;color:#0f1d33;font-weight:800;font-size:15px;">👍 Uppfattat</button>` +
     `<button type="button" onclick="location.href='snojour.html'" style="flex:1;min-height:44px;border:1px solid rgba(255,255,255,.35);border-radius:12px;background:transparent;color:#fff;font-weight:700;font-size:15px;">🚜 Visa mätarna</button></div>`;
@@ -207,10 +240,12 @@ async function checkWeatherNotice() {
 }
 // Mini-mätarna överst på startsidan för den som har snöfastigheter (kulan på kortet)
 function renderWeatherMini(res, names) {
+  const val = typeof lpvVaderVal === 'function' ? lpvVaderVal() : { plog: true, sand: true };
+  const rel = (o) => Math.max(val.plog ? o.plog : 0, val.sand ? o.sand : 0);
   const a = names.map(n => res.areas[n] && Object.assign({ name: n }, res.areas[n])).filter(Boolean)
-    .sort((x, y) => Math.max(y.plog, y.sand) - Math.max(x.plog, x.sand))[0];
+    .sort((x, y) => rel(y) - rel(x))[0];
   let box = document.getElementById('vader-mini');
-  if (!a || typeof vxMeters !== 'function') { if (box) box.remove(); return; }
+  if (!a || typeof vxMeters !== 'function' || (!val.plog && !val.sand)) { if (box) box.remove(); return; }
   if (!box) {
     box = document.createElement('div'); box.id = 'vader-mini';
     box.style.cssText = 'margin:0 0 12px;padding:12px;border-radius:20px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);color:var(--fg);cursor:pointer;';

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <link rel="stylesheet" href="theme.css">
   <script src="theme.js"></script>
+  <script src="moduler.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Väder – Plogometern</title>
   <style>
@@ -87,7 +88,7 @@
       const st = (a.stations || []).map(s => `${snoEscape(s.name)}: vägyta ${fmt(s.surface)} °C · luft ${fmt(s.air)} °C · dagg ${fmt(s.dew)} °C${s.precip ? ' · 🌧️ nederbörd' : ''}`).join('<br>');
       return `<section class="card">
         <div class="card-head"><h2>${snoEscape(name)}</h2><small>${vxAge(at)}${a.stale ? '<br>⚠️ SMHI svarade inte – gammal prognos' : ''}</small></div>
-        ${vxMeters(a)}
+        ${vxMeters(a, true)}
         ${a.notice ? `<div class="notice">Senaste notis: ${snoEscape(a.notice)}</div>` : ''}
         <div class="nums">
           <div class="num"><b>${fmt(a.snowCm)} cm</b><span>snö 12 h</span></div>
