@@ -653,7 +653,7 @@ function welcomeSections(roles, isSuper, site) {
     add("🔭", "Radarn", "radar.html", "Planera jobben: dra in personal, maskiner och verktyg på tidslinjen. Personalen får notis när något ändras.");
     add("📄", "Offerter &amp; ÄTA", "offerter.html", "Skapa och skicka offerter. Kunden godkänner med en länk.");
     add("💼", "Kunder", "offerter.html?view=customers", "Kundregistret, med import från Fortnox" + (isSuper ? " och HubSpot." : "."));
-    add("🚜", "Snöplanering", "planering.html", "Fastigheter och traktorer.");
+    add("🚜", "Snöplanering", "planering.html", "Tavlan: vem plogar och skottar var. Fastigheter och traktorer under ⚙️ Register.");
     add("❄️", "Rita snözoner", "snozoner.html", "Plogzoner, handskottning och snöupplag – med förslag från kartan. Förarna lägger ut hinder i Snöjour.");
     add("💰", "Ekonomi", "ekonomi.html", "Fakturaunderlag per kund och period, markera fakturerat, PDF.");
     add("👥", "Personal", "personal.html", "Alla i personalen: ring, SMS, välkomstpaket, ändra uppgifter och tidigare projekt med egenkontroller. Nya personer läggs till på startsidan → Administratör.");
@@ -1350,10 +1350,11 @@ function handleGetSnowBoard(auth) {
   const staff = [];
   getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
     if (!r[0] || !inScope(auth, r[6])) return;
+    // Inaktiva följer med (active: false) så att tavlan kan varna när en sådan kula ligger på ett kort
     const status = String(r[7] || "").trim() || "Aktiv";
-    if (status.toLowerCase() !== "aktiv") return;
     const name = String(r[0]).trim(), sp = snowPerson(people, name);
-    staff.push({ name: name, role: staffRoleName(r), owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home, lat: sp.lat, lng: sp.lng });
+    staff.push({ name: name, role: staffRoleName(r), active: status.toLowerCase() === "aktiv", status: status,
+      owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home, lat: sp.lat, lng: sp.lng });
   });
   staff.sort((a, b) => a.name.localeCompare(b.name, "sv"));
   const sf = currentSnowfall();

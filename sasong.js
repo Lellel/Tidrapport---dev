@@ -96,7 +96,7 @@
 
   // ---------- UTSEENDE ----------
   const PAGE = location.pathname.split('/').pop() || 'index.html';
-  const MAP_PAGES = ['planering.html', 'snozoner.html', 'snojour.html', 'snohinder.html'];
+  const MAP_PAGES = ['planering.html', 'snoregister.html', 'snozoner.html', 'snojour.html', 'snohinder.html'];
   const svg = (s) => 'url("data:image/svg+xml,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>" + s + '</svg>') + '")';
   const ACC = {
     tomteluva: { img: svg("<path d='M14 80 C28 42 54 16 86 20 C80 34 74 54 80 80 Z' fill='#d61f2c'/><rect x='6' y='70' width='82' height='19' rx='9.5' fill='#fff'/><circle cx='86' cy='20' r='11' fill='#fff'/>"), box: 'width:72%;height:72%;left:40%;top:-40%;transform:rotate(16deg)' },

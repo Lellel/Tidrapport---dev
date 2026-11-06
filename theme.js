@@ -37,7 +37,7 @@
     try { admin = localStorage.getItem('lpv_is_admin') === 'true'; } catch (e) { admin = false; }
     const page = location.pathname.split('/').pop() || 'index.html';
     if (!admin || page === 'radar.html' || document.querySelector('.lpv-tabbar')) return;
-    const snow = ['planering.html', 'snozoner.html', 'snojour.html', 'snohinder.html', 'vader.html'].includes(page);
+    const snow = ['planering.html', 'snoregister.html', 'snozoner.html', 'snojour.html', 'snohinder.html', 'vader.html'].includes(page);
     const tabs = [['index.html', '🏠', 'Hem', false, 'hem'], ['radar.html', '🔭', 'Radarn', false, 'radar'], ['planering.html', '🚜', 'Snö', snow, 'sno'], ['offerter.html', '📄', 'Offerter', page === 'offerter.html', 'offerter']];
     const bar = document.createElement('nav');
     bar.className = 'lpv-tabbar'; bar.setAttribute('aria-label', 'Admin');

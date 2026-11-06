@@ -1,1256 +1,801 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8">
-  <link rel="stylesheet" href="theme.css">
-  <script src="theme.js"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Snöplanering</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <style>
-    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); --stor: #f97316; --liten: #38bdf8; }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--t-font); }
-    .layout { display: grid; grid-template-columns: 1fr 400px; height: 100%; }
-    .map-wrap { position: relative; }
-    #map { height: 100%; width: 100%; }
-    .panel { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
-    .panel-head { padding: 12px 14px 0; }
-    @media (min-width: 861px) { .panel-head { padding-top: calc(env(safe-area-inset-top) + 12px); } } /* iPad: panelen börjar överst */
-    .topbar { display: flex; justify-content: space-between; align-items: center; }
-    .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
-    h1 { font-size: var(--t-fs-title); margin: 8px 0 10px; }
-    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .tabs button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
-    .panel-body { flex: 1; overflow-y: auto; padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 10px; }
-    label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
-    input, textarea, select { width: 100%; padding: 10px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: var(--t-fs-input); }
-    textarea { min-height: 60px; resize: vertical; }
-    button { min-height: 42px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; }
-    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
-    button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
-    button.on { background: var(--warn); border-color: var(--warn); color: #111; }
-    .row { display: flex; gap: 8px; align-items: center; }
-    .row > * { flex: 1; }
-    .muted { color: var(--muted); font-size: 12px; }
-    .msg { font-size: 13px; min-height: 18px; color: var(--muted); }
-    .filters { display: flex; flex-wrap: wrap; gap: 6px; }
-    .filters button { min-height: 32px; border-radius: 999px; font-size: 12px; }
-    .filters button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; }
-    .stat { background: var(--card); border-radius: var(--t-r); padding: 8px 4px; font-size: 11px; color: var(--muted); }
-    .stat b { display: block; font-size: 18px; color: var(--text); }
-
-    /* Fastighetskort i listan */
-    .pcard { display: flex; gap: 10px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r); padding: 10px; cursor: pointer; }
-    .pcard.selected { border-color: var(--accent); }
-    .pcard-body { flex: 1; min-width: 0; }
-    .pcard-title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pcard-meta { font-size: 12px; color: var(--muted); }
-    .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
-    .badge.prio { background: rgba(245,158,11,.2); color: var(--t-warn); }
-    .badge.forced { background: rgba(239,68,68,.2); color: #fca5a5; }
-    .badge.missing { background: rgba(239,68,68,.25); color: var(--t-danger); }
-
-    /* HÅLEN: platshållare för kulan på fastighetskortet */
-    .hal { border-radius: 50%; border: 3px dashed var(--line); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; color: var(--muted); }
-    .hal.stor { width: 56px; height: 56px; border-color: var(--stor); }
-    .hal.liten { width: 38px; height: 38px; border-color: var(--liten); }
-    .hal.none { width: 46px; height: 46px; border-color: var(--danger); }
-    .hal.forced { box-shadow: 0 0 0 3px rgba(239,68,68,.35); }
-    .hal-big { margin: 0 auto; }
-    .hal-big.stor { width: 110px; height: 110px; border-width: 4px; }
-    .hal-big.liten { width: 76px; height: 76px; border-width: 4px; }
-    .hal-big.none { width: 90px; height: 90px; border-width: 4px; font-size: 26px; }
-
-    /* KULORNA: traktorer */
-    .kula { position: relative; border-radius: 50%; overflow: hidden; flex-shrink: 0;
-            background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.85), var(--kula-color, #64748b) 38%, var(--t-input) 100%);
-            box-shadow: inset 0 -6px 14px rgba(0,0,0,.45), 0 6px 14px rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
-    .kula::after { content: ''; position: absolute; top: 8%; left: 18%; width: 40%; height: 26%; border-radius: 50%; background: rgba(255,255,255,.45); filter: blur(2px); pointer-events: none; }
-    .kula img { width: 100%; height: 100%; object-fit: cover; }
-    .kula.stor { width: 76px; height: 76px; font-size: 32px; }
-    .kula.liten { width: 50px; height: 50px; font-size: 22px; }
-    .kula.inactive { filter: grayscale(1) opacity(.5); }
-    .kula.spin::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; border-top-color: #fff; animation: spin 1s linear infinite; z-index: 2; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .tcard { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 12px; }
-    .tcard-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-    .tcard-title { font-weight: 800; font-size: 15px; }
-    .tcard .row button { min-height: 34px; font-size: 12px; }
-    .size-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .size-toggle button.active.stor { background: var(--stor); border-color: var(--stor); color: #111; }
-    .size-toggle button.active.liten { background: var(--liten); border-color: var(--liten); color: #111; }
-
-    /* Detaljvy för ett kort */
-    .detail { background: var(--card); border: 1px solid var(--accent); border-radius: var(--t-r-card); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-    .detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-    .detail-head h2 { font-size: 16px; margin: 0; }
-    .fit { text-align: center; font-size: 12px; color: var(--muted); }
-    .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    .photo { position: relative; aspect-ratio: 1; border-radius: var(--t-r); overflow: hidden; background: var(--bg); }
-    .photo img { width: 100%; height: 100%; object-fit: cover; }
-    .photo button { position: absolute; top: 4px; right: 4px; min-height: 26px; width: 26px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.6); border: none; font-size: 12px; }
-    .map-hint { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: 50%; transform: translateX(-50%); z-index: 600; background: var(--warn); color: #111; font-weight: 800; font-size: 13px; padding: 8px 14px; border-radius: 999px; display: none; }
-    .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: calc(env(safe-area-inset-left) + 12px); /* under tillbaka-knappen */ z-index: 500; display: flex; gap: 6px; }
-    .map-toggle button { min-height: 36px; background: var(--t-overlay); }
-    .pin { border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
-    .pin.stor { width: 18px; height: 18px; background: var(--stor); }
-    .pin.liten { width: 12px; height: 12px; background: var(--liten); }
-    .pin.none { width: 14px; height: 14px; background: var(--danger); }
-    .pin.prio { outline: 3px solid #fbbf24; }
-    @media (max-width: 860px) {
-      .layout { grid-template-columns: 1fr; grid-template-rows: 45vh auto; }
-      .layout > * { min-width: 0; } /* annars kan innehållet göra sidan bredare än skärmen */
-      .panel { border-left: none; border-top: 1px solid var(--line); }
-    }
-    .imp-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: none; align-items: flex-end; justify-content: center; }
-    .imp-bg.open { display: flex; }
-    .imp { background: var(--panel); width: 100%; max-width: 760px; max-height: 92vh; overflow-y: auto; border-radius: var(--t-r-card) 18px 0 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-    .imp textarea { min-height: 120px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-    .imp-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-    .imp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .imp-table th, .imp-table td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
-    .imp-table th { color: var(--muted); font-weight: 700; }
-    .bar { height: 10px; border-radius: 999px; background: var(--card); overflow: hidden; }
-    .bar > div { height: 100%; background: var(--ok); width: 0; transition: width .3s; }
-
-    /* TAVLAN (docs/snoplanering.md): kulpåse + fastighetskort med hål */
-    .tabs.three { grid-template-columns: 1fr 1fr 1fr; }
-    .sf { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r); padding: 8px 10px; font-size: 12px; color: var(--muted); }
-    .sf b { color: var(--text); }
-    .sf button { min-height: 34px; font-size: 12px; flex-shrink: 0; }
-    .bag { background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-    .bag.target { outline: 3px dashed var(--accent); outline-offset: -3px; }
-    .bag-return { background: var(--accent); color: var(--t-on-accent); border-radius: var(--t-r); padding: 8px; text-align: center; font-weight: 800; font-size: 13px; }
-    .bag-title { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-    .bag-owner { font-size: 12px; font-weight: 700; margin-top: 2px; }
-    .bag-group { display: flex; flex-wrap: wrap; gap: 6px 4px; }
-    .bag .more { min-height: 32px; font-size: 12px; }
-    .kchip { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 70px; text-align: center; font-size: 10px; color: var(--muted); line-height: 1.2; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-    .kchip b { color: var(--text); font-size: 11px; word-break: break-word; }
-    .kchip .kula, .placed .kula { box-shadow: inset 0 -4px 10px rgba(0,0,0,.45), 0 3px 8px rgba(0,0,0,.45); }
-    .picked .kula { outline: 4px solid var(--accent); outline-offset: 2px; }
-    .kula.hk { --kula-color: #a78bfa; font-weight: 800; color: #1e1b4b; }
-    .bcard { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--line); border-radius: var(--t-r); padding: 10px; }
-    .bcard.done { border-left-color: var(--ok); }
-    .bcard.part { border-left-color: var(--warn); }
-    .bcard.flash { box-shadow: 0 0 0 3px var(--accent); }
-    .bcard-body { flex: 1; min-width: 0; }
-    .hole { border-radius: 50%; border: 3px dashed var(--line); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; color: var(--muted); position: relative; }
-    .hole.stor { width: 60px; height: 60px; border-color: var(--stor); }
-    .hole.liten { width: 44px; height: 44px; border-color: var(--liten); }
-    .hole.none { width: 50px; height: 50px; border-color: var(--danger); font-size: 12px; }
-    .hole.forced { box-shadow: 0 0 0 3px rgba(239,68,68,.35); }
-    .hole.filled { border-style: solid; }
-    .target-ok .hole, .target-ok .slot { background: rgba(56,189,248,.12); }
-    .slots { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
-    .slot { width: 36px; height: 36px; border-radius: 50%; border: 2px dashed #a78bfa; display: flex; align-items: center; justify-content: center; color: #a78bfa; font-weight: 800; flex-shrink: 0; }
-    .placed { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-    .donechk { position: absolute; right: -4px; bottom: -4px; background: var(--ok); color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; z-index: 3; }
-    .bounce { animation: bounce .45s; }
-    @keyframes bounce { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
-    .ghost { position: fixed; pointer-events: none; z-index: 3000; transform: translate(-50%, -50%) scale(1.15); opacity: .92; }
-    .drop-hover { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 50%; }
-    .bag.drop-hover { border-radius: var(--t-r-card); }
-    .grp-head { font-size: 12px; font-weight: 800; color: var(--muted); margin: 6px 0 -2px; }
-    .mk { position: relative; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .mk .kula { width: 100%; height: 100%; font-size: 13px; }
-    .mk.empty { border: 3px solid var(--danger); background: rgba(239,68,68,.25); }
-    .mk.done { box-shadow: 0 0 0 3px var(--ok); }
-    .mk.part { box-shadow: 0 0 0 3px var(--warn); }
-    .mk i { position: absolute; right: -8px; top: -6px; background: #a78bfa; color: #1e1b4b; font-style: normal; font-weight: 800; font-size: 10px; border-radius: 9px; padding: 0 4px; border: 1px solid #fff; }
-  </style>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="theme.css">
+<script src="theme.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Snöplanering</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* Snöplaneringen i Radarns stil (docs/snoplanering.md, 2026-11-06):
+   traktorremsan där Radarns orderbok är, kulpåsen (förare + handskottare) till vänster,
+   fastigheterna som kort på planeringsytan. Tre vyer: Fastigheter, Traktorer, Karta. */
+:root {
+  --bg: var(--t-bg); --panel: var(--t-panel); --panel2: var(--t-card); --line: var(--t-line); --fg: var(--t-text); --muted: var(--t-muted);
+  --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --bad: var(--t-danger);
+  --stor: #f97316; --liten: #38bdf8; --hand: #a78bfa;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.35 var(--t-font); overflow: hidden; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.app { display: grid; grid-template-rows: auto auto 1fr; height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+/* Listen */
+.top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.top h1 { font-size: var(--t-fs-title); margin: 0 8px 0 2px; white-space: nowrap; }
+.seg { display: inline-flex; background: var(--panel2); border-radius: var(--t-r); padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; padding: 7px 11px; border-radius: var(--t-r); font-size: 13px; font-weight: 600; color: var(--muted); min-height: 36px; }
+.seg button.on { background: var(--accent); color: var(--t-on-accent); }
+.btn { border: 1px solid var(--line); background: var(--panel2); border-radius: var(--t-r); padding: 7px 12px; font-weight: 600; font-size: 13px; min-height: 38px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+.btn.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+.btn.danger { color: var(--bad); border-color: var(--bad); background: transparent; }
+.period { font-weight: 700; font-size: 14px; min-width: 130px; text-align: center; white-space: nowrap; }
+.search { border: 1px solid var(--line); background: var(--panel2); color: var(--fg); border-radius: var(--t-r); padding: 7px 10px; font-size: 14px; min-height: 38px; width: 170px; }
+.sfchip { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.sfchip b { color: var(--fg); }
+.warnline { font-size: 12px; white-space: nowrap; }
+.warnline .bad { color: var(--warn); font-weight: 700; }
+.warnline .good { color: var(--ok); font-weight: 700; }
+.status { font-size: 12px; color: var(--muted); margin-left: auto; min-width: 60px; text-align: right; }
+.status.err { color: var(--bad); }
+.top a.link { color: var(--accent); font-weight: 700; font-size: 13px; text-decoration: none; white-space: nowrap; }
+/* Traktorremsan (där Radarns orderbok är) */
+.order { display: flex; gap: 10px; align-items: stretch; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; min-height: 92px; }
+.order.hidden { display: none; }
+.order .title { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; flex: none; }
+.order .owner { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10px; font-weight: 700; color: var(--muted); border-left: 1px solid var(--line); padding-left: 4px; flex: none; text-align: center; }
+.order.drop-ok { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.order .more { flex: none; align-self: center; }
+.order .empty { color: var(--muted); font-size: 13px; align-self: center; }
+.tchip { flex: none; width: 92px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; font-size: 11px; color: var(--muted); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; border-radius: var(--t-r); padding: 4px 2px; cursor: grab; }
+.tchip b { color: var(--fg); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 88px; }
+.tchip .drv { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 88px; }
+.tchip .drv.none { color: var(--warn); font-weight: 700; }
+.tchip.drop-ok { background: rgba(56, 189, 248, .15); outline: 2px solid var(--accent); }
+.tchip.inactive { opacity: .45; }
+/* Kulor */
+.kula { position: relative; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: grid; place-items: center; font-weight: 800; color: #fff;
+  background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.8), var(--kc, #64748b) 40%, rgba(0,0,0,.55) 100%);
+  box-shadow: inset 0 -4px 10px rgba(0,0,0,.4), 0 3px 8px rgba(0,0,0,.4); }
+.kula img { width: 100%; height: 100%; object-fit: cover; }
+.kula.hk { --kc: var(--hand); color: #1e1b4b; }
+.kula.grey { filter: grayscale(1); opacity: .6; }
+.kula .chk { position: absolute; right: 0; bottom: 0; background: var(--ok); color: #fff; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; display: grid; place-items: center; }
+.ring { position: absolute; inset: -4px; border-radius: 50%; border: 3px solid var(--ok); pointer-events: none; }
+/* Huvudytan */
+.main { display: grid; grid-template-columns: auto 1fr; min-height: 0; }
+.side { width: 210px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
+.side.hidden { display: none; }
+.side.drop-ok { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.side h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 6px; }
+.side .ownr { font-size: 11px; font-weight: 700; margin: 4px 0; }
+.orbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.orbwrap { width: 56px; display: flex; flex-direction: column; align-items: center; gap: 2px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+.orbwrap small { font-size: 10px; color: var(--muted); max-width: 56px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.busylist { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.busylist summary { cursor: pointer; font-weight: 700; color: var(--fg); }
+.busylist div { padding-left: 4px; }
+.hint { font-size: 11px; color: var(--muted); }
+.area { overflow: auto; position: relative; overscroll-behavior: contain; padding: 10px 12px 30px; }
+.area.mapmode { padding: 0; overflow: hidden; }
+#map { height: 100%; width: 100%; }
+/* Fastighetsvyn: kort i rutnät */
+.grp { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 6px; }
+.grp.wait { color: var(--warn); }
+.grp:first-child { margin-top: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 8px; }
+.pcard { background: var(--panel2); border: 1px solid var(--line); border-left: 6px solid var(--line); border-radius: var(--t-r); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-width: 0; }
+.pcard.done { border-left-color: var(--ok); }
+.pcard.part { border-left-color: var(--warn); }
+.pcard.flash { box-shadow: 0 0 0 3px var(--accent); }
+.pcard.drop-ok { outline: 3px solid var(--accent); }
+.pcard.drop-bad { outline: 3px solid var(--bad); }
+.pcard .t { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard .m { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard .w { font-size: 11px; color: var(--warn); font-weight: 700; }
+.kulrad { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hole { border-radius: 50%; border: 3px dashed var(--line); display: grid; place-items: center; flex-shrink: 0; position: relative; font-size: 14px; color: var(--muted); }
+.hole.stor { width: 46px; height: 46px; border-color: var(--stor); }
+.hole.liten { width: 36px; height: 36px; border-color: var(--liten); }
+.hole.none { width: 40px; height: 40px; border-color: var(--bad); font-size: 11px; }
+.hole.empty { background: rgba(239,68,68,.15); border-color: var(--bad); border-style: solid; }
+.hole.filled { border-style: solid; }
+.hole.forced::after { content: '💪'; position: absolute; top: -8px; right: -10px; font-size: 12px; }
+.slot { width: 30px; height: 30px; border-radius: 50%; border: 2px dashed var(--hand); display: grid; place-items: center; color: var(--hand); font-weight: 800; flex-shrink: 0; font-size: 13px; }
+.slot.need { border-color: var(--warn); color: var(--warn); }
+.hole.drop-ok, .slot.drop-ok { outline: 3px solid var(--accent); outline-offset: 2px; }
+.hole.drop-bad { outline: 3px solid var(--bad); outline-offset: 2px; }
+.drvname { font-size: 11px; color: var(--muted); max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drag { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+/* Traktorvyn: en rad per traktor */
+.lane { display: flex; gap: 10px; align-items: stretch; border-bottom: 1px solid var(--line); padding: 8px 0; min-height: 76px; }
+.lane.drop-ok { background: rgba(56, 189, 248, .08); }
+.lane.drop-bad { background: rgba(239, 68, 68, .08); }
+.lane .lab { width: 170px; flex: none; display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.lane .lab span { font-size: 13px; font-weight: 700; min-width: 0; }
+.lane .lab em { display: block; font-style: normal; font-size: 11px; color: var(--muted); font-weight: 400; }
+.lane.wait .lab span { color: var(--warn); }
+.lane .lcards { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; min-width: 0; }
+.lane .sum { width: 120px; flex: none; font-size: 11px; color: var(--muted); text-align: right; align-self: center; }
+.lane .sum b { color: var(--fg); font-size: 13px; display: block; }
+.mcard { background: var(--panel2); border: 1px solid var(--line); border-left: 5px solid var(--line); border-radius: var(--t-r); padding: 5px 8px; font-size: 12px; max-width: 200px; }
+.mcard b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcard span { color: var(--muted); font-size: 11px; }
+.mcard.done { border-left-color: var(--ok); }
+.mcard.part { border-left-color: var(--warn); }
+.empty { color: var(--muted); font-size: 13px; padding: 30px; text-align: center; }
+/* Kartan */
+.mk { position: relative; border-radius: 50%; }
+.mk.empty { border: 3px solid var(--bad); background: rgba(239,68,68,.3); }
+.mk.done { box-shadow: 0 0 0 3px var(--ok); }
+.mk.part { box-shadow: 0 0 0 3px var(--warn); }
+.mk i { position: absolute; right: -8px; top: -6px; background: var(--hand); color: #1e1b4b; font-style: normal; font-weight: 800; font-size: 10px; border-radius: 9px; padding: 0 4px; border: 1px solid #fff; }
+.mk.drop-ok { outline: 3px solid var(--accent); outline-offset: 3px; }
+/* Dra */
+.ghost { position: fixed; z-index: 200; pointer-events: none; opacity: .92; transform: translate(-50%, -60%) scale(1.08); }
+/* Detaljrutan (som jobbrutan i Radarn) */
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: none; }
+.sheet-bg.open { display: block; }
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(430px, 100vw); background: var(--panel); border-left: 1px solid var(--line); z-index: 51; padding: max(16px, env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 16px); overflow-y: auto;
+  transform: translateX(100%); transition: transform .2s; }
+.sheet.open { transform: none; }
+.sheet h2 { margin: 0; font-size: 18px; }
+.sheet .sub { color: var(--muted); font-size: 13px; margin: 2px 0 12px; }
+.sheet h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 0 6px; }
+.sheet .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.sheet .row2 { display: flex; gap: 8px; flex-wrap: wrap; }
+.sheet .row2 > * { flex: 1; }
+.sheet textarea, .sheet input, .sheet select { width: 100%; background: var(--bg); border: 1px solid var(--line); color: var(--fg); border-radius: var(--t-r); padding: 9px 10px; font-size: 15px; }
+.sheet textarea { min-height: 64px; resize: vertical; font: inherit; }
+.krow { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.krow .who { flex: 1; min-width: 0; font-size: 13px; }
+.krow .who em { display: block; font-style: normal; color: var(--muted); font-size: 12px; }
+.krow .x { border: 0; background: var(--bad); color: #fff; border-radius: 99px; font-size: 11px; padding: 3px 8px; }
+.krow .st { font-size: 12px; }
+.krow .st.ok { color: var(--ok); font-weight: 700; }
+.thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.thumbs a { aspect-ratio: 1; border-radius: var(--t-r); overflow: hidden; background: var(--bg); display: block; }
+.thumbs img { width: 100%; height: 100%; object-fit: cover; }
+.sizes { display: flex; gap: 6px; }
+.sizes button { flex: 1; }
+.sizes .on.stor { background: var(--stor); border-color: var(--stor); color: #111; }
+.sizes .on.liten { background: var(--liten); border-color: var(--liten); color: #111; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #7f1d1d; color: #fff; padding: 12px 16px; border-radius: var(--t-r); z-index: 120; font-weight: 600; display: none; max-width: 92vw; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+.toast.ok { background: #065f46; }
+.toast button { margin-left: 10px; border: 0; background: #fff; color: #065f46; border-radius: var(--t-r); padding: 6px 10px; font-weight: 800; }
+@media (max-width: 800px) { .side { width: 150px; } .search { width: 120px; } .lane .lab { width: 120px; } .lane .sum { width: 80px; } }
+</style>
 </head>
 <body>
-  <a class="lpv-back lpv-back-float" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
-  <div class="layout">
-    <div class="map-wrap">
-      <div id="map"></div>
-      <div class="map-toggle">
-        <button onclick="mapCtl.setTiles('sat')">🛰️ Satellit</button>
-        <button onclick="mapCtl.setTiles('street')">🗺️ Vägkarta</button>
-      </div>
-      <div class="map-hint" id="map-hint">📍 Tryck på kartan där fastigheten ligger</div>
-    </div>
-
-    <aside class="panel">
-      <div class="panel-head">
-        <div class="topbar">
-          <a href="snozoner.html">Rita zoner →</a>
-        <span data-theme-slot></span></div>
-        <h1><span data-icon="sno">❄️</span> Snöplanering</h1>
-        <div class="tabs three">
-          <button id="tab-board" onclick="showTab('board')">🎯 Tavla</button>
-          <button id="tab-props" onclick="showTab('props')"><span data-icon="fastighet">🏠</span> Fastigheter</button>
-          <button id="tab-fleet" onclick="showTab('fleet')"><span data-icon="sno">🚜</span> Traktorer</button>
-        </div>
-      </div>
-      <div class="panel-body" id="panel-body"></div>
-    </aside>
+<div class="app">
+  <div class="top">
+    <a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
+    <h1><span data-icon="sno">❄️</span> Snöplanering</h1>
+    <div class="seg" id="viewseg"><button data-v="props">🏠 Fastigheter</button><button data-v="tractors">🚜 Traktorer</button><button data-v="map">🗺️ Karta</button></div>
+    <button class="btn" id="prev" aria-label="Föregående kommundel">‹</button><span class="period" id="period"></span><button class="btn" id="next" aria-label="Nästa kommundel">›</button>
+    <input class="search" id="search" list="searchlist" placeholder="🔍 Sök adress/kund" autocomplete="off"><datalist id="searchlist"></datalist>
+    <span class="sfchip" id="sfchip"></span>
+    <button class="btn" id="newSf">❄️ Nytt snöfall</button>
+    <span class="warnline" id="warnline"></span>
+    <button class="btn" id="tglSide">Kulpåse</button>
+    <button class="btn" id="tglOrder">Traktorer</button>
+    <a class="link" href="snoregister.html">⚙️ Register</a>
+    <span data-theme-slot></span>
+    <span class="status" id="status"></span>
   </div>
+  <div class="order" id="order"></div>
+  <div class="main">
+    <aside class="side" id="side"></aside>
+    <div class="area" id="area"><div id="cardsview"></div><div id="map" hidden></div></div>
+  </div>
+</div>
+<div class="sheet-bg" id="sheetBg"></div>
+<aside class="sheet" id="sheet" aria-label="Detaljer"></aside>
+<div class="toast" id="toast" role="status"></div>
 
-  <div class="imp-bg" id="imp-bg" onclick="if (event.target === this && !importBusy) closeImport()"><div class="imp" id="imp"></div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script src="knappar.js"></script>
+<script src="inloggning.js"></script>
+<script src="sasong.js"></script>
+<script src="sno.js"></script>
+<script>
+// ===== Data =====
+let properties = [], fleet = [], people = [], zonesAll = [], avatars = {}, snowfall = null, doneList = [];
+let view = 'props', kommundel = '', showOthers = false, loaded = false;
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* privat/fullt */ } } };
+view = ['props', 'tractors', 'map'].includes(store.get('lpv_plan_view')) ? store.get('lpv_plan_view') : 'props';
+kommundel = store.get('lpv_plan_kd') || '';
+const $ = (id) => document.getElementById(id);
+const esc = snoEscape;
+const sv = (a, b) => String(a).localeCompare(String(b), 'sv');
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="config.js"></script>
-  <script src="knappar.js"></script>
-  <script src="inloggning.js"></script>
-  <script src="sasong.js"></script>
-  <script src="sno.js"></script>
-  <script>
-    let mapCtl, map;
-    let properties = [], fleet = [];
-    let pins = [];
-    let tab = (() => { try { return localStorage.getItem('lpv_plan_tab') || 'board'; } catch (e) { return 'board'; } })();
-    let filter = 'alla';
-    let search = '';
-    let selectedId = null;
-    let placingPosition = false;
-    let message = '';
-    const generating = new Set();
-    let dataLoaded = false; // spara inte cachen innan något laddats (då skulle den skrivas över med tomt)
+const kdOf = (p) => String(p.omrade || p.ort || 'Utan område').trim();
+const propById = (id) => properties.find(p => p.id === id);
+const tractorById = (id) => fleet.find(t => t.id === id);
+const personByName = (n) => people.find(x => x.name === n) || { name: n, owner: 'Egna', active: true, lat: null, lng: null };
+const ownerLabel = (o) => !o || o === 'Egna' ? '🏠 Egna' : '🤝 ' + o;
+const m2 = (v) => Math.round(v).toLocaleString('sv-SE') + ' m²';
+function kommundelar() { return [...new Set(properties.map(kdOf))].sort(sv); }
+function currentKd() { const l = kommundelar(); if (!l.includes(kommundel)) kommundel = l[0] || ''; return kommundel; }
+const kdProps = (kd = currentKd()) => properties.filter(p => kdOf(p) === kd);
 
-    const BRAND_COLORS = { kramer: '#2dd4bf', volvo: '#facc15', avant: '#84cc16', bobcat: '#f97316', jcb: '#facc15', ljungby: '#eab308',
-      'john deere': '#16a34a', deere: '#16a34a', kubota: '#f97316', valtra: '#dc2626', 'new holland': '#2563eb', massey: '#dc2626', fendt: '#22c55e', cat: '#facc15' };
-    function brandColor(model) {
-      const m = String(model).toLowerCase();
-      const hit = Object.keys(BRAND_COLORS).find(k => m.includes(k));
-      return hit ? BRAND_COLORS[hit] : '#64748b';
-    }
+// Ytor per fastighet ur Rita zoner
+let zoneCache = null;
+function zoneStats(p) {
+  if (!zoneCache) {
+    zoneCache = {};
+    zonesAll.forEach(z => { const o = zoneCache[snoAddrKey(z.property)] || (zoneCache[snoAddrKey(z.property)] = { maskin: 0, hand: 0 });
+      if (z.type === 'maskin' || z.type === 'hand') o[z.type] += Number(z.areaM2) || 0; });
+  }
+  return zoneCache[snoAddrKey(p.address)] || { maskin: 0, hand: 0 };
+}
 
-    function setMessage(text) { message = text; const el = document.getElementById('msg'); if (el) el.innerHTML = text; }
+// Status i pågående snöfall
+const partsOf = (p) => (p.tractorId ? [{ part: 'traktor', unit: p.tractorId }] : []).concat((p.shovelers || []).map(n => ({ part: 'hand', unit: n })));
+const doneOf = (p, part, unit) => doneList.find(d => d.propertyId === p.id && d.part === part && d.unit === unit);
+function stateOf(p) {
+  const parts = partsOf(p), n = parts.filter(x => doneOf(p, x.part, x.unit)).length;
+  return !parts.length || !n ? '' : n === parts.length ? 'done' : 'part';
+}
+const fits = (t, p) => !(t.size === 'stor' && p.size === 'liten' && !p.forced);
+const needsHand = (p) => zoneStats(p).hand > 0 && !(p.shovelers || []).length;
 
-    function showTab(name) {
-      tab = name;
-      try { localStorage.setItem('lpv_plan_tab', name); } catch (e) { /* privat läge */ }
-      ['board', 'props', 'fleet'].forEach(n => document.getElementById('tab-' + n).classList.toggle('active', n === name));
-      message = ''; picked = null;
-      render(); renderPins();
-      if (name === 'board') fitToKommundel();
-    }
+// Var en kula hör hemma (för avstånd och "stationerad")
+function centroid(list) {
+  const pts = list.filter(p => p.lat !== null && p.lat !== undefined);
+  return pts.length ? [pts.reduce((s, p) => s + p.lat, 0) / pts.length, pts.reduce((s, p) => s + p.lng, 0) / pts.length] : null;
+}
+function baseMatches(base, kd) {
+  const b = String(base || '').trim().toLowerCase(), k = kd.toLowerCase();
+  return !!b && (b === k || (b.length > 3 && (k.includes(b) || b.includes(k))) || kdProps(kd).some(p => String(p.ort || '').toLowerCase() === b));
+}
+function tractorHome(t) {
+  const there = properties.filter(p => baseMatches(t.base, kdOf(p)));
+  return centroid(there) || centroid(properties.filter(p => p.tractorId === t.id));
+}
+const personHome = (x) => x.lat !== null && x.lat !== undefined ? [x.lat, x.lng] : centroid(properties.filter(p => (p.shovelers || []).includes(x.name)));
+const distTo = (home, c) => home && c ? snoDistance(home, c) : 1e12;
 
-    function render() {
-      document.getElementById('panel-body').innerHTML = tab === 'board' ? renderBoard() : tab === 'props' ? renderProps() : renderFleet();
-      if (dataLoaded) { try { localStorage.setItem('lpv_plan_cache', JSON.stringify({ properties, fleet, zonesAll, people, snowfall, doneList })); } catch (e) { /* full lagring */ } }
-    }
+// ===== Kulor =====
+const BRAND = { kramer: '#2dd4bf', volvo: '#facc15', avant: '#84cc16', bobcat: '#f97316', jcb: '#facc15', 'john deere': '#16a34a', deere: '#16a34a', kubota: '#f97316', valtra: '#dc2626', 'new holland': '#2563eb', massey: '#dc2626', fendt: '#22c55e', cat: '#facc15' };
+const brandColor = (m) => { const s = String(m).toLowerCase(); const k = Object.keys(BRAND).find(x => s.includes(x)); return k ? BRAND[k] : '#64748b'; };
+const shortModel = (t) => String(t.model).split(/\s+/).slice(0, 2).join(' ');
+const initials = (n) => String(n).split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+function tKula(t, px, chk) {
+  const inner = t.avatarUrl ? `<img src="${esc(t.avatarUrl)}" alt="">` : '🚜';
+  return `<div class="kula${t.active === false ? ' grey' : ''}" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .45)}px;--kc:${brandColor(t.model)}">${inner}${chk ? '<span class="chk">✓</span>' : ''}</div>`;
+}
+function pKula(name, px, chk) {
+  const av = avatars[name], x = personByName(name);
+  return `<div class="kula hk${x.active === false ? ' grey' : ''}" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .36)}px">${av ? `<img src="${esc(av)}" alt="">` : esc(initials(name))}${chk ? '<span class="chk">✓</span>' : ''}</div>`;
+}
 
-    // ================= FASTIGHETER =================
-    function sizeLabel(p) {
-      if (!p.size) return 'Storlek saknas';
-      return p.size === 'stor' ? 'Stor' : (p.forced ? 'Liten (tvingad stor)' : 'Liten');
-    }
-    function fitText(p) {
-      if (!p.size) return 'Välj storlek nedan så att en traktorkula kan läggas på kortet.';
-      if (p.size === 'stor') return 'Passar: 🟠 stor kula och 🔵 liten kula';
-      return p.forced ? 'Passar: 🔵 liten kula + 🟠 stor kula (tvingad – gränsfall)' : 'Passar: 🔵 bara liten kula – en stor får inte plats';
-    }
-    function holeClass(p) { return (p.size || 'none') + (p.forced ? ' forced' : ''); }
+// ===== Listen =====
+function renderTop() {
+  document.querySelectorAll('#viewseg button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  const kd = currentKd(), list = kdProps(kd);
+  $('period').textContent = kd ? `${kd} (${list.length})` : '–';
+  const assigned = list.filter(p => partsOf(p).length), doneN = assigned.filter(p => stateOf(p) === 'done').length;
+  $('sfchip').innerHTML = snowfall ? `❄️ Snöfall ${esc(snowfall.start.slice(5))} · <b>${doneN}/${assigned.length}</b> klara` : '❄️ Inget snöfall';
+  const noT = list.filter(p => !p.tractorId).length, noH = list.filter(needsHand).length;
+  const tr = fleet.filter(t => t.active !== false && list.some(p => p.tractorId === t.id));
+  const noDrv = tr.filter(t => !t.driver).length;
+  const badPeople = new Set();
+  list.forEach(p => (p.shovelers || []).forEach(n => { if (personByName(n).active === false) badPeople.add(n); }));
+  tr.forEach(t => { if (t.driver && personByName(t.driver).active === false) badPeople.add(t.driver); });
+  const parts = [noT ? `<span class="bad">⚠️ ${noT} utan traktor</span>` : '<span class="good">✅ Alla har traktor</span>'];
+  if (noH) parts.push(`<span class="bad">⚠️ ${noH} saknar handskottare</span>`);
+  if (noDrv) parts.push(`<span class="bad">⚠️ ${noDrv} traktor utan förare</span>`);
+  if (badPeople.size) parts.push(`<span class="bad">⚠️ ${[...badPeople].map(esc).join(', ')} inaktiv</span>`);
+  $('warnline').innerHTML = list.length ? parts.join(' · ') : '';
+  $('searchlist').innerHTML = properties.map(p => `<option value="${esc(p.address)}">${esc([p.kund, kdOf(p)].filter(Boolean).join(' · '))}</option>`).join('');
+}
 
-    function filteredProps() {
-      const q = search.toLowerCase();
-      return properties
-        .filter(p => filter === 'alla' || (filter === 'saknar' ? !p.size : filter === 'prio' ? p.priority : filter === 'nopos' ? p.lat === null : p.size === filter))
-        .filter(p => !q || p.address.toLowerCase().includes(q) || p.ort.toLowerCase().includes(q))
-        .sort((a, b) => a.ort.localeCompare(b.ort, 'sv') || a.address.localeCompare(b.address, 'sv'));
-    }
+// ===== Traktorremsan =====
+function tractorCounts(t, kd) {
+  const mine = properties.filter(p => p.tractorId === t.id), here = mine.filter(p => kdOf(p) === kd);
+  const done = here.filter(p => doneOf(p, 'traktor', t.id)).length;
+  return { here: here.length, all: mine.length, done };
+}
+function tchip(t, kd, extra) {
+  const c = tractorCounts(t, kd);
+  const drvBad = t.driver && personByName(t.driver).active === false;
+  const count = c.all === c.here ? `${c.here}` : `${c.here} (av ${c.all})`;
+  return `<div class="tchip drag${t.active === false ? ' inactive' : ''}" data-drag="tractor" data-id="${esc(t.id)}" data-drop="tractor" data-tid="${esc(t.id)}">
+    ${tKula(t, t.size === 'stor' ? 46 : 36)}
+    <b>${esc(shortModel(t))}</b>
+    <span class="drv${t.driver ? '' : ' none'}">${t.driver ? (drvBad ? '⚠️ ' : '👷 ') + esc(t.driver) : '⚠️ ingen förare'}</span>
+    <span>${extra ? extra + ' · ' : ''}${count} st${snowfall && c.here ? ` · ${c.done}/${c.here}` : ''}</span></div>`;
+}
+function renderOrder() {
+  const kd = currentKd(), center = centroid(kdProps(kd));
+  const act = fleet.filter(t => t.active !== false);
+  const here = act.filter(t => baseMatches(t.base, kd) || properties.some(p => p.tractorId === t.id && kdOf(p) === kd));
+  const others = act.filter(t => !here.includes(t)).map(t => ({ t, d: distTo(tractorHome(t), center) })).sort((a, b) => a.d - b.d);
+  const owners = [...new Set(here.map(t => t.owner || 'Egna'))].sort((a, b) => (a !== 'Egna') - (b !== 'Egna') || sv(a, b));
+  let h = '<div class="title">Traktorer</div>';
+  owners.forEach(o => { h += `<div class="owner">${esc(ownerLabel(o))}</div>` + here.filter(t => (t.owner || 'Egna') === o).map(t => tchip(t, kd)).join(''); });
+  if (!here.length) h += `<div class="empty">Ingen traktor står i ${esc(kd)}. Sätt Ort / uppställning i ⚙️ Register – eller låna under ⋯</div>`;
+  if (others.length) {
+    h += `<button class="btn more" id="othersBtn">${showOthers ? '◂' : '⋯'} Övriga (${others.length})</button>`;
+    if (showOthers) h += others.map(x => tchip(x.t, kd, x.d < 1e11 ? snoFormatDistance(x.d) : '')).join('');
+  }
+  $('order').innerHTML = h;
+  const ob = $('othersBtn'); if (ob) ob.onclick = () => { showOthers = !showOthers; render(); };
+}
 
-    function renderProps() {
-      const missing = properties.filter(p => !p.size).length;
-      const noPos = properties.filter(p => p.lat === null).length;
-      const sel = properties.find(p => p.id === selectedId);
-      const fbtn = (key, text) => `<button class="${filter === key ? 'active' : ''}" onclick="filter='${key}'; render()">${text}</button>`;
-      return `
-        <div class="stats">
-          <div class="stat"><b>${properties.length}</b>fastigheter</div>
-          <div class="stat"><b style="color:${missing ? 'var(--danger)' : 'var(--ok)'}">${missing}</b>saknar storlek</div>
-          <div class="stat"><b>${new Set(properties.map(p => p.ort).filter(Boolean)).size}</b>orter</div>
-        </div>
-        ${missing === 0 && properties.length ? '<div class="muted" style="text-align:center;">✅ Alla kort har storlek – redo att lägga ut kulor på 🎯 Tavla</div>' : ''}
-        ${sel ? renderDetail(sel) : renderNewForm()}
-        <div class="msg" id="msg">${message}</div>
-        <input placeholder="🔍 Sök adress eller ort" value="${snoEscape(search)}" oninput="search=this.value; document.getElementById('plist').innerHTML = renderPropList()">
-        <div class="filters">${fbtn('alla', 'Alla')}${fbtn('saknar', `⚠️ Saknar storlek (${missing})`)}${fbtn('stor', '🟠 Stor')}${fbtn('liten', '🔵 Liten')}${fbtn('prio', '⭐ Prio')}${noPos ? fbtn('nopos', `📍 Utan position (${noPos})`) : ''}</div>
-        <div id="plist" style="display:flex; flex-direction:column; gap:6px;">${renderPropList()}</div>`;
-    }
+// ===== Kulpåsen: förare + handskottare =====
+function renderSide() {
+  const kd = currentKd(), center = centroid(kdProps(kd));
+  const active = people.filter(x => x.active !== false);
+  const driving = {};
+  fleet.forEach(t => { if (t.driver) driving[t.driver] = t; });
+  const drivers = active.filter(x => !driving[x.name] && (x.role === 'Förare' || x.role === 'UE') && !x.shoveler);
+  const hands = active.filter(x => x.shoveler).map(x => ({ x, d: distTo(personHome(x), center) })).sort((a, b) => a.d - b.d || sv(a.x.name, b.x.name));
+  const group = (list, ownerOf, html) => {
+    const owners = [...new Set(list.map(ownerOf))].sort((a, b) => (a !== 'Egna') - (b !== 'Egna') || sv(a, b));
+    return owners.map(o => `<div class="ownr">${esc(ownerLabel(o))}</div><div class="orbs">${list.filter(i => ownerOf(i) === o).map(html).join('')}</div>`).join('');
+  };
+  const orb = (name, sub, kind) => `<div class="orbwrap drag" data-drag="person" data-kind="${kind}" data-id="${esc(name)}">${pKula(name, 44)}<small>${esc(name.split(' ')[0])}</small>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+  const busy = Object.keys(driving).filter(n => personByName(n).active !== false).sort(sv);
+  $('side').innerHTML = `
+    <div><h3>👷 Förare</h3>${drivers.length ? group(drivers, x => x.owner || 'Egna', x => orb(x.name, '', 'driver')) : '<div class="hint">Alla förare sitter på en traktor.</div>'}
+      ${busy.length ? `<details class="busylist" ${store.get('lpv_plan_busy') === 'open' ? 'open' : ''} ontoggle="store.set('lpv_plan_busy', this.open ? 'open' : '')"><summary>Upptagna (${busy.length})</summary>${busy.map(n => `<div class="drag" data-drag="person" data-kind="driver" data-id="${esc(n)}" data-from-tractor="${esc(driving[n].id)}">👷 ${esc(n)} → ${esc(shortModel(driving[n]))}</div>`).join('')}</details>` : ''}
+      <div class="hint" style="margin-top:6px">Dra föraren till en traktor i remsan.</div></div>
+    <div><h3>🧹 Handskottare – närmast först</h3>${hands.length ? group(hands, h => h.x.owner || 'Egna', h => orb(h.x.name, h.d < 1e11 ? snoFormatDistance(h.d) : '', 'hand')) : '<div class="hint">Bocka i Handskottare på Personal-sidan.</div>'}</div>
+    <div class="hint">Dra en kula hit för att ta bort den från kortet eller traktorn.</div>`;
+}
 
-    function renderPropList() {
-      const list = filteredProps();
-      if (!list.length) return '<div class="muted">Inga fastigheter här ännu.</div>';
-      return list.map(p => `
-        <div class="pcard ${p.id === selectedId ? 'selected' : ''}" onclick="selectProperty('${snoEscape(p.id)}')">
-          <div class="hal ${holeClass(p)}">${p.size ? '' : '?'}</div>
-          <div class="pcard-body">
-            <div class="pcard-title">${snoEscape(p.address)}${p.priority ? '<span class="badge prio">⭐ PRIO</span>' : ''}${p.forced ? '<span class="badge forced">TVINGAD</span>' : ''}</div>
-            <div class="pcard-meta">${snoEscape(p.ort || 'Ort saknas')} · ${sizeLabel(p)}${p.photos.length ? ' · 📷 ' + p.photos.length : ''}${p.lat === null ? ' · 📍 saknar position' : ''}</div>
-          </div>
-        </div>`).join('');
-    }
+// ===== Fastighetsvyn =====
+function cardHtml(p) {
+  const t = p.tractorId ? tractorById(p.tractorId) : null, zs = zoneStats(p), st = stateOf(p);
+  const holeCls = `hole ${p.size || 'none'}${t ? ' filled' : ' empty'}${p.forced && t && t.size === 'stor' ? ' forced' : ''}`;
+  const hole = `<div class="${holeCls}" data-drop="hole" data-pid="${esc(p.id)}">${t
+    ? `<div class="drag" data-drag="tractor" data-id="${esc(t.id)}" data-from="${esc(p.id)}">${tKula(t, p.size === 'liten' ? 30 : 38, !!doneOf(p, 'traktor', t.id))}</div>` : (p.size ? '' : '?')}</div>`;
+  const drv = t ? `<span class="drvname">${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}</span>` : '';
+  const hands = (p.shovelers || []).map(n => `<div class="drag" data-drag="person" data-kind="hand" data-id="${esc(n)}" data-from="${esc(p.id)}" title="${esc(n)}">${pKula(n, 30, !!doneOf(p, 'hand', n))}</div>`).join('');
+  const slot = zs.hand > 0 || (p.shovelers || []).length ? `<div class="slot${needsHand(p) ? ' need' : ''}" data-drop="slot" data-pid="${esc(p.id)}">${(p.shovelers || []).length ? '＋' : '🧹'}</div>` : '';
+  const warns = [needsHand(p) ? '🧹⚠️ saknar handskottare' : '', !p.size ? '⚠️ storlek saknas' : '',
+    t && t.driver && personByName(t.driver).active === false ? `⚠️ ${esc(t.driver)} inaktiv` : '',
+    ...(p.shovelers || []).filter(n => personByName(n).active === false).map(n => `⚠️ ${esc(n)} inaktiv`)].filter(Boolean);
+  return `<div class="pcard ${st}" id="c-${esc(p.id)}" data-card="${esc(p.id)}" data-drop="card" data-pid="${esc(p.id)}">
+    <div class="t">${p.priority ? '⭐ ' : ''}${esc(p.address)}${p.zoneStatus === 'klar' ? ' ✅' : ''}</div>
+    <div class="m">${[esc(p.kund), zs.maskin ? '🔵 ' + m2(zs.maskin) : '', zs.hand ? '🟠 ' + m2(zs.hand) : '', !zs.maskin && !zs.hand ? 'inga zoner' : ''].filter(Boolean).join(' · ')}</div>
+    <div class="kulrad">${hole}${drv}${hands}${slot}</div>
+    ${warns.length ? `<div class="w">${warns.join(' · ')}</div>` : ''}
+  </div>`;
+}
+function renderProps() {
+  const list = kdProps();
+  if (!list.length) return '<div class="empty">Inga fastigheter här. Lägg till i ⚙️ Register.</div>';
+  const wait = list.filter(p => !p.tractorId).sort((a, b) => sv(a.address, b.address));
+  const rest = list.filter(p => p.tractorId);
+  let h = wait.length ? `<div class="grp wait">⚠️ Väntar på traktor (${wait.length})</div><div class="cards">${wait.map(cardHtml).join('')}</div>` : '';
+  const orter = [...new Set(rest.map(p => p.ort || ''))].sort(sv);
+  orter.forEach(o => {
+    const ps = rest.filter(p => (p.ort || '') === o).sort((a, b) => sv(a.address, b.address));
+    h += `<div class="grp">${esc(o || 'Utan ort')} (${ps.length})</div><div class="cards">${ps.map(cardHtml).join('')}</div>`;
+  });
+  return h + '<div class="hint" style="margin-top:14px">Dra en traktor från remsan till hålet, en handskottare till 🧹. Tryck på ett kort för detaljer.</div>';
+}
 
-    function renderNewForm() {
-      return `<div class="detail" style="border-color: var(--line);">
-        <div class="detail-head"><h2>➕ Ny fastighet</h2></div>
-        <button onclick="openImport()">📥 Importera från kalkylark</button>
-        <div class="muted">…eller lägg till en i taget:</div>
-        <input id="new-address" placeholder="Adress, t.ex. Drottninggatan 4">
-        <input id="new-ort" placeholder="Ort (valfritt), t.ex. Flen">
-        <button class="ok" onclick="createProperty()">Lägg till & hitta på kartan</button>
-      </div>`;
-    }
+// ===== Traktorvyn =====
+function miniCard(p) {
+  return `<div class="mcard drag ${stateOf(p)}" data-drag="prop" data-id="${esc(p.id)}" data-card="${esc(p.id)}"><b>${p.priority ? '⭐ ' : ''}${esc(p.address)}</b><span>${p.size === 'stor' ? '🟠' : p.size === 'liten' ? '🔵' : '?'} ${zoneStats(p).maskin ? m2(zoneStats(p).maskin) : 'inga zoner'}${(p.shovelers || []).length ? ' · 🧹' + p.shovelers.length : ''}</span></div>`;
+}
+function renderTractors() {
+  const kd = currentKd(), list = kdProps(kd);
+  if (!list.length) return '<div class="empty">Inga fastigheter här.</div>';
+  const wait = list.filter(p => !p.tractorId).sort((a, b) => sv(a.address, b.address));
+  let h = `<div class="lane wait" data-drop="lane" data-tid=""><div class="lab"><span>⚠️ Utan traktor<em>${wait.length} fastigheter</em></span></div>
+    <div class="lcards">${wait.map(miniCard).join('') || '<span class="hint">✅ Alla har traktor</span>'}</div><div class="sum"></div></div>`;
+  const act = fleet.filter(t => t.active !== false);
+  // ⋯ Övriga öppen i remsan → de lånade traktorerna får också en rad
+  const here = act.filter(t => showOthers || baseMatches(t.base, kd) || list.some(p => p.tractorId === t.id));
+  here.sort((a, b) => (a.owner || 'Egna').localeCompare(b.owner || 'Egna', 'sv') || sv(a.model, b.model)).forEach(t => {
+    const ps = list.filter(p => p.tractorId === t.id).sort((a, b) => sv(a.address, b.address));
+    const area = ps.reduce((s, p) => s + zoneStats(p).maskin, 0), c = tractorCounts(t, kd);
+    h += `<div class="lane" data-drop="lane" data-tid="${esc(t.id)}">
+      <div class="lab" data-tractor-sheet="${esc(t.id)}">${tKula(t, t.size === 'stor' ? 40 : 32)}<span>${esc(shortModel(t))}<em>${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}${t.owner && t.owner !== 'Egna' ? ' · ' + esc(t.owner) : ''}</em></span></div>
+      <div class="lcards">${ps.map(miniCard).join('') || '<span class="hint">Dra fastigheter hit</span>'}</div>
+      <div class="sum"><b>${ps.length} ${ps.length === 1 ? 'fastighet' : 'fastigheter'}</b>${area ? m2(area) : ''}${snowfall && ps.length ? `<br>${c.done}/${ps.length} klara` : ''}</div></div>`;
+  });
+  return h + '<div class="hint" style="margin-top:10px">Dra en fastighet till en traktors rad. Tillbaka till "Utan traktor" tar bort traktorn.</div>';
+}
 
-    function renderDetail(p) {
-      const sizeBtn = (s, text) => `<button class="${s} ${p.size === s ? 'active' : ''}" onclick="updateProperty({ size: '${s}' })">${text}</button>`;
-      return `<div class="detail">
-        <div class="detail-head">
-          <div><h2>${snoEscape(p.address)}</h2><div class="muted">${snoEscape(p.ort || 'Ort saknas')}${p.lat === null ? ' · 📍 saknar position' : ''}</div></div>
-          <button onclick="selectProperty(null)">✕</button>
-        </div>
-        <div class="hal hal-big ${holeClass(p)}">${p.size ? '' : '?'}</div>
-        <div class="fit">${fitText(p)}</div>
-        <div class="size-toggle">${sizeBtn('stor', '🟠 Stor')}${sizeBtn('liten', '🔵 Liten')}</div>
-        <div class="row">
-          <button class="${p.priority ? 'on' : ''}" onclick="updateProperty({ priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
-          ${p.size === 'liten' ? `<button class="${p.forced ? 'on' : ''}" onclick="toggleForced()">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}
-        </div>
-        <div>
-          <label>Att tänka på (visas för föraren)</label>
-          <textarea id="d-note" placeholder="T.ex. lågt hängande grenar vid infarten" onchange="updateProperty({ note: this.value })">${snoEscape(p.note)}</textarea>
-        </div>
-        <div>
-          <label>Foton (${p.photos.length})</label>
-          <div class="photos">
-            ${p.photos.map(ph => `<div class="photo"><a href="${snoEscape(ph.url)}" target="_blank" rel="noopener"><img src="${snoEscape(ph.url)}" alt="Foto" loading="lazy"></a><button onclick="removePhoto('${snoEscape(ph.id)}')" title="Ta bort">✕</button></div>`).join('')}
-          </div>
-          <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="addPhoto(event)">
-          <button style="width:100%; margin-top:6px;" onclick="document.getElementById('photo-input').click()">📷 Lägg till foto</button>
-        </div>
-        ${(p.maps || []).length || p.kund ? `<div>
-          <label>Kund och kundkartor</label>
-          <div class="muted">${snoEscape(p.kund || '')}${p.omrade ? ' · ' + snoEscape(p.omrade) : ''}</div>
-          <div class="photos">${(p.maps || []).map(m => `<div class="photo"><a href="${snoEscape(m.url)}" target="_blank" rel="noopener"><img src="${snoEscape(m.url)}" alt="${snoEscape(m.label)}" loading="lazy"></a></div>`).join('')}</div>
-          ${(p.maps || []).length ? `<button style="width:100%; margin-top:6px;" onclick="location.href='snozoner.html?fastighet=${encodeURIComponent(p.id)}'">❄️ Rita zoner från kundkartan</button>` : ''}
-        </div>` : ''}
-        <div class="row">
-          <button onclick="startPlacing()">📍 Flytta på kartan</button>
-          <button onclick="editAddress()">✏️ Ändra adress</button>
-        </div>
-        <button class="danger" onclick="deleteProperty()">🗑️ Ta bort fastigheten</button>
-      </div>`;
-    }
+// ===== Kartvyn =====
+let mapCtl = null, map = null, pins = [];
+function ensureMap() {
+  if (map) { setTimeout(() => map.invalidateSize(), 50); return; }
+  mapCtl = snoCreateMap('map'); map = mapCtl.map;
+}
+function renderMapPins(fit) {
+  if (!map || SNO_MAP_MISSING) return;
+  pins.forEach(l => map.removeLayer(l));
+  pins = kdProps().filter(p => p.lat !== null).map(p => {
+    const t = p.tractorId ? tractorById(p.tractorId) : null, px = p.size === 'liten' ? 26 : 32, n = (p.shovelers || []).length;
+    const html = `<div class="mk ${t ? stateOf(p) : 'empty'}" data-drop="pin" data-pid="${esc(p.id)}" style="width:${px}px;height:${px}px">${t ? tKula(t, px) : ''}${n ? `<i>🧹${n > 1 ? n : ''}</i>` : ''}</div>`;
+    const m = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html, iconSize: [px, px] }) }).addTo(map);
+    m.bindTooltip(`${esc(p.address)}${t ? ' · ' + esc(t.model) + (t.driver ? ' (' + esc(t.driver) + ')' : '') : ' · ingen traktor'}${n ? ' · 🧹 ' + p.shovelers.map(esc).join(', ') : ''}`);
+    m.on('click', () => openSheet(p.id));
+    return m;
+  });
+  if (fit) { const pts = kdProps().filter(p => p.lat !== null).map(p => [p.lat, p.lng]); if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 }); }
+}
 
-    function selectProperty(id, keepMessage = false) {
-      selectedId = id;
-      placingPosition = false;
-      document.getElementById('map-hint').style.display = 'none';
-      if (!keepMessage) message = '';
-      render();
-      const p = properties.find(x => x.id === id);
-      if (p && p.lat !== null) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 17));
-      renderPins();
-    }
+// ===== Rita allt =====
+function render(fitMap) {
+  renderTop(); renderOrder(); renderSide();
+  const isMap = view === 'map';
+  $('area').classList.toggle('mapmode', isMap);
+  $('map').hidden = !isMap; $('cardsview').hidden = isMap;
+  if (isMap) { ensureMap(); renderMapPins(fitMap); }
+  else $('cardsview').innerHTML = view === 'tractors' ? renderTractors() : renderProps();
+  if (sheetFor) renderSheet();
+  if (loaded) store.set('lpv_plan_cache2', JSON.stringify({ properties, fleet, people, zonesAll, snowfall, doneList }));
+}
+function setView(v) { view = v; store.set('lpv_plan_view', v); render(true); }
+function setKd(kd) { kommundel = kd; store.set('lpv_plan_kd', kd); showOthers = false; render(true); $('area').scrollTop = 0; }
+function stepKd(dir) { const l = kommundelar(); if (!l.length) return; const i = l.indexOf(currentKd()); setKd(l[(i + dir + l.length) % l.length]); }
 
-    async function saveProperty(p, extra = {}) {
-      const res = await snoApi({ action: 'saveProperty', property: { ...p, ...extra } });
-      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return null; }
-      const idx = properties.findIndex(x => x.id === res.property.id);
-      if (idx === -1) properties.push(res.property); else properties[idx] = res.property;
-      message = res.geocodeNote ? '⚠️ ' + snoEscape(res.geocodeNote) : '✅ Sparat';
-      return res.property;
-    }
+// ===== Spara =====
+function setStatus(t, err) { const s = $('status'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
+let toastT;
+function toast(html, ok, action) {
+  const el = $('toast');
+  el.innerHTML = html + (action ? ` <button id="toastAct">${action.label}</button>` : '');
+  el.className = 'toast' + (ok ? ' ok' : ''); el.style.display = 'block';
+  if (action) $('toastAct').onclick = () => { el.style.display = 'none'; action.run(); };
+  clearTimeout(toastT); toastT = setTimeout(() => { el.style.display = 'none'; }, action ? 9000 : ok ? 2200 : 5000);
+}
+async function assign(pid, changes) {
+  const p = propById(pid);
+  if (!p) return false;
+  const before = { tractorId: p.tractorId || '', shovelers: [...(p.shovelers || [])] };
+  Object.assign(p, changes); render();
+  setStatus('Sparar…');
+  try {
+    const res = await snoApi({ action: 'assignSnow', propertyId: pid, ...changes });
+    if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
+    p.tractorId = res.property.tractorId; p.shovelers = res.property.shovelers;
+    setStatus('Sparat');
+    return true;
+  } catch (err) {
+    Object.assign(p, before); render();
+    setStatus('Fel', true); toast('❌ ' + esc(err.message));
+    return false;
+  }
+}
+async function saveTractor(t, changes) {
+  const before = { ...t };
+  Object.assign(t, changes); render();
+  setStatus('Sparar…');
+  try {
+    const res = await snoApi({ action: 'saveTractor', tractor: t });
+    if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
+    Object.assign(t, res.tractor); setStatus('Sparat'); render();
+  } catch (err) { Object.assign(t, before); render(); setStatus('Fel', true); toast('❌ ' + esc(err.message)); }
+}
+async function saveProp(p, changes) {
+  const before = { ...p };
+  Object.assign(p, changes); render();
+  setStatus('Sparar…');
+  try {
+    const res = await snoApi({ action: 'saveProperty', property: { ...p, manualPosition: true } });
+    if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
+    Object.assign(p, res.property); setStatus('Sparat'); render();
+  } catch (err) { Object.assign(p, before); render(); setStatus('Fel', true); toast('❌ ' + esc(err.message)); }
+}
 
-    async function createProperty() {
-      const address = document.getElementById('new-address').value.trim();
-      const ort = document.getElementById('new-ort').value.trim();
-      if (!address) { setMessage('Fyll i adressen.'); return; }
-      setMessage('Söker adressen på kartan…');
-      const saved = await saveProperty({ address, ort });
-      if (saved) selectProperty(saved.id, true); else render();
-    }
+// Traktor på en fastighet + förslag: grannar inom 300 m utan traktor
+async function putTractor(t, p, fromPid) {
+  if (!p.size) { bounce(p.id); toast(`🚫 ${esc(p.address)} saknar storlek – välj stor/liten i detaljrutan.`); return; }
+  if (!fits(t, p)) { bounce(p.id); toast(`🚫 ${esc(shortModel(t))} är stor – ${esc(p.address)} har ett litet hål.`); return; }
+  if (p.tractorId === t.id) return;
+  if (fromPid && fromPid !== p.id) assign(fromPid, { tractorId: '' });
+  const ok = await assign(p.id, { tractorId: t.id });
+  if (!ok || p.lat === null) return;
+  const near = properties.filter(x => x.id !== p.id && !x.tractorId && x.lat !== null && kdOf(x) === kdOf(p) && x.size && fits(t, x) && snoDistance([p.lat, p.lng], [x.lat, x.lng]) <= 300);
+  if (near.length) toast(`${near.length} ${near.length === 1 ? 'granne' : 'grannar'} inom 300 m saknar traktor (${near.slice(0, 3).map(x => esc(x.address)).join(', ')}${near.length > 3 ? ' …' : ''}).`, true,
+    { label: `Lägg ${esc(shortModel(t))} där också`, run: async () => { for (const x of near) await assign(x.id, { tractorId: t.id }); toast(`✅ ${esc(shortModel(t))} lagd på ${near.length} till`, true); } });
+}
+function bounce(pid) {
+  const el = document.querySelector(`#c-${CSS.escape(pid)} .hole`) || document.getElementById('c-' + pid);
+  if (el && el.animate) el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], { duration: 350 });
+}
 
-    async function updateProperty(changes) {
-      const p = properties.find(x => x.id === selectedId);
-      if (!p) return;
-      if (changes.size === 'stor') changes.forced = false;
-      Object.assign(p, changes); // visa direkt, spara i bakgrunden
-      render(); renderPins();
-      await saveProperty(p, { manualPosition: true });
-      render(); renderPins();
-    }
+// ===== Dra och släpp (som i Radarn: dra = flytta, tryck = detaljer) =====
+let drag = null;
+document.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('[data-drag]');
+  if (!el || e.button > 0 || el.closest('.sheet')) return;
+  drag = { el, x: e.clientX, y: e.clientY, started: false, type: el.dataset.drag, id: el.dataset.id, kind: el.dataset.kind, from: el.dataset.from, fromTractor: el.dataset.fromTractor, pointerId: e.pointerId };
+});
+document.addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+    drag.started = true;
+    const src = drag.el.querySelector('.kula') || drag.el;
+    const g = src.cloneNode(true); g.classList.add('ghost'); g.style.left = e.clientX + 'px'; g.style.top = e.clientY + 'px';
+    if (drag.type === 'prop') g.style.width = Math.min(drag.el.offsetWidth, 200) + 'px';
+    document.body.appendChild(g); drag.ghost = g;
+    drag.el.style.opacity = '.35';
+  }
+  e.preventDefault();
+  drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px';
+  highlight(e.clientX, e.clientY);
+  // Rulla planeringsytan när man drar nära kanten
+  const a = $('area'), r = a.getBoundingClientRect();
+  if (e.clientX > r.left && e.clientX < r.right) { if (e.clientY > r.bottom - 50) a.scrollTop += 14; else if (e.clientY < r.top + 40 && e.clientY > r.top) a.scrollTop -= 14; }
+}, { passive: false });
+document.addEventListener('pointerup', (e) => {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  const d = drag; drag = null;
+  clearHighlight();
+  d.el.style.opacity = '';
+  if (d.ghost) d.ghost.remove();
+  if (!d.started) { tapOn(d); return; }
+  drop(d, e.clientX, e.clientY);
+});
+document.addEventListener('pointercancel', () => { if (drag) { if (drag.ghost) drag.ghost.remove(); drag.el.style.opacity = ''; } drag = null; clearHighlight(); });
+// Tryck på ett kort (utan att dra) öppnar detaljrutan; på en traktor öppnas traktorns ruta
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.sheet, [data-drag]')) return;
+  const ts = e.target.closest('[data-tractor-sheet]'); if (ts) { openTractorSheet(ts.dataset.tractorSheet); return; }
+  const c = e.target.closest('[data-card]'); if (c) openSheet(c.dataset.card);
+});
+function tapOn(d) {
+  if (d.type === 'tractor') openTractorSheet(d.id);
+  else if (d.type === 'prop') openSheet(d.id);
+  else if (d.from) openSheet(d.from);
+  else if (d.fromTractor) openTractorSheet(d.fromTractor);
+}
 
-    function toggleForced() {
-      const p = properties.find(x => x.id === selectedId);
-      if (!p.forced && !confirm('Tvinga in en stor traktor på en liten plats?\n\nGör det bara för gränsfall där en stor traktor faktiskt kommer fram.')) return;
-      updateProperty({ forced: !p.forced });
-    }
-
-    async function editAddress() {
-      const p = properties.find(x => x.id === selectedId);
-      const address = prompt('Ny adress:', p.address);
-      if (!address || address.trim() === p.address) return;
-      setMessage('Söker adressen på kartan…');
-      await saveProperty({ ...p, address: address.trim(), lat: null, lng: null });
-      selectProperty(p.id, true);
-    }
-
-    async function deleteProperty() {
-      const p = properties.find(x => x.id === selectedId);
-      if (!confirm(`Ta bort ${p.address}?`)) return;
-      const res = await snoApi({ action: 'deleteProperty', id: p.id });
-      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message)); return; }
-      properties = properties.filter(x => x.id !== p.id);
-      selectedId = null; message = '🗑️ Borttagen'; render(); renderPins();
-    }
-
-    function startPlacing() {
-      placingPosition = true;
-      document.getElementById('map-hint').style.display = 'block';
-    }
-
-    async function onMapClick(e) {
-      if (!placingPosition || !selectedId) return;
-      placingPosition = false;
-      document.getElementById('map-hint').style.display = 'none';
-      const p = properties.find(x => x.id === selectedId);
-      p.lat = e.latlng.lat; p.lng = e.latlng.lng;
-      renderPins();
-      await saveProperty(p, { manualPosition: true });
-      message = '📍 Position sparad'; render(); renderPins();
-    }
-
-    // Foto komprimeras i telefonen innan det skickas (max 1600 px)
-    function compressImage(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = reject;
-        reader.onload = () => {
-          const img = new Image();
-          img.onerror = reject;
-          img.onload = () => {
-            const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
-            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL('image/jpeg', 0.75));
-          };
-          img.src = reader.result;
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    async function addPhoto(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const p = properties.find(x => x.id === selectedId);
-      setMessage('Laddar upp foto…');
-      try {
-        const base64 = await compressImage(file);
-        const res = await snoApi({ action: 'addPropertyPhoto', id: p.id, imageBase64: base64 });
-        if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message)); return; }
-        p.photos.push(res.photo);
-        message = '📷 Foto sparat'; render();
-      } catch (err) {
-        setMessage('❌ Kunde inte ladda upp fotot.');
-      }
-    }
-
-    async function removePhoto(photoId) {
-      if (!confirm('Ta bort fotot?')) return;
-      const p = properties.find(x => x.id === selectedId);
-      const res = await snoApi({ action: 'removePropertyPhoto', id: p.id, photoId });
-      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message)); return; }
-      p.photos = p.photos.filter(ph => ph.id !== photoId);
-      render();
-    }
-
-    function renderPins() {
-      pins.forEach(l => map.removeLayer(l));
-      if (tab === 'board') { pins = boardPins(); return; }
-      pins = properties.filter(p => p.lat !== null).map(p => {
-        const cls = `pin ${p.size || 'none'}${p.priority ? ' prio' : ''}`;
-        const size = p.size === 'stor' ? 18 : p.size === 'liten' ? 12 : 14;
-        const marker = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: `<div class="${cls}"></div>`, iconSize: [size, size] }),
-          zIndexOffset: p.id === selectedId ? 1000 : 0 }).addTo(map);
-        marker.bindTooltip(`${snoEscape(p.address)} · ${sizeLabel(p)}`);
-        marker.on('click', () => { showTab('props'); selectProperty(p.id); });
-        return marker;
-      });
-    }
-
-    // ================= TAVLAN (docs/snoplanering.md) =================
-    // Fastighetskorten har ett 🚜-hål (stor/liten) och 🧹-platser. Kulorna ligger i kulpåsen per ägare
-    // (Egna / UE-företag) och läggs på korten genom att dra – eller trycka på kulan och sedan på platsen.
-    let zonesAll = [], people = [], avatars = {}, snowfall = null, doneList = [];
-    let kommundel = (() => { try { return localStorage.getItem('lpv_plan_kd') || ''; } catch (e) { return ''; } })();
-    let picked = null;      // { kind: 'traktor'|'hand', id, from: fastighets-ID eller null }
-    let showOthers = false;
-    let drag = null;        // pågående drag med finger/penna/mus
-    let suppressClick = false;
-
-    const sv = (a, b) => String(a).localeCompare(String(b), 'sv');
-    const kdOf = (p) => String(p.omrade || p.ort || 'Utan område').trim();
-    const propById = (id) => properties.find(p => p.id === id);
-    const tractorById = (id) => fleet.find(t => t.id === id);
-    const personByName = (n) => people.find(x => x.name === n) || { name: n, owner: 'Egna', shoveler: true, lat: null, lng: null };
-    const ownerLabel = (o) => o === 'Egna' ? '🏠 Egna' : '🤝 ' + o;
-    function kommundelar() { return [...new Set(properties.map(kdOf))].sort(sv); }
-    function currentKd() {
-      const list = kommundelar();
-      if (!list.includes(kommundel)) kommundel = list[0] || '';
-      return kommundel;
-    }
-    function kdProps(kd = currentKd()) { return properties.filter(p => kdOf(p) === kd); }
-    function setKommundel(kd) {
-      kommundel = kd; picked = null; showOthers = false;
-      try { localStorage.setItem('lpv_plan_kd', kd); } catch (e) { /* privat läge */ }
-      render(); renderPins(); fitToKommundel();
-    }
-    function fitToKommundel() {
-      const pts = kdProps().filter(p => p.lat !== null).map(p => [p.lat, p.lng]);
-      if (pts.length && map.fitBounds) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 });
-    }
-
-    // Ytor per fastighet ur Rita zoner
-    let zoneStatsCache = null;
-    function zoneStats(p) {
-      if (!zoneStatsCache) {
-        zoneStatsCache = {};
-        zonesAll.forEach(z => {
-          const k = snoAddrKey(z.property), o = zoneStatsCache[k] || (zoneStatsCache[k] = { maskin: 0, hand: 0 });
-          if (z.type === 'maskin' || z.type === 'hand') o[z.type] += Number(z.areaM2) || 0;
-        });
-      }
-      return zoneStatsCache[snoAddrKey(p.address)] || { maskin: 0, hand: 0 };
-    }
-    const m2 = (v) => Math.round(v).toLocaleString('sv-SE') + ' m²';
-
-    // Status i pågående snöfall: alla delar klara = grön, någon = gul
-    function partsOf(p) {
-      return (p.tractorId ? [{ part: 'traktor', unit: p.tractorId }] : []).concat((p.shovelers || []).map(n => ({ part: 'hand', unit: n })));
-    }
-    function isDone(p, part, unit) { return doneList.some(d => d.propertyId === p.id && d.part === part && d.unit === unit); }
-    function stateOf(p) {
-      const parts = partsOf(p);
-      const n = parts.filter(x => isDone(p, x.part, x.unit)).length;
-      return !parts.length || !n ? '' : n === parts.length ? 'done' : 'part';
-    }
-
-    // Var en kula hör hemma (för avstånd): traktorns uppställningsort, personens hemort, annars där den redan kör
-    function centroid(list) {
-      const pts = list.filter(p => p.lat !== null);
-      return pts.length ? [pts.reduce((s, p) => s + p.lat, 0) / pts.length, pts.reduce((s, p) => s + p.lng, 0) / pts.length] : null;
-    }
-    function tractorHome(t) {
-      const b = String(t.base || '').trim().toLowerCase();
-      const there = b ? properties.filter(p => { const k = kdOf(p).toLowerCase(), o = String(p.ort || '').toLowerCase(); return k === b || o === b || (b.length > 3 && (k.includes(b) || b.includes(k))); }) : [];
-      return centroid(there) || centroid(properties.filter(p => p.tractorId === t.id));
-    }
-    function personHome(x) {
-      return x.lat !== null && x.lat !== undefined ? [x.lat, x.lng] : centroid(properties.filter(p => (p.shovelers || []).includes(x.name)));
-    }
-    function stationedHere(t, kd) {
-      const b = String(t.base || '').trim().toLowerCase(), k = kd.toLowerCase();
-      return !!b && (b === k || (b.length > 3 && (k.includes(b) || b.includes(k))) || kdProps(kd).some(p => String(p.ort || '').toLowerCase() === b));
-    }
-    function distText(home, center) { return home && center ? snoFormatDistance(snoDistance(home, center)) : ''; }
-
-    // Kulor
-    function tractorKula(t, px) {
-      const inner = t.avatarUrl ? `<img src="${snoEscape(t.avatarUrl)}" alt="">` : '🚜';
-      return `<div class="kula" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .45)}px;--kula-color:${brandColor(t.model)}">${inner}</div>`;
-    }
-    function initials(n) { return String(n).split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase(); }
-    function handKula(name, px) {
-      const av = avatars[name];
-      return `<div class="kula hk" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .36)}px">${av ? `<img src="${snoEscape(av)}" alt="">` : snoEscape(initials(name))}</div>`;
-    }
-    function shortModel(t) { return String(t.model).split(/\s+/).slice(0, 2).join(' '); }
-    function countText(kind, id, kd) {
-      const has = (p) => kind === 'traktor' ? p.tractorId === id : (p.shovelers || []).includes(id);
-      const here = kdProps(kd).filter(has).length, all = properties.filter(has).length;
-      return all === here ? String(here) : `${here} (av ${all})`;
-    }
-    function chip(kind, id, sub) {
-      const isPicked = picked && picked.kind === kind && picked.id === id && !picked.from;
-      if (kind === 'traktor') {
-        const t = tractorById(id);
-        return `<div class="kchip${isPicked ? ' picked' : ''}" data-kula="traktor" data-id="${snoEscape(id)}">${tractorKula(t, t.size === 'stor' ? 50 : 38)}
-          <b>${snoEscape(shortModel(t))}</b>${t.driver ? snoEscape(t.driver) + ' · ' : ''}${sub}</div>`;
-      }
-      return `<div class="kchip${isPicked ? ' picked' : ''}" data-kula="hand" data-id="${snoEscape(id)}">${handKula(id, 38)}<b>${snoEscape(id.split(' ')[0])}</b>${sub}</div>`;
-    }
-
-    function renderBag(kd, center) {
-      const active = fleet.filter(t => t.active);
-      const owners = (list, ownerOf) => [...new Set(list.map(ownerOf))].sort((a, b) => (a !== 'Egna') - (b !== 'Egna') || sv(a, b));
-      const here = active.filter(t => stationedHere(t, kd));
-      const others = active.filter(t => !stationedHere(t, kd))
-        .map(t => ({ t, home: tractorHome(t) }))
-        .sort((a, b) => (a.home && center ? snoDistance(a.home, center) : 1e9) - (b.home && center ? snoDistance(b.home, center) : 1e9));
-      const hands = people.filter(x => x.shoveler)
-        .map(x => ({ x, home: personHome(x) }))
-        .sort((a, b) => (a.home && center ? snoDistance(a.home, center) : 1e9) - (b.home && center ? snoDistance(b.home, center) : 1e9) || sv(a.x.name, b.x.name));
-      const returning = picked && picked.from;
-      let html = `<div class="bag${returning ? ' target' : ''}" data-drop="pase">`;
-      if (returning) html += `<div class="bag-return">↩ Tryck här (eller släpp kulan här) för att ta bort den från ${snoEscape(propById(picked.from)?.address || 'kortet')}</div>`;
-      html += `<div class="bag-title">🚜 Stationerade i ${snoEscape(kd)}</div>`;
-      if (!here.length) html += `<div class="muted">Ingen traktor har ${snoEscape(kd)} som uppställning (Traktorer → Ort / uppställning).</div>`;
-      owners(here, t => t.owner || 'Egna').forEach(o => {
-        html += `<div class="bag-owner">${snoEscape(ownerLabel(o))}</div><div class="bag-group">${here.filter(t => (t.owner || 'Egna') === o).map(t => chip('traktor', t.id, '· ' + countText('traktor', t.id, kd))).join('')}</div>`;
-      });
-      if (others.length) {
-        html += `<button class="more" onclick="showOthers=!showOthers; render()">${showOthers ? '▾' : '⋯'} Övriga traktorer (${others.length}) – närmast först</button>`;
-        if (showOthers) owners(others.map(o => o.t), t => t.owner || 'Egna').forEach(o => {
-          html += `<div class="bag-owner">${snoEscape(ownerLabel(o))}</div><div class="bag-group">${others.filter(x => (x.t.owner || 'Egna') === o).map(x => {
-            const d = distText(x.home, center);
-            return chip('traktor', x.t.id, (d ? d + ' · ' : '') + countText('traktor', x.t.id, kd));
-          }).join('')}</div>`;
-        });
-      }
-      html += `<div class="bag-title" style="margin-top:4px;">🧹 Handskottare – närmast först</div>`;
-      if (!hands.length) html += `<div class="muted">Inga handskottare ännu – bocka i "Handskottare" på Personal-sidan.</div>`;
-      owners(hands.map(h => h.x), x => x.owner || 'Egna').forEach(o => {
-        html += `<div class="bag-owner">${snoEscape(ownerLabel(o))}</div><div class="bag-group">${hands.filter(h => (h.x.owner || 'Egna') === o).map(h => {
-          const d = distText(h.home, center);
-          return chip('hand', h.x.name, (d ? d + ' · ' : '') + countText('hand', h.x.name, kd));
-        }).join('')}</div>`;
-      });
-      return html + '</div>';
-    }
-
-    function renderBoardCard(p) {
-      const t = p.tractorId ? tractorById(p.tractorId) : null;
-      const zs = zoneStats(p), st = stateOf(p);
-      const holeSize = p.size === 'stor' ? 60 : p.size === 'liten' ? 44 : 50;
-      const tPicked = picked && picked.kind === 'traktor' && picked.from === p.id;
-      const hole = `<div class="hole ${holeClass(p)}${t ? ' filled' : ''}" data-drop="traktor" data-pid="${snoEscape(p.id)}">${t
-        ? `<div class="placed${tPicked ? ' picked' : ''}" data-kula="traktor" data-id="${snoEscape(t.id)}" data-from="${snoEscape(p.id)}">${tractorKula(t, holeSize - 8)}</div>${isDone(p, 'traktor', t.id) ? '<span class="donechk">✓</span>' : ''}`
-        : (p.size ? '🚜' : '?')}</div>`;
-      const needHand = zs.hand > 0 || (p.shovelers || []).length;
-      const slots = needHand ? `<div class="slots">${(p.shovelers || []).map(n => {
-          const pk = picked && picked.kind === 'hand' && picked.id === n && picked.from === p.id;
-          return `<div class="placed${pk ? ' picked' : ''}" style="position:relative" data-kula="hand" data-id="${snoEscape(n)}" data-from="${snoEscape(p.id)}" title="${snoEscape(n)}">${handKula(n, 36)}${isDone(p, 'hand', n) ? '<span class="donechk">✓</span>' : ''}</div>`;
-        }).join('')}<div class="slot" data-drop="hand" data-pid="${snoEscape(p.id)}" title="Lägg en handskottare här">${(p.shovelers || []).length ? '＋' : '🧹'}</div></div>` : '';
-      const who = [t ? `🚜 ${snoEscape(shortModel(t))}${t.driver ? ' (' + snoEscape(t.driver) + ')' : ''}${t.owner && t.owner !== 'Egna' ? ' · ' + snoEscape(t.owner) : ''}` : '', (p.shovelers || []).length ? '🧹 ' + p.shovelers.map(snoEscape).join(', ') : ''].filter(Boolean).join(' · ');
-      return `<div class="bcard ${st}" id="bc-${snoEscape(p.id)}">
-        ${hole}
-        <div class="bcard-body">
-          <div class="pcard-title">${snoEscape(p.address)}${p.priority ? '<span class="badge prio">⭐</span>' : ''}${p.zoneStatus === 'klar' ? ' <span title="Zonerna är ritade">✅</span>' : ''}</div>
-          <div class="pcard-meta">${p.kund ? snoEscape(p.kund) + ' · ' : ''}${zs.maskin ? '🔵 ' + m2(zs.maskin) : ''}${zs.maskin && zs.hand ? ' · ' : ''}${zs.hand ? '🟠 ' + m2(zs.hand) : ''}${!zs.maskin && !zs.hand ? 'Inga zoner ritade' : ''}${!p.size ? ' · ⚠️ storlek saknas' : ''}</div>
-          ${who ? `<div class="pcard-meta">${who}</div>` : ''}
-          ${slots}
-        </div>
-      </div>`;
-    }
-
-    function renderBoard() {
-      if (!properties.length) return `<div class="msg" id="msg">${message}</div><div class="muted">Inga fastigheter ännu – lägg till under 🏠 Fastigheter.</div>`;
-      const kd = currentKd(), list = kdProps(kd);
-      const center = centroid(list);
-      const withT = list.filter(p => p.tractorId).length;
-      const assigned = list.filter(p => partsOf(p).length), doneN = assigned.filter(p => stateOf(p) === 'done').length;
-      const orter = [...new Set(list.map(p => p.ort || ''))];
-      const sorted = [...list].sort((a, b) => sv(a.ort || '', b.ort || '') || sv(a.address, b.address));
-      let cards = '', lastOrt = null;
-      sorted.forEach(p => {
-        if (orter.length > 1 && (p.ort || '') !== lastOrt) { lastOrt = p.ort || ''; cards += `<div class="grp-head">${snoEscape(lastOrt || 'Utan ort')}</div>`; }
-        cards += renderBoardCard(p);
-      });
-      return `
-        <select onchange="setKommundel(this.value)">${kommundelar().map(k => `<option ${k === kd ? 'selected' : ''} value="${snoEscape(k)}">${snoEscape(k)} (${kdProps(k).length})</option>`).join('')}</select>
-        <div class="muted" style="text-align:center;"><b style="color:${withT === list.length ? 'var(--ok)' : 'var(--text)'}">${withT} av ${list.length}</b> fastigheter har traktor${picked ? ' · <b style="color:var(--accent)">Tryck på ett hål för kulan</b>' : ''}</div>
-        <div class="sf"><span>❄️ ${snowfall ? `Snöfall sedan <b>${snoEscape(snowfall.start.slice(5))}</b> · <b>${doneN} av ${assigned.length}</b> klara` : 'Inget snöfall startat'}</span>
-          <button onclick="newSnowfall()">❄️ Nytt snöfall</button></div>
-        <div class="msg" id="msg">${message}</div>
-        ${renderBag(kd, center)}
-        <div style="display:flex; flex-direction:column; gap:6px;">${cards}</div>
-        <div class="muted">Dra en kula till ett hål – eller tryck på kulan och sedan på hålet. Dra en lagd kula tillbaka till påsen för att ta bort den.</div>`;
-    }
-
-    // Kulorna på kartan: traktorn vid fastighetens nål, tomt hål = röd ring, 🧹-antal som bricka
-    function boardPins() {
-      return kdProps().filter(p => p.lat !== null).map(p => {
-        const t = p.tractorId ? tractorById(p.tractorId) : null;
-        const px = p.size === 'liten' ? 24 : 30, st = stateOf(p), n = (p.shovelers || []).length;
-        const html = `<div class="mk ${t ? st : 'empty'}" style="width:${px}px;height:${px}px">${t ? tractorKula(t, px) : ''}${n ? `<i>🧹${n > 1 ? n : ''}</i>` : ''}</div>`;
-        const m = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html, iconSize: [px, px] }) }).addTo(map);
-        m.bindTooltip(`${snoEscape(p.address)}${t ? ' · ' + snoEscape(t.model) + (t.driver ? ' (' + snoEscape(t.driver) + ')' : '') : ' · ingen traktor'}${n ? ' · 🧹 ' + p.shovelers.map(snoEscape).join(', ') : ''}`);
-        m.on('click', () => {
-          if (picked) { dropOn({ type: picked.kind, pid: p.id }); return; }
-          const el = document.getElementById('bc-' + p.id);
-          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); }
-        });
-        return m;
-      });
-    }
-
-    // Spara en ändring på kortet direkt på skärmen, sedan på servern (backa vid fel)
-    async function assign(pid, changes) {
-      const p = propById(pid);
-      if (!p) return;
-      const before = { tractorId: p.tractorId || '', shovelers: [...(p.shovelers || [])] };
-      Object.assign(p, changes);
-      render(); renderPins();
-      try {
-        const res = await snoApi({ action: 'assignSnow', propertyId: pid, ...changes });
-        if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
-        p.tractorId = res.property.tractorId; p.shovelers = res.property.shovelers;
-      } catch (err) {
-        Object.assign(p, before);
-        message = '❌ ' + snoEscape(err.message);
-      }
-      if (tab === 'board') { render(); renderPins(); }
-    }
-
-    function fits(t, p) { return !(t.size === 'stor' && p.size === 'liten' && !p.forced); }
-    function bounce(pid, text) {
-      message = text; render();
-      const el = document.querySelector(`#bc-${CSS.escape(pid)} .hole`);
-      if (el) el.classList.add('bounce');
-    }
-
-    function dropOn(target) {
-      const k = picked;
-      picked = null;
-      if (!k) return;
-      if (target.type === 'pase') {
-        if (k.from) {
-          const f = propById(k.from);
-          if (k.kind === 'traktor') assign(f.id, { tractorId: '' });
-          else assign(f.id, { shovelers: f.shovelers.filter(n => n !== k.id) });
-          message = '↩ Tillbaka i påsen';
-        }
-        render(); renderPins(); return;
-      }
-      const p = propById(target.pid);
-      if (!p || k.from === p.id) { render(); return; }
-      if (k.kind !== target.type) { bounce(p.id, k.kind === 'traktor' ? '🚫 Traktorn ska i 🚜-hålet (den runda platsen till vänster).' : '🚫 Handskottare läggs i 🧹-platserna under adressen.'); return; }
-      if (k.kind === 'traktor') {
-        const t = tractorById(k.id);
-        if (!p.size) { bounce(p.id, `🚫 ${snoEscape(p.address)} saknar storlek – välj stor/liten under 🏠 Fastigheter först.`); return; }
-        if (!fits(t, p)) { bounce(p.id, `🚫 ${snoEscape(t.model)} är stor – ${snoEscape(p.address)} har ett litet hål.`); return; }
-        if (k.from) assign(k.from, { tractorId: '' });
-        message = p.tractorId && p.tractorId !== t.id ? `🔁 ${snoEscape(tractorById(p.tractorId)?.model || 'Förra traktorn')} tillbaka i påsen` : '';
-        assign(p.id, { tractorId: t.id });
-      } else {
-        if ((p.shovelers || []).includes(k.id)) { render(); return; }
-        if (k.from) { const f = propById(k.from); assign(f.id, { shovelers: f.shovelers.filter(n => n !== k.id) }); }
-        message = '';
-        assign(p.id, { shovelers: [...(p.shovelers || []), k.id] });
-      }
-    }
-
-    // Tryck: välj kula → tryck på plats. Drag: håll på kulan och dra till platsen.
-    function dropTargetAt(x, y) {
-      const el = document.elementFromPoint(x, y);
-      const d = el && el.closest('[data-drop]');
-      if (d) return { el: d, type: d.dataset.drop, pid: d.dataset.pid };
-      const card = el && el.closest('.bcard');
-      if (card && drag) return { el: card.querySelector(drag.kind === 'traktor' ? '[data-drop="traktor"]' : '[data-drop="hand"]') || card, type: drag.kind, pid: card.id.slice(3) };
+function targetAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return {};
+  const t = el.closest('[data-drop]');
+  return { el: t, type: t && t.dataset.drop, pid: t && t.dataset.pid, tid: t && t.dataset.tid, order: el.closest('#order'), side: el.closest('#side'),
+    card: el.closest('.pcard'), lane: el.closest('.lane'), map: el.closest('#map') };
+}
+function clearHighlight() { document.querySelectorAll('.drop-ok,.drop-bad').forEach(x => x.classList.remove('drop-ok', 'drop-bad')); }
+// Vart kulan skulle hamna – samma regler för markering och släpp
+function resolve(d, x, y) {
+  const t = targetAt(x, y);
+  if (d.type === 'tractor') {
+    let pid = t.type === 'hole' || t.type === 'card' || t.type === 'pin' ? t.pid : t.card ? t.card.dataset.pid : null;
+    if (!pid && t.map) pid = nearestPin(x, y);
+    if (pid) { const p = propById(pid), tr = tractorById(d.id); return { act: 'putTractor', pid, ok: !!p.size && fits(tr, p), el: (t.card || document.getElementById('c-' + pid) || t.el)?.querySelector?.('.hole') || t.el }; }
+    if (t.order && d.from) return { act: 'removeTractor', el: $('order') };
+    return null;
+  }
+  if (d.type === 'person') {
+    if (d.kind === 'driver' || d.fromTractor) {
+      if (t.type === 'tractor') return { act: 'setDriver', tid: t.tid, ok: true, el: t.el };
+      if (t.side && d.fromTractor) return { act: 'removeDriver', el: $('side') };
       return null;
     }
-    function setupBoardInput() {
-      const body = document.getElementById('panel-body');
-      body.addEventListener('click', (e) => {
-        if (tab !== 'board') return;
-        if (suppressClick) { suppressClick = false; e.stopPropagation(); return; }
-        const k = e.target.closest('[data-kula]');
-        if (k) {
-          e.stopPropagation();
-          const sel = { kind: k.dataset.kula, id: k.dataset.id, from: k.dataset.from || null };
-          if (picked && picked.kind === sel.kind && picked.id === sel.id && picked.from === sel.from) picked = null;
-          else if (picked && sel.from) { dropOn({ type: picked.kind, pid: sel.from }); return; }
-          else picked = sel;
-          render(); return;
-        }
-        const d = e.target.closest('[data-drop]');
-        if (d && picked) { dropOn({ type: d.dataset.drop, pid: d.dataset.pid }); return; }
-        const card = e.target.closest('.bcard');
-        if (card && picked) { dropOn({ type: picked.kind, pid: card.id.slice(3) }); return; }
-        if (card && !e.target.closest('button, select, input')) {
-          const p = propById(card.id.slice(3));
-          if (p && p.lat !== null) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 16));
-        }
-      });
-      body.addEventListener('pointerdown', (e) => {
-        if (tab !== 'board' || (e.pointerType === 'mouse' && e.button !== 0)) return;
-        const k = e.target.closest('[data-kula]');
-        if (!k) return;
-        drag = { kind: k.dataset.kula, id: k.dataset.id, from: k.dataset.from || null, x: e.clientX, y: e.clientY, src: k, ghost: null, over: null, pointerId: e.pointerId };
-      });
-      window.addEventListener('pointermove', (e) => {
-        if (!drag || e.pointerId !== drag.pointerId) return;
-        if (!drag.ghost) {
-          if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
-          const kula = drag.src.querySelector('.kula');
-          drag.ghost = kula.cloneNode(true);
-          drag.ghost.classList.add('ghost');
-          document.body.appendChild(drag.ghost);
-          picked = { kind: drag.kind, id: drag.id, from: drag.from };
-          drag.src.style.opacity = '.35';
-          const bag = document.querySelector('.bag');
-          if (bag && drag.from) bag.classList.add('target');
-        }
-        e.preventDefault();
-        drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px';
-        const t = dropTargetAt(e.clientX, e.clientY);
-        if (drag.over && (!t || t.el !== drag.over)) drag.over.classList.remove('drop-hover');
-        if (t && t.el) { t.el.classList.add('drop-hover'); drag.over = t.el; } else drag.over = null;
-        // Rulla panelen när kulan dras nära kanten
-        const pb = document.getElementById('panel-body'), r = pb.getBoundingClientRect();
-        if (e.clientY > r.bottom - 50) pb.scrollTop += 14; else if (e.clientY < r.top + 50) pb.scrollTop -= 14;
-      }, { passive: false });
-      const end = (e) => {
-        if (!drag || e.pointerId !== drag.pointerId) return;
-        const d = drag; drag = null;
-        if (!d.ghost) return; // vanligt tryck – sköts av click
-        d.ghost.remove();
-        suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
-        const t = e.type === 'pointerup' ? dropTargetAt(e.clientX, e.clientY) : null;
-        if (t) {
-          dropOn({ type: t.type, pid: t.pid });
-        } else {
-          // Släppt på kartan → närmaste fastighetsnål
-          const mapEl = document.getElementById('map'), mr = mapEl.getBoundingClientRect();
-          if (e.type === 'pointerup' && e.clientX >= mr.left && e.clientX <= mr.right && e.clientY >= mr.top && e.clientY <= mr.bottom && map.containerPointToLatLng) {
-            const ll = map.containerPointToLatLng([e.clientX - mr.left, e.clientY - mr.top]);
-            let best = null;
-            kdProps().filter(p => p.lat !== null).forEach(p => {
-              const pt = map.latLngToContainerPoint([p.lat, p.lng]), dpx = Math.hypot(pt.x - (e.clientX - mr.left), pt.y - (e.clientY - mr.top));
-              if (dpx < 40 && (!best || dpx < best.d)) best = { p, d: dpx };
-            });
-            if (best && ll) { dropOn({ type: picked.kind, pid: best.p.id }); return; }
-          }
-          picked = null; render();
-        }
-      };
-      window.addEventListener('pointerup', end);
-      window.addEventListener('pointercancel', end);
-    }
+    let pid = t.type === 'slot' || t.type === 'card' || t.type === 'pin' ? t.pid : t.card ? t.card.dataset.pid : null;
+    if (!pid && t.map) pid = nearestPin(x, y);
+    if (pid) { const el = (document.getElementById('c-' + pid) || {}).querySelector?.('.slot') || t.el; return { act: 'putHand', pid, ok: true, el }; }
+    if (t.side && d.from) return { act: 'removeHand', el: $('side') };
+    return null;
+  }
+  if (d.type === 'prop' && t.lane) {
+    const tid = t.lane.dataset.tid, p = propById(d.id);
+    return { act: 'propToLane', tid, ok: !tid || (!!p.size && fits(tractorById(tid), p)), el: t.lane };
+  }
+  return null;
+}
+function highlight(x, y) {
+  clearHighlight();
+  const r = resolve(drag, x, y);
+  if (r && r.el) r.el.classList.add(r.ok === false ? 'drop-bad' : 'drop-ok');
+}
+function nearestPin(x, y) {
+  if (!map) return null;
+  const r = $('map').getBoundingClientRect();
+  let best = null;
+  kdProps().filter(p => p.lat !== null).forEach(p => {
+    const pt = map.latLngToContainerPoint([p.lat, p.lng]), d = Math.hypot(pt.x - (x - r.left), pt.y - (y - r.top));
+    if (d < 40 && (!best || d < best.d)) best = { id: p.id, d };
+  });
+  return best && best.id;
+}
+function drop(d, x, y) {
+  const r = resolve(d, x, y);
+  if (!r) return;
+  if (r.act === 'putTractor') return putTractor(tractorById(d.id), propById(r.pid), d.from);
+  if (r.act === 'removeTractor') { assign(d.from, { tractorId: '' }); toast('↩ Traktorn borttagen från kortet', true); return; }
+  if (r.act === 'setDriver') {
+    const t = tractorById(r.tid), x2 = personByName(d.id);
+    if ((x2.owner || 'Egna') !== (t.owner || 'Egna')) { toast(`🚫 ${esc(d.id)} hör till ${esc(ownerLabel(x2.owner))} – ${esc(shortModel(t))} till ${esc(ownerLabel(t.owner))}. Ändra ägare på Personal-sidan eller i ⚙️ Register.`); return; }
+    if (d.fromTractor && d.fromTractor !== t.id) saveTractor(tractorById(d.fromTractor), { driver: '' });
+    if (t.driver && t.driver !== d.id) toast(`🔁 ${esc(t.driver)} tillbaka i kulpåsen`, true);
+    return saveTractor(t, { driver: d.id });
+  }
+  if (r.act === 'removeDriver') { saveTractor(tractorById(d.fromTractor), { driver: '' }); return; }
+  if (r.act === 'putHand') {
+    const p = propById(r.pid);
+    if ((p.shovelers || []).includes(d.id)) return;
+    if (d.from && d.from !== p.id) { const f = propById(d.from); assign(f.id, { shovelers: f.shovelers.filter(n => n !== d.id) }); }
+    return assign(p.id, { shovelers: [...(p.shovelers || []), d.id] });
+  }
+  if (r.act === 'removeHand') { const f = propById(d.from); assign(f.id, { shovelers: f.shovelers.filter(n => n !== d.id) }); return; }
+  if (r.act === 'propToLane') {
+    const p = propById(d.id);
+    if (!r.tid) { if (p.tractorId) assign(p.id, { tractorId: '' }); return; }
+    if (!r.ok) { toast(p.size ? `🚫 ${esc(shortModel(tractorById(r.tid)))} är stor – ${esc(p.address)} har ett litet hål.` : `🚫 ${esc(p.address)} saknar storlek.`); return; }
+    return putTractor(tractorById(r.tid), p, null);
+  }
+}
 
-    async function newSnowfall() {
-      if (!confirm('Starta ett nytt snöfall?\n\nAlla fastigheter blir ogjorda (✅ nollställs). Kulorna ligger kvar där de ligger.')) return;
-      const res = await snoApi({ action: 'newSnowfall' });
-      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message || 'Kunde inte starta.')); return; }
-      snowfall = res.snowfall; doneList = [];
-      message = '❄️ Nytt snöfall startat – förarna ser alla sina fastigheter som ogjorda.';
-      render(); renderPins();
-    }
+// ===== Detaljrutan: fastighet =====
+let sheetFor = null; // { kind: 'prop'|'tractor', id }
+function openSheet(pid) { sheetFor = { kind: 'prop', id: pid }; renderSheet(); $('sheet').classList.add('open'); $('sheetBg').classList.add('open'); }
+function openTractorSheet(tid) { sheetFor = { kind: 'tractor', id: tid }; renderSheet(); $('sheet').classList.add('open'); $('sheetBg').classList.add('open'); }
+function closeSheet() { sheetFor = null; $('sheet').classList.remove('open'); $('sheetBg').classList.remove('open'); }
+$('sheetBg').onclick = closeSheet;
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 
-    async function refreshBoardStatus() {
-      if (tab !== 'board' || document.hidden || drag || picked) return;
-      try {
-        const res = await snoApi({ action: 'getSnowBoard' });
-        if (res.status !== 'success') return;
-        const changed = JSON.stringify([res.snowfall, res.done]) !== JSON.stringify([snowfall, doneList]);
-        people = res.people; snowfall = res.snowfall; doneList = res.done || [];
-        if (changed && !drag && !picked) { render(); renderPins(); }
-      } catch (e) { /* ingen täckning – försök igen om en stund */ }
-    }
+function renderSheet() {
+  if (!sheetFor) return;
+  const el = $('sheet');
+  if (document.activeElement && el.contains(document.activeElement) && /TEXTAREA|INPUT/.test(document.activeElement.tagName)) return; // skriv i fred
+  el.innerHTML = sheetFor.kind === 'tractor' ? tractorSheetHtml(tractorById(sheetFor.id)) : propSheetHtml(propById(sheetFor.id));
+}
+function statusText(p, part, unit) {
+  const d = doneOf(p, part, unit);
+  return d ? `<span class="st ok">✅ ${esc(d.time.slice(11))}</span>` : snowfall ? '<span class="st">ej klar</span>' : '';
+}
+function propSheetHtml(p) {
+  if (!p) return '<div class="empty">Fastigheten finns inte längre.</div>';
+  const t = p.tractorId ? tractorById(p.tractorId) : null, zs = zoneStats(p);
+  const pos = p.lat !== null ? `${p.lat},${p.lng}` : encodeURIComponent(p.address + (p.ort ? ', ' + p.ort : ''));
+  const freeT = fleet.filter(x => x.active !== false && x.id !== p.tractorId && (!p.size || fits(x, p)));
+  const freeH = people.filter(x => x.active !== false && x.shoveler && !(p.shovelers || []).includes(x.name));
+  const id = esc(p.id);
+  return `<div class="head"><div><h2>${p.priority ? '⭐ ' : ''}${esc(p.address)}</h2><div class="sub">${esc([p.kund, p.ort, kdOf(p) !== p.ort ? kdOf(p) : ''].filter(Boolean).join(' · '))}</div></div><button class="btn" onclick="closeSheet()">✕</button></div>
+    <div class="row2"><button class="btn ${p.priority ? 'on' : ''}" onclick="saveProp(propById('${id}'), { priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
+      <a class="btn" style="text-align:center;text-decoration:none" href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
+      <a class="btn" style="text-align:center;text-decoration:none" href="snozoner.html?fastighet=${encodeURIComponent(p.id)}">✏️ Rita zoner</a></div>
+    <h4>Storlek (traktorhålet)</h4>
+    <div class="sizes"><button class="btn stor ${p.size === 'stor' ? 'on' : ''}" onclick="saveProp(propById('${id}'), { size: 'stor', forced: false })">🟠 Stor</button>
+      <button class="btn liten ${p.size === 'liten' ? 'on' : ''}" onclick="saveProp(propById('${id}'), { size: 'liten' })">🔵 Liten</button>
+      ${p.size === 'liten' ? `<button class="btn ${p.forced ? 'on' : ''}" onclick="if (${p.forced} || confirm('Tvinga in en stor traktor på en liten plats? Bara för gränsfall.')) saveProp(propById('${id}'), { forced: ${!p.forced} })">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}</div>
+    <h4>Kulorna${snowfall ? ' · snöfall ' + esc(snowfall.start.slice(5)) : ''}</h4>
+    ${t ? `<div class="krow">${tKula(t, 34)}<div class="who">${esc(t.model)}<em>${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}${t.owner !== 'Egna' ? ' · ' + esc(t.owner) : ''}</em></div>${statusText(p, 'traktor', t.id)}
+        ${snowfall ? `<button class="btn" onclick="adminMark('${id}','traktor','${esc(t.id)}', ${!!doneOf(p, 'traktor', t.id)})">${doneOf(p, 'traktor', t.id) ? '↶' : '✅'}</button>` : ''}
+        <button class="x" onclick="assign('${id}', { tractorId: '' })">✕</button></div>`
+      : `<div class="krow"><div class="hole ${p.size || 'none'} empty"></div><div class="who">Ingen traktor<em>Dra från remsan – eller välj:</em></div></div>`}
+    <select onchange="if (this.value) putTractor(tractorById(this.value), propById('${id}'), null); this.value=''"><option value="">${t ? '🔁 Byt traktor…' : '🚜 Välj traktor…'}</option>${freeT.map(x => `<option value="${esc(x.id)}">${esc(x.model)}${x.driver ? ' (' + esc(x.driver) + ')' : ''}</option>`).join('')}</select>
+    ${(p.shovelers || []).map(n => `<div class="krow">${pKula(n, 34)}<div class="who">${esc(n)}<em>🧹 Handskottare${personByName(n).active === false ? ' · ⚠️ inaktiv' : ''}</em></div>${statusText(p, 'hand', n)}
+        ${snowfall ? `<button class="btn" onclick="adminMark('${id}','hand','${esc(n).replace(/&#39;/g, "\\'")}', ${!!doneOf(p, 'hand', n)})">${doneOf(p, 'hand', n) ? '↶' : '✅'}</button>` : ''}
+        <button class="x" onclick="assign('${id}', { shovelers: propById('${id}').shovelers.filter(x => x !== this.dataset.n) })" data-n="${esc(n)}">✕</button></div>`).join('')}
+    ${freeH.length ? `<select style="margin-top:6px" onchange="if (this.value) assign('${id}', { shovelers: [...(propById('${id}').shovelers || []), this.value] }); this.value=''"><option value="">🧹 Lägg till handskottare…</option>${freeH.map(x => `<option>${esc(x.name)}</option>`).join('')}</select>` : ''}
+    ${needsHand(p) ? '<div class="hint" style="color:var(--warn);margin-top:4px">🧹⚠️ Har handytor men ingen handskottare.</div>' : ''}
+    <h4>Ytor</h4>
+    <div class="hint" style="font-size:13px">${zs.maskin ? '🔵 Maskin ' + m2(zs.maskin) : ''}${zs.maskin && zs.hand ? ' · ' : ''}${zs.hand ? '🟠 Hand ' + m2(zs.hand) : ''}${!zs.maskin && !zs.hand ? 'Inga zoner ritade ännu.' : ''} ${p.zoneStatus === 'klar' ? '· ✅ zonerna klara' : ''}</div>
+    <h4>Att tänka på (syns i Snöjour)</h4>
+    <textarea id="noteBox" placeholder="T.ex. låg grind vid infarten" onchange="saveProp(propById('${id}'), { note: this.value })" onblur="setTimeout(renderSheet, 50)">${esc(p.note)}</textarea>
+    ${(p.maps || []).length || (p.photos || []).length ? `<h4>Kundkarta och foton</h4><div class="thumbs">${(p.maps || []).map(m => `<a href="${esc(m.url)}" target="_blank" rel="noopener"><img src="${esc(m.url)}" alt="${esc(m.label || 'Kundkarta')}" loading="lazy"></a>`).join('')}${(p.photos || []).map(ph => `<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="Foto" loading="lazy"></a>`).join('')}</div>` : ''}
+    <div class="hint" style="margin-top:14px">Adress, position, foton och borttagning: <a href="snoregister.html" style="color:var(--accent)">⚙️ Register</a></div>`;
+}
+async function adminMark(pid, part, unit, undo) {
+  if (!snowfall) return;
+  setStatus('Sparar…');
+  try {
+    const res = await snoApi({ action: 'markSnowDone', propertyId: pid, part, unit, undo, at: Date.now() });
+    if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
+    doneList = doneList.filter(d => d.propertyId !== pid).concat(res.done);
+    setStatus('Sparat'); render();
+  } catch (err) { setStatus('Fel', true); toast('❌ ' + esc(err.message)); }
+}
 
-    // ================= TRAKTORER =================
-    function kulaHtml(t) {
-      const spinning = generating.has(t.id) ? ' spin' : '';
-      const inner = t.avatarUrl ? `<img src="${snoEscape(t.avatarUrl)}" alt="${snoEscape(t.model)}">` : '🚜';
-      return `<div class="kula ${t.size}${t.active ? '' : ' inactive'}${spinning}" style="--kula-color:${brandColor(t.model)}">${inner}</div>`;
-    }
+// ===== Detaljrutan: traktor =====
+function tractorSheetHtml(t) {
+  if (!t) return '<div class="empty">Traktorn finns inte längre.</div>';
+  const kd = currentKd(), mine = properties.filter(p => p.tractorId === t.id).sort((a, b) => sv(kdOf(a), kdOf(b)) || sv(a.address, b.address));
+  const owners = ['Egna', ...[...new Set(people.map(x => x.owner).concat(fleet.map(x => x.owner)).filter(o => o && o !== 'Egna'))].sort(sv)];
+  const drivers = people.filter(x => x.active !== false && (x.owner || 'Egna') === (t.owner || 'Egna') && x.name !== t.driver);
+  const id = esc(t.id);
+  const area = mine.reduce((s, p) => s + zoneStats(p).maskin, 0);
+  return `<div class="head"><div style="display:flex;gap:10px;align-items:center">${tKula(t, 52)}<div><h2>${esc(t.model)}</h2><div class="sub">${t.size === 'stor' ? '🟠 Stor' : '🔵 Liten'} · ${esc(ownerLabel(t.owner))}${t.base ? ' · står i ' + esc(t.base) : ''}</div></div></div><button class="btn" onclick="closeSheet()">✕</button></div>
+    <h4>Förare</h4>
+    ${t.driver ? `<div class="krow">${pKula(t.driver, 34)}<div class="who">${esc(t.driver)}<em>${personByName(t.driver).active === false ? '⚠️ inaktiv' : 'Fast förare'}</em></div><button class="x" onclick="saveTractor(tractorById('${id}'), { driver: '' })">✕</button></div>` : '<div class="hint" style="color:var(--warn)">⚠️ Ingen förare – dra en från kulpåsen till traktorn, eller välj:</div>'}
+    <select onchange="if (this.value) { const o = fleet.find(x => x.driver === this.value && x.id !== '${id}'); if (o) saveTractor(o, { driver: '' }); saveTractor(tractorById('${id}'), { driver: this.value }); } this.value=''"><option value="">👷 ${t.driver ? 'Byt förare…' : 'Välj förare…'}</option>${drivers.map(x => `<option>${esc(x.name)}</option>`).join('')}</select>
+    <h4>Ägare och uppställning</h4>
+    <div class="row2"><select onchange="saveTractor(tractorById('${id}'), { owner: this.value, driver: '' })">${owners.map(o => `<option value="${esc(o)}" ${o === (t.owner || 'Egna') ? 'selected' : ''}>${esc(ownerLabel(o))}</option>`).join('')}</select>
+      <input value="${esc(t.base)}" placeholder="Ort / uppställning" onchange="saveTractor(tractorById('${id}'), { base: this.value.trim() })"></div>
+    <div class="hint">Byter du ägare tas föraren bort (föraren måste ha samma ägare). Nytt UE-företag skrivs in på Personal-sidan eller i ⚙️ Register.</div>
+    <h4>Fastigheter (${mine.length}${area ? ' · ' + m2(area) : ''})</h4>
+    ${mine.map(p => `<div class="krow" style="cursor:pointer" onclick="openSheet('${esc(p.id)}')"><div class="who">${p.priority ? '⭐ ' : ''}${esc(p.address)}<em>${esc(kdOf(p))}${kdOf(p) === kd ? '' : ' (annan kommundel)'}</em></div>${statusText(p, 'traktor', t.id)}</div>`).join('') || '<div class="hint">Inga ännu.</div>'}
+    <div class="row2" style="margin-top:14px"><button class="btn" onclick="saveTractor(tractorById('${id}'), { active: ${t.active === false} })">${t.active === false ? '▶️ I tjänst' : '⏸ Ur tjänst'}</button>
+      <a class="btn" style="text-align:center;text-decoration:none" href="snoregister.html">⚙️ Register (AI-kula, ta bort)</a></div>`;
+}
 
-    function renderFleet() {
-      const active = fleet.filter(t => t.active);
-      const big = active.filter(t => t.size === 'stor').length, small = active.filter(t => t.size === 'liten').length;
-      return `
-        <div class="stats">
-          <div class="stat"><b style="color:var(--stor)">${big}</b>stora i tjänst</div>
-          <div class="stat"><b style="color:var(--liten)">${small}</b>små i tjänst</div>
-          <div class="stat"><b>${fleet.length - active.length}</b>ur tjänst</div>
-        </div>
-        <div class="detail" style="border-color: var(--line);">
-          <div class="detail-head"><h2>➕ Ny traktor</h2></div>
-          <input id="new-model" placeholder="Tillverkare och modell, t.ex. Kramer 8095">
-          <input id="new-base" placeholder="Ort / uppställning (valfritt), t.ex. Bettna">
-          <button class="ok" onclick="createTractor()">Lägg till</button>
-          <div class="muted">Storleken föreslås utifrån modellen och kan ändras.</div>
-        </div>
-        <div class="msg" id="msg">${message}</div>
-        ${fleet.map(t => `
-          <div class="tcard">
-            ${kulaHtml(t)}
-            <div class="tcard-body">
-              <div class="tcard-title">${snoEscape(t.model)}</div>
-              <input value="${snoEscape(t.base)}" placeholder="Ort / uppställning, t.ex. Bettna" onchange="updateTractor('${snoEscape(t.id)}', { base: this.value.trim() })">
-              <div class="row">
-                <select onchange="setTractorOwner('${snoEscape(t.id)}', this.value)" title="Ägare">${ownerOptions(t.owner || 'Egna')}</select>
-                <select onchange="updateTractor('${snoEscape(t.id)}', { driver: this.value })" title="Förare">${driverOptions(t)}</select>
-              </div>
-              <div class="size-toggle">
-                <button class="stor ${t.size === 'stor' ? 'active' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'stor' })">🟠 Stor</button>
-                <button class="liten ${t.size === 'liten' ? 'active' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'liten' })">🔵 Liten</button>
-              </div>
-              <div class="row">
-                <button onclick="generateKula('${snoEscape(t.id)}')" ${generating.has(t.id) ? 'disabled' : ''}>${generating.has(t.id) ? '✨ Skapar…' : (t.avatarUrl ? '✨ Ny AI-kula' : '✨ Skapa AI-kula')}</button>
-                <button onclick="updateTractor('${snoEscape(t.id)}', { active: ${!t.active} })">${t.active ? '⏸ Ur tjänst' : '▶️ I tjänst'}</button>
-                <button class="danger" onclick="deleteTractor('${snoEscape(t.id)}')" style="flex:0 0 42px;">🗑️</button>
-              </div>
-            </div>
-          </div>`).join('') || '<div class="muted">Inga traktorer ännu.</div>'}`;
-    }
+// ===== Snöfall =====
+async function newSnowfall() {
+  if (!confirm('Starta ett nytt snöfall?\n\nAlla fastigheter blir ogjorda (✅ nollställs). Kulorna ligger kvar där de ligger.')) return;
+  setStatus('Sparar…');
+  try {
+    const res = await snoApi({ action: 'newSnowfall' });
+    if (res.status !== 'success') throw new Error(res.message || 'Kunde inte starta.');
+    snowfall = res.snowfall; doneList = []; setStatus('Sparat'); render();
+    toast('❄️ Nytt snöfall startat – förarna ser alla sina fastigheter som ogjorda.', true);
+  } catch (err) { setStatus('Fel', true); toast('❌ ' + esc(err.message)); }
+}
+async function refreshStatus() {
+  if (document.hidden || drag) return;
+  try {
+    const res = await snoApi({ action: 'getSnowBoard' });
+    if (res.status !== 'success') return;
+    const changed = JSON.stringify([res.snowfall, res.done]) !== JSON.stringify([snowfall, doneList]);
+    people = res.people || people; snowfall = res.snowfall; doneList = res.done || [];
+    if (changed && !drag) render();
+  } catch (e) { /* ingen täckning */ }
+}
 
-    // Ägare (Egna / UE-företag) och fast förare – föraren väljs bland personer med samma ägare (Personal-sidan)
-    function allOwners() {
-      return ['Egna', ...[...new Set(people.map(x => x.owner).concat(fleet.map(t => t.owner)).filter(o => o && o !== 'Egna'))].sort(sv)];
-    }
-    function ownerOptions(cur) {
-      const list = allOwners();
-      if (!list.includes(cur)) list.push(cur);
-      return list.map(o => `<option value="${snoEscape(o)}" ${o === cur ? 'selected' : ''}>${snoEscape(ownerLabel(o))}</option>`).join('') + '<option value="__new">➕ Nytt UE-företag…</option>';
-    }
-    function driverOptions(t) {
-      const owner = t.owner || 'Egna';
-      const list = people.filter(x => (x.owner || 'Egna') === owner).map(x => x.name);
-      if (t.driver && !list.includes(t.driver)) list.unshift(t.driver);
-      return `<option value="">👷 Ingen förare</option>` + list.map(n => `<option value="${snoEscape(n)}" ${n === t.driver ? 'selected' : ''}>👷 ${snoEscape(n)}</option>`).join('');
-    }
-    function setTractorOwner(id, value) {
-      let owner = value;
-      if (value === '__new') {
-        owner = (prompt('Namn på UE-företaget (t.ex. Snöbröderna AB):') || '').trim();
-        if (!owner) { render(); return; }
-      }
-      const t = tractorById(id);
-      const keepDriver = t.driver && (personByName(t.driver).owner || 'Egna') === owner;
-      updateTractor(id, { owner, driver: keepDriver ? t.driver : '' });
-    }
+// ===== Sök: hoppa till kommundelen och kortet =====
+function jumpTo(text) {
+  const q = snoAddrKey(text);
+  if (!q) return;
+  const p = properties.find(x => snoAddrKey(x.address) === q) || properties.find(x => snoAddrKey(x.address).includes(q) || snoAddrKey(x.kund).includes(q));
+  if (!p) { toast('Hittade ingen fastighet som matchar.'); return; }
+  if (kdOf(p) !== currentKd()) setKd(kdOf(p));
+  if (view === 'map') { if (map && p.lat !== null) map.setView([p.lat, p.lng], 17); openSheet(p.id); return; }
+  setTimeout(() => {
+    const el = document.querySelector(`[data-card="${CSS.escape(p.id)}"]`);
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500); }
+  }, 50);
+}
 
-    async function saveTractor(t) {
-      const res = await snoApi({ action: 'saveTractor', tractor: t });
-      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message || 'Kunde inte spara.')); return null; }
-      const idx = fleet.findIndex(x => x.id === res.tractor.id);
-      if (idx === -1) fleet.push(res.tractor); else fleet[idx] = res.tractor;
-      return res;
-    }
+// ===== Start =====
+async function load() {
+  let cache = null;
+  try { cache = JSON.parse(store.get('lpv_plan_cache2') || 'null'); } catch (e) { cache = null; }
+  if (cache) { ({ properties, fleet, people, zonesAll, snowfall, doneList } = Object.assign({ properties: [], fleet: [], people: [], zonesAll: [], snowfall: null, doneList: [] }, cache)); zoneCache = null; loaded = true; render(true); }
+  setStatus('Hämtar…');
+  try {
+    const [pRes, fRes, bRes, zRes] = await Promise.all([snoApi({ action: 'getProperties' }), snoApi({ action: 'getFleet' }), snoApi({ action: 'getSnowBoard' }), snoApi({ action: 'getSnowZones' })]);
+    if (pRes.status !== 'success') throw new Error(pRes.message || 'Kunde inte hämta.');
+    properties = pRes.properties || [];
+    if (fRes.status === 'success') fleet = fRes.fleet || [];
+    if (bRes.status === 'success') { people = bRes.people || []; snowfall = bRes.snowfall; doneList = bRes.done || []; }
+    if (zRes.status === 'success') { zonesAll = zRes.zones || []; zoneCache = null; }
+    loaded = true; setStatus('');
+    render(!cache);
+    snoApi({ action: 'getAvatars' }).then(r => { if (r.status === 'success') { avatars = r.avatars || {}; render(); } }).catch(() => {});
+  } catch (err) {
+    setStatus(cache ? 'Ingen kontakt – visar senast hämtade' : 'Ingen kontakt', true);
+    if (!cache) $('cardsview').innerHTML = `<div class="empty">❌ ${esc(err.message)}</div>`;
+  }
+}
 
-    async function createTractor() {
-      const model = document.getElementById('new-model').value.trim();
-      const base = document.getElementById('new-base').value.trim();
-      if (!model) { setMessage('Fyll i tillverkare och modell.'); return; }
-      const res = await saveTractor({ model, base });
-      if (!res) return;
-      message = res.suggestedSize ? `✅ Tillagd – föreslagen storlek: ${res.suggestedSize}. Tryck ✨ för en AI-kula!` : '✅ Tillagd – känner inte igen modellen, välj storlek själv. Tryck ✨ för en AI-kula!';
-      render();
-    }
-
-    async function updateTractor(id, changes) {
-      const t = fleet.find(x => x.id === id);
-      Object.assign(t, changes);
-      render();
-      await saveTractor(t);
-      render();
-    }
-
-    async function deleteTractor(id) {
-      const t = fleet.find(x => x.id === id);
-      if (!confirm(`Ta bort ${t.model}?`)) return;
-      const res = await snoApi({ action: 'deleteTractor', id });
-      if (res.status !== 'success') { setMessage('❌ ' + snoEscape(res.message)); return; }
-      fleet = fleet.filter(x => x.id !== id);
-      render();
-    }
-
-    async function generateKula(id) {
-      generating.add(id);
-      message = '✨ AI:n bygger en kula… det tar 10–30 sekunder.';
-      render();
-      try {
-        const res = await snoApi({ action: 'generateTractorAvatar', id });
-        if (res.status === 'success') {
-          fleet.find(x => x.id === id).avatarUrl = res.avatarUrl;
-          message = '🎉 Ny kula klar!';
-        } else {
-          message = '❌ ' + snoEscape(res.message || 'AI:n svarade inte.');
-        }
-      } catch (err) {
-        message = '❌ Ingen kontakt med servern.';
-      }
-      generating.delete(id);
-      if (tab === 'fleet') render();
-    }
-
-    // ================= START =================
-    function fitToProperties() {
-      const located = properties.filter(p => p.lat !== null);
-      if (located.length) map.fitBounds(L.latLngBounds(located.map(p => [p.lat, p.lng])), { padding: [30, 30], maxZoom: 16 });
-    }
-
-    // Visa senast hämtade data direkt, uppdatera sedan från servern
-    // ================= IMPORT FRÅN KALKYLARK =================
-    // Klistra in celler (från Google Kalkylark/Excel) eller välj en CSV-fil. Kolumnerna gissas
-    // från rubrikerna och kan ändras. Rader skickas i omgångar om 25 (varje adress geokodas).
-    let importTable = [];        // rader -> celler
-    let importHeader = true;
-    let importMap = { address: -1, ort: -1, size: -1, priority: -1, note: -1 };
-    let importBusy = false;
-    const IMPORT_FIELDS = [
-      ['address', 'Adress *', /adress|gatuadress|address|gata|objekt|fastighet/],
-      ['ort', 'Ort', /^ort$|postort|stad|tätort|kommundel|område|ort\b/],
-      ['size', 'Traktorstorlek', /storlek|traktor|maskin|fordon|size|typ/],
-      ['priority', 'Prioritet', /prio/],
-      ['note', 'Anteckning', /anteckning|notering|kommentar|info|beskrivning|övrigt|note/]
-    ];
-
-    function parseTable(text) {
-      text = String(text || '').replace(/\r\n?/g, '\n').replace(/\n+$/, '');
-      if (!text.trim()) return [];
-      const first = text.split('\n')[0];
-      const delim = first.includes('\t') ? '\t' : (first.split(';').length > first.split(',').length ? ';' : ',');
-      const rows = []; let row = [], cell = '', quoted = false;
-      for (let i = 0; i < text.length; i++) {
-        const c = text[i];
-        if (quoted) {
-          if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
-          else if (c === '"') quoted = false;
-          else cell += c;
-        } else if (c === '"' && cell === '') quoted = true;
-        else if (c === delim) { row.push(cell.trim()); cell = ''; }
-        else if (c === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
-        else cell += c;
-      }
-      row.push(cell.trim()); rows.push(row);
-      return rows.filter(r => r.some(c => c !== ''));
-    }
-
-    function guessMapping() {
-      const head = (importTable[0] || []).map(h => h.toLowerCase());
-      importMap = { address: -1, ort: -1, size: -1, priority: -1, note: -1 };
-      if (importHeader) IMPORT_FIELDS.forEach(([key, , re]) => {
-        const idx = head.findIndex((h, i) => re.test(h) && !Object.values(importMap).includes(i));
-        if (idx !== -1) importMap[key] = idx;
-      });
-      if (importMap.address === -1) importMap.address = 0;
-    }
-
-    // "Stor", "Stor traktor", "kompakt", "liten", "small" … Ensamma "S"/"L" gissas inte
-    // (kan betyda både stor/liten och small/large) – de märks som okända och fylls i efteråt.
-    function parseSize(v) {
-      const t = String(v || '').toLowerCase().trim();
-      if (!t) return '';
-      if (/stor|large|big|hjullast/.test(t)) return 'stor';
-      if (/liten|lilla|small|kompakt|mini/.test(t)) return 'liten';
-      return '';
-    }
-    function parsePrio(v) { return /^(ja|j|x|1|true|prio|hög|hog|yes)$/i.test(String(v || '').trim()); }
-
-    function mappedRows() {
-      const body = importHeader ? importTable.slice(1) : importTable;
-      const get = (r, key) => importMap[key] >= 0 ? (r[importMap[key]] || '') : '';
-      return body.map(r => ({ address: get(r, 'address'), ort: get(r, 'ort'), sizeRaw: get(r, 'size'), size: parseSize(get(r, 'size')),
-        priority: parsePrio(get(r, 'priority')), note: get(r, 'note') })).filter(r => r.address);
-    }
-
-    function openImport() { importTable = []; document.getElementById('imp-bg').classList.add('open'); renderImport(); }
-    function closeImport() { document.getElementById('imp-bg').classList.remove('open'); }
-
-    function renderImport(result) {
-      const el = document.getElementById('imp');
-      if (result) { el.innerHTML = result; return; }
-      const cols = importTable[0] ? importTable[0].length : 0;
-      const colName = (i) => importHeader ? (importTable[0][i] || `Kolumn ${i + 1}`) : `Kolumn ${i + 1}`;
-      const rows = mappedRows();
-      const existing = new Set(properties.map(p => (p.address + '|' + p.ort).toLowerCase().replace(/\s+/g, ' ')));
-      const dupes = rows.filter(r => existing.has((r.address + '|' + r.ort).toLowerCase().replace(/\s+/g, ' '))).length;
-      const sized = rows.filter(r => r.size).length;
-      const unknownSize = [...new Set(rows.filter(r => r.sizeRaw && !r.size).map(r => r.sizeRaw))];
-      el.innerHTML = `
-        <div class="detail-head"><h2>📥 Importera fastigheter</h2><button onclick="closeImport()">✕</button></div>
-        ${!importTable.length ? `
-          <div class="muted"><b>1.</b> Öppna arket, markera cellerna (gärna med rubrikraden), kopiera (Cmd+C) och klistra in här (Cmd+V).</div>
-          <textarea id="imp-text" placeholder="Klistra in här…" oninput="importTable = parseTable(this.value); guessMapping(); if (importTable.length) renderImport()"></textarea>
-          <div class="muted">…eller välj en fil (CSV – i Google Kalkylark: Arkiv → Ladda ned → CSV):</div>
-          <input type="file" accept=".csv,.txt,.tsv,text/csv" onchange="readImportFile(event)">
-          <div class="muted" style="margin-top:14px;">…eller <b>snöunderlag från kunderna</b> (filen snöunderlag.json med adresser och kundkartor):</div>
-          <input type="file" accept=".json,application/json" onchange="readSnoBundle(event)">`
-        : `
-          <div class="row"><span class="muted"><b>${rows.length}</b> rader · ${cols} kolumner</span>
-            <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;font-size:13px;"><input type="checkbox" ${importHeader ? 'checked' : ''} onchange="importHeader=this.checked; guessMapping(); renderImport()" style="width:20px;height:20px;"> Första raden är rubriker</label>
-            <button onclick="importTable=[]; renderImport()">↺ Börja om</button></div>
-          <div class="muted"><b>2.</b> Kontrollera vilken kolumn som är vad:</div>
-          <div class="imp-map">${IMPORT_FIELDS.map(([key, label]) => `<div><label>${label}</label><select onchange="importMap.${key}=Number(this.value); renderImport()">
-            <option value="-1">– ingen –</option>${Array.from({ length: cols }, (_, i) => `<option value="${i}" ${importMap[key] === i ? 'selected' : ''}>${snoEscape(colName(i))}</option>`).join('')}</select></div>`).join('')}</div>
-          <div class="muted"><b>3.</b> Förhandsvisning (de första 8):</div>
-          <div style="overflow-x:auto"><table class="imp-table"><tr><th>Adress</th><th>Ort</th><th>Storlek</th><th>Prio</th><th>Anteckning</th></tr>
-            ${rows.slice(0, 8).map(r => `<tr><td>${snoEscape(r.address)}</td><td>${snoEscape(r.ort) || '<span class="muted">hittas</span>'}</td>
-              <td>${r.size ? (r.size === 'stor' ? '🟠 stor' : '🔵 liten') : (r.sizeRaw ? `<span style="color:var(--warn)">? ${snoEscape(r.sizeRaw)}</span>` : '<span class="muted">saknas</span>')}</td>
-              <td>${r.priority ? '⭐' : ''}</td><td>${snoEscape(r.note)}</td></tr>`).join('')}</table></div>
-          <div class="stats">
-            <div class="stat"><b>${rows.length - dupes}</b>nya</div>
-            <div class="stat"><b style="color:${rows.length - sized ? 'var(--warn)' : 'var(--ok)'}">${sized}</b>med storlek</div>
-            <div class="stat"><b>${dupes}</b>finns redan</div>
-          </div>
-          ${unknownSize.length ? `<div class="muted" style="color:var(--warn)">Okända storleksvärden (blir "saknas", fyll i efteråt): ${unknownSize.slice(0, 6).map(snoEscape).join(', ')}</div>` : ''}
-          ${dupes ? '<div class="muted">Adresser som redan finns hoppas över.</div>' : ''}
-          <div class="bar" id="imp-bar" style="display:none"><div></div></div>
-          <div class="msg" id="imp-msg"></div>
-          <button class="ok" id="imp-go" ${rows.length - dupes ? '' : 'disabled'} onclick="runImport()">📥 Importera ${rows.length - dupes} fastigheter</button>`}`;
-    }
-
-    function readImportFile(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => { importTable = parseTable(reader.result); guessMapping(); renderImport(); };
-      reader.readAsText(file, 'utf-8');
-    }
-
-    // ---------- SNÖUNDERLAG: kundernas PDF:er, utlästa till adresser + kartbilder ----------
-    let snoBundle = null;
-
-    function readSnoBundle(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const data = JSON.parse(reader.result);
-          if (data.typ !== 'snöunderlag' || !Array.isArray(data.fastigheter)) throw new Error('fel fil');
-          snoBundle = data.fastigheter;
-          renderSnoBundle();
-        } catch (err) { renderImport(`<div class="detail-head"><h2>📥 Snöunderlag</h2><button onclick="closeImport()">✕</button></div><div class="msg">❌ Filen är inte ett snöunderlag.</div><button onclick="renderImport()">↺ Börja om</button>`); }
-      };
-      reader.readAsText(file, 'utf-8');
-    }
-
-    function renderSnoBundle() {
-      const existing = new Set(properties.map(p => (p.address + '|' + p.ort).toLowerCase().replace(/\s+/g, ' ')));
-      const isDupe = (r) => existing.has((r.address + '|' + r.ort).toLowerCase().replace(/\s+/g, ' '));
-      const fresh = snoBundle.filter(r => !isDupe(r)).length;
-      const maps = snoBundle.reduce((n, r) => n + r.maps.length, 0);
-      const noGeo = snoBundle.filter(r => !r.geo).length;
-      const byKund = {};
-      snoBundle.forEach(r => { byKund[r.kund] = (byKund[r.kund] || 0) + 1; });
-      renderImport(`<div class="detail-head"><h2>📥 Snöunderlag</h2><button onclick="closeImport()">✕</button></div>
-        <div class="stats"><div class="stat"><b>${fresh}</b>nya</div><div class="stat"><b>${maps}</b>kundkartor</div><div class="stat"><b style="color:${noGeo ? 'var(--warn)' : 'var(--ok)'}">${noGeo}</b>pekas ut själv</div></div>
-        <div class="muted">${Object.entries(byKund).map(([k, n]) => `${snoEscape(k)}: ${n}`).join(' · ')}</div>
-        <div class="muted"><b>Granska listan.</b> "Söks som" är adressen kartan letar efter. Saknas den pekar du ut fastigheten på kartan efteråt. Adresser som redan finns hoppas över – deras kartor läggs till om de saknas.</div>
-        <div style="overflow-x:auto;max-height:46vh;overflow-y:auto"><table class="imp-table"><tr><th>Adress</th><th>Söks som</th><th>Område</th><th>Kund</th><th>Hårdgjort</th><th>Brunnar</th><th>Kartor</th></tr>
-          ${snoBundle.map(r => `<tr style="${isDupe(r) ? 'opacity:.5' : ''}"><td>${snoEscape(r.address)}</td><td>${r.geo ? snoEscape(r.geo) : '<span style="color:var(--warn)">📍 peka ut</span>'}</td><td>${snoEscape(r.omrade)}</td>
-            <td>${snoEscape(r.kund)}</td><td>${r.hardyta ? r.hardyta.toLocaleString('sv-SE') + ' m²' : '–'}</td><td>${r.brunnar || ''}</td><td>${r.maps.length}</td></tr>`).join('')}</table></div>
-        <div class="bar" id="imp-bar" style="display:none"><div></div></div>
-        <div class="msg" id="imp-msg"></div>
-        <div class="row"><button onclick="snoBundle=null; renderImport()">↺ Börja om</button>
-          <button class="ok" id="imp-go" onclick="runSnoImport()">📥 Importera ${snoBundle.length} fastigheter och ${maps} kartor</button></div>`);
-    }
-
-    async function runSnoImport() {
-      importBusy = true;
-      document.getElementById('imp-go').disabled = true;
-      const bar = document.getElementById('imp-bar'); bar.style.display = 'block';
-      const msg = document.getElementById('imp-msg');
-      const total = snoBundle.length + snoBundle.reduce((n, r) => n + r.maps.length, 0);
-      let done = 0, added = 0, mapsAdded = 0, notFound = [], failed = [];
-      const step = () => { done++; bar.firstElementChild.style.width = Math.round(done / total * 100) + '%'; };
-      const ids = [];
-      for (let i = 0; i < snoBundle.length; i += 10) {
-        const chunk = snoBundle.slice(i, i + 10);
-        msg.innerText = `Lägger in fastigheter och hittar dem på kartan… ${Math.min(i + 10, snoBundle.length)} av ${snoBundle.length}`;
-        try {
-          const res = await snoApi({ action: 'importProperties', rows: chunk.map(r => ({ address: r.address, geo: r.geo, ort: r.ort, omrade: r.omrade, kund: r.kund, note: r.note })) });
-          if (res.status !== 'success') throw new Error(res.message);
-          added += res.added; notFound = notFound.concat(res.notFound);
-          chunk.forEach((r, j) => { ids[i + j] = res.ids[j]; step(); });
-        } catch (err) { chunk.forEach(r => { failed.push(r.address); step(); }); }
-      }
-      for (let i = 0; i < snoBundle.length; i++) {
-        const r = snoBundle[i];
-        for (const m of r.maps) {
-          msg.innerText = `Laddar upp kundkartor… ${r.address}`;
-          if (ids[i]) {
-            try {
-              const res = await snoApi({ action: 'addPropertyMap', id: ids[i], imageBase64: m.image, label: m.label, skipIfExists: true });
-              if (res.status === 'success' && !res.skipped) mapsAdded++;
-              else if (res.status !== 'success') failed.push(r.address + ' (karta)');
-            } catch (err) { failed.push(r.address + ' (karta)'); }
-          }
-          step();
-        }
-      }
-      importBusy = false;
-      snoBundle = null;
-      await loadAll();
-      renderImport(`<div class="detail-head"><h2>✅ Snöunderlaget är inlagt</h2><button onclick="closeImport()">✕</button></div>
-        <div class="stats"><div class="stat"><b style="color:var(--ok)">${added}</b>fastigheter</div><div class="stat"><b style="color:var(--ok)">${mapsAdded}</b>kundkartor</div><div class="stat"><b style="color:${notFound.length ? 'var(--warn)' : 'var(--ok)'}">${notFound.length}</b>utan position</div></div>
-        ${notFound.length ? `<div class="muted">Peka ut de här på kartan (filtret "📍 Utan position"):<br>${notFound.map(snoEscape).join(', ')}</div>` : ''}
-        ${failed.length ? `<div class="muted" style="color:var(--danger)">Gick inte att skicka: ${failed.map(snoEscape).join(', ')}. Kör importen igen – det som redan finns hoppas över.</div>` : ''}
-        <div class="muted"><b>Nästa steg:</b> Rita snözoner → välj fastighet → lägg kundkartan på plats → 🤖 Föreslå zoner.</div>
-        <button class="ok" onclick="location.href='snozoner.html'">❄️ Till Rita snözoner</button>`);
-    }
-
-    async function runImport() {
-      const rows = mappedRows().map(r => ({ address: r.address, ort: r.ort, size: r.size, priority: r.priority, note: r.note }));
-      if (!rows.length) return;
-      importBusy = true;
-      document.getElementById('imp-go').disabled = true;
-      const bar = document.getElementById('imp-bar'); bar.style.display = 'block';
-      const msg = document.getElementById('imp-msg');
-      let added = 0, skipped = [], notFound = [], failed = 0;
-      for (let i = 0; i < rows.length; i += 25) {
-        msg.innerText = `Importerar och hittar adresser på kartan… ${Math.min(i + 25, rows.length)} av ${rows.length}`;
-        try {
-          const res = await snoApi({ action: 'importProperties', rows: rows.slice(i, i + 25) });
-          if (res.status !== 'success') { failed += Math.min(25, rows.length - i); msg.innerText = '❌ ' + (res.message || 'Fel'); }
-          else { added += res.added; skipped = skipped.concat(res.skipped); notFound = notFound.concat(res.notFound); }
-        } catch (err) { failed += Math.min(25, rows.length - i); }
-        bar.firstElementChild.style.width = Math.round(Math.min(i + 25, rows.length) / rows.length * 100) + '%';
-      }
-      importBusy = false;
-      await loadAll();
-      renderImport(`<div class="detail-head"><h2>✅ Import klar</h2><button onclick="closeImport()">✕</button></div>
-        <div class="stats"><div class="stat"><b style="color:var(--ok)">${added}</b>importerade</div><div class="stat"><b>${skipped.length}</b>fanns redan</div><div class="stat"><b style="color:${notFound.length ? 'var(--warn)' : 'var(--ok)'}">${notFound.length}</b>utan position</div></div>
-        ${notFound.length ? `<div class="muted">Hittades inte på kartan – välj filtret "📍 Utan position" och tryck på kartan för var och en:<br>${notFound.slice(0, 20).map(snoEscape).join(', ')}${notFound.length > 20 ? ' …' : ''}</div>` : ''}
-        ${failed ? `<div class="muted" style="color:var(--danger)">${failed} rader kunde inte skickas – försök igen (dubbletter hoppas över).</div>` : ''}
-        <div class="muted">Nästa steg: filtret <b>⚠️ Saknar storlek</b> visar kort som behöver en storlek.</div>
-        <button class="ok" onclick="closeImport(); filter='saknar'; render()">Visa de som saknar storlek</button>`);
-    }
-
-    async function loadAll() {
-      let cache = null;
-      try { cache = JSON.parse(localStorage.getItem('lpv_plan_cache') || 'null'); } catch (e) { cache = null; }
-      if (cache) {
-        properties = cache.properties || []; fleet = cache.fleet || [];
-        zonesAll = cache.zonesAll || []; zoneStatsCache = null; people = cache.people || []; snowfall = cache.snowfall || null; doneList = cache.doneList || [];
-        dataLoaded = true;
-        render(); renderPins(); if (tab === 'board') fitToKommundel(); else fitToProperties();
-      } else {
-        setMessage('Hämtar…');
-      }
-      try {
-        const [pRes, fRes, bRes, zRes] = await Promise.all([snoApi({ action: 'getProperties' }), snoApi({ action: 'getFleet' }),
-          snoApi({ action: 'getSnowBoard' }), snoApi({ action: 'getSnowZones' })]);
-        if (pRes.status !== 'success') { message = '❌ ' + snoEscape(pRes.message || 'Kunde inte hämta.'); render(); return; }
-        properties = pRes.properties || [];
-        fleet = fRes.status === 'success' ? fRes.fleet : fleet;
-        if (bRes.status === 'success') { people = bRes.people || []; snowfall = bRes.snowfall; doneList = bRes.done || []; }
-        if (zRes.status === 'success') { zonesAll = zRes.zones || []; zoneStatsCache = null; }
-        // Avatarerna (handskottarnas kulor) i bakgrunden
-        snoApi({ action: 'getAvatars' }).then(r => { if (r.status === 'success') { avatars = r.avatars || {}; if (tab === 'board') render(); } }).catch(() => {});
-        dataLoaded = true;
-        if (message === 'Hämtar…') message = '';
-      } catch (err) {
-        message = cache ? '⚠️ Ingen kontakt – visar senast hämtade.' : '❌ Ingen kontakt med servern.';
-      }
-      render();
-      renderPins();
-      if (!cache) { if (tab === 'board') fitToKommundel(); else fitToProperties(); }
-    }
-
-    mapCtl = snoCreateMap('map');
-    map = mapCtl.map;
-    map.setZoom(11, { animate: false }); // utan animering, annars kan den skriva över fitToProperties
-    map.on('click', onMapClick);
-    ['board', 'props', 'fleet'].forEach(n => document.getElementById('tab-' + n).classList.toggle('active', n === tab));
-    setupBoardInput();
-    setInterval(refreshBoardStatus, 60000);
-    render();
-    if (!snoIsAdmin()) { message = '⚠️ Snöplaneringen är bara för admin. Logga in med din admin-länk.'; render(); }
-    loadAll();
-  </script>
+document.querySelectorAll('#viewseg button').forEach(b => b.onclick = () => setView(b.dataset.v));
+$('prev').onclick = () => stepKd(-1);
+$('next').onclick = () => stepKd(1);
+$('newSf').onclick = newSnowfall;
+$('search').addEventListener('change', (e) => { jumpTo(e.target.value); });
+$('search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { jumpTo(e.target.value); e.target.blur(); } });
+const panels = { side: store.get('lpv_plan_side') !== 'dold', order: store.get('lpv_plan_order') !== 'dold' };
+function applyPanels() {
+  $('side').classList.toggle('hidden', !panels.side); $('order').classList.toggle('hidden', !panels.order);
+  $('tglSide').classList.toggle('on', panels.side); $('tglOrder').classList.toggle('on', panels.order);
+  if (map) setTimeout(() => map.invalidateSize(), 50);
+}
+$('tglSide').onclick = () => { panels.side = !panels.side; store.set('lpv_plan_side', panels.side ? '' : 'dold'); applyPanels(); };
+$('tglOrder').onclick = () => { panels.order = !panels.order; store.set('lpv_plan_order', panels.order ? '' : 'dold'); applyPanels(); };
+applyPanels();
+if (!snoIsAdmin()) $('cardsview').innerHTML = '<div class="empty">⚠️ Snöplaneringen är bara för admin. Logga in med din admin-länk.</div>';
+render();
+load();
+setInterval(refreshStatus, 60000);
+</script>
 </body>
 </html>
