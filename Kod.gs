@@ -264,7 +264,8 @@ function doPost(e) {
     if (data.site) rememberSiteUrl(data.site);
 
     // --- ROUTER ---
-    if (action === "me") return createJsonResponse({ status: "success", user: auth.user, role: auth.role || "", company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist });
+    if (action === "me") return createJsonResponse({ status: "success", user: auth.user, role: auth.role || "", company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist,
+      guideRoll: guideRollFor([auth.isAdmin ? "admin" : "", auth.isEconomist || /^ekonom$/i.test(auth.role || "") ? "ekonom" : "", /^ue$/i.test(auth.role || "") ? "ue" : ""].filter(Boolean), auth.user) });
     // Offerter: Klaryta-admin får bara röra Klarytas offerter
     if ((action === "sendOffer" || action === "cancelOffer") && !auth.isSuper) {
       const hit = findRowById(getOfferSheet(), data.id);
@@ -674,6 +675,19 @@ function staffRoles(row) {
   return roles;
 }
 
+// Vilken bruksanvisning (guide.html?roll=…) personen ska få. Handskottare = förare som är markerad som handskottare i Snöresurser.
+function guideRollFor(roles, name) {
+  if (roles.indexOf("admin") !== -1) return "admin";
+  if (roles.indexOf("ekonom") !== -1) return "ekonom";
+  if (roles.indexOf("ue") !== -1) return "ue";
+  try { if (snowPerson(readSnowPeople(), name).shoveler) return "handskottare"; } catch (e) { /* ingen snöflik än */ }
+  return "forare";
+}
+
+function guideButtonHtml(url) {
+  return '<p style="margin:18px 0"><a href="' + escHtml(url) + '" style="background:#e9f1fa;color:#0a6fe0;text-decoration:none;padding:12px 20px;border-radius:12px;font-weight:700;display:inline-block">📖 Din bruksanvisning</a></p>';
+}
+
 function handleSendWelcomeKit(data, auth) {
   const sheet = getStaffSheet();
   const hit = findStaffRow(sheet, data.targetUser);
@@ -685,6 +699,7 @@ function handleSendWelcomeKit(data, auth) {
   const site = siteUrlFor(data);
   let key = String(row[KEY_COLUMN - 1] || "");
   if (!key) { key = Utilities.getUuid().replace(/-/g, ""); sheet.getRange(hit.rowNumber, KEY_COLUMN).setValue(key); clearStaffAuthCache(name); }
+  const guideUrl = site + "guide.html?roll=" + guideRollFor(roles, name);
   const loginUrl = site + "index.html?user=" + encodeURIComponent(name) + "&key=" + key + (roles.indexOf("admin") !== -1 ? "&admin=true" : "");
   const phone = String(row[2] || "").trim(), email = String(row[1] || "").trim();
   const result = { status: "success", user: name, roles: roles, sms: "", mail: "" };
@@ -694,6 +709,7 @@ function handleSendWelcomeKit(data, auth) {
     "\nLägg den på hemskärmen: öppna länken i Safari → Dela → Lägg till på hemskärmen. Samma länk fungerar på iPad.";
   if (roles.indexOf("ue") !== -1) sms += "\nSå jobbar du: 1) Dina jobb syns under Planerade. 2) Logga tiden på jobbet. 3) Gör egenkontrollen och fota.";
   if (office) sms += "\nInloggning för datorn och kontorsdelarna kommer i ett mejl.";
+  sms += "\nBruksanvisning: " + guideUrl;
   result.smsText = sms;
   if (!phone) result.sms = "saknar mobilnummer";
   else {
@@ -714,7 +730,8 @@ function handleSendWelcomeKit(data, auth) {
         htmlBody: welcomeMailFrame(brand, "Välkommen, " + firstName(name) + "!", intro +
           "<p><b>1. Logga in på datorn</b> – länken fungerar en gång och i " + PC_LINK_DAYS + " dagar:</p>" + pcButtonHtml(link) +
           "<p><b>2. Det här når du</b> (öppna länkarna på samma dator efter steg 1):</p>" + welcomeSections(roles, isSuper, site) +
-          '<p style="font-size:14px">Mer hjälp finns i <a href="' + escHtml(site + "guide.html") + '" style="color:#0a6fe0">guiden</a>. Behöver du logga in på en annan dator senare: tryck <b>💻 Logga in på en dator</b> i appen på telefonen.</p>' +
+          "<p><b>3. Bruksanvisningen</b> – hur allt fungerar just nu, och vad som är nytt:</p>" + guideButtonHtml(guideUrl) +
+          '<p style="font-size:14px">Behöver du logga in på en annan dator senare: tryck <b>💻 Logga in på en dator</b> i appen på telefonen.</p>' +
           safariTipHtml()) });
       result.mail = "skickat";
     } catch (err) {

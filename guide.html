@@ -5,214 +5,342 @@
   <link rel="stylesheet" href="theme.css">
   <script src="theme.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Användarguide – Tidrapport</title>
+  <title>Bruksanvisning</title>
+  <!-- Bruksanvisning per roll: guide.html?roll=forare|handskottare|ue|ekonom|admin (annars den inloggades roll).
+       Avsnitt med data-roller visas bara för de rollerna. "Nytt sedan sist" kommer från nyheter.js.
+       REGEL (CLAUDE.md): ändras hur användaren gör något → uppdatera avsnittet här + en rad i nyheter.js. -->
   <style>
-    :root {
-      --bg: var(--t-bg);
-      --card-bg: var(--t-panel);
-      --card-border: var(--t-line);
-      --accent: var(--t-warn);
-      --accent-bg: color-mix(in srgb, var(--t-warn) 15%, transparent);
-      --blue: var(--t-accent);
-      --green: var(--t-ok);
-      --danger: var(--t-danger);
-      --text: var(--t-text);
-      --text-muted: var(--t-muted);
-      --separator: var(--t-line);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-      padding: calc(env(safe-area-inset-top) + 64px) 16px 60px 16px; /* plats för tillbaka-knappen */
-      display: flex;
-      justify-content: center;
-    }
-    .guide-container { width: 100%; max-width: 480px; }
-    h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.5px; }
-    .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; line-height: 1.4; }
-
-    /* SEKTIONER */
-    .step-section { margin-bottom: 34px; }
-    .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-    .step-num {
-      background: var(--accent); color: #000; font-size: 12px; font-weight: 800;
-      width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .step-title { font-size: 16px; font-weight: 600; }
-    .step-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; }
-
-    /* RENDERADE MOCKUP-KORT */
-    .mockup-frame {
-      background: rgba(0, 0, 0, 0.6); border: 1px solid var(--separator);
-      border-radius: 18px; padding: 14px; margin-bottom: 10px;
-    }
-    .rendered-card {
-      background: var(--card-bg); backdrop-filter: blur(16px);
-      border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-    }
-    .card-body { padding: 14px 16px; }
-    .card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .card-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-    .card-note { font-size: 12px; color: var(--text-muted); border-left: 2px solid var(--separator); padding-left: 8px; margin-top: 6px; }
-    
-    /* KNAPPAR I KORT */
-    .card-actions { display: flex; border-top: 0.5px solid var(--separator); background: rgba(255, 255, 255, 0.02); }
-    .btn-action {
-      flex: 1; padding: 12px 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; background: transparent;
-    }
-    .btn-clock-in { color: var(--blue); }
-    .btn-clock-out { color: var(--green); }
-    .btn-split { color: var(--accent); }
-    .btn-del { color: var(--danger); border-left: 0.5px solid var(--separator); flex: 0 0 50px; }
-
-    /* STATUSAR & BRICKOR */
-    .ongoing-pulse { color: var(--green); font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
-    .ongoing-pulse::before { content: ''; width: 6px; height: 6px; background: var(--green); border-radius: 50%; box-shadow: 0 0 8px var(--green); }
-    .badge-ata { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--card-border); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
-
-    /* MOCKUP HEADER */
-    .mock-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; padding: 0 4px; }
-    .mock-header h2 { font-size: 20px; font-weight: 700; }
-    .mock-badges { display: flex; gap: 6px; }
-    .mock-pill { background: rgba(255, 255, 255, 0.1); font-size: 10px; font-weight: 500; padding: 4px 8px; border-radius: 12px; display: flex; align-items: center; }
-
-    /* MOCKUP FORMULÄR */
-    .mock-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 0.5px solid var(--separator); font-size: 15px; }
-    .mock-row:last-child { border-bottom: none; }
-    .mock-val { color: var(--accent); font-weight: 500; display: flex; align-items: center; gap: 4px; }
-    
-    .chips-demo { display: flex; gap: 6px; padding: 8px 14px; }
-    .chip { background: var(--accent-bg); border: 1px solid var(--card-border); color: var(--accent); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
-
-    .photo-btn-mock {
-      display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px; margin: 12px 0;
-      background: rgba(100, 100, 100, 0.15); border: 1px dashed var(--green); border-radius: 10px; color: var(--green); font-size: 13px; font-weight: 500;
-    }
-
-    /* FÖRKLARINGSRUTOR */
-    .callout { background: var(--t-card); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
-    .callout strong { color: var(--text); }
+    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--t-font); font-size: var(--t-fs); line-height: 1.45; }
+    .wrap { max-width: 640px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 60px); }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    h1 { font-size: 24px; margin: 18px 0 2px; }
+    .sub { color: var(--muted); font-size: var(--t-fs-small); margin: 0 0 14px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
+    .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 13px var(--t-font); cursor: pointer; }
+    .chip.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .nytt { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--t-r-card); padding: 12px 14px; margin: 0 0 18px; }
+    .nytt h2 { font-size: 16px; margin: 0 0 6px; }
+    .nytt ul { margin: 0; padding-left: 18px; }
+    .nytt li { margin: 6px 0; }
+    .nytt .d { color: var(--muted); font-size: 12px; }
+    h2.del { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 8px; }
+    details { background: var(--panel); border: 1px solid var(--line); border-radius: var(--t-r-card); margin: 0 0 8px; }
+    summary { padding: 14px; font-weight: 700; cursor: pointer; list-style: none; display: flex; gap: 10px; align-items: center; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: '›'; margin-left: auto; color: var(--muted); font-size: 20px; transition: transform .15s; }
+    details[open] summary::after { transform: rotate(90deg); }
+    .body { padding: 0 14px 14px; }
+    .body p { margin: 0 0 8px; }
+    ol, .body ul { margin: 0 0 8px; padding-left: 22px; }
+    li { margin: 4px 0; }
+    .tip { background: var(--card); border-radius: var(--t-r); padding: 8px 10px; font-size: var(--t-fs-small); color: var(--muted); margin-top: 8px; }
+    b.k { white-space: nowrap; }
+    a { color: var(--accent); }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
+<div class="wrap">
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
+  <h1>📖 Bruksanvisning</h1>
+  <p class="sub" id="sub">Så fungerar appen just nu.</p>
 
-<a class="lpv-back lpv-back-float" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
-<div class="guide-container">
-  
-  <div class="mock-header">
-    <h2>Tidrapport</h2>
-    <div class="mock-badges">
-      <!-- Temaknapp Mockup -->
-      <div class="mock-pill">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      </div>
-      <div class="mock-pill">Daniel</div>
-      <div class="mock-pill" style="color:var(--text-muted);"><div style="width:5px; height:5px; background:var(--green); border-radius:50%; margin-right:4px;"></div>Ansluten</div>
-    </div>
+  <div class="chips" role="group" aria-label="Välj roll">
+    <button type="button" class="chip" data-roll="forare">🚜 Förare</button>
+    <button type="button" class="chip" data-roll="handskottare">🧹 Handskottare</button>
+    <button type="button" class="chip" data-roll="ue">🏗️ UE</button>
+    <button type="button" class="chip" data-roll="ekonom">💰 Ekonom</button>
+    <button type="button" class="chip" data-roll="admin">⭐ Admin</button>
   </div>
 
-  <p class="subtitle" style="margin-bottom: 30px;">
-    <strong>Tips!</strong> Tryck på sol/måne-ikonen uppe till höger för att byta mellan mörkt och ljust tema. Telefonen minns ditt val till nästa gång.
-  </p>
+  <div class="nytt" id="nytt"><h2>✨ Nytt sedan sist</h2><ul id="nytt-lista"></ul></div>
 
-  <!-- 1. BOKADE PASS (OSTHYVELN) -->
-  <div class="step-section">
-    <div class="step-header">
-      <div class="step-num">1</div>
-      <div class="step-title">Förbokat kalenderjobb (Osthyveln)</div>
-    </div>
-    <div class="step-desc">Jobb som schemalagts på kontoret dyker upp automatiskt som blå kort i karusellen på morgonen.</div>
-    <div class="mockup-frame">
-      <div class="rendered-card">
-        <div class="card-body">
-          <div class="card-title"><span style="color:var(--blue);">🚜</span><span>Stalltvätt TV 99</span></div>
-          <div class="card-meta"><span>📅 Planerat</span> • <span>Blacksta Flen</span></div>
-          <div class="card-note">Spruta skit omkring dig!</div>
-        </div>
-        <div class="card-actions">
-          <button class="btn-action btn-clock-in">➔ Stämpla in</button>
-        </div>
-      </div>
-    </div>
-    <div class="callout">
-      <strong>Åtgärd:</strong> Tryck <strong>Stämpla in</strong> vid ankomst. Starttiden sätts automatiskt till exakt nu och kortet börjar räkna.
-    </div>
-  </div>
+  <!-- ===================== KOM IGÅNG ===================== -->
+  <h2 class="del">Kom igång</h2>
 
-  <!-- 2. PÅGÅENDE PASS -->
-  <div class="step-section">
-    <div class="step-header">
-      <div class="step-num">2</div>
-      <div class="step-title">Pågående pass</div>
+  <details data-roller="forare handskottare ue ekonom admin">
+    <summary>📲 Lägg appen på hemskärmen</summary>
+    <div class="body">
+      <p>Du har fått en personlig länk i ett SMS. Den är din inloggning – dela den inte.</p>
+      <p><b>iPhone/iPad:</b></p>
+      <ol>
+        <li>Öppna länken i <b>Safari</b>.</li>
+        <li>Tryck på <b>Dela</b> (rutan med pilen) → <b>Lägg till på hemskärmen</b>.</li>
+        <li>Öppna appen från hemskärmen. Nu är du inloggad.</li>
+      </ol>
+      <p><b>Android:</b> öppna länken i Chrome och tryck <b>📲 Installera appen</b> (eller menyn ⋮ → Lägg till på startskärmen).</p>
+      <div class="tip">Samma länk fungerar på iPad. Har du bytt telefon eller rensat webbläsaren: öppna länken igen eller be arbetsledaren om ett nytt välkomstpaket.</div>
     </div>
-    <div class="step-desc">Medan arbetet pågår pulserar den gröna lampan. Du behöver inte röra telefonen under passets gång.</div>
-    <div class="mockup-frame">
-      <div class="rendered-card">
-        <div class="card-body">
-          <div class="card-title"><span style="color:var(--accent);">🚜</span><span>Stalltvätt TV 99</span></div>
-          <div class="card-meta"><span>20 okt</span> • <span class="ongoing-pulse">Pågår</span></div>
-        </div>
-        <div class="card-actions">
-          <button class="btn-action btn-clock-out">⏹ Stämpla ut nu</button>
-          <button class="btn-action btn-del">🗑</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  </details>
 
-  <!-- 3. DELADE PASS -->
-  <div class="step-section">
-    <div class="step-header">
-      <div class="step-num">3</div>
-      <div class="step-title">Delat pass (t.ex. Pass 1 & Pass 2)</div>
+  <details data-roller="forare handskottare ue ekonom admin">
+    <summary>💻 Logga in på en dator</summary>
+    <div class="body">
+      <ol>
+        <li>Öppna appen i telefonen och tryck <b class="k">💻 Logga in på en dator</b> (längst ner på startsidan).</li>
+        <li>Du får ett mejl. Öppna det <b>på datorn</b>, i den webbläsare du tänker använda.</li>
+        <li>Tryck <b>💻 Logga in på den här datorn</b>.</li>
+      </ol>
+      <p><b>Länken fungerar bara en gång</b> och i 7 dagar. Öppna den inte i telefonen eller "för att testa" – då är den förbrukad.</p>
+      <div class="tip">Mac med Safari loggar ut sidor man inte besökt på en vecka. Lägg appen i Dock (Arkiv → Lägg till i Dock) eller använd Chrome.</div>
     </div>
-    <div class="step-desc">Om samma uppdrag pausas och återupptas senare under dagen använder du snabbknappen direkt på kortet.</div>
-    <div class="mockup-frame">
-      <div class="rendered-card">
-        <div class="card-body">
-          <div class="card-title"><span style="color:var(--accent);">🚜</span><span>Stalltvätt TV 99 (Pass 1)</span></div>
-          <div class="card-meta"><span>20 okt</span> • <span>07:00 – 11:30</span> • <span style="color:var(--text); font-weight:600;">4.5 h</span></div>
-        </div>
-        <div class="card-actions">
-          <button class="btn-action btn-split">+ Nytt pass</button>
-          <button class="btn-action btn-del">🗑</button>
-        </div>
-      </div>
-    </div>
-    <div class="callout">
-      Klicka <strong>+ Nytt pass</strong>. Ett nytt kort (Pass 2) skapas med samma uppdrag och plats och stämplas in med aktuell tid.
-    </div>
-  </div>
+  </details>
 
-  <!-- 4. FOTON & DOKUMENTATION -->
-  <div class="step-section">
-    <div class="step-header">
-      <div class="step-num">4</div>
-      <div class="step-title">Bifoga flera bilder & ÄTA</div>
+  <!-- ===================== TID ===================== -->
+  <h2 class="del" data-roller="forare ue admin">Tid och pass</h2>
+
+  <details data-roller="forare admin">
+    <summary>📦 Packlistan på morgonen</summary>
+    <div class="body">
+      <p>Bocka av fordonscheck och packlista och tryck <b>Visat &amp; Packat – Lås upp Dagen</b>. Sedan öppnas resten av startsidan.</p>
+      <div class="tip">⚠️ Rapportera tillbud eller olycka fungerar alltid, även innan listan är avbockad.</div>
     </div>
-    <div class="step-desc">För oplanerade jobb, avvikelser eller ÄTA-dokumentation.</div>
-    <div class="mockup-frame">
-      <div class="rendered-card">
-        <div class="mock-row" style="background: rgba(255,255,255,0.03);">
-          <span>Typ</span>
-          <span style="display:flex; gap:6px;">
-            <span class="chip" style="opacity:0.5;">Nya</span>
-            <span class="chip" style="background:var(--accent); color:#000;">ÄTA (Vald)</span>
-          </span>
-        </div>
-        <div class="mock-row">
-          <span>ÄTA-nr / Ref</span>
-          <span class="mock-val">ÄTA 04</span>
-        </div>
-        <div style="padding: 0 14px;">
-          <div class="photo-btn-mock">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            3 Bilder bifogade
-          </div>
-        </div>
-      </div>
+  </details>
+
+  <details data-roller="forare ue admin">
+    <summary>📅 Planerade jobb – stämpla in och ut</summary>
+    <div class="body">
+      <p>Jobb som arbetsledningen planerat syns som blå kort märkta <b>📅 PLANERAT</b> på startsidan.</p>
+      <ol>
+        <li>Tryck <b>Stämpla in</b> när du kommer fram. Starttiden blir exakt nu.</li>
+        <li>Är det ett kalenderjobb frågar appen vilken aktivitet passet gäller – välj och fortsätt.</li>
+        <li>När du är klar: tryck <b>Stämpla ut nu</b> på kortet.</li>
+      </ol>
+      <p>Har du redan ett pass igång frågar appen om det ska stämplas ut först.</p>
+      <div class="tip">Har ett pass varit igång i över 12 timmar får du en påminnelse om att stämpla ut. Ändras ett jobb du är inplanerad på får du en notis när du öppnar appen.</div>
     </div>
-    <div class="callout">
-      <strong>Kameran:</strong> Du kan markera <strong>flera bilder</strong> från ditt galleri samtidigt. Telefonen krymper bilderna direkt
+  </details>
+
+  <details data-roller="forare admin">
+    <summary>✏️ Eget pass (vid tillfälle) och ÄTA</summary>
+    <div class="body">
+      <ol>
+        <li>Under <b>Uppdrag &amp; Formulär</b>: välj <b>Nya</b> (vanligt jobb) eller <b>ÄTA</b> (tilläggsarbete – fyll i ÄTA-nr).</li>
+        <li>Fyll i <b>Betalställe</b>, välj <b>Aktivitet</b> och kontrollera datum och starttid.</li>
+        <li>Lämna <b>Slut</b> tomt om passet pågår.</li>
+        <li>Skriv vad som gjorts, bifoga gärna bilder och tryck <b>Spara pass lokalt</b>.</li>
+      </ol>
+      <p>Passen skickas in av sig själva när du har täckning. Knappen <b>Skicka in</b> uppe till höger skickar direkt.</p>
+      <div class="tip">Utan täckning sparas allt i telefonen. Ingenting försvinner.</div>
+    </div>
+  </details>
+
+  <details data-roller="forare ue admin">
+    <summary>✅ Egenkontroll med foto</summary>
+    <div class="body">
+      <ol>
+        <li>Tryck <b>✅ Egenkontroll</b> på jobbkortet.</li>
+        <li>Gå igenom kontrollerna för passet.</li>
+        <li>Ta foton med <b>📷 Ta foto</b> där det behövs.</li>
+        <li>Tryck <b>✍️ Signera egenkontrollen</b>.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details data-roller="forare ue admin">
+    <summary>⚠️ Tillbud eller olycka</summary>
+    <div class="body">
+      <p>Tryck <b>⚠️ Rapportera tillbud eller olycka</b> på startsidan. Fyll i vad som hänt och fota. Arbetsledningen får en rapport direkt.</p>
+    </div>
+  </details>
+
+  <details data-roller="forare admin">
+    <summary>🐄 Stalltvätt och tvättroboten</summary>
+    <div class="body">
+      <p>Stämpla in på stalltvätten. Kortet får <b>📋 Arbetsorder</b> med stallets rader och boxar – bocka av medan du tvättar och lägg till bilder.</p>
+      <p>Larmar tvättroboten syns en röd banner i appen. Tryck <b>👍 Kvittera</b> när du ser larmet och <b>✅ Åtgärdat – starta</b> när roboten går igen.</p>
+    </div>
+  </details>
+
+  <!-- ===================== SNÖ ===================== -->
+  <h2 class="del" data-roller="forare handskottare ue admin">Snö</h2>
+
+  <details data-roller="forare handskottare ue admin">
+    <summary>❄️ Snöjour – ditt snöpass</summary>
+    <div class="body">
+      <ol>
+        <li>Tryck <b>❄️ Snöjour – karta &amp; GPS</b> på startsidan.</li>
+        <li>Tryck <b>▶️ Starta snöpass</b>.</li>
+        <li>Du ser <b>dina fastigheter</b>, närmast först. <span data-roller="forare">Föraren ser maskinytorna,</span><span data-roller="handskottare"> handskottaren ser handytorna.</span> 🔴 Ej röjning och hinder syns alltid.</li>
+        <li><b>🧭 Kör dit</b> öppnar vägbeskrivningen. <b>📄 Kundkarta</b> lägger kundens karta över.</li>
+        <li>Tryck <b>✅ Klar</b> på varje fastighet när du är färdig.</li>
+        <li>Tryck <b>⏹ Avsluta snöpasset</b> när du är klar för natten.</li>
+      </ol>
+      <p><b>Tryck ✅ Klar direkt när du är klar</b> på en fastighet – tiden används för att fördela passet på kunderna.</p>
+      <div class="tip">Utan täckning köas Klar-markeringarna i telefonen och skickas när nätet kommer tillbaka. Fastigheterna kommer från Snöplaneringen – saknas en, säg till arbetsledaren.</div>
+    </div>
+  </details>
+
+  <details data-roller="ue admin">
+    <summary>👥 UE-ansvarig: hela företagets fastigheter</summary>
+    <div class="body">
+      <p>Är du UE-ansvarig ser du alla fastigheter som ditt företag har, med en rad per förare (t.ex. "Kalle 8/12"). Du kan markera klart åt dina förare.</p>
+    </div>
+  </details>
+
+  <details data-roller="forare handskottare ue admin">
+    <summary>⚠️ Lägg ut ett hinder</summary>
+    <div class="body">
+      <ol>
+        <li>I Snöjour: tryck <b>⚠️ Lägg ut hinder</b> och välj adress.</li>
+        <li><b>📍 På plats:</b> ställ dig på hindret, håll still och tryck <b>📍 Jag står på hindret</b> (mäter i 10 sekunder). Eller välj <b>🗺️ Karta</b> och tryck där hindret ligger.</li>
+        <li><b>Fota hindret.</b> AI:n föreslår vad det är. Du kan hoppa över fotot.</li>
+        <li>Kontrollera typ och anteckning och tryck <b>Lägg ut</b>.</li>
+      </ol>
+      <div class="tip">Du kan lägga till hinder på dina egna fastigheter. Ändra eller ta bort görs av arbetsledningen.</div>
+    </div>
+  </details>
+
+  <details data-roller="forare handskottare ue admin">
+    <summary>🌨️ Plogometern, Sandometern och widgeten</summary>
+    <div class="body">
+      <p>Appen bevakar vädret i ditt område. Du får en notis när det är dags: <b>"Ladda kaffebryggaren"</b> (snö på väg), <b>"Starta kaffebryggaren"</b> (dags att plogas) och <b>"Avblåst"</b>.</p>
+      <p>Mätarna syns överst på startsidan och i Snöjour. Vill du ha dem på hemskärmen: tryck <b>📱 Widget på hemskärmen</b> och följ stegen (gratisappen Scriptable, ca 3 minuter).</p>
+    </div>
+  </details>
+
+  <!-- ===================== EKONOMI ===================== -->
+  <h2 class="del" data-roller="ekonom admin">Ekonomi</h2>
+
+  <details data-roller="ekonom admin">
+    <summary>💰 Fakturaunderlag</summary>
+    <div class="body">
+      <p>Öppna <b>Ekonomi</b> (startsidan eller Mer-menyn). Här finns allt som är utfört men inte fakturerat.</p>
+      <ul>
+        <li><b>Godkända offerter – fast pris:</b> fakturera enligt offerten.</li>
+        <li><b>Löpande räkning – tidrapporter:</b> passen grupperade per kund.</li>
+      </ul>
+      <ol>
+        <li>Välj kund om appen inte hittat den på adressen.</li>
+        <li>Välj avdrag (ROT, RUT eller Inget) och lägg till <b>＋ Material / egen rad</b> vid behov.</li>
+        <li>Tryck <b>📄 Fakturaunderlag (PDF)</b> och fakturera i Fortnox.</li>
+        <li>Tryck <b>✅ Markera fakturerad</b> så försvinner det från listan.</li>
+      </ol>
+      <div class="tip">⬇️ Exportera till Excel ger hela listan som fil.</div>
+    </div>
+  </details>
+
+  <!-- ===================== ADMIN ===================== -->
+  <h2 class="del" data-roller="admin">Arbetsledning</h2>
+
+  <details data-roller="admin">
+    <summary>👥 Personal och välkomstpaket</summary>
+    <div class="body">
+      <ul>
+        <li><b>Ny person:</b> startsidan → Administratör → <b>➕ Ny person</b> → fyll i namn, mobil, e-post, roll och bolag → <b>💾 Lägg till &amp; skicka välkomstpaket</b>.</li>
+        <li><b>📦 Skicka välkomstpaket</b> igen: välj personen. SMS med inloggning går till alla. Admin och ekonom får dessutom ett mejl med datorlänk. Du får en kvittens.</li>
+        <li><b>🔑 Spärra &amp; skapa ny länk</b> om en telefon tappats bort – den gamla länken slutar fungera på alla enheter.</li>
+        <li><b>🏁 QR</b> visar inloggningen som QR-kod att skanna.</li>
+        <li><b>👥 Personal</b> visar alla med roll, dagens jobb och tidigare projekt. Där ändras mobil, e-post, roll och status (Aktiv/Inaktiv/Karantän).</li>
+      </ul>
+      <div class="tip">Klaryta-admin ser bara Klarytas personal och kan bara skicka till förare och UE.</div>
+    </div>
+  </details>
+
+  <details data-roller="admin">
+    <summary>🔭 Radarn – planera jobben</summary>
+    <div class="body">
+      <ul>
+        <li>Dra jobb från orderboken ut på tidslinjen för att planera, tillbaka för att avplanera.</li>
+        <li>Dra personalkulor och maskiner till jobbkortet. Fler kulor ger kortare kort.</li>
+        <li>Tryck på ett jobb för detaljer: kund, adress, timmar, starttid och helgarbete.</li>
+        <li>Personalen får notis när något ändras.</li>
+      </ul>
+    </div>
+  </details>
+
+  <details data-roller="admin">
+    <summary>📄 Offerter och kunder</summary>
+    <div class="body">
+      <p>Skapa offert eller ÄTA i <b>Offerter</b>, välj mall och skicka med SMS eller mejl. Kunden godkänner eller avböjer med länken. Kundregistret finns under <b>💼 Kunder</b>.</p>
+    </div>
+  </details>
+
+  <details data-roller="admin">
+    <summary>🚜 Snöplaneringen – tavlan</summary>
+    <div class="body">
+      <ul>
+        <li><b>Traktorremsan</b> överst: dra en förare från kulpåsen till traktorn så blir de ett fast par.</li>
+        <li><b>🏠 Fastigheter:</b> dra traktorn till fastighetens hål och handskottare till 🧹-platsen. <b>⚠️ Väntar på traktor</b> ligger överst. En stor traktor får inte plats i ett litet hål.</li>
+        <li><b>🚜 Traktorer:</b> en rad per traktor – dra fastigheter mellan raderna.</li>
+        <li><b>🗺️ Karta:</b> vem kör var; tomma hål syns som röda ringar.</li>
+        <li><b>❄️ Nytt snöfall</b> nollställer alla fastigheter. Kulorna ligger kvar.</li>
+        <li>Adresser, positioner, foton och traktorernas uppgifter ändras under <b>⚙️ Register</b>.</li>
+      </ul>
+    </div>
+  </details>
+
+  <details data-roller="admin">
+    <summary>✏️ Rita snözoner</summary>
+    <div class="body">
+      <ul>
+        <li>Välj fastighet. Rita med <b>🖌️ Pensel</b>, <b>✏️ Penna</b> eller <b>🧽 Sudd</b>. Tryck på verktyget igen för storlek och färg: 🔵 Maskin, 🟠 Hand, 🟣 Upplag.</li>
+        <li>Kundkartan: <b>📌 Passa in</b> med punktpar (samma punkt i kundkartan och i kartan under).</li>
+        <li><b>🤖 Föreslå zoner</b> och <b>💡 Förslag från kartan</b> ger förslag – du tar med det som stämmer.</li>
+      </ul>
+    </div>
+  </details>
+
+  <details data-roller="admin">
+    <summary>🌨️ Vädervyn</summary>
+    <div class="body">
+      <p><b>Väder</b> (Mer-menyn) visar alla områden med timprognos, vägyta och kamera. Ändra gränsen under <b>Plogas från</b>. <b>🔄 Mät nu</b> hämtar nytt direkt.</p>
+    </div>
+  </details>
+
+  <!-- ===================== ÖVRIGT ===================== -->
+  <h2 class="del">Övrigt</h2>
+
+  <details data-roller="forare handskottare ue ekonom admin">
+    <summary>🌓 Läge: ljust, mörkt eller natt</summary>
+    <div class="body"><p>Längst ner på startsidan: <b>Auto</b> följer telefonen, <b>Natt</b> är rött på svart för hytten.</p></div>
+  </details>
+
+  <details data-roller="forare handskottare ue ekonom admin">
+    <summary>🆘 Något fungerar inte</summary>
+    <div class="body">
+      <ul>
+        <li><b>"Åtkomst nekad":</b> öppna din personliga länk från SMS:et igen. Hjälper inte det: be arbetsledaren om ett nytt välkomstpaket.</li>
+        <li><b>Ingen täckning:</b> det du gör sparas i telefonen och skickas när nätet kommer tillbaka.</li>
+        <li><b>Appen ser gammal ut:</b> stäng den helt och öppna igen.</li>
+        <li><b>Datorlänken "har redan använts":</b> tryck 💻 Logga in på en dator i telefonen för en ny.</li>
+      </ul>
+    </div>
+  </details>
+</div>
+
+<script src="config.js"></script>
+<script src="knappar.js"></script>
+<script src="nyheter.js"></script>
+<script>
+(function () {
+  const ROLLER = { forare: 'Förare', handskottare: 'Handskottare', ue: 'UE', ekonom: 'Ekonom', admin: 'Admin' };
+  const fromUrl = new URLSearchParams(location.search).get('roll');
+  let roll = ROLLER[fromUrl] ? fromUrl : window.lpvGuideRoll();
+  const esc = (t) => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const nyheter = window.LPV_NYHETER || [];
+  const senast = nyheter.length ? nyheter[0].datum : '';
+
+  function visa() {
+    document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.roll === roll));
+    document.querySelectorAll('[data-roller]').forEach(el => { el.hidden = el.dataset.roller.split(' ').indexOf(roll) === -1; });
+    document.getElementById('sub').textContent = 'För ' + (roll === 'ue' ? 'UE' : ROLLER[roll].toLowerCase()) + '. Senast uppdaterad ' + senast + '.';
+    const mine = nyheter.filter(n => n.roller.indexOf(roll) !== -1).slice(0, 5);
+    document.getElementById('nytt').hidden = !mine.length;
+    document.getElementById('nytt-lista').innerHTML = mine.map(n =>
+      '<li><b>' + esc(n.titel) + '</b> <span class="d">' + esc(n.datum) + '</span><br>' + esc(n.text) + '</li>').join('');
+  }
+  document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    roll = c.dataset.roll; visa();
+    try { history.replaceState(null, '', 'guide.html?roll=' + roll); } catch (e) { /* ok */ }
+  }));
+  visa();
+  // Den som läser manualen har sett det senaste nya – notisen på startsidan behöver inte visas igen
+  const latest = nyheter.find(n => n.roller.indexOf(roll) !== -1);
+  if (latest && (!fromUrl || fromUrl === window.lpvGuideRoll())) { try { localStorage.setItem('lpv_nytt_sett', latest.datum + '|' + latest.id); } catch (e) { /* privat läge */ } }
+})();
+</script>
+</body>
+</html>

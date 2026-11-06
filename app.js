@@ -133,6 +133,7 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
     if (me.status !== 'success') return;
     localStorage.setItem('lpv_company', me.company);
     localStorage.setItem('lpv_role', me.role || '');
+    localStorage.setItem('lpv_guide_roll', me.guideRoll || ''); // vilken bruksanvisning (nyheter.js, guide.html)
     applyRoleUI();
     localStorage.setItem('lpv_is_super', me.isSuper ? 'true' : 'false');
     document.body.classList.toggle('not-super', !me.isSuper);
