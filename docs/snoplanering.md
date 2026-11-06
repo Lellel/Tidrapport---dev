@@ -45,7 +45,7 @@ Resonerat med Daniel 2026-11-05. **Byggt samma dag** (se "Hur det blev" längst 
 - **Siffran på kulan:** antal fastigheter i kommundelen (och totalt om den kör på flera ställen), t.ex. "Kramer (Pelle) · 3 (av 9)".
 
 ## Kvar att resonera om
-- Uppföljning/fakturering mot UE (vem gjorde vad, när).
+- ~~Uppföljning/fakturering mot UE~~: se *Fakturering och tidredovisning* nedan.
 - ~~Slingor~~: tas bort i samma bygge (Snöjour-filtrering, Hinder, tidrapportens "slinga X", widgeten, Slinga-fältet och Förare-fliken i Rita zoner).
 
 ## Hur det blev (byggt 2026-11-05)
@@ -79,3 +79,30 @@ Samma utseende och arbetssätt som Radarn (radar.html), men:
 **🗺️ Kartvyn:** kulorna vid nålarna, fastigheter utan traktor som röda ringar. Kulpåse och traktorremsa finns kvar – kulor kan släppas på nålarna.
 
 **Detaljruta** (tryck på ett kort, som jobbrutan i Radarn): adress, kund, ⭐, ytor, att tänka på, kulorna (ta bort), status i snöfallet, länkar till Rita zoner och kundkartan.
+
+## Fakturering och tidredovisning (bestämt 2026-11-06, ej byggt)
+Ersätter "Uppföljning/fakturering mot UE" under *Kvar att resonera om*.
+
+**Timdebitering** mot både kunder och UE. **Hela passet** (▶️ Start → ⏹ Avsluta) debiteras och fördelas på fastigheterna – ingen minut försvinner.
+
+### Uppdelningen (per förare/handskottare och pass)
+1. **Ordning** = Klar-tiderna i Snöfall-logg.
+2. **Körtid** mellan fastigheterna räknas med Apps Scripts inbyggda vägberäkning (Maps.newDirectionFinder), sparas per adresspar.
+3. **Röjning** på en fastighet = tiden mellan förra Klar och denna Klar minus körtiden dit. Går det trögt i snön hamnar det på röjningen – totalen stämmer alltid mot passet.
+4. **Start/slut:** traktor = uppställningsplatsen (Ort / uppställning), handskottare = hemorten (Snöresurser).
+5. **Utkörning och hemkörning** (depå → första, sista → depå) **delas lika** på alla fastigheter i passet. Körning mellan fastigheter går till den man kör till.
+6. **Varning ⚠️** för granskning i Ekonomi: körtid längre än tiden mellan två Klar, orimligt lång tid på en fastighet (glömd Klar), pass utan Avsluta.
+
+### Fakturan
+- **Transporten är ingen egen rad** – den ingår i fastighetens timmar.
+- Underlag per kund → snöfall → fastighet: timmar maskin och timmar hand.
+
+### Priser
+- **Olika timpris för maskin och handskottning.**
+- **Försäljning (det vi tar betalt) och inköp (det vi betalar UE) är olika priser.**
+- Öppet: per traktor eller per storlek (stor/liten)? Inköpspris per UE-företag? Kundunika priser?
+
+### Ut i systemet
+- **Ekonomi:** snöunderlaget per kund (försäljningspris), granska ⚠️, markera fakturerat – som tidrapporterna i dag.
+- **UE:** samma uträkning per UE-företag med inköpspris = kontrollunderlag mot deras faktura.
+- **Lön (egen personal):** passet delas i tidrapporten i *Snöröjning* och *Transport*.
