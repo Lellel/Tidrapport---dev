@@ -1351,7 +1351,9 @@
     }
     const me = snoCurrentUser();
     const takenByOther = (p) => p.claimedBy && p.claimedBy !== me;
-    const propLabel = (p) => p.address + (p.ort ? ', ' + p.ort : '') + (p.maps && p.maps.length ? ' 📄' : '') + (p.zoneStatus === 'klar' ? ' ✅' : p.zoneStatus === 'senare' ? ' ⏭' : '');
+    const isAi = (m) => !!(m && m.place && m.place.ai);
+    const hasAiMap = (p) => (p.maps || []).some(isAi);
+    const propLabel = (p) => p.address + (p.ort ? ', ' + p.ort : '') + (p.maps && p.maps.length ? ' 📄' : '') + (hasAiMap(p) ? ' 🤖' : '') + (p.zoneStatus === 'klar' ? ' ✅' : p.zoneStatus === 'senare' ? ' ⏭' : '');
     const areaOf = (p) => p.omrade || p.ort || 'Utan område';
     // Flera hjälps åt: var och en väljer sitt område (sparas i den här webbläsaren)
     let area = '';
@@ -1363,9 +1365,9 @@
     function renderPropList() {
       document.getElementById('fastighet-list').innerHTML = propOrder().map(p => `<option value="${snoEscape(propLabel(p))}">${takenByOther(p) ? '🔒 ' + snoEscape(p.claimedBy) : ''}</option>`).join('');
       const areas = {};
-      properties.forEach(p => { const a = areas[areaOf(p)] || (areas[areaOf(p)] = { n: 0, done: 0 }); a.n++; if (p.zoneStatus === 'klar') a.done++; });
+      properties.forEach(p => { const a = areas[areaOf(p)] || (areas[areaOf(p)] = { n: 0, done: 0, ai: 0 }); a.n++; if (p.zoneStatus === 'klar') a.done++; a.ai += (p.maps || []).filter(isAi).length; });
       document.getElementById('f-omrade').innerHTML = `<option value="">Alla områden (${properties.length})</option>` +
-        Object.keys(areas).sort((a, b) => a.localeCompare(b, 'sv')).map(a => `<option value="${snoEscape(a)}" ${a === area ? 'selected' : ''}>${snoEscape(a)} – ${areas[a].done} av ${areas[a].n} klara</option>`).join('');
+        Object.keys(areas).sort((a, b) => a.localeCompare(b, 'sv')).map(a => `<option value="${snoEscape(a)}" ${a === area ? 'selected' : ''}>${snoEscape(a)} – ${areas[a].done} av ${areas[a].n} klara${areas[a].ai ? ` · 🤖 ${areas[a].ai} att granska` : ''}</option>`).join('');
     }
 
     async function setArea(a) {
@@ -1384,11 +1386,11 @@
       return after.find(x => !x.zoneStatus && !takenByOther(x)) || after.find(x => x.zoneStatus === 'senare' && !takenByOther(x));
     }
 
-    function openProperty(p) {
+    function openProperty(p, mapIdx) {
       document.getElementById('f-fastighet').value = propLabel(p);
       document.getElementById('f-note').value = '';
       suggestions = []; renderSuggestions();
-      chooseProperty(propLabel(p));
+      chooseProperty(propLabel(p), mapIdx);
     }
 
     // 🔒 Den man öppnar markeras som upptagen i en halvtimme; den förra släpps
@@ -1440,7 +1442,7 @@
           `<div class="kk-row"><button class="ok" onclick="markAndNext('klar')">✅ Klar${group.length ? ` (${group.length + 1})` : ''} – nästa</button><button onclick="markAndNext('senare')">⏭ Senare – nästa</button></div>`}`;
     }
 
-    function chooseProperty(label) {
+    function chooseProperty(label, mapIdx) {
       const p = properties.find(x => propLabel(x) === label);
       if (!p) return;
       if (currentProp && currentProp.id !== p.id && currentProp.claimedBy === me) {
@@ -1456,7 +1458,7 @@
       if (p.note && !document.getElementById('f-note').value) document.getElementById('f-note').placeholder = p.note;
       if (p.lat !== null) map.setView([p.lat, p.lng], 18);
       setPropPin(p);
-      kk.prop = p; kk.idx = 0;
+      kk.prop = p; kk.idx = mapIdx || 0;
       showCustomerMap();
     }
 
@@ -1894,6 +1896,61 @@
         <div style="max-height:180px;overflow:auto;font-size:12px">${aiRun.log.slice().reverse().join('<br>')}</div>` : '';
     }
 
+    // ---------- 🤖 GRANSKA AI-INPASSADE: en karta i taget, ✅ Stämmer – nästa tills det är tomt ----------
+    // Kartor med place.ai (Föreslå punkter / Claudes kartpassning) i valt område, i adressordning. Upptagna (🔒) hoppas över.
+    // ✅ sparar läget som det är (märkningen försvinner), ✋ Justera + 💾 Spara går också vidare, ⏭ lägger kartan sist,
+    // ❌ tar bort läget (kartan blir inte utlagd och passas in med 📌 senare).
+    const review = { on: false, cur: null, ready: false, skipped: new Set(), done: 0 };
+    const reviewKey = (x) => x.p.id + '|' + x.m.id;
+    const reviewList = () => propOrder().filter(p => !takenByOther(p)).flatMap(p => (p.maps || []).map((m, i) => ({ p, m, i })).filter(x => isAi(x.m)));
+    const reviewLeft = () => reviewList().filter(x => !review.skipped.has(reviewKey(x)));
+    function startReview() { review.on = true; review.skipped.clear(); review.done = 0; reviewNext(); }
+    function stopReview(msg) {
+      review.on = false; review.cur = null; review.ready = false;
+      renderKkCard(); renderPropList();
+      if (msg) setStatus(msg);
+    }
+    function reviewNext() {
+      if (kk.adjusting) cancelAdjust();
+      const x = reviewLeft()[0];
+      if (!x) {
+        if (kkMap() && !kkMap().place) removeCustomerMap();
+        const s = review.skipped.size;
+        stopReview(`🎉 Inget kvar att granska${review.done ? ` – ${review.done} granskade` : ''}${s ? ` · ${s} överhoppade ligger kvar med 🤖` : ''}.`);
+        return;
+      }
+      review.cur = x; review.ready = false;
+      hiddenMaps.delete(x.m.id);
+      // Hela kundkartan i bild när den har laddats – först då får ✅ spara (annars kunde förra kartans läge sparas)
+      kk.afterLoad = () => { const c = kkCorners(kk.place); map.fitBounds(L.latLngBounds([c.tl, c.tr, c.bl, c.br]), { padding: [20, 20] }); review.ready = true; };
+      if (currentProp !== x.p) openProperty(x.p, x.i);
+      else { kk.prop = x.p; kk.idx = x.i; showCustomerMap(); }
+      renderPropList();
+      setStatus(`🤖 Granska <b>${snoEscape(x.p.address)}</b>: stämmer kundkartan mot satelliten? Dra i genomskinligheten för att jämföra.`);
+    }
+    function reviewSkip() { if (review.cur) review.skipped.add(reviewKey(review.cur)); reviewNext(); }
+    async function reviewOk() { if (review.ready) await saveKkPlace(); }
+    async function reviewWrong() {
+      const x = review.cur;
+      if (!x || !confirm(`Ta bort läget för ${x.p.address}?\n\nKundkartan blir inte utlagd och passas in med 📌 senare.`)) return;
+      try {
+        const res = await snoApi({ action: 'clearPropertyMapPlace', id: x.p.id, mapId: x.m.id });
+        if (res.status !== 'success') throw new Error(res.message);
+        delete x.m.place; review.done++;
+        reviewNext();
+      } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'Kunde inte ta bort läget.')); }
+    }
+    function reviewHtml() {
+      if (!review.on) { const n = reviewList().length; return n ? `<button class="kk-small" onclick="startReview()">🤖 Granska AI-inpassade (${n})</button>` : ''; }
+      const left = reviewLeft().length, x = review.cur;
+      if (!x || kkMap() !== x.m) return `<div class="kk-row"><button onclick="reviewNext()">▶ Fortsätt granska (${left} kvar)</button><button onclick="stopReview('Granskningen avslutad.')">⏹ Avsluta</button></div>`;
+      const ai = x.m.place && x.m.place.ai;
+      return `<div class="status" style="font-size:13px"><b>🤖 Granska · ${left} kvar</b>${x.p.maps.length > 1 ? ` · ${snoEscape(x.m.label || 'Karta ' + (x.i + 1))}` : ''}<br>
+          <small>${ai ? `${ai.n} punkter, största avvikelse ${fmtNum(ai.err)} m. ` : ''}Stämmer kundkartan mot satelliten?</small></div>
+        <div class="kk-row"><button class="ok" onclick="reviewOk()" ${review.ready ? '' : 'disabled'}>${review.ready ? '✅ Stämmer – nästa' : '⏳ Laddar…'}</button><button onclick="adjustVisible()">✋ Justera</button></div>
+        <div class="kk-row"><button onclick="reviewSkip()">⏭ Hoppa över</button><button onclick="reviewWrong()">❌ Fel – ta bort läget</button><button onclick="stopReview('Granskningen avslutad.')">⏹ Avsluta</button></div>`;
+    }
+
     async function saveKkPlace() {
       const m = kkMap();
       // LandInfo-kartorna är norrvända – mer än 3° vriden betyder nästan alltid ett felaktigt punktpar
@@ -1908,6 +1965,7 @@
         m.place = res.place; kk.place = { ...res.place }; kk.dirty = false; kk.adjusting = false;
         placeHandles(); applyGestureMode(); renderKkCard();
         setStatus('✅ Kundkartans läge sparat. Rita av zonerna, eller tryck <b>🤖 Föreslå zoner</b>.');
+        if (review.on && review.cur && review.cur.m === m) { review.done++; reviewNext(); }
         return true;
       } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'Kunde inte spara läget.')); return false; }
     }
@@ -2010,7 +2068,7 @@
       const note = currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : '';
       if (!m) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="fastighet">🏠</span> ${snoEscape(currentProp.address)} <small>· ingen kundkarta</small></span><span>${pinBtn()}</span></div>
-          ${vagkarta}${more(note + neighborsHtml())}`;
+          ${reviewHtml()}${vagkarta}${more(note + neighborsHtml())}`;
         return;
       }
       const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" onchange="renderKkCard()"></div>`;
@@ -2018,19 +2076,19 @@
       const aiBtn = `<button class="kk-small" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '<span data-icon="ai">🤖</span> Föreslå punkter'}</button>`;
       const nAll = aiTargets().length;
       const allBtn = aiRun.on || nAll || aiRun.total ? `<button class="kk-small" onclick="runAllSuggest()">${aiRun.on ? (aiRun.stop ? '⏳ Stoppar…' : '⏹ Stoppa kör alla') : `🤖 Föreslå punkter för alla ej utlagda (${nAll})`}</button><div class="status" id="ai-run" style="font-size:12px"></div>` : '';
-      const aiMark = m.place && m.place.ai ? `<div class="status" style="font-size:12px">🤖 AI-inpassad ${snoEscape(m.place.ai.at || '')} · ${m.place.ai.n} punkter, ${fmtNum(m.place.ai.err)} m – granska mot satelliten och 💾 spara (✋ Justera) när den stämmer.</div>` : '';
+      const aiMark = review.on ? '' : m.place && m.place.ai ? `<div class="status" style="font-size:12px">🤖 AI-inpassad ${snoEscape(m.place.ai.at || '')} · ${m.place.ai.n} punkter, ${fmtNum(m.place.ai.err)} m – granska mot satelliten och 💾 spara (✋ Justera) när den stämmer.</div>` : '';
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Verktygen ligger nere på kartan: vad fingret flyttar, genomskinlighet, 📌 Passa in med punkter, 🤖 Föreslå punkter och 💾 Spara läge. Dölj gärna panelen med ⟩.</div>
-          ${allBtn}`;
+          ${allBtn}${review.on ? '' : reviewHtml()}`;
         renderAiRun();
         return;
       }
       const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;
-      const maps = kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}</button>`).join('')}</div>` : '';
+      const maps = kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}${isAi(x) ? ' 🤖' : ''}</button>`).join('')}</div>` : '';
       el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="kundkarta">📄</span> Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || currentProp.address))}</small></span>
           <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button><button class="kk-icon" title="Justera läge" onclick="adjustVisible()"><span data-icon="justera">✋</span></button></span></div>
-        ${aiMark}${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'points' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn + aiBtn}
+        ${reviewHtml()}${aiMark}${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'points' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn + aiBtn}
         ${kk.aiResult && !kk.adjusting ? `<div class="status" style="font-size:12px">${kk.aiResult}</div>` : ''}
         ${more(maps + opacity + (m.place ? placeBtn + aiBtn : '') + allBtn + vagkarta + note + neighborsHtml())}`;
       renderAiRun();
@@ -2097,7 +2155,7 @@
       return `<label style="margin-top:4px"><span data-icon="kundkarta">🗺️</span> Kundkartor på kartan</label>
         <div class="zone-list">${props.map(p => {
           const m = p === kp() ? kkMap() : p.maps[0], active = p === kp(), hid = hiddenMaps.has(m.id);
-          return `<div class="kk-row" style="align-items:center"><button class="chip ${active ? 'on' : ''}" style="flex:1;text-align:left" onclick="setActiveMap('${snoEscape(p.id)}')">${active ? '✏️ ' : ''}${snoEscape(p.address)}${m.place ? '' : ' · inte utlagd'}</button>
+          return `<div class="kk-row" style="align-items:center"><button class="chip ${active ? 'on' : ''}" style="flex:1;text-align:left" onclick="setActiveMap('${snoEscape(p.id)}')">${active ? '✏️ ' : ''}${snoEscape(p.address)}${m.place ? (isAi(m) ? ' · 🤖' : '') : ' · inte utlagd'}</button>
             <button class="kk-icon" style="flex:none;width:44px" title="${hid ? 'Visa' : 'Dölj'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button></div>`;
         }).join('')}</div>
         <div class="muted">Tryck på en adress för att göra dess karta aktiv – den justeras och läses av 🤖 AI:n.</div>`;

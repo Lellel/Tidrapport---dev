@@ -233,7 +233,7 @@ function doPost(e) {
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
-      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "analyzePropertyMap", "suggestMapPoints", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
+      "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "clearPropertyMapPlace", "analyzePropertyMap", "suggestMapPoints", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
       "getStaffOverview", "getStaffHistory", "updateStaff",
       "saveStall", "addStallPhoto", "robotAlarm", "generateAppIcon", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
@@ -374,6 +374,7 @@ function doPost(e) {
     if (action === "addPropertyPhoto") return handleAddPropertyPhoto(data.id, data.imageBase64);
     if (action === "addPropertyMap") return handleAddPropertyMap(data);
     if (action === "savePropertyMapPlace") return handleSavePropertyMapPlace(data);
+    if (action === "clearPropertyMapPlace") return handleClearPropertyMapPlace(data);
     if (action === "setPropertyZoneStatus") return handleSetPropertyZoneStatus(data);
     if (action === "claimProperty") return handleClaimProperty(data, auth);
     if (action === "getWeather") return handleGetWeather(data, auth);
@@ -2146,6 +2147,19 @@ function handleSavePropertyMapPlace(data) {
   m.place = place;
   sheet.getRange(hit.rowNumber, 14).setValue(JSON.stringify(maps));
   return createJsonResponse({ status: "success", place: place });
+}
+
+// ❌ Fel – ta bort läget (granskning av AI-inpassade): kartan blir "inte utlagd" igen och passas in med 📌
+function handleClearPropertyMapPlace(data) {
+  const sheet = getPropertySheet();
+  const hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const maps = propertyMaps(hit.row);
+  const m = maps.find(x => x.id === data.mapId);
+  if (!m) return createJsonResponse({ status: "error", message: "Kartan hittades inte." });
+  delete m.place;
+  sheet.getRange(hit.rowNumber, 14).setValue(JSON.stringify(maps));
+  return createJsonResponse({ status: "success" });
 }
 
 // Svarets form låses (responseSchema) – och tolkningen tål ändå andra nyckelnamn, {y,x}-punkter och en lista utan omslag

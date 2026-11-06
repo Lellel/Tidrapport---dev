@@ -705,4 +705,9 @@ Snöjour (telefon):
 - [ ] Karta som inte är utlagd → 🤖 Föreslå punkter → godkänt: punkterna syns (gröna), 💾 Spara läge; underkänt: "⚠️ Passa in själv"
 - [ ] Spara en LandInfo-karta vriden > 3° → frågan om punkterna stämmer; Avbryt sparar inte
 - [ ] ⋯ Mer → 🤖 Föreslå punkter för alla ej utlagda → räknaren går, ⏹ Stoppa fungerar, godkända visar "🤖 AI-inpassad"
+- [ ] AI-inpassade har 🤖 i adresslistan och områdesväljaren visar "🤖 N att granska"
+- [ ] 🤖 Granska AI-inpassade (N) → första öppnas med hela kundkartan i bild; ✅ Stämmer – nästa sparar och 🤖 försvinner
+- [ ] ✋ Justera i granskningen → 💾 Spara läge → nästa öppnas; ✕ Avbryt → tillbaka till granskningskortet
+- [ ] ⏭ Hoppa över → kartan behåller 🤖; ❌ Fel – ta bort läget → frågar, kartan blir "inte utlagd"
+- [ ] Sista → "🎉 Inget kvar att granska" (med antal överhoppade); ⏹ Avsluta avbryter när som helst
 - [ ] Passa in Auragatan 4 och Salstagatan 16 (ligger i standardläget)
