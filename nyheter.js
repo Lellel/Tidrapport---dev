@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-06-passa-in-grannar', datum: '2026-11-06', roller: ['admin'], modul: 'sno',
+    titel: 'Passa in: grannarnas kartor döljs',
+    text: 'När du passar in en kundkarta med 📌 döljs grannarnas kartor, så att du inte råkar pricka på fel karta. De visas igen när du är klar.' },
   { id: '2026-11-06-vaderval', datum: '2026-11-06', roller: ['forare', 'handskottare', 'ue', 'admin'], modul: 'sno',
     titel: 'Välj vilka vädermätare du vill ha',
     text: 'Längst ner på startsidan under Väder: slå av eller på 🚜 Plogometern och 🪣 Sandometern. Den du stänger av syns inte och ger inga notiser.' },

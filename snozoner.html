@@ -1707,13 +1707,14 @@
       if (!kk.layer) return;
       if (!kk.adjusting) startAdjust();
       pin.on = true; pin.pairs = []; pin.pending = null; pin.err = null;
+      renderGroupLayers(); // grannarnas kartor döljs tills man är klar
       if (pin.savedOpacity === null) pin.savedOpacity = kk.opacity;
       kk.gestures = 'map'; applyGestureMode(); // fingret flyttar satelliten, ett tryck sätter en punkt
       pinOpacity();
       drawPin(); renderDock(); renderStep();
     }
-    function stopPin() { restoreOpacity(); pin.on = false; pin.pending = null; drawPin(); kk.gestures = 'kk'; applyGestureMode(); renderDock(); renderStep(); }
-    function endPin() { restoreOpacity(); pin.on = false; pin.pairs = []; pin.pending = null; pin.err = null; drawPin(); }
+    function stopPin() { restoreOpacity(); pin.on = false; pin.pending = null; drawPin(); renderGroupLayers(); kk.gestures = 'kk'; applyGestureMode(); renderDock(); renderStep(); }
+    function endPin() { const was = pin.on; restoreOpacity(); pin.on = false; pin.pairs = []; pin.pending = null; pin.err = null; drawPin(); if (was) renderGroupLayers(); }
     function pinTap(ll) {
       if (!pin.pending) pin.pending = toImg(ll);
       else {
@@ -1757,7 +1758,8 @@
     function pinText() {
       const n = pin.pairs.length;
       if (pin.pending) return `<b>${n + 1}b.</b> Tryck på <b>samma punkt i kartan under</b> (satellit eller vägkarta) – kundkartan är nu nästan genomskinlig.`;
-      if (n < 2) return `<b>${n + 1}a.</b> Tryck på en tydlig punkt <b>på kundkartan</b> – t.ex. en husknut${n ? ', gärna långt från den första' : ''}. Zooma och flytta kartan fritt.`;
+      if (n < 2) return `<b>${n + 1}a.</b> Tryck på en tydlig punkt <b>på kundkartan</b> – t.ex. en husknut${n ? ', gärna långt från den första' : ''}. Zooma och flytta kartan fritt.` +
+        (group.length ? `<br><small>Grannarnas kartor är dolda medan du passar in.</small>` : '');
       return `✅ Inpassad med ${n} punkter${pin.err !== null ? ` · största avvikelse <b>${String(Math.round(pin.err * 10) / 10).replace('.', ',')} m</b>` : ''}.<br><small style="font-weight:600">Lägg till en punkt till för kontroll – eller spara.</small>`;
     }
 
@@ -2025,7 +2027,9 @@
         const m = (p.maps || []).find(x => x.place) || (p.maps || [])[0];
         if (!m || (!m.place && !hasPos(p))) return;
         const place = m.place || { c: [p.lat, p.lng], w: /LandInfo/.test(m.label) ? 140 : 160, rot: 0 };
-        const add = (W, H) => { if (p !== currentProp && !group.includes(p.id)) return; if (p === kp()) return; const lay = new KundOverlay(m.url, { place, W, H, mapId: m.id }).addTo(map); groupLayers.push(lay); };
+        // Medan 📌 Passa in pågår visas bara den karta som passas in – annars kan man råka pricka på grannens karta
+        // (samma hus syns på båda) och punkten räknas mot fel bild (Södra Järnvägsg 3/Kungsbrog 2, 2026-11-06)
+        const add = (W, H) => { if (pin.on) return; if (p !== currentProp && !group.includes(p.id)) return; if (p === kp()) return; const lay = new KundOverlay(m.url, { place, W, H, mapId: m.id }).addTo(map); groupLayers.push(lay); };
         if (sizeCache[m.url]) { add(...sizeCache[m.url]); return; }
         const img = new Image();
         img.onload = () => { sizeCache[m.url] = [img.naturalWidth, img.naturalHeight]; add(img.naturalWidth, img.naturalHeight); };
