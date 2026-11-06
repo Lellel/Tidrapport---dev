@@ -1820,7 +1820,7 @@
       if (res.status !== 'success') throw new Error(res.message || 'AI:n svarade inte.');
       const pairs = aiPairs(res, snap, W, H);
       const r = { pairs, seconds: res.seconds, ...judgePairs(pairs, W, m) };
-      if (!pairs.length && res.raw) r.why += ` – AI:n svarade: ”${res.raw.slice(0, 160)}”`;
+      if (!pairs.length) r.why += ` – AI:n svarade (${res.raw === undefined ? 'gammal server' : 'v2'}): ”${String(res.raw || '').slice(0, 220)}”`;
       return r;
     }
 

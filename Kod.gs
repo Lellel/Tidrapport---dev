@@ -2215,7 +2215,7 @@ function handleSuggestMapPoints(data) {
     const pairs = parsePointPairs(text);
     const out = { status: "success", pairs: pairs, seconds: Math.round((Date.now() - t0) / 1000) };
     // Inga punkter: skicka med en bit av svaret så att vi ser varför (form, stopporsak)
-    if (!pairs.length) out.raw = (cand && cand.finishReason ? "[" + cand.finishReason + "] " : "") + text.slice(0, 300);
+    if (!pairs.length) out.raw = "modell " + geminiModel("text", apiKey) + (cand && cand.finishReason ? ", stopp " + cand.finishReason : ", inget svar" + (json.promptFeedback ? " (" + JSON.stringify(json.promptFeedback).slice(0, 120) + ")" : "")) + ": " + (text ? text.slice(0, 300) : "(tom text)");
     return createJsonResponse(out);
   } catch (err) {
     return createJsonResponse({ status: "error", message: "AI:n kunde inte jämföra bilderna: " + err.message });
