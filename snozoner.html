@@ -1819,7 +1819,9 @@
       try { res = await call(); } catch (e1) { res = await call(); } // ett nytt försök om anslutningen bröts
       if (res.status !== 'success') throw new Error(res.message || 'AI:n svarade inte.');
       const pairs = aiPairs(res, snap, W, H);
-      return { pairs, seconds: res.seconds, ...judgePairs(pairs, W, m) };
+      const r = { pairs, seconds: res.seconds, ...judgePairs(pairs, W, m) };
+      if (!pairs.length && res.raw) r.why += ` – AI:n svarade: ”${res.raw.slice(0, 160)}”`;
+      return r;
     }
 
     // Knappen på en karta: godkänt → Justera-läget med punkterna (📌, kan kompletteras) – kontrollera och 💾 Spara läge

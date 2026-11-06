@@ -2147,6 +2147,27 @@ function handleSavePropertyMapPlace(data) {
   return createJsonResponse({ status: "success", place: place });
 }
 
+// Svarets form låses (responseSchema) – och tolkningen tål ändå andra nyckelnamn, {y,x}-punkter och en lista utan omslag
+const POINTS_SCHEMA = { type: "OBJECT", properties: { punkter: { type: "ARRAY", items: { type: "OBJECT",
+  properties: { karta: { type: "ARRAY", items: { type: "NUMBER" } }, satellit: { type: "ARRAY", items: { type: "NUMBER" } }, vad: { type: "STRING" } },
+  required: ["karta", "satellit"] } } }, required: ["punkter"] };
+function parsePointPairs(text) {
+  let ai;
+  try { ai = JSON.parse(String(text || "").replace(/^\s*```(json)?|```\s*$/g, "").trim()); } catch (e) { return []; }
+  const list = Array.isArray(ai) ? ai : (ai && (ai.punkter || ai.points || ai.pairs || ai.punktpar)) || [];
+  const pt = (p) => {
+    if (p && !Array.isArray(p) && typeof p === "object") p = [p.y, p.x];
+    if (!Array.isArray(p) || p.length !== 2) return null;
+    const v = p.map(Number);
+    return v.every(n => isFinite(n) && n >= 0 && n <= 1000) ? v : null;
+  };
+  return (Array.isArray(list) ? list : []).map(p => p && {
+    map: pt(p.karta || p.kundkarta || p.map || p.bild1),
+    sat: pt(p.satellit || p.satellite || p.sat || p.flygfoto || p.bild2),
+    what: String(p.vad || p.what || p.beskrivning || "").slice(0, 60)
+  }).filter(p => p && p.map && p.sat).slice(0, 6);
+}
+
 // 🤖 Föreslå punkter (docs/ritprogram.md, 2026-11-06): appen skickar en satellitbild (Esri, norr upp) runt adressen.
 // Gemini pekar BARA ut 3–4 punktpar – samma sak i kundkartan och i satellitbilden, som [y, x] 0–1000 i respektive bild.
 // Läge, skala och vridning räknar appen själv (samma minsta kvadrat som 📌 Passa in) och godkänner bara om punkterna stämmer.
@@ -2181,7 +2202,7 @@ function handleSuggestMapPoints(data) {
     "Svara ENDAST med JSON: {\"punkter\":[{\"karta\":[y,x],\"satellit\":[y,x],\"vad\":\"kort beskrivning\"}]}";
   try {
     const body = (thinking) => JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: "image/jpeg", data: b64 } }, { inlineData: { mimeType: "image/jpeg", data: sat } }, { text: prompt }] }],
-      generationConfig: Object.assign({ responseMimeType: "application/json", temperature: 0.1 }, thinking ? { thinkingConfig: { thinkingBudget: 2048 } } : {}) });
+      generationConfig: Object.assign({ responseMimeType: "application/json", responseSchema: POINTS_SCHEMA, temperature: 0.1 }, thinking ? { thinkingConfig: { thinkingBudget: 2048 } } : {}) });
     let response = geminiFetch("text", apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(true) });
     if (response.getResponseCode() === 400 && /thinking/i.test(response.getContentText())) {
       response = geminiFetch("text", apiKey, { method: "post", contentType: "application/json", muteHttpExceptions: true, payload: body(false) });
@@ -2189,12 +2210,13 @@ function handleSuggestMapPoints(data) {
     const code = response.getResponseCode();
     if (code !== 200) return createJsonResponse({ status: "error", message: code === 429 ? geminiErrorText(code, response.getContentText()) : "AI:n svarade inte (HTTP " + code + ")." });
     const json = JSON.parse(response.getContentText());
-    const text = ((json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || []).map(p => p.text || "").join("");
-    const ai = JSON.parse(text.replace(/^```(json)?|```$/g, "").trim());
-    const okPt = (p) => Array.isArray(p) && p.length === 2 && p.every(n => isFinite(n) && n >= 0 && n <= 1000);
-    const pairs = (Array.isArray(ai.punkter) ? ai.punkter : []).filter(p => p && okPt(p.karta) && okPt(p.satellit)).slice(0, 6)
-      .map(p => ({ map: [Number(p.karta[0]), Number(p.karta[1])], sat: [Number(p.satellit[0]), Number(p.satellit[1])], what: String(p.vad || "").slice(0, 60) }));
-    return createJsonResponse({ status: "success", pairs: pairs, seconds: Math.round((Date.now() - t0) / 1000) });
+    const cand = json.candidates && json.candidates[0];
+    const text = ((cand && cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
+    const pairs = parsePointPairs(text);
+    const out = { status: "success", pairs: pairs, seconds: Math.round((Date.now() - t0) / 1000) };
+    // Inga punkter: skicka med en bit av svaret så att vi ser varför (form, stopporsak)
+    if (!pairs.length) out.raw = (cand && cand.finishReason ? "[" + cand.finishReason + "] " : "") + text.slice(0, 300);
+    return createJsonResponse(out);
   } catch (err) {
     return createJsonResponse({ status: "error", message: "AI:n kunde inte jämföra bilderna: " + err.message });
   }
