@@ -27,11 +27,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Toppraden */
 .top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .top h1 { font-size: var(--t-fs-title); margin: 0 8px 0 2px; white-space: nowrap; }
-.seg { display: inline-flex; background: var(--panel2); border-radius: var(--t-r); padding: 3px; gap: 2px; }
-.seg button { border: 0; background: none; padding: 7px 11px; border-radius: var(--t-r); font-size: 13px; font-weight: 600; color: var(--muted); min-height: 36px; }
-.seg button.on { background: var(--accent); color: var(--t-on-accent); }
-.btn { border: 1px solid var(--line); background: var(--panel2); border-radius: var(--t-r); padding: 7px 12px; font-weight: 600; font-size: 13px; min-height: 38px; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
 .period { font-weight: 700; font-size: 14px; min-width: 150px; text-align: center; }
 .status { font-size: 12px; color: var(--muted); margin-left: auto; min-width: 70px; text-align: right; }
 .status.err { color: var(--bad); }
@@ -116,7 +111,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .f input { background: var(--bg); border: 1px solid var(--line); color: var(--fg); border-radius: var(--t-r); padding: 10px; font-size: 16px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .crew { display: flex; flex-wrap: wrap; gap: 8px; }
-.crew .orbwrap button { border: 0; background: var(--bad); color: #fff; border-radius: 99px; font-size: 10px; padding: 1px 6px; }
+.crew .orbwrap .lpv-btn { min-height: 20px; padding: 0 6px; font-size: 10px; }
 .calc { background: var(--bg); border-radius: var(--t-r); padding: 10px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
 .calc b { color: var(--fg); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -132,14 +127,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
   <div class="top">
     <a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
     <h1><span data-icon="radar">📡</span> Radarn</h1>
-    <div class="seg" id="viewseg"><button data-v="person" class="on">👷 Personer</button><button data-v="client">🏠 Kunder</button></div>
-    <div class="seg" id="zoomseg"><button data-z="0">Timmar</button><button data-z="1">Dag</button><button data-z="2" class="on">Vecka</button><button data-z="3">Månad</button></div>
-    <button class="btn" id="prev" aria-label="Föregående">‹</button><span class="period" id="period"></span><button class="btn" id="next" aria-label="Nästa">›</button>
-    <button class="btn" id="today">Idag</button>
-    <button class="btn" id="tglSide">Kulpåse</button>
-    <button class="btn" id="tglOrder">Orderbok</button>
-    <span data-theme-slot></span>
-    <button class="btn" id="fs" hidden>⛶</button>
+    <div class="lpv-seg" id="viewseg"><button data-v="person" class="on">👷 Personer</button><button data-v="client">🏠 Kunder</button></div>
+    <div class="lpv-seg" id="zoomseg"><button data-z="0">Timmar</button><button data-z="1">Dag</button><button data-z="2" class="on">Vecka</button><button data-z="3">Månad</button></div>
+    <button class="lpv-btn icon" id="prev" aria-label="Föregående">‹</button><span class="period" id="period"></span><button class="lpv-btn icon" id="next" aria-label="Nästa">›</button>
+    <button class="lpv-btn" id="today">Idag</button>
+    <button class="lpv-toggle on" id="tglSide">👷 Kulpåsen</button>
+    <button class="lpv-toggle on" id="tglOrder">📋 Orderboken</button>
+    <button class="lpv-btn icon" id="fs" hidden>⛶</button>
     <span class="status" id="status"></span>
   </div>
   <div class="order" id="order"></div>
@@ -314,7 +308,7 @@ function renderOrder() {
   $('order').innerHTML = `<div class="title">Orderbok</div>` + (list.map(j => `<div class="ocard" data-job="${esc(j.id)}" data-from="order">
       <b>${esc(j.title || j.client)}</b><span>${esc(j.client && j.client !== j.title ? j.client + ' · ' : '')}${j.hours} h${j.assigned.length ? ' · ' + j.assigned.length + ' res.' : ''}</span></div>`).join('')
     || '<span class="empty">Inga oplanerade jobb – dra hit ett jobb för att avplanera det.</span>') +
-    `<button class="btn" id="newJob" style="flex:none;align-self:center">＋ Nytt jobb</button>`;
+    `<button class="lpv-btn small" id="newJob" style="flex:none;align-self:center">＋ Nytt jobb</button>`;
   $('newJob').onclick = () => openSheet(null);
 }
 
@@ -393,7 +387,7 @@ function renderSide() {
     <div class="sidepart"><h3>👷 Personal <a href="personal.html" style="float:right;font-size:12px;color:var(--accent);text-decoration:none;text-transform:none;letter-spacing:0">Översikt →</a></h3><div class="orbs">${orbsFor(people) || '<small style="color:var(--muted)">Alla upptagna</small>'}</div></div>
     <details class="sidepart gear" ${gearOpen ? 'open' : ''} id="gearPart"><summary><h3>🧰 Maskiner & verktyg</h3></summary>
       <div class="orbs">${orbsFor(gear) || '<small style="color:var(--muted)">Inga lediga</small>'}</div>
-      <button class="btn" id="newRes" style="margin-top:8px;width:100%">＋ Ny resurs</button>
+      <button class="lpv-btn block" id="newRes" style="margin-top:8px">＋ Ny resurs</button>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">Tryck på en kula för att ändra modell eller skapa en AI-kula.</div></details>` +
     (busy.length ? `<details class="busylist"><summary>Upptagna (${busy.length})</summary>${busy.map(b => `<div>${esc(b)}</div>`).join('')}</details>` : '');
   $('gearPart').ontoggle = () => { sideState.gear = $('gearPart').open; };
@@ -523,9 +517,9 @@ function drawSheet() {
     <div class="f"><label for="fDate">Startdatum (tomt = orderboken)</label><input id="fDate" type="date" value="${esc(j.startDate)}"></div>
     <label style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><input type="checkbox" id="fWeekend" ${j.weekendWork ? 'checked' : ''} style="width:22px;height:22px"> Helgarbete (räkna även helger och röda dagar)</label>
     <div class="calc">${n} ${n === 1 ? 'person' : 'personer'} · ${segs.length ? `<b>${segs.length} ${segs.length === 1 ? 'arbetsdag' : 'arbetsdagar'}</b> · ${esc(spanText(j))}` : 'i orderboken'}</div>
-    <div class="f"><label>Bemanning – dra in kulor från kulpåsen på jobbet</label><div class="crew">${j.assigned.map(p => `<div class="orbwrap">${orbHtml(resById[p] || { name: p, kind: 'person' })}<small>${esc(p)}</small><button data-rm="${esc(p)}">ta bort</button></div>`).join('') || '<small style="color:var(--muted)">Ingen än</small>'}</div></div>
-    <div class="actions"><button class="btn primary" id="sSave">Spara</button><button class="btn" id="sCancel">Stäng</button>
-      ${j.id && j.startDate ? '<button class="btn" id="sOrder">Till orderboken</button>' : ''}${j.id ? '<button class="btn" id="sDel" style="color:var(--bad)">Ta bort jobbet</button>' : ''}</div>
+    <div class="f"><label>Bemanning – dra in kulor från kulpåsen på jobbet</label><div class="crew">${j.assigned.map(p => `<div class="orbwrap">${orbHtml(resById[p] || { name: p, kind: 'person' })}<small>${esc(p)}</small><button class="lpv-btn small danger" data-rm="${esc(p)}">ta bort</button></div>`).join('') || '<small style="color:var(--muted)">Ingen än</small>'}</div></div>
+    <div class="actions"><button class="lpv-btn primary" id="sSave">Spara</button><button class="lpv-btn" id="sCancel">Stäng</button>
+      ${j.id && j.startDate ? '<button class="lpv-btn" id="sOrder">Till orderboken</button>' : ''}${j.id ? '<button class="lpv-btn danger" id="sDel">Ta bort jobbet</button>' : ''}</div>
     <div id="sMsg" style="margin-top:10px;color:var(--bad);font-size:13px"></div>`;
   const read = () => Object.assign(editing, { title: $('fTitle').value.trim(), client: $('fClient').value.trim(), siteAddress: $('fAddr').value.trim(),
     hours: Number(String($('fHours').value).replace(',', '.')) || editing.hours, startTime: $('fTime').value || '07:00', startDate: $('fDate').value, weekendWork: $('fWeekend').checked });
@@ -551,11 +545,11 @@ function openResSheet(name) {
     <div class="respreview" id="resPrev" style="${av ? `background-image:${cssUrl(av)}` : ''}">${av ? '' : r.kind === 'machine' ? '🚜' : '🛠️'}</div>
     ${tractor ? `<p style="color:var(--muted);font-size:13px">Traktorn finns i snöplaneringen. Namn och modell ändras där.</p>` : `
     <div class="f"><label for="rName">Namn (syns på kulan)</label><input id="rName" value="${esc(r.name)}" placeholder="T.ex. Ställningskärran"></div>
-    <div class="f"><label>Typ</label><div class="seg" id="rKind"><button data-k="machine" class="${r.kind === 'machine' ? 'on' : ''}">🚜 Maskin</button><button data-k="equipment" class="${r.kind !== 'machine' ? 'on' : ''}">🛠️ Utrustning</button></div></div>
+    <div class="f"><label>Typ</label><div class="lpv-seg" id="rKind"><button data-k="machine" class="${r.kind === 'machine' ? 'on' : ''}">🚜 Maskin</button><button data-k="equipment" class="${r.kind !== 'machine' ? 'on' : ''}">🛠️ Utrustning</button></div></div>
     <div class="f"><label for="rModel">Tillverkare och modell</label><input id="rModel" value="${esc(r.model || '')}" placeholder="T.ex. Graco GMax II 7900"></div>`}
-    <div class="actions">${tractor ? '' : '<button class="btn primary" id="rSave">Spara</button>'}
-      ${r.name ? '<button class="btn" id="rAi">🎨 Skapa kula</button>' : ''}<button class="btn" id="rClose">Stäng</button>
-      ${r.name && !tractor ? '<button class="btn" id="rRemove" style="color:var(--bad)">Ta bort ur kulpåsen</button>' : ''}</div>
+    <div class="actions">${tractor ? '' : '<button class="lpv-btn primary" id="rSave">Spara</button>'}
+      ${r.name ? '<button class="lpv-btn" id="rAi">🎨 Skapa kula</button>' : ''}<button class="lpv-btn" id="rClose">Stäng</button>
+      ${r.name && !tractor ? '<button class="lpv-btn danger" id="rRemove">Ta bort ur kulpåsen</button>' : ''}</div>
     <div id="rMsg" style="margin-top:10px;font-size:13px;color:var(--muted)">${r.name ? 'AI-kulan görs utifrån tillverkare och modell, i samma stil som traktorerna. Det tar 10–20 sekunder.' : ''}</div>`;
   $('sheet').classList.add('open'); $('sheetBg').classList.add('open');
   let kind = r.kind === 'machine' ? 'machine' : 'equipment';
@@ -593,8 +587,10 @@ $('zoomseg').onclick = (e) => { const b = e.target.closest('button'); if (!b) re
 $('prev').onclick = () => { rangeStart = addDays(rangeStart, -ZOOMS[zoom].days); renderTimeline.jump = true; render(); };
 $('next').onclick = () => { rangeStart = addDays(rangeStart, ZOOMS[zoom].days); renderTimeline.jump = true; render(); };
 $('today').onclick = () => { const t = new Date(); rangeStart = zoom <= 1 ? new Date(t.getFullYear(), t.getMonth(), t.getDate()) : mondayOf(t); renderTimeline.jump = true; render(); };
-$('tglSide').onclick = () => { $('side').classList.toggle('hidden'); renderTimeline.jump = true; render(); };
-$('tglOrder').onclick = () => $('order').classList.toggle('hidden');
+$('tglSide').onclick = () => { $('side').classList.toggle('hidden'); syncToggles(); renderTimeline.jump = true; render(); };
+$('tglOrder').onclick = () => { $('order').classList.toggle('hidden'); syncToggles(); };
+function syncToggles() { $('tglSide').classList.toggle('on', !$('side').classList.contains('hidden')); $('tglOrder').classList.toggle('on', !$('order').classList.contains('hidden')); }
+syncToggles();
 // Kulpåsen följer det man ser när man scrollar
 let scrollT; $('tl').addEventListener('scroll', () => { clearTimeout(scrollT); scrollT = setTimeout(renderSide, 120); });
 window.addEventListener('resize', () => { renderTimeline.jump = true; render(); });
