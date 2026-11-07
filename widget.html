@@ -21,8 +21,6 @@
     .num { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--t-on-accent); display: grid; place-items: center; font-weight: 800; }
     .step b { display: block; margin-bottom: 4px; }
     .step div { min-width: 0; }
-    button { min-height: 50px; width: 100%; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 16px var(--t-font); cursor: pointer; }
-    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
     textarea { width: 100%; height: 120px; margin-top: 8px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font: 12px ui-monospace, Menlo, monospace; padding: 8px; }
     code { background: var(--card); padding: 1px 6px; border-radius: 6px; font-size: 14px; }
     .pick { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 14px; margin-top: 6px; }
@@ -30,7 +28,7 @@
   </style>
 </head>
 <body>
-  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a></div>
   <main>
     <h1><span data-icon="widget">📱</span> Widget på hemskärmen</h1>
     <p class="muted">Plogometern och Sandometern – och dina jobb – direkt på iPhonens hemskärm och låsskärm. Det görs med gratisappen Scriptable. Tar ca 3 minuter, en gång.</p>
@@ -42,8 +40,8 @@
     <div class="step"><span class="num">2</span><div style="flex:1"><b>Skapa ditt widgetskript</b>
       <p class="muted">Skriptet innehåller en egen widgetnyckel som bara kan läsa mätarna och dina jobb. Dela det inte.</p>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-        <button class="ok" id="make" onclick="make()">🔑 Skapa mitt widgetskript</button>
-        <button id="copy" onclick="copy()" hidden>📋 Kopiera skriptet</button>
+        <button class="lpv-btn primary block" id="make" onclick="make()">🔑 Skapa mitt widgetskript</button>
+        <button class="lpv-btn block" id="copy" onclick="copy()" hidden>📋 Kopiera skriptet</button>
         <textarea id="code" readonly hidden aria-label="Widgetskriptet"></textarea>
         <div class="msg" id="msg"></div>
       </div></div></div>
@@ -60,7 +58,7 @@
       <p class="muted">Tryck länge på låsskärmen → <b>Anpassa</b> → <b>Låsskärm</b> → tryck i widgetraden → <b>Scriptable</b> → välj den runda eller den breda → tryck på den → <b>Script: LPV</b>. Den runda visar det högsta av plog och sand.</p></div></div>
 
     <p class="muted">Widgeten uppdateras när iPhone tillåter det, ungefär var 15:e–30:e minut. Tryck på den för att öppna Snöjour eller appen.</p>
-    <button id="revoke" onclick="revoke()">🚫 Spärra min widget</button>
+    <button class="lpv-btn block" id="revoke" onclick="revoke()">🚫 Spärra min widget</button>
   </main>
 
   <script src="config.js"></script>

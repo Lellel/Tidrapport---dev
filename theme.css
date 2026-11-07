@@ -152,6 +152,7 @@ h1 { font-weight: 800; letter-spacing: -0.01em; }
 .lpv-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--t-tap); padding: 0 14px; box-sizing: border-box;
   border-radius: var(--t-r); border: 1px solid var(--t-line); background: var(--t-btn); color: var(--t-text); font: 700 var(--t-fs-small)/1.2 var(--t-font); cursor: pointer; white-space: nowrap; }
 .lpv-toggle.small { min-height: var(--t-tap-small); padding: 0 12px; font-size: 12px; }
+.lpv-toggle.big { min-height: var(--t-tap-big); font-size: var(--t-fs); }
 .lpv-toggle.map { background: var(--t-overlay); box-shadow: var(--t-shadow); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .lpv-toggle.on, .lpv-toggle[aria-pressed="true"] { background: var(--t-sel); border-color: var(--t-accent); color: var(--t-accent); }
 /* Filter */

@@ -29,10 +29,6 @@
     label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin: 10px 0 4px; }
     input, select { width: 100%; padding: 9px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: var(--t-fs-input); }
     input[type=checkbox] { width: 20px; height: 20px; padding: 0; accent-color: var(--accent); }
-    button { min-height: 42px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; }
-    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
-    button.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
-    button:disabled { opacity: .5; }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .row > * { flex: 1; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
@@ -55,7 +51,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span style="display:flex;gap:8px;align-items:center;"><span class="meta" id="who"></span><span data-theme-slot></span></span></div>
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span style="display:flex;gap:8px;align-items:center;"><span class="meta" id="who"></span></span></div>
   <h1><span data-icon="ekonomi">💰</span> Ekonomi – fakturaunderlag</h1>
   <div class="meta">Allt som är utfört men inte fakturerat. Skapa underlaget här, fakturera i Fortnox och markera sedan som fakturerat.</div>
   <div id="app"><div class="empty">Hämtar…</div></div>
@@ -160,7 +156,7 @@
         <div class="stat"><b>${h(hoursTotal)}</b>timmar</div>
         <div class="stat"><b>${data.offers.length}</b>godkända offerter (${kr(offerTotal)})</div>
       </div>
-      <div class="row"><button onclick="exportCsv()">⬇️ Exportera till Excel</button><button onclick="load()">↻ Uppdatera</button></div>
+      <div class="row"><button class="lpv-btn" onclick="exportCsv()">⬇️ Exportera till Excel</button><button class="lpv-btn" onclick="load()">↻ Uppdatera</button></div>
       <div class="msg" id="msg">${message}</div>
 
       <h2>Godkända offerter – fast pris</h2>
@@ -181,9 +177,9 @@
       ${o.totals.deduction ? `<div class="meta">${esc(o.totals.deductionLabel)} −${kr(o.totals.deduction)} (summa inkl. moms ${kr(o.totals.gross)})</div>` : ''}
       ${o.chosenColor ? `<div class="meta">🎨 ${esc(o.chosenColor)}</div>` : ''}
       <div class="row" style="margin-top:10px;">
-        <button class="primary" onclick="offerPdf(${i}, this)">📄 Fakturaunderlag (PDF)</button>
-        ${o.pdfUrl ? `<button onclick="window.open('${esc(o.pdfUrl)}')">Offerten</button>` : ''}
-        <button class="ok" onclick="markOffer(${i}, this)">✅ Markera fakturerad</button>
+        <button class="lpv-btn primary" onclick="offerPdf(${i}, this)">📄 Fakturaunderlag (PDF)</button>
+        ${o.pdfUrl ? `<button class="lpv-btn" onclick="window.open('${esc(o.pdfUrl)}')">Offerten</button>` : ''}
+        <button class="lpv-btn primary" onclick="markOffer(${i}, this)">✅ Markera fakturerad</button>
       </div>
     </div>`;
   }
@@ -218,7 +214,7 @@
           <td class="r"><input class="price" type="number" step="any" placeholder="À-pris" value="${esc(x.price)}" onchange="groups[${gi}].extra[${xi}].price=this.value; render()"></td>
           <td class="r">${kr((Number(x.qty) || 0) * (Number(x.price) || 0))}</td></tr>`).join('')}
       </table>
-      <button style="margin-top:8px; min-height:34px;" onclick="groups[${gi}].extra.push({text:'',qty:'',unit:'st',price:''}); render()">＋ Material / egen rad</button>
+      <button class="lpv-btn" style="margin-top:8px; min-height:34px;" onclick="groups[${gi}].extra.push({text:'',qty:'',unit:'st',price:''}); render()">＋ Material / egen rad</button>
       <div class="sum">Exkl. moms ${kr(t.net)} · inkl. moms ${kr(t.gross)}${t.deduction ? ` · ${g.deduction.toUpperCase()} −${kr(t.deduction)}` : ''}<br><b>Att betala ${kr(t.toPay)}</b></div>
       <details ${inc.length !== g.reports.length ? 'open' : ''}><summary>Passen (${inc.length} av ${g.reports.length} med)</summary>
         <table>
@@ -231,8 +227,8 @@
         </table>
       </details>
       <div class="row" style="margin-top:10px;">
-        <button class="primary" onclick="groupPdf(${gi}, this)" ${inc.length ? '' : 'disabled'}>📄 Fakturaunderlag (PDF)</button>
-        <button class="ok" onclick="markGroup(${gi}, this)" ${inc.length ? '' : 'disabled'}>✅ Markera ${inc.length} pass fakturerade</button>
+        <button class="lpv-btn primary" onclick="groupPdf(${gi}, this)" ${inc.length ? '' : 'disabled'}>📄 Fakturaunderlag (PDF)</button>
+        <button class="lpv-btn primary" onclick="markGroup(${gi}, this)" ${inc.length ? '' : 'disabled'}>✅ Markera ${inc.length} pass fakturerade</button>
       </div>
     </div>`;
   }

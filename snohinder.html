@@ -16,15 +16,11 @@
     header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: calc(env(safe-area-inset-top) + 10px) 14px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
     header a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 0; white-space: nowrap; }
-    .mode { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-    .mode button { min-height: 32px; border: none; border-radius: 0; padding: 0 10px; font-size: 12px; background: transparent; }
-    .mode button.on { background: var(--accent); color: var(--t-on-accent); }
     .layout { flex: 1; display: flex; flex-direction: column; min-height: 0; }
     .map-wrap { position: relative; height: 40vh; flex-shrink: 0; transition: height .2s; }
     body.big-map .map-wrap { height: 55vh; }
     #map { height: 100%; width: 100%; }
     .map-buttons { position: absolute; right: 10px; bottom: 10px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
-    .map-buttons button { min-height: 40px; padding: 0 12px; background: var(--t-overlay); }
     .panel { flex: 1; overflow-y: auto; padding: 12px 14px calc(env(safe-area-inset-bottom) + 20px); display: flex; flex-direction: column; gap: 12px; }
     .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
     .steps div { font-size: 11px; color: var(--muted); text-align: center; padding-top: 6px; border-top: 4px solid var(--line); }
@@ -32,10 +28,6 @@
     .steps div.now { border-color: var(--accent); color: var(--text); font-weight: 700; }
     h2 { font-size: 18px; margin: 0; }
     p.help { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
-    button { min-height: 48px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 15px; cursor: pointer; }
-    button:disabled { opacity: .45; cursor: default; }
-    button.primary { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 17px; min-height: 56px; }
-    button.link { background: transparent; border: none; color: var(--accent); min-height: 36px; font-size: 14px; }
     .wide { width: 100%; }
     input, textarea { width: 100%; padding: 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
     textarea { resize: vertical; min-height: 60px; }
@@ -46,8 +38,6 @@
     .item small { color: var(--muted); font-size: 12px; }
     .item .grow { flex: 1; min-width: 0; }
     .types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .types button { font-size: 15px; min-height: 56px; }
-    .types button.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
     .gps { padding: 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--panel); font-size: 15px; }
     .gps.good { border-color: var(--ok); }
     .gps.mid { border-color: var(--warn); }
@@ -70,7 +60,6 @@
     @media (max-width: 420px) {
       header { padding-left: 10px; padding-right: 10px; }
       h1 { font-size: var(--t-fs-title); }
-      .mode button { padding: 0 8px; }
     }
     @media (min-width: 800px) {
       .photo { max-height: 240px; }
@@ -85,8 +74,8 @@
   <header>
     <a class="lpv-back" href="snojour.html" id="back"><span data-icon="tillbaka">←</span> <span id="back-label">Snöjour</span></a>
     <h1><span data-icon="hinder">⚠️</span> Hinder</h1>
-    <span data-theme-slot></span>
-    <div class="mode" title="Hur hindret placeras">
+    
+    <div class="lpv-seg" title="Hur hindret placeras">
       <button id="mode-gps" onclick="setMode('gps')">📍 På plats</button>
       <button id="mode-map" onclick="setMode('map')">🗺️ Karta</button>
     </div>
@@ -96,7 +85,7 @@
     <div class="map-wrap">
       <div id="map"></div>
       <div class="map-buttons">
-        <button id="tiles-btn" onclick="toggleTiles()">🗺️ Vägkarta</button>
+        <button id="tiles-btn" class="lpv-btn map" onclick="toggleTiles()">🗺️ Vägkarta</button>
       </div>
     </div>
     <div class="panel">
@@ -432,7 +421,7 @@
         ${admin ? `<details><summary style="cursor:pointer; color:var(--accent); font-weight:700; padding:8px 0;">➕ Ny adress</summary>
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
             <div><label for="new-prop">Adress</label><input id="new-prop" placeholder="T.ex. Drottninggatan 4"></div>
-            <button onclick="chooseNewAddress()">Fortsätt →</button>
+            <button class="lpv-btn" onclick="chooseNewAddress()">Fortsätt →</button>
           </div></details>` : ''}
         ${errHtml()}`;
     }
@@ -446,8 +435,8 @@
       if (mode === 'map') {
         return `${head}
           <p class="help">Tryck på kartan där hindret ligger. Zooma in på satellitbilden – du kan flytta markeringen efteråt.</p>
-          <button class="primary" ${hz.pos ? '' : 'disabled'} onclick="go('foto')">Nästa →</button>
-          <button class="link" onclick="changeAddress()">← Byt adress</button>${errHtml()}`;
+          <button class="lpv-btn primary big block" ${hz.pos ? '' : 'disabled'} onclick="go('foto')">Nästa →</button>
+          <button class="lpv-btn small" onclick="changeAddress()">← Byt adress</button>${errHtml()}`;
       }
       if (measuring) {
         const pct = Math.min(100, (Date.now() - measuring.started) / MEASURE_MS * 100);
@@ -456,16 +445,16 @@
           <div class="gps ${gpsClass(myAcc)}">📡 <b>Mäter… stå still.</b> ${left ? left + ' s kvar' : 'snart klart'}
             <div class="bar"><div style="width:${pct}%"></div></div>
             <small style="color:var(--muted)">${measuring.samples.length} mätpunkter · just nu ±${myAcc ?? '?'} m</small></div>
-          <button onclick="cancelMeasure()">Avbryt</button>`;
+          <button class="lpv-btn" onclick="cancelMeasure()">Avbryt</button>`;
       }
       const acc = myPos ? `<div class="gps ${gpsClass(myAcc)}">📍 GPS: <b>±${myAcc} m</b> ${myAcc <= 5 ? '✅ Bra' : myAcc <= 10 ? '– Okej, vänta gärna en stund' : '⚠️ Osäker – vänta eller använd Karta'}</div>`
         : `<div class="gps bad">${gpsError ? esc(gpsError) : '<span class="spin">⏳</span> Väntar på GPS…'}</div>`;
       return `${head}
         <p class="help"><b>1.</b> Gå fram och ställ dig rakt på hindret (eller precis bredvid).<br><b>2.</b> Håll telefonen still och tryck på knappen. Appen mäter i tio sekunder.</p>
         ${acc}
-        <button class="primary" ${myPos ? '' : 'disabled'} onclick="startMeasure()">📍 Jag står på hindret</button>
-        <button class="link" onclick="setMode('map')">Går det inte? Peka ut det på kartan i stället</button>
-        <button class="link" onclick="changeAddress()">← Byt adress</button>${errHtml()}`;
+        <button class="lpv-btn primary big block" ${myPos ? '' : 'disabled'} onclick="startMeasure()">📍 Jag står på hindret</button>
+        <button class="lpv-btn small" onclick="setMode('map')">Går det inte? Peka ut det på kartan i stället</button>
+        <button class="lpv-btn small" onclick="changeAddress()">← Byt adress</button>${errHtml()}`;
     }
 
     function viewFoto() {
@@ -477,9 +466,9 @@
       return `<h2>Fota hindret</h2>
         <p class="help">Ta en bild där hindret syns tydligt – gärna med lite omgivning, så att föraren känner igen platsen i mörker. AI:n föreslår vad det är.</p>
         ${presetHtml()}
-        <button class="primary" onclick="takePhoto()">📷 ${mode === 'gps' ? 'Ta foto' : 'Välj eller ta foto'}</button>
-        <button onclick="hz.photoId=''; go('kontroll')">Hoppa över fotot</button>
-        <button class="link" onclick="go('plats')">← Tillbaka</button>${errHtml()}`;
+        <button class="lpv-btn primary big block" onclick="takePhoto()">📷 ${mode === 'gps' ? 'Ta foto' : 'Välj eller ta foto'}</button>
+        <button class="lpv-btn" onclick="hz.photoId=''; go('kontroll')">Hoppa över fotot</button>
+        <button class="lpv-btn small" onclick="go('plats')">← Tillbaka</button>${errHtml()}`;
     }
 
     function viewKontroll() {
@@ -489,25 +478,25 @@
         ${hz.aiNote ? `<div class="note ai">🤖 AI:n tror: <b>${def(hz.aiType).label}</b> – ${esc(hz.aiNote)}</div>` : ''}
         ${hz.aiError ? `<div class="note warn">${esc(hz.aiError)}</div>` : ''}
         <div><label>Vad är det?</label><div class="types">${HAZARDS.map(t =>
-          `<button class="${hz.type === t ? 'on' : ''}" onclick="setType('${t}')">${def(t).icon} ${def(t).label}</button>`).join('')}</div></div>
+          `<button class="lpv-toggle big ${hz.type === t ? 'on' : ''}" onclick="setType('${t}')">${def(t).icon} ${def(t).label}</button>`).join('')}</div></div>
         <p class="help">Markeringen ${def(hz.type).icon || '📍'} på kartan: dra den eller tryck på kartan om den hamnat fel. ${accTxt}</p>
         <div><label for="hz-note">Anteckning till förarna</label><textarea id="hz-note" placeholder="T.ex. Brunnslock sticker upp 3 cm" oninput="hz.note=this.value">${esc(hz.note)}</textarea></div>
-        <button class="primary" ${busy ? 'disabled' : ''} onclick="saveHazard()">${busy ? '<span class="spin">⏳</span> Sparar…' : '✅ Spara hindret'}</button>
-        <button class="link" onclick="go('foto')">← Tillbaka</button>${errHtml()}`;
+        <button class="lpv-btn primary big block" ${busy ? 'disabled' : ''} onclick="saveHazard()">${busy ? '<span class="spin">⏳</span> Sparar…' : '✅ Spara hindret'}</button>
+        <button class="lpv-btn small" onclick="go('foto')">← Tillbaka</button>${errHtml()}`;
     }
 
     function viewKlar() {
       const sugg = suggestions.map((s, i) => `<div class="item" style="cursor:default">
           <span style="font-size:22px">${def(s.type).icon}</span>
           <span class="grow"><b>${def(s.type).label}</b><small>${esc(s.note)}${s.where ? ' · ' + esc(s.where) : ''}</small></span>
-          <button style="min-height:40px; padding:0 12px;" onclick="placeSuggestion(${i})">Lägg ut</button>
-          <button style="min-height:40px; padding:0 10px;" title="Stämmer inte" onclick="suggestions.splice(${i},1); render()">✕</button></div>`).join('');
+          <button class="lpv-btn" style="min-height:40px; padding:0 12px;" onclick="placeSuggestion(${i})">Lägg ut</button>
+          <button class="lpv-btn" style="min-height:40px; padding:0 10px;" title="Stämmer inte" onclick="suggestions.splice(${i},1); render()">✕</button></div>`).join('');
       return `<h2>✅ Sparat!</h2>
         <p class="help">${def(lastSaved.type).icon} ${def(lastSaved.type).label} vid <b>${esc(lastSaved.property)}</b> syns nu för förarna på fastigheten.</p>
         ${sugg ? `<div><label>AI:n såg fler hinder på bilderna</label><div class="list">${sugg}</div></div>` : ''}
-        <button class="primary" onclick="startHazard()">➕ Nästa hinder på samma adress</button>
-        <button onclick="changeAddress()">🏠 Byt adress</button>
-        <button class="link" onclick="location.href=document.getElementById('back').href">Klar</button>`;
+        <button class="lpv-btn primary big block" onclick="startHazard()">➕ Nästa hinder på samma adress</button>
+        <button class="lpv-btn" onclick="changeAddress()">🏠 Byt adress</button>
+        <button class="lpv-btn small" onclick="location.href=document.getElementById('back').href">Klar</button>`;
     }
 
     function render() {

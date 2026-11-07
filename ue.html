@@ -18,7 +18,7 @@
     .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     h1 { font-size: var(--t-fs-title); margin: 14px 0 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     h1 small { font-size: 13px; color: var(--muted); font-weight: 600; }
-    h1 .btn { margin-left: auto; }
+    h1 .lpv-btn { margin-left: auto; }
     input, select, textarea { width: 100%; padding: 10px 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font-size: var(--t-fs-input); font-family: inherit; }
     textarea { min-height: 70px; resize: vertical; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
@@ -29,11 +29,6 @@
     .pill.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
     .pill.wait { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
     .empty { color: var(--muted); font-size: 14px; padding: 18px; text-align: center; background: var(--card); border-radius: var(--t-r-card); }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: var(--t-r);
-      border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 13px var(--t-font); text-decoration: none; cursor: pointer; }
-    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
-    .btn.danger { color: var(--danger); }
-    .btn.small { min-height: 32px; padding: 0 10px; font-size: 12px; }
     .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 3050; display: none; align-items: flex-end; justify-content: center; }
     .sheet-bg.open { display: flex; }
     .sheet { width: min(720px, 100%); max-height: calc(100dvh - env(safe-area-inset-top) - 20px); overflow-y: auto; background: var(--panel);
@@ -41,9 +36,9 @@
     @media (min-width: 700px) { .sheet-bg { align-items: center; } .sheet { border-radius: var(--t-r-card); max-height: calc(100dvh - 60px); } }
     .shead { display: flex; gap: 10px; align-items: flex-start; }
     .shead h2 { margin: 0; font-size: 21px; }
-    .shead .btn { margin-left: auto; }
+    .shead .lpv-btn { margin-left: auto; }
     h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 22px 0 8px; display: flex; align-items: center; gap: 8px; }
-    h3 .btn { margin-left: auto; text-transform: none; letter-spacing: 0; }
+    h3 .lpv-btn { margin-left: auto; text-transform: none; letter-spacing: 0; }
     .agree { display: flex; gap: 12px; align-items: center; background: var(--card); border-radius: var(--t-r-card); padding: 12px 14px; margin-top: 14px; }
     .agree input { width: 26px; height: 26px; flex: none; }
     .agree b { font-size: 16px; }
@@ -69,8 +64,8 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
-  <h1>🤝 UE <small id="count"></small><button class="btn primary" onclick="newCompany()">＋ Nytt UE-företag</button></h1>
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a></div>
+  <h1>🤝 UE <small id="count"></small><button class="lpv-btn primary" onclick="newCompany()">＋ Nytt UE-företag</button></h1>
   <div id="list"><div class="empty">Hämtar UE-företagen…</div></div>
 </div>
 
@@ -138,16 +133,16 @@
     if (!c) { closeSheet(); return; }
     const isNew = cur === '';
     let h = `<div class="shead"><div><h2>${isNew ? 'Nytt UE-företag' : esc(c.name)}</h2>${isNew ? '' : `<span class="pill ${c.ok ? 'ok' : 'wait'}">${c.ok ? '✅ Avtal accepterat' : '⏳ Väntar på avtal – kulorna är grå'}</span>`}</div>
-      <button class="btn" onclick="closeSheet()">✕</button></div>`;
+      <button class="lpv-btn" onclick="closeSheet()">✕</button></div>`;
     if (!isNew) {
       h += `<label class="agree"><input type="checkbox" ${c.ok ? 'checked' : ''} onchange="setAgreement(this)">
         <div><b>Avtal accepterat</b><div class="sub">${c.ok ? 'Kryssat ' + esc(c.acceptedAt) + (c.acceptedBy ? ' av ' + esc(c.acceptedBy) : '') : 'Kryssa i när UE har accepterat avtalet – då blir kulorna färgade och UE kan jobba.'}</div></div></label>
-        <div class="links"><button class="btn primary" onclick="sendMaps()">📧 Skicka mejl med kartorna</button><a class="btn" href="planering.html">❄️ Öppna i Snöplanering</a></div>`;
+        <div class="links"><button class="lpv-btn primary" onclick="sendMaps()">📧 Skicka mejl med kartorna</button><a class="lpv-btn" href="planering.html">❄️ Öppna i Snöplanering</a></div>`;
     }
     h += `<div class="msg" id="msg"></div>`;
 
     // Uppgifter
-    h += `<h3>🏢 Uppgifter ${isNew ? '' : `<button class="btn small" onclick="toggle('info')">${open === 'info' ? 'Stäng' : '✏️ Ändra'}</button>`}</h3>`;
+    h += `<h3>🏢 Uppgifter ${isNew ? '' : `<button class="lpv-btn small" onclick="toggle('info')">${open === 'info' ? 'Stäng' : '✏️ Ändra'}</button>`}</h3>`;
     if (open === 'info') h += infoForm(c);
     else h += `<div class="row static"><div class="main"><div class="m" style="font-size:13px;line-height:1.6">${[
       c.orgNr ? 'Org.nr ' + esc(c.orgNr) : '', c.address ? esc(c.address) : '', c.contact ? 'Kontakt: <b>' + esc(c.contact) + '</b>' : '',
@@ -156,7 +151,7 @@
     if (isNew) { $('sheet').innerHTML = h; return; }
 
     // Personer
-    h += `<h3>👷 Personer (${c.people.length}) <button class="btn small" onclick="toggle('p:+')">＋ Ny person</button></h3>`;
+    h += `<h3>👷 Personer (${c.people.length}) <button class="lpv-btn small" onclick="toggle('p:+')">＋ Ny person</button></h3>`;
     if (open === 'p:+') h += personForm(c, null);
     if (!c.people.length && open !== 'p:+') h += '<div class="hint">Lägg till UE-ansvarig först – hen får mejlet med kartorna och ser hela företagets runda.</div>';
     c.people.forEach(p => {
@@ -167,7 +162,7 @@
     });
 
     // Traktorer
-    h += `<h3>🚜 Traktorer (${c.tractors.length}) <button class="btn small" onclick="toggle('t:+')">＋ Ny traktor</button></h3>`;
+    h += `<h3>🚜 Traktorer (${c.tractors.length}) <button class="lpv-btn small" onclick="toggle('t:+')">＋ Ny traktor</button></h3>`;
     if (open === 't:+') h += tractorForm(c, null);
     c.tractors.forEach(t => {
       const key = 't:' + t.id;
@@ -185,10 +180,10 @@
       if (area !== lastArea) { h += `<div class="area">${esc(area)}</div>`; lastArea = area; }
       h += `<div class="row static"><div class="main"><div class="t">${esc(p.address)}</div>
         <div class="m">${[p.tractor ? '🚜 ' + esc(p.tractor.model) + (p.tractor.driver ? ' (' + esc(p.tractor.driver) + ')' : '') : '', p.shovelers.length ? '🧹 ' + esc(p.shovelers.join(', ')) : '', p.maps ? '📄 karta' : '⚠️ karta saknas', p.kund ? esc(p.kund) : ''].filter(Boolean).join(' · ')}</div></div>
-        <button class="btn small danger" onclick="removeProperty(${jsArg(p.id)})">✕ Ta bort</button></div>`;
+        <button class="lpv-btn small danger" onclick="removeProperty(${jsArg(p.id)})">✕ Ta bort</button></div>`;
     });
 
-    h += `<div class="links" style="margin-top:22px"><button class="btn danger" onclick="deleteCompany()">🗑 Ta bort företaget</button></div>`;
+    h += `<div class="links" style="margin-top:22px"><button class="lpv-btn danger" onclick="deleteCompany()">🗑 Ta bort företaget</button></div>`;
     $('sheet').innerHTML = h;
   }
 
@@ -200,7 +195,7 @@
       <div class="g2"><div><label>Telefon</label><input id="cPhone" type="tel" value="${esc(fixPhone(c.phone || ''))}"></div><div><label>E-post</label><input id="cEmail" type="email" value="${esc(c.email || '')}"></div></div>
       <label>Anteckning om avtalet</label><textarea id="cNote">${esc(c.note || '')}</textarea>
       <div class="hint">Byter du namn följer det med på företagets traktorer och personer.</div>
-      <div class="actions"><button class="btn primary" onclick="saveCompany()">💾 Spara</button>${cur === '' ? '<button class="btn" onclick="closeSheet()">Avbryt</button>' : ''}</div></div>`;
+      <div class="actions"><button class="lpv-btn primary" onclick="saveCompany()">💾 Spara</button>${cur === '' ? '<button class="lpv-btn" onclick="closeSheet()">Avbryt</button>' : ''}</div></div>`;
   }
 
   function personForm(c, p) {
@@ -212,8 +207,8 @@
       <label class="chk"><input type="checkbox" id="pLead" ${p && p.ueLead ? 'checked' : ''}> UE-ansvarig – ser hela företagets runda och får mejlet med kartorna</label>
       <label class="chk"><input type="checkbox" id="pShovel" ${p && p.shoveler ? 'checked' : ''}> 🧹 Handskottare</label>
       ${isNew ? '' : `<label>Status</label><select id="pStatus">${['Aktiv', 'Inaktiv', 'Karantän'].map(s => `<option ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}</select>`}
-      <div class="actions"><button class="btn primary" onclick="savePerson(${isNew ? 'null' : jsArg(p.name)})">💾 ${isNew ? 'Lägg till' : 'Spara'}</button>
-        ${isNew ? '' : `<button class="btn" onclick="sendKit(${jsArg(p.name)})">📦 Välkomstpaket</button>`}</div>
+      <div class="actions"><button class="lpv-btn primary" onclick="savePerson(${isNew ? 'null' : jsArg(p.name)})">💾 ${isNew ? 'Lägg till' : 'Spara'}</button>
+        ${isNew ? '' : `<button class="lpv-btn" onclick="sendKit(${jsArg(p.name)})">📦 Välkomstpaket</button>`}</div>
       ${isNew ? '<div class="hint">Personen läggs in i Personal med rollen UE. Skicka sedan 📦 Välkomstpaket så att hen kommer in i appen.</div>' : ''}</div>`;
   }
 
@@ -226,8 +221,8 @@
       <label>Förare</label><select id="tDriver"><option value="">– ingen än –</option>${drivers.map(p => `<option ${t && p.name === t.driver ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
       <label>Anteckning</label><input id="tNote" value="${esc(t ? t.note : '')}">
       ${t ? `<label class="chk"><input type="checkbox" id="tActive" ${t.active === false ? '' : 'checked'}> Aktiv</label>` : ''}
-      <div class="actions"><button class="btn primary" onclick="saveTractor(${t ? jsArg(t.id) : 'null'})">💾 ${t ? 'Spara' : 'Lägg till'}</button>
-        ${t ? `<button class="btn danger" onclick="deleteTractor(${jsArg(t.id)})">🗑 Ta bort</button>` : ''}</div>
+      <div class="actions"><button class="lpv-btn primary" onclick="saveTractor(${t ? jsArg(t.id) : 'null'})">💾 ${t ? 'Spara' : 'Lägg till'}</button>
+        ${t ? `<button class="lpv-btn danger" onclick="deleteTractor(${jsArg(t.id)})">🗑 Ta bort</button>` : ''}</div>
       ${t ? '' : '<div class="hint">Traktorn får företaget som ägare. Lägg ut den på fastigheterna i ❄️ Snöplanering.</div>'}</div>`;
   }
 

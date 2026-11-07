@@ -19,8 +19,6 @@
     h1 { font-size: 24px; margin: 18px 0 2px; }
     .sub { color: var(--muted); font-size: var(--t-fs-small); margin: 0 0 14px; }
     .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
-    .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 13px var(--t-font); cursor: pointer; }
-    .chip.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
     .nytt { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--t-r-card); padding: 12px 14px; margin: 0 0 18px; }
     .nytt h2 { font-size: 16px; margin: 0 0 6px; }
     .nytt ul { margin: 0; padding-left: 18px; }
@@ -44,16 +42,16 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a></div>
   <h1>📖 Bruksanvisning</h1>
   <p class="sub" id="sub">Så fungerar appen just nu.</p>
 
   <div class="chips" role="group" aria-label="Välj roll">
-    <button type="button" class="chip" data-roll="forare">🚜 Förare</button>
-    <button type="button" class="chip" data-roll="handskottare">🧹 Handskottare</button>
-    <button type="button" class="chip" data-roll="ue">🏗️ UE</button>
-    <button type="button" class="chip" data-roll="ekonom">💰 Ekonom</button>
-    <button type="button" class="chip" data-roll="admin">⭐ Admin</button>
+    <button type="button" class="lpv-chip" data-roll="forare">🚜 Förare</button>
+    <button type="button" class="lpv-chip" data-roll="handskottare">🧹 Handskottare</button>
+    <button type="button" class="lpv-chip" data-roll="ue">🏗️ UE</button>
+    <button type="button" class="lpv-chip" data-roll="ekonom">💰 Ekonom</button>
+    <button type="button" class="lpv-chip" data-roll="admin">⭐ Admin</button>
   </div>
 
   <div class="nytt" id="nytt"><h2>✨ Nytt sedan sist</h2><ul id="nytt-lista"></ul></div>

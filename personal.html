@@ -20,8 +20,7 @@
     .tools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
     input, select { width: 100%; padding: 10px 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font-size: var(--t-fs-input); font-family: inherit; }
     .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-    .chip { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; }
-    .chip.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .quick .disabled { opacity: .4; pointer-events: none; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
     .person { display: flex; gap: 12px; align-items: center; text-align: left; width: 100%; padding: 12px; border-radius: var(--t-r-card); border: 1px solid var(--line);
       background: var(--panel); color: var(--text); cursor: pointer; font: inherit; }
@@ -53,10 +52,6 @@
     .shead h2 { margin: 0; font-size: 20px; }
     .close { margin-left: auto; align-self: flex-start; }
     .quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 16px 0 6px; }
-    .quick a, .quick button, .btn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: var(--t-r);
-      border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 13px var(--t-font); text-decoration: none; cursor: pointer; }
-    .quick .disabled { opacity: .4; pointer-events: none; }
-    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
     .contact { font-size: 13px; color: var(--muted); line-height: 1.6; }
     .contact b { color: var(--text); font-weight: 600; }
     h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 22px 0 8px; }
@@ -82,7 +77,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a></div>
   <h1><span data-icon="personal">👥</span> Personal <small id="count"></small></h1>
   <div class="tools">
     <input id="q" type="search" placeholder="🔍 Sök namn, nummer eller e-post" oninput="render()" autocomplete="off">
@@ -138,12 +133,12 @@
   function chipsHtml() {
     const roles = [['alla', 'Alla'], ['Förare', 'Förare'], ['UE', 'UE'], ['Admin', 'Admin'], ['Ekonom', 'Ekonom']]
       .filter(([k]) => k === 'alla' || data.staff.some(p => p.role === k));
-    let h = roles.map(([k, t]) => `<button class="chip ${filter.role === k ? 'on' : ''}" onclick="setFilter('role','${k}')">${t}</button>`).join('');
-    if (data.isSuper) h += ['alla', 'LPV', 'Klaryta'].map(c => `<button class="chip ${filter.company === c ? 'on' : ''}" onclick="setFilter('company','${c}')">${c === 'alla' ? 'Båda bolagen' : c}</button>`).join('');
+    let h = roles.map(([k, t]) => `<button class="lpv-chip ${filter.role === k ? 'on' : ''}" onclick="setFilter('role','${k}')">${t}</button>`).join('');
+    if (data.isSuper) h += ['alla', 'LPV', 'Klaryta'].map(c => `<button class="lpv-chip ${filter.company === c ? 'on' : ''}" onclick="setFilter('company','${c}')">${c === 'alla' ? 'Båda bolagen' : c}</button>`).join('');
     const todo = data.staff.filter(p => issuesOf(p).length).length;
-    if (todo) h += `<button class="chip ${filter.issues ? 'on' : ''}" onclick="setFilter('issues', ${!filter.issues})">⚠️ Att åtgärda (${todo})</button>`;
+    if (todo) h += `<button class="lpv-chip ${filter.issues ? 'on' : ''}" onclick="setFilter('issues', ${!filter.issues})">⚠️ Att åtgärda (${todo})</button>`;
     const off = data.staff.filter(p => !p.active).length;
-    if (off) h += `<button class="chip ${filter.inactive ? 'on' : ''}" onclick="setFilter('inactive', ${!filter.inactive})">Visa inaktiva (${off})</button>`;
+    if (off) h += `<button class="lpv-chip ${filter.inactive ? 'on' : ''}" onclick="setFilter('inactive', ${!filter.inactive})">Visa inaktiva (${off})</button>`;
     $('chips').innerHTML = h;
   }
   function setFilter(k, v) { filter[k] = v; render(); }
@@ -184,13 +179,13 @@
     $('sheet').innerHTML = `
       <div class="shead">${orbHtml(p, true)}
         <div><h2>${esc(p.name)}</h2><div class="pmeta">${esc(p.role)}${p.roleText && p.roleText !== p.role ? ' (' + esc(p.roleText) + ')' : ''} · ${esc(p.company)}${p.active ? '' : ` · <b>${esc(p.status)}</b>`}</div></div>
-        <button type="button" class="btn close" onclick="closePerson()">✕ Stäng</button></div>
+        <button type="button" class="lpv-btn small close" onclick="closePerson()">✕ Stäng</button></div>
       <div class="quick">
-        <a class="${tel ? '' : 'disabled'}" href="tel:${esc(tel)}">📞 Ring</a>
-        <a class="${tel ? '' : 'disabled'}" href="sms:${esc(tel)}">💬 SMS</a>
-        <a class="${p.email ? '' : 'disabled'}" href="mailto:${esc(p.email)}">✉️ Mejl</a>
-        <button type="button" class="${p.canEdit ? '' : 'disabled'}" onclick="sendKit()">📦 Välkomstpaket</button>
-        <button type="button" class="${p.canEdit ? '' : 'disabled'}" onclick="$('form').classList.toggle('open')">✏️ Ändra</button>
+        <a class="lpv-btn ${tel ? '' : 'disabled'}" href="tel:${esc(tel)}">📞 Ring</a>
+        <a class="lpv-btn ${tel ? '' : 'disabled'}" href="sms:${esc(tel)}">💬 SMS</a>
+        <a class="lpv-btn ${p.email ? '' : 'disabled'}" href="mailto:${esc(p.email)}">✉️ Mejl</a>
+        <button type="button" class="lpv-btn ${p.canEdit ? '' : 'disabled'}" onclick="sendKit()">📦 Välkomstpaket</button>
+        <button type="button" class="lpv-btn ${p.canEdit ? '' : 'disabled'}" onclick="$('form').classList.toggle('open')">✏️ Ändra</button>
       </div>
       <div class="contact">📱 <b>${esc(fixPhone(p.phone) || '–')}</b> &nbsp; ✉️ <b>${esc(p.email || '–')}</b>
         ${p.today.length ? `<br>📅 Idag: <b>${esc(p.today.join(', '))}</b>` : ''}${snowText ? `<br>❄️ ${esc(snowText)}` : ''}</div>
@@ -213,7 +208,7 @@
         <label class="chk"><input type="checkbox" id="fShovel" ${sn.shoveler ? 'checked' : ''}> 🧹 Handskottare (får en kula i snöplaneringen)</label>
         <label class="chk"><input type="checkbox" id="fUeLead" ${sn.ueLead ? 'checked' : ''}> 🤝 UE-ansvarig (ser allt som företagets kulor ligger på i Snöjour)</label>
         <div class="note">Tomt = Egna (LPV). Förare kopplas till traktorn under Snöplanering → Traktorer. Hemorten används för att visa närmaste handskottare.</div>
-        <div class="actions"><button type="button" class="btn primary" onclick="savePerson()">💾 Spara</button><button type="button" class="btn" onclick="$('form').classList.remove('open')">Avbryt</button></div>
+        <div class="actions"><button type="button" class="lpv-btn primary" onclick="savePerson()">💾 Spara</button><button type="button" class="lpv-btn" onclick="$('form').classList.remove('open')">Avbryt</button></div>
       </div>
       <h3>Tidigare projekt</h3>
       <div id="hist"><div class="empty">Hämtar…</div></div>`;
@@ -252,7 +247,7 @@
       </div>`).join('');
     if (res.otherEk.length) h += `<h3>Egenkontroller utan tidrapport</h3><div class="proj">${res.otherEk.map(ekRow).join('')}</div>`;
     if (!h) h = `<div class="empty">Inga tidrapporter eller egenkontroller ${res.all ? '' : 'de senaste 12 månaderna'}.</div>`;
-    if (res.hasOlder && !res.all) h += `<button type="button" class="btn" style="width:100%;margin-top:8px" onclick="loadHistory(current.name, true)">Visa äldre än 12 månader</button>`;
+    if (res.hasOlder && !res.all) h += `<button type="button" class="lpv-btn" style="width:100%;margin-top:8px" onclick="loadHistory(current.name, true)">Visa äldre än 12 månader</button>`;
     $('hist').innerHTML = h;
   }
   const historyCache = {};         // namn (|all) → svar från getStaffHistory
