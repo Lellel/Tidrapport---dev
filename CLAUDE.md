@@ -6,6 +6,12 @@
 - Räkna upp `CACHE_NAME` i `sw.js` vid varje ändring av appens filer. Nya sidor/skript läggs i listan i `sw.js`.
 - Committa bara filer du själv ändrat (`git add <fil>`) – kontrollera `git status` först, andra sessioner kan ha arbete på gång i indexet.
 
+## Designspråket (docs/designsprak.md)
+- Knappar använder **bara** de gemensamma klasserna i `theme.css`: `lpv-btn` (+ `primary`, `go`, `danger`, `map`, `small`, `big`, `block`, `icon`), `lpv-seg`, `lpv-toggle`, `lpv-chip`. Inga egna knappstilar eller hårdkodade färger på sidorna – behövs något nytt läggs det i `theme.css` och i docs/designsprak.md.
+- Fylld blå = den viktigaste handlingen (max en per vy). Fylld grön = bara Starta/Klar i fält. Valt/påslaget = blåtonat.
+- Motto: endast den information man behöver, endast när man behöver den – och då lättillgänglig.
+- `designtest.js` i testsviten säger ifrån om en sida får fler egna knappklasser eller färger än baslinjen. Sänk baslinjen (`docs/designbaslinje.json`) när en sida städats – höj den aldrig.
+
 ## Bruksanvisningen ska alltid vara aktuell
 `guide.html` är bruksanvisningen per roll (förare, handskottare, UE, ekonom, admin). Välkomstpaketet och startsidan länkar dit.
 

@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-07-lage', datum: '2026-11-07', roller: ['forare', 'handskottare', 'ue', 'ekonom', 'admin'],
+    titel: '🌓 Läget väljs på startsidan',
+    text: 'Knappen Auto/Ljust/Mörkt/Natt finns inte längre på varje sida. Välj läge längst ner på startsidan (Läge) – det gäller alla sidor. Admin på telefon: även under Mer.' },
   { id: '2026-11-07-kartkalibrering', datum: '2026-11-07', roller: ['admin'], modul: 'sno',
     titel: '📌 Kartkalibrering är en egen modul',
     text: 'Att passa in kundkartor (📌 Passa in, ✋ Justera, 🤖 Föreslå punkter och 🤖 Granska) syns nu bara för den som fått modulen 📌 Kartkalibrering av SU. Utlagda kundkartor syns och går att rita mot som vanligt.' },

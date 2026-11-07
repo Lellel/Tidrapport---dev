@@ -120,3 +120,44 @@ h1 { font-weight: 800; letter-spacing: -0.01em; }
 .lpv-more > div { width: 100%; background: var(--t-panel); border-radius: var(--t-r-card) var(--t-r-card) 0 0; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); }
 .lpv-more a { display: block; padding: 14px 4px; border-bottom: 1px solid var(--t-line); color: var(--t-text); text-decoration: none; font: 600 17px var(--t-font); }
 .lpv-more a:last-child { border-bottom: 0; }
+
+/* ==========================================================
+   KNAPPAR – designspråket (docs/designsprak.md, 2026-11-07). Alla sidor använder dessa –
+   inga egna knappstilar på sidorna. Ändra här så följer alla sidor med.
+   Fylld blå = gör det här (max en per vy) · fylld grön = Starta/Klar i fält · blåtonat = valt/påslaget.
+   ========================================================== */
+:root { --t-tap: 44px; --t-tap-small: 34px; --t-tap-big: 54px; --t-sel: color-mix(in srgb, var(--t-accent) 14%, var(--t-btn)); }
+.lpv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--t-tap); padding: 0 16px; box-sizing: border-box;
+  border-radius: var(--t-r); border: 1px solid var(--t-line); background: var(--t-btn); color: var(--t-text);
+  font: 700 var(--t-fs-small)/1.2 var(--t-font); text-decoration: none; text-align: center; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+.lpv-btn.primary { background: var(--t-accent); border-color: var(--t-accent); color: var(--t-on-accent); }
+.lpv-btn.go { background: var(--t-ok); border-color: var(--t-ok); color: var(--t-on-accent); }
+.lpv-btn.danger { color: var(--t-danger); }
+.lpv-btn.map { background: var(--t-overlay); box-shadow: var(--t-shadow); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.lpv-btn.small { min-height: var(--t-tap-small); padding: 0 12px; font-size: 12px; }
+.lpv-btn.big { min-height: var(--t-tap-big); font-size: var(--t-fs); }
+.lpv-btn.block { display: flex; width: 100%; }
+.lpv-btn.icon { width: var(--t-tap); padding: 0; }
+.lpv-btn.icon.small { width: var(--t-tap-small); }
+.lpv-btn.wrap { white-space: normal; }
+.lpv-btn:disabled, .lpv-btn[aria-disabled="true"] { opacity: .45; cursor: default; }
+/* Flikar: var man är. Vald flik ser upphöjd ut – aldrig fylld blå (det betyder "gör det här") */
+.lpv-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--t-r); background: var(--t-card); border: 1px solid var(--t-line); box-sizing: border-box; }
+.lpv-seg.block { display: flex; width: 100%; }
+.lpv-seg.block > * { flex: 1; }
+.lpv-seg > button, .lpv-seg > a { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: calc(var(--t-tap) - 8px); padding: 0 14px; border: 0; border-radius: calc(var(--t-r) - 3px);
+  background: transparent; color: var(--t-muted); font: 700 13px/1.2 var(--t-font); text-decoration: none; cursor: pointer; white-space: nowrap; }
+.lpv-seg > .on, .lpv-seg > [aria-pressed="true"], .lpv-seg > [aria-selected="true"] { background: var(--t-panel); color: var(--t-text); box-shadow: 0 1px 4px rgba(0, 0, 0, .14); }
+/* Av/på: blåtonad med blå kant när den är på */
+.lpv-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--t-tap); padding: 0 14px; box-sizing: border-box;
+  border-radius: var(--t-r); border: 1px solid var(--t-line); background: var(--t-btn); color: var(--t-text); font: 700 var(--t-fs-small)/1.2 var(--t-font); cursor: pointer; white-space: nowrap; }
+.lpv-toggle.small { min-height: var(--t-tap-small); padding: 0 12px; font-size: 12px; }
+.lpv-toggle.on, .lpv-toggle[aria-pressed="true"] { background: var(--t-sel); border-color: var(--t-accent); color: var(--t-accent); }
+/* Filter */
+.lpv-chip { display: inline-flex; align-items: center; gap: 5px; min-height: var(--t-tap-small); padding: 0 12px; box-sizing: border-box; border-radius: 999px;
+  border: 1px solid var(--t-line); background: var(--t-btn); color: var(--t-text); font: 700 13px/1.2 var(--t-font); cursor: pointer; white-space: nowrap; text-decoration: none; }
+.lpv-chip.on, .lpv-chip[aria-pressed="true"] { background: var(--t-sel); border-color: var(--t-accent); color: var(--t-accent); }
+.lpv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+:root[data-theme="night"] .lpv-btn.map { box-shadow: none; }
+/* Läget i Mer-menyn */
+.lpv-more .lpv-more-theme { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 14px 4px; border: 0; border-top: 1px solid var(--t-line); background: none; color: var(--t-text); font: 600 17px var(--t-font); cursor: pointer; }

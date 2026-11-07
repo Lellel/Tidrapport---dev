@@ -1,0 +1,82 @@
+{
+ "ekonomi.html": {
+  "knappklasser": 2,
+  "farger": 1,
+  "inlineknappar": 1
+ },
+ "guide.html": {
+  "knappklasser": 1,
+  "farger": 0,
+  "inlineknappar": 0
+ },
+ "ikoner.html": {
+  "knappklasser": 1,
+  "farger": 2,
+  "inlineknappar": 2
+ },
+ "index.html": {
+  "knappklasser": 0,
+  "farger": 0,
+  "inlineknappar": 12
+ },
+ "moduler.html": {
+  "knappklasser": 2,
+  "farger": 0,
+  "inlineknappar": 0
+ },
+ "offerter.html": {
+  "knappklasser": 9,
+  "farger": 7,
+  "inlineknappar": 9
+ },
+ "personal.html": {
+  "knappklasser": 4,
+  "farger": 1,
+  "inlineknappar": 1
+ },
+ "planering.html": {
+  "knappklasser": 8,
+  "farger": 17,
+  "inlineknappar": 0
+ },
+ "radar.html": {
+  "knappklasser": 6,
+  "farger": 20,
+  "inlineknappar": 4
+ },
+ "snohinder.html": {
+  "knappklasser": 7,
+  "farger": 5,
+  "inlineknappar": 2
+ },
+ "snojour.html": {
+  "knappklasser": 6,
+  "farger": 7,
+  "inlineknappar": 3
+ },
+ "snoregister.html": {
+  "knappklasser": 15,
+  "farger": 20,
+  "inlineknappar": 3
+ },
+ "snozoner.html": {
+  "knappklasser": 17,
+  "farger": 23,
+  "inlineknappar": 8
+ },
+ "ue.html": {
+  "knappklasser": 3,
+  "farger": 0,
+  "inlineknappar": 0
+ },
+ "vader.html": {
+  "knappklasser": 1,
+  "farger": 3,
+  "inlineknappar": 0
+ },
+ "widget.html": {
+  "knappklasser": 1,
+  "farger": 1,
+  "inlineknappar": 0
+ }
+}
