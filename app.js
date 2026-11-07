@@ -98,7 +98,9 @@ if (appUrlParams.has('admin')) {
 // och tas bort ur adressfältet så att den inte syns på skärmdumpar.
 // UNDANTAG iPhone/iPad i Safari: där ligger den kvar, annars får "Dela → Lägg till på hemskärmen" ingen
 // nyckel med sig (hemskärmsappen har eget minne) och appen blir utloggad (2026-11-05).
-const iosBrowser = (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
+// Samma sak i Safari på Mac: "Lägg till i Dock" får eget minne och tar bara med adressen (2026-11-07, docs/startsidan.md).
+const macSafari = /Macintosh/.test(navigator.userAgent) && /Safari\//.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg|Firefox|FxiOS|OPR/.test(navigator.userAgent);
+const iosBrowser = (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) || macSafari)
   && !(navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
 if (appUrlParams.has('key')) {
   localStorage.setItem('lpv_key', appUrlParams.get('key'));

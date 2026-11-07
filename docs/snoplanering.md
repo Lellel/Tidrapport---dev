@@ -152,3 +152,46 @@ Allt som rör UE registreras och ändras här. Nås från Hem och från Snöplan
 - **PDF:en:** HTML → PDF i Apps Script, A4, en sida per kundkarta (alla kartor på fastigheten, inte bara utlagda), adress + område/kund som rubrik.
 - **Nya UE-personer** läggs in med rollen UE och bolag Klaryta (Klaryta-admin får alltid sitt eget bolag).
 - Tester: `uetest.js` (servern, i kor-alla.sh) och `ue-e2e.js` (webbläsaren).
+
+## Strandade traktorer och byten – även i telefonen (bestämt 2026-11-07, ej byggt)
+Tavlan (dra och släpp) fungerar inte i en telefon. Admin behöver ett eget **tryckflöde som utgår från traktorn**.
+
+**Larmet:** föraren trycker **⚠️ Traktorn står** i Snöjour och väljer orsak (fast / trasig / slut på diesel / annat). UE-ansvarig kan göra samma sak för sitt företags traktorer. Larmet går till admin som SMS med en länk rakt in i flödet, och för UE-traktorer även till UE-ansvarig. Bara admin, och UE-ansvarig inom sitt eget företag, flyttar fastigheter.
+
+**Traktormenyn** (från larmlänken, eller Snö-fliken → traktorlistan med lampor → tryck på traktorn): 🚨 Traktorn står · 👤 Byt förare (samma traktor och runda) · 📞 Ring föraren.
+
+**🚨 Traktorn står → två vägar:**
+- **🔁 En annan traktor tar hela rundan.** Traktorerna listas med lediga först och närmast först. Traktorer som är för stora för fastigheterna är gråade.
+- **🧩 Fördela det som är kvar.** Bara fastigheter som inte är klara. Varje fastighet är förifylld med **närmaste traktor i drift som passar storleken**, med de som har minst kvar först. Tryck på en rad för att ändra. "⚠️ ingen passar" om det saknas en traktor som passar.
+
+**✅ Bekräfta:**
+- Flytten gäller **bara detta snöfall**. Fastigheterna går tillbaka till sin vanliga traktor när snöfallet avslutas, och planeringen ligger kvar orörd.
+- Det som redan är klart ligger kvar på den gamla traktorn, så tiderna och faktureringen stämmer.
+- Traktorn märks 🔧 Ur drift (på tavlan, kartan och i Snöläget) tills någon trycker **Tillbaka i drift**.
+
+**Meddela förarna** (sista vyn): appen uppdateras alltid, och de nya korten får 🆕 i Snöjour. Det finns en rad per mottagande förare med **📞 Ring** (öppnar telefonen, raden får ✓ Ringd) och **💬 SMS** (färdig text med adresserna, skickas bara om admin trycker). Admin har oftast pratat med föraren redan, så inget skickas automatiskt.
+
+**Förarens bekräftelse är en mjukfråga:** på 🆕-korten i Snöjour finns **👍 Uppfattat**. Den låser ingenting, och föraren kan köra och trycka ✅ Klar utan att svara. Admin ser "✓ Uppfattat 05:12" på förarens rad i Meddela förarna och i traktorlistan.
+
+**iPad/dator:** samma ruta som i telefonen, ovanpå startsidan eller tavlan. Flödet lärs in en gång och ser likadant ut överallt.
+
+### Orsaker och animeringar på kulan (bestämt 2026-11-07, provsida först)
+Orsaken föraren väljer syns på kulan med en lite rolig animering, för att lyfta humöret för alla inblandade. Alla får röd kant och 🔧 Ur drift. Med "minska rörelse", i Natt-läget och för föraren under körning blir animeringen en stillastående bild av samma sak. Syns på **tavlan (Snöplanering)**, i **❄️ Snöläget på startsidan** och i **Snöjour hos förarna** (inte i admins traktorlista i telefonen).
+
+**Traktor:** 💦 Hydraulslang (oljestråle + pöl) · 🪣 Sandspridaren (tallriken hackar, sandmoln) · 🛞 Punktering (sjunker ihop på ena sidan, "pfff") · ⛽ Slut på diesel (mätaren till E, sista rökringen, 💤) · 🧊 Fast i snön (gungar, snö sprätter) · 💡 Elfel / lampor (strålkastarna blinkar och slocknar) · ❄️ Plogbladet (hänger snett och dinglar) · 🥶 Startar inte (huttrar med istappar) · 🤒 Föraren sjuk (termometer + te som ångar) · ❓ Annat (rökpuffar).
+- **"Föraren skadad" finns inte som val.** En skadad förare ringer, och vid olycka används ⚠️ Rapportera tillbud eller olycka som i dag.
+
+**Handskottare – samma sak** (förslag, visas på provsidan): 🧹 Snöslungan (hostar och spottar en enda snöboll) · 🪓 Skyffeln gick av (skaftet knäcks, boing) · 🚗 Bilen startar inte (rrr-rrr) · 🧂 Slut på sand/salt (hinken vänds, ett korn faller) · 🥶 Frusen · 🤒 Sjuk · ❓ Annat. Handskottarens fastigheter fördelas på samma sätt, med 🧹-personer i stället för traktorer, närmast först.
+
+**Påminnelse om snösäsongen** (kort i kortsnurran, bara SU, med knapp som slår om direkt):
+- **Slå på:** när Plogometern visar snö inom 5 dagar och säsongen är av: "❄️ Snö i prognosen torsdag – slå på snösäsong?" [❄️ Slå på] [Inte nu]. Inte nu gömmer kortet tills prognosen ändras.
+- **Slå av:** från 1 april, när inget snöfall har startats på 3 veckor och prognosen är snöfri: "🌱 Inget snöfall sedan 12 mars – slå av snösäsong?"
+
+### Uppskattad tid till drift (bestämt 2026-11-07)
+Alla admin ska kunna avgöra om det behövs ett byte eller om det bara blir en fördröjning.
+- **Föraren anger ett klockslag** direkt efter orsaken i ⚠️ Traktorn står: "Igång igen ca **05:40**". Ett hjul i steg om 15 minuter, förvalt till nu + en typisk tid för orsaken (diesel 30 min, fast 15 min, punktering 1 h, hydraulslang 2 h, sjuk = passets slut). Valet **Vet inte** finns också. Föraren, UE-ansvarig och admin kan ändra tiden efteråt.
+- **Det syns överallt där kulan syns:** "⏱ åter ~05:40" under kulan och i Snöläget.
+- **SMS till alla admin:** "🔧 Kramer (Pelle) står – 💦 hydraulslang – ⏱ åter ~05:40 – 3 kvar" + länk. Den som tar ärendet trycker **🙋 Jag tar det**. De andra ser "Daniel hanterar" i appen, så att två inte flyttar samtidigt. Det andra SMS:et (om försening) går bara till den som tagit ärendet.
+- **Tre vägar i flödet:** ⏳ **Vänta** (det blir en fördröjning, inget flyttas, kulan ligger kvar med sina fastigheter) · 🔁 En annan traktor tar hela rundan · 🧩 Fördela det som är kvar.
+- **Appen rekommenderar** (markerad först, admin väljer alltid själv): åter om ≤ 30 min → ⏳ Vänta. Längre tid eller Vet inte → 🧩 Fördela. Finns ⭐ prio-fastigheter kvar är gränsen 15 min.
+- **När klockslaget har passerat** får föraren en mjukfråga i Snöjour: "Igång igen?" [✅ Ja] [⏱ +30 min] [Nej, resten av passet]. Svarar föraren inte inom 10 min blir det "⏱ försenad" på kulan, och den som tagit ärendet får ett SMS. ✅ Ja = Tillbaka i drift.
