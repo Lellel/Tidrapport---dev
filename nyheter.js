@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-07-knappmeny', datum: '2026-11-07', roller: ['admin'],
+    titel: '🧭 Knappmeny på startsidan – personer på Personal-sidan',
+    text: 'På iPad och dator finns alla sidor i en knappmeny till höger. Menyn som fälldes ut till vänster är borta. Ny person, välkomstpaket, 🏁 QR och 🔑 Spärra & ny länk finns nu på 👥 Personal. Under snösäsongen kommer snöknapparna först.' },
   { id: '2026-11-07-krav', datum: '2026-11-07', roller: ['admin'],
     titel: '📱 Lägsta krav: iOS 16.2',
     text: 'På äldre telefoner (före iPhone 8 / iOS 16.2) visar appen nu "Telefonen behöver uppdateras" i stället för att fungera halvbra. Kundernas offertlänkar påverkas inte. Se Bruksanvisning → Vilka telefoner fungerar?' },

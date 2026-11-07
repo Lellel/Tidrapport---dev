@@ -58,9 +58,6 @@ let currentJobType = "nya";
 let attachedPhotoBase64 = null;
 let isSubmitting = false;
 
-// Hämta kontaktboken från Sheets
-let adminUserList = [];
-let hasFetchedUsers = false;
 
 // Engångslänk för datorn (?dator=KOD från välkomstmejlet): byts mot personens inloggning, sedan laddas sidan om
 (function redeemPcLink() {
@@ -144,6 +141,9 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
     showSuLinks();
     applyRoleUI();
     localStorage.setItem('lpv_is_super', me.isSuper ? 'true' : 'false');
+    // Appläget från SU-panelen (docs/startsidan.md): ❄️ Snösäsong och Översikt & Tider
+    localStorage.setItem('lpv_applage', JSON.stringify(me.appLage || {}));
+    if (window.lpvSpalt) window.lpvSpalt.refresh();
     document.body.classList.toggle('not-super', !me.isSuper);
     // Admin bestäms av servern (fliken Personal), inte av länken – annars blev man förare på en ny enhet
     if (me.isAdmin !== isAdmin) {
@@ -489,15 +489,8 @@ function updateAdminUI() {
     userDisplay.innerText = isAdmin ? `${currentUser} 👑` : currentUser;
     userDisplay.classList.toggle('is-admin', isAdmin);
   }
-  const adminSection = document.getElementById('admin-tools-section');
-  if (adminSection) {
-    if (isAdmin) {
-      adminSection.style.display = 'block';
-      if (!hasFetchedUsers) fetchAdminUsers();
-    } else {
-      adminSection.style.display = 'none';
-    }
-  }
+  // Högerspalten (knappmeny, ❄️ Snöläget, Översikt & Tider) – startspalt.js
+  if (window.lpvSpalt) window.lpvSpalt.refresh();
 }
 
 function calculateHours(start, end) {
@@ -844,6 +837,7 @@ function renderOutbox() {
 // Påminnelse till admin 3 veckor innan ett säsongstema (sasong.js): skapa temats glaskulor i tid.
 // "Göm" gäller det temat det året. Kortet försvinner när temat börjar eller alla kulor finns.
 function addSeasonReminders(container) {
+  if (window.lpvSpalt) window.lpvSpalt.reminderCards(container); // ❄️ slå på/av snösäsongen (bara SU)
   if (!window.lpvSeason || localStorage.getItem('lpv_is_admin') !== 'true') return;
   let icons = {}, hidden = [];
   try { icons = JSON.parse(localStorage.getItem('lpv_app_icons') || '{}'); } catch (e) { icons = {}; }
@@ -946,169 +940,6 @@ function updateDashboardData() {
   totalHoursEl.innerText = `${totalH.toFixed(1)} h`;
 }
 
-async function fetchAdminUsers() {
-  const select = document.getElementById('admin-target-user');
-  if (!select) return;
-  select.innerHTML = '<option value="">Hämtar...</option>';
-  try {
-    const data = await apiPost({ action: 'getUsers' });
-    if (data.status === 'success') {
-      adminUserList = data.users;
-      hasFetchedUsers = true;
-      select.innerHTML = '<option value="">Välj person...</option>';
-      adminUserList.forEach(u => {
-        select.innerHTML += `<option value="${u.name}">${u.name}</option>`;
-      });
-    } else {
-      // Visa serverns orsak (t.ex. "Kräver administratör" eller "Ogiltig inloggning") så att felet går att åtgärda
-      const reason = String(data.message || 'okänt fel').replace(/[<>&"]/g, '');
-      select.innerHTML = `<option value="">Fel vid hämtning: ${reason}</option>`;
-    }
-  } catch (err) {
-    // Visa varför (nätfel eller konstigt svar) – underlättar felsökning på iPad
-    const why = String((err && err.message) || 'ingen kontakt').replace(/[<>&"]/g, '').slice(0, 120);
-    select.innerHTML = `<option value="">Offline – ${why}</option>`;
-  }
-}
-
-// ➕ Ny person: läggs i fliken Personal med roll och bolag, får nyckel direkt och länken skickas
-function toggleNewPerson() {
-  const box = document.getElementById('admin-new-person');
-  if (!box) return;
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
-  if (box.style.display === 'block') document.getElementById('new-person-name')?.focus();
-}
-
-async function saveNewPerson() {
-  const val = (id) => document.getElementById(id)?.value.trim() || '';
-  const msg = document.getElementById('new-person-msg');
-  const person = { name: val('new-person-name'), phone: val('new-person-phone'), email: val('new-person-email'),
-                   role: val('new-person-role'), company: val('new-person-company') };
-  if (!person.name) { msg.textContent = '⚠️ Skriv personens namn.'; return; }
-  msg.textContent = 'Sparar… ⏳';
-  let data;
-  try { data = await apiPost({ action: 'addStaff', ...person }); }
-  catch (err) { data = { status: 'error', message: 'Ingen kontakt med servern.' }; }
-  if (data.status !== 'success') { msg.textContent = '❌ ' + (data.message || 'Kunde inte spara.'); return; }
-
-  adminUserList.push({ id: data.user, name: data.user, phone: person.phone, email: person.email, type: data.role, isAdmin: data.role === 'Admin', ownerCompany: person.company });
-  const select = document.getElementById('admin-target-user');
-  const option = document.createElement('option');
-  option.value = data.user; option.textContent = data.user;
-  select.appendChild(option);
-  select.value = data.user;
-  onAdminUserSelect();
-  document.getElementById('admin-target-phone').value = person.phone;
-  ['new-person-name', 'new-person-phone', 'new-person-email'].forEach(id => { document.getElementById(id).value = ''; });
-  msg.textContent = `✅ ${data.user} är tillagd som ${data.role}.`;
-  document.getElementById('admin-new-person').style.display = 'none';
-  if (person.phone || person.email) adminSendWelcomeKit();
-  else alert(`✅ ${data.user} är tillagd. Inget mobilnummer eller e-post – skicka länken med QR.`);
-}
-
-function onAdminUserSelect() {
-  const select = document.getElementById('admin-target-user');
-  const phoneInput = document.getElementById('admin-target-phone');
-  const adminCheck = document.getElementById('admin-target-is-admin');
-
-  if (!select || !phoneInput || !adminCheck) return;
-  const selectedUser = adminUserList.find(u => u.name === select.value);
-  if (selectedUser) {
-    let phoneVal = selectedUser.phone ? String(selectedUser.phone).trim() : '';
-    if (phoneVal.length === 9 && !phoneVal.startsWith('0')) phoneVal = '0' + phoneVal;
-    phoneInput.value = phoneVal;
-    adminCheck.checked = selectedUser.isAdmin;
-  } else {
-    phoneInput.value = '';
-    adminCheck.checked = false;
-  }
-  updateAdminTargetLink();
-}
-
-// Bygger personens inloggningslänk med personlig nyckel (hämtas/skapas i backend).
-// reset=true ger personen en ny nyckel och spärrar den gamla länken.
-async function getAdminTargetUrl(reset = false) {
-  const targetUser = document.getElementById('admin-target-user')?.value.trim();
-  const targetIsAdmin = document.getElementById('admin-target-is-admin')?.checked;
-  if (!targetUser) {
-    alert('Välj en person först.');
-    return null;
-  }
-  const data = await apiPost({ action: 'getUserKey', targetUser: targetUser, reset: reset });
-  if (data.status !== 'success') {
-    alert('Kunde inte hämta inloggningsnyckel: ' + (data.message || 'Okänt fel'));
-    return null;
-  }
-  const baseUrl = window.location.origin + window.location.pathname;
-  const params = new URLSearchParams();
-  params.set('user', data.user);
-  params.set('key', data.key);
-  if (targetIsAdmin) params.set('admin', 'true');
-  return `${baseUrl}?${params.toString()}`;
-}
-
-// QR-koden ritas lokalt i telefonen så att länken (med nyckel) aldrig skickas till en extern tjänst
-function renderAdminQR(targetUrl) {
-  const box = document.getElementById('admin-qr-code');
-  const caption = document.getElementById('admin-qr-caption');
-  const targetUser = document.getElementById('admin-target-user')?.value.trim();
-  if (!box) return;
-  box.innerHTML = '';
-  if (typeof QRCode === 'undefined') {
-    box.innerText = 'QR-biblioteket kunde inte laddas.';
-    return;
-  }
-  new QRCode(box, { text: targetUrl, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
-  if (caption) caption.innerText = targetUser ? `Skanna för att logga in som ${targetUser}:` : "Skanna för att logga in:";
-}
-
-async function updateAdminTargetLink() {
-  const qrBox = document.getElementById('admin-qr-container');
-  if (qrBox && qrBox.style.display === 'block') {
-    const targetUrl = await getAdminTargetUrl();
-    if (targetUrl) renderAdminQR(targetUrl);
-  }
-}
-
-async function adminSendSMS() {
-  const targetUrl = await getAdminTargetUrl();
-  if (!targetUrl) return;
-  const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
-  const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
-  const message = `Hej ${targetUser}! Här är din personliga inloggningslänk till LPV Tidrapport (dela den inte): ${targetUrl}`;
-  const openMessages = () => {
-    if (phone) window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(message)}`;
-    else window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
-  };
-  if (!phone) { openMessages(); return; }
-  // Via 46elks från servern (avsändare efter personens bolag). Inte inställt = Meddelanden som förut.
-  let res;
-  try { res = await apiPost({ action: 'sendSms', type: 'login', targetUser, to: phone, message }); }
-  catch (err) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
-  if (res.status === 'success') { alert(`✅ SMS skickat till ${targetUser} från ${res.sender}.`); return; }
-  if (res.code === 'not_configured' || confirm('❌ ' + (res.message || 'SMS kunde inte skickas.') + '\n\nÖppna Meddelanden i stället?')) openMessages();
-}
-
-// Välkomstpaket: SMS med inloggningen + mejl med engångslänk för datorn och kontorsdelarna (admin/ekonom)
-async function adminSendWelcomeKit() {
-  const targetUser = document.getElementById('admin-target-user')?.value.trim();
-  if (!targetUser) { alert('Välj en person först.'); return; }
-  let res;
-  try { res = await apiPost({ action: 'sendWelcomeKit', targetUser }); }
-  catch (err) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
-  if (res.status !== 'success') { alert('❌ ' + (res.message || 'Kunde inte skicka.')); return; }
-  const roleNames = { admin: 'admin', ekonom: 'ekonom', ue: 'UE', forare: 'förare' };
-  const smsLine = res.sms === 'skickat' ? '📱 SMS: skickat' : res.sms === 'not_configured' ? '📱 SMS: öppnar Meddelanden' : '📱 SMS: ' + res.sms;
-  const mailLine = res.mail === 'behövs inte' ? '' : '\n✉️ Mejl: ' + res.mail;
-  const receiptLine = res.receipt ? '\n🧾 Kvittens: ' + res.receipt : '';
-  alert(`📦 Välkomstpaket till ${res.user} (${res.roles.map(r => roleNames[r] || r).join(' + ')})\n\n${smsLine}${mailLine}${receiptLine}`);
-  if (res.sms === 'not_configured') {
-    const phone = document.getElementById('admin-target-phone')?.value.trim() || '';
-    window.location.href = `sms.html?to=${encodeURIComponent(phone)}&body=${encodeURIComponent(res.smsText)}`;
-  }
-}
-window.adminSendWelcomeKit = adminSendWelcomeKit;
-
 // Personen skickar själv en engångslänk för datorn till sin egen mejl
 async function sendPcLinkToMe() {
   if (!confirm('Skicka en inloggningslänk för datorn till din e-post?\n\nLänken fungerar en gång och i 7 dagar.')) return;
@@ -1118,53 +949,6 @@ async function sendPcLinkToMe() {
   alert(res.status === 'success' ? `✅ Skickat till ${res.sentTo}. Öppna mejlet på datorn och tryck på knappen.` : '❌ ' + (res.message || 'Kunde inte skicka.'));
 }
 window.sendPcLinkToMe = sendPcLinkToMe;
-
-async function adminSendEmail() {
-  const targetUrl = await getAdminTargetUrl();
-  if (!targetUrl) return;
-  const targetUser = document.getElementById('admin-target-user')?.value.trim() || 'kollega';
-  const subject = "Inloggning LPV Tidrapport";
-  const body = `Hej ${targetUser}!\n\nHär är din personliga inloggningslänk till LPV Tidrapport:\n${targetUrl}\n\nKlicka på länken från din telefon för att logga in. Dela inte länken med någon annan.`;
-  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
-async function toggleAdminQR() {
-  const qrBox = document.getElementById('admin-qr-container');
-  if (!qrBox) return;
-  if (qrBox.style.display === 'none' || qrBox.style.display === '') {
-    const targetUrl = await getAdminTargetUrl();
-    if (!targetUrl) return;
-    renderAdminQR(targetUrl);
-    qrBox.style.display = 'block';
-  } else {
-    qrBox.style.display = 'none';
-  }
-}
-
-// Spärra personens gamla länk och skapa en ny nyckel
-async function adminResetKey() {
-  const targetUser = document.getElementById('admin-target-user')?.value.trim();
-  if (!targetUser) { alert('Välj en person först.'); return; }
-  // Spärrar man sig själv loggas alla ens enheter ut – varna tydligt, behåll inloggningen på den här enheten
-  // och visa den nya länken direkt så att man aldrig blir utelåst (bestämt 2026-11-04).
-  const me = (localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || '').trim();
-  const self = targetUser === me;
-  const question = self
-    ? `⚠️ Du håller på att spärra DIN EGEN inloggning.\n\nAlla dina enheter (telefon, iPad, dator) loggas ut. Den här enheten får den nya nyckeln direkt, men de andra måste öppna den nya länken.\n\nFortsätt?`
-    : `Spärra ${targetUser}s nuvarande inloggningslänk och skapa en ny?\n\n${targetUser} behöver då få den nya länken.`;
-  if (!confirm(question)) return;
-  const targetUrl = await getAdminTargetUrl(true);
-  if (!targetUrl) return;
-  if (self) {
-    const newKey = new URL(targetUrl).searchParams.get('key');
-    if (newKey) localStorage.setItem('lpv_key', newKey);
-    prompt('✅ Klart! Den här enheten är fortfarande inloggad.\n\nKopiera din nya länk och öppna den på dina andra enheter (eller skicka den till dig själv med SMS/Mail):', targetUrl);
-  } else {
-    alert(`Klart! ${targetUser}s gamla länk fungerar inte längre. Skicka den nya via SMS, Mail eller QR.`);
-  }
-  const qrBox = document.getElementById('admin-qr-container');
-  if (qrBox && qrBox.style.display === 'block') renderAdminQR(targetUrl);
-}
 
 // FORDONSPARK & UTRUSTNING (v3.5 Postis Per 3D-Glas)
 const VEHICLE_PARK = [

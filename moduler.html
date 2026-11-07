@@ -51,6 +51,16 @@
 
   <!-- Panelen -->
   <div id="panel" hidden>
+    <div class="card" id="applage">
+      <h2 style="margin:0 0 6px;font-size:17px">Appläget</h2>
+      <p class="sub" style="margin:0 0 10px">Gäller hela appen. Startsidan påminner dig när det är dags att slå om snösäsongen.</p>
+      <div class="row">
+        <button class="lpv-toggle" type="button" id="tgl-sno" aria-pressed="false">❄️ Snösäsong</button>
+        <button class="lpv-toggle" type="button" id="tgl-oversikt" aria-pressed="false">📊 Översikt &amp; Tider på startsidan</button>
+      </div>
+      <p class="sub" id="applage-info" style="margin:8px 0 0"></p>
+      <p class="msg" id="applage-msg"></p>
+    </div>
     <div class="bar">
       <div class="row">
         <button class="lpv-btn primary" type="button" id="btn-sno">❄️ Bara snö för markerade</button>
@@ -99,8 +109,29 @@
     const r = await su('staff').catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
     if (r.code === 'su_login') { ls.set('lpv_su_session', ''); return showLogin(); }
     if (r.status !== 'success') { $('panel').hidden = false; say($('msg'), '❌ ' + (r.message || 'Kunde inte hämta.')); return; }
-    staff = r.staff; $('login').hidden = true; $('panel').hidden = false; render();
+    staff = r.staff; $('login').hidden = true; $('panel').hidden = false; render(); renderLage(r.appLage);
   }
+
+  // ❄️ Snösäsong: knappmenyn, Mer-menyn och ❄️ Snöläget på startsidan. Översikt & Tider: timmarna i högerspalten.
+  function renderLage(l) {
+    if (!l) return;
+    $('tgl-sno').setAttribute('aria-pressed', String(!!l.sno));
+    $('tgl-oversikt').setAttribute('aria-pressed', String(!!l.oversikt));
+    $('applage-info').textContent = (l.snoAt ? (l.sno ? 'Snösäsongen påslagen ' : 'Snösäsongen avslagen ') + l.snoAt.slice(0, 10) + '. ' : '') +
+      (l.senasteSnofall ? 'Senaste snöfall ' + l.senasteSnofall.slice(0, 10) + '.' : '');
+    try { localStorage.setItem('lpv_applage', JSON.stringify(l)); } catch (e) { /* privat läge */ }
+  }
+  async function setLage(part, btn) {
+    const on = btn.getAttribute('aria-pressed') !== 'true';
+    say($('applage-msg'), '⏳ Sparar…', true);
+    const r = await su('setAppLage', { [part]: on }).catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
+    if (r.code === 'su_login') { ls.set('lpv_su_session', ''); return showLogin(); }
+    if (r.status !== 'success') return say($('applage-msg'), '❌ ' + (r.message || 'Kunde inte spara.'));
+    renderLage(r.appLage);
+    say($('applage-msg'), '✅ Sparat. Gäller nästa gång någon öppnar startsidan.', true);
+  }
+  $('tgl-sno').addEventListener('click', (e) => setLage('sno', e.currentTarget));
+  $('tgl-oversikt').addEventListener('click', (e) => setLage('oversikt', e.currentTarget));
 
   function render() {
     $('list').innerHTML = staff.map((p, i) => {

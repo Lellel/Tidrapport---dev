@@ -83,6 +83,7 @@
   <div class="tools">
     <input id="q" type="search" placeholder="🔍 Sök namn, nummer eller e-post" oninput="render()" autocomplete="off">
     <div class="chips" id="chips"></div>
+    <button type="button" class="lpv-btn" id="btnNew" onclick="openNew()">＋ Ny person</button>
   </div>
   <div id="list"><div class="empty">Hämtar personalen…</div></div>
 </div>
@@ -96,6 +97,7 @@
   <script src="inloggning.js"></script>
   <script src="sasong.js"></script>
 <script src="sno.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
   const esc = snoEscape;
   const $ = (id) => document.getElementById(id);
@@ -187,6 +189,12 @@
         <a class="lpv-btn ${p.email ? '' : 'disabled'}" href="mailto:${esc(p.email)}">✉️ Mejl</a>
         <button type="button" class="lpv-btn ${p.canEdit ? '' : 'disabled'}" onclick="sendKit()">📦 Välkomstpaket</button>
         <button type="button" class="lpv-btn ${p.canEdit ? '' : 'disabled'}" onclick="$('form').classList.toggle('open')">✏️ Ändra</button>
+        <button type="button" class="lpv-btn ${p.canEdit ? '' : 'disabled'}" onclick="toggleQR()">🏁 QR</button>
+        <button type="button" class="lpv-btn danger ${p.canEdit ? '' : 'disabled'}" onclick="resetKey()">🔑 Spärra &amp; ny länk</button>
+      </div>
+      <div id="qrBox" hidden style="text-align:center; margin-top:10px">
+        <div class="note" id="qrCaption" style="margin:0 0 6px">Skanna för att logga in:</div>
+        <div id="qrCode" style="width:176px; margin:0 auto; padding:8px; border-radius:10px; background:#fff"></div>
       </div>
       <div class="contact">📱 <b>${esc(fixPhone(p.phone) || '–')}</b> &nbsp; ✉️ <b>${esc(p.email || '–')}</b>
         ${p.today.length ? `<br>📅 Idag: <b>${esc(p.today.join(', '))}</b>` : ''}${snowText ? `<br>❄️ ${esc(snowText)}` : ''}</div>
@@ -276,9 +284,9 @@
   }
 
   // Samma välkomstpaket som på startsidan (SMS + mejl för admin/ekonom + kvittens till dig)
-  async function sendKit() {
+  async function sendKit(noAsk) {
     const p = current;
-    if (!confirm(`Skicka välkomstpaket till ${p.name}?\n\nSMS till ${fixPhone(p.phone) || '(saknar nummer)'}` + (p.role === 'Admin' || p.role === 'Ekonom' ? `\nMejl till ${p.email || '(saknar e-post)'}` : ''))) return;
+    if (!noAsk && !confirm(`Skicka välkomstpaket till ${p.name}?\n\nSMS till ${fixPhone(p.phone) || '(saknar nummer)'}` + (p.role === 'Admin' || p.role === 'Ekonom' ? `\nMejl till ${p.email || '(saknar e-post)'}` : ''))) return;
     let res;
     try { res = await snoApi({ action: 'sendWelcomeKit', targetUser: p.name }); }
     catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
@@ -288,6 +296,90 @@
     const receipt = res.receipt ? '\n🧾 Kvittens: ' + res.receipt : '';
     alert(`📦 Välkomstpaket till ${res.user}\n\n${sms}${mail}${receipt}`);
     if (res.sms === 'not_configured') location.href = `sms.html?to=${encodeURIComponent(p.phone)}&body=${encodeURIComponent(res.smsText)}`;
+  }
+
+  // ================= INLOGGNINGSLÄNK, QR OCH SPÄRR (flyttat från startsidan 2026-11-07) =================
+  // Länken byggs med personens nyckel (getUserKey). reset=true = ny nyckel, den gamla länken slutar fungera.
+  async function loginUrl(p, reset) {
+    let res;
+    try { res = await snoApi({ action: 'getUserKey', targetUser: p.name, reset: !!reset }); }
+    catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+    if (res.status !== 'success') { msg('❌ ' + (res.message || 'Kunde inte hämta länken.'), true); return null; }
+    const q = new URLSearchParams({ user: res.user, key: res.key });
+    if (p.role === 'Admin') q.set('admin', 'true');
+    return new URL('index.html', location.href).href + '?' + q.toString();
+  }
+  // QR-koden ritas här i telefonen – länken med nyckel skickas aldrig till någon extern tjänst
+  function drawQR(url, name) {
+    const box = $('qrCode');
+    box.innerHTML = '';
+    if (typeof QRCode === 'undefined') { box.textContent = 'QR-biblioteket kunde inte laddas.'; return; }
+    new QRCode(box, { text: url, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
+    $('qrCaption').textContent = `Skanna för att logga in som ${name}:`;
+  }
+  async function toggleQR() {
+    const p = current, wrap = $('qrBox');
+    if (!wrap.hidden) { wrap.hidden = true; return; }
+    const url = await loginUrl(p, false);
+    if (!url || current !== p) return;
+    drawQR(url, p.name);
+    wrap.hidden = false;
+  }
+  async function resetKey() {
+    const p = current;
+    const me = (localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || '').trim();
+    const self = p.name === me;
+    // Spärrar man sig själv loggas alla ens enheter ut – den här enheten får den nya nyckeln direkt (bestämt 2026-11-04)
+    const question = self
+      ? '⚠️ Du håller på att spärra DIN EGEN inloggning.\n\nAlla dina enheter (telefon, iPad, dator) loggas ut. Den här enheten får den nya nyckeln direkt, men de andra måste öppna den nya länken.\n\nFortsätt?'
+      : `Spärra ${p.name}s nuvarande inloggningslänk och skapa en ny?\n\n${p.name} behöver då få den nya länken (📦 Välkomstpaket eller 🏁 QR).`;
+    if (!confirm(question)) return;
+    const url = await loginUrl(p, true);
+    if (!url) return;
+    if (self) {
+      const k = new URL(url).searchParams.get('key');
+      if (k) try { localStorage.setItem('lpv_key', k); } catch (e) { /* privat läge */ }
+      prompt('✅ Klart! Den här enheten är fortfarande inloggad.\n\nKopiera din nya länk och öppna den på dina andra enheter:', url);
+    } else {
+      msg(`✅ ${p.name}s gamla länk fungerar inte längre. Skicka den nya med 📦 Välkomstpaket eller visa 🏁 QR.`);
+    }
+    if (!$('qrBox').hidden) drawQR(url, p.name);
+  }
+
+  // ================= ＋ NY PERSON =================
+  function openNew() {
+    current = null;
+    const roles = data ? (data.isSuper ? data.roles : data.roles.filter(r => r !== 'Admin' && r !== 'Ekonom')) : ['Förare'];
+    $('sheet').innerHTML = `
+      <div class="shead"><h2>＋ Ny person</h2><button type="button" class="lpv-btn small close" onclick="closePerson()">✕ Stäng</button></div>
+      <div class="form open" style="margin-top:12px">
+        <label for="nName">Namn</label><input id="nName" placeholder="För- och efternamn" autocomplete="off">
+        <div class="g2">
+          <div><label for="nPhone">Mobil</label><input id="nPhone" type="tel" placeholder="070…"></div>
+          <div><label for="nEmail">E-post</label><input id="nEmail" type="email" placeholder="valfritt (krävs för admin/ekonom)"></div>
+          <div><label for="nRole">Roll</label><select id="nRole">${roles.map(r => `<option>${esc(r)}</option>`).join('')}</select></div>
+          ${data && data.isSuper ? `<div><label for="nCompany">Bolag</label><select id="nCompany"><option>LPV</option><option>Klaryta</option></select></div>` : ''}
+        </div>
+        <div class="note">Personen får en personlig länk direkt. Har den mobil eller e-post skickas välkomstpaketet med en gång.</div>
+        <div class="actions"><button type="button" class="lpv-btn primary" onclick="saveNew()">💾 Lägg till &amp; skicka välkomstpaket</button></div>
+        <div class="msg" id="pMsg"></div>
+      </div>`;
+    $('sheetBg').classList.add('open');
+    setTimeout(() => $('nName') && $('nName').focus(), 50);
+  }
+  async function saveNew() {
+    const v = (id) => ($(id) ? $(id).value.trim() : '');
+    const person = { name: v('nName'), phone: v('nPhone'), email: v('nEmail'), role: v('nRole'), company: v('nCompany') }; // admin på Klaryta: servern sätter alltid Klaryta
+    if (!person.name) { msg('⚠️ Skriv personens namn.', true); return; }
+    msg('Sparar… ⏳');
+    let res;
+    try { res = await snoApi({ action: 'addStaff', ...person }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+    if (res.status !== 'success') { msg('❌ ' + (res.message || 'Kunde inte spara.'), true); return; }
+    await load(true);
+    openPerson(res.user);
+    if (!current) return;
+    if (person.phone || person.email) await sendKit(true);
+    else msg(`✅ ${res.user} är tillagd som ${res.role}. Inget mobilnummer eller e-post – visa 🏁 QR.`);
   }
 
   // ================= START =================

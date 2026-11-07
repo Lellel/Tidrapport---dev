@@ -268,7 +268,7 @@ function doPost(e) {
 
     // --- ROUTER ---
     if (action === "me") return createJsonResponse({ status: "success", user: auth.user, role: auth.role || "", company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist,
-      modules: (readStaffAuth(auth.user) || {}).modules || null, su: isSuUser(auth.user),
+      modules: (readStaffAuth(auth.user) || {}).modules || null, su: isSuUser(auth.user), appLage: appLageForApp(),
       extras: isSuUser(auth.user) ? EXTRA_MODULES.slice() : ((readStaffAuth(auth.user) || {}).extras || []),
       guideRoll: guideRollFor([auth.isAdmin ? "admin" : "", auth.isEconomist || /^ekonom$/i.test(auth.role || "") ? "ekonom" : "", /^ue$/i.test(auth.role || "") ? "ue" : ""].filter(Boolean), auth.user) });
     // Offerter: Klaryta-admin får bara röra Klarytas offerter
@@ -1023,6 +1023,28 @@ function suSessionValid(session) {
   return suList("SU_SESSIONER").some(x => x.h === h && x.exp > now);
 }
 
+// APPLÄGET (docs/startsidan.md): ❄️ Snösäsong och Översikt & Tider på startsidan. Slås på/av i SU-panelen
+// (eller från påminnelsekortet på startsidan, också via SU-sessionen). Gäller hela appen.
+function appLage() {
+  try { return Object.assign({ sno: false, oversikt: false }, JSON.parse(PropertiesService.getScriptProperties().getProperty("APPLAGE") || "{}")); }
+  catch (e) { return { sno: false, oversikt: false }; }
+}
+function appLageForApp() {
+  const l = appLage(), sf = currentSnowfall();
+  // Största snömängden de närmaste 5 dygnen i något väderområde, och när den börjar
+  let prognos = { cm: 0, first: 0, omrade: "" };
+  const v = readVaderLage();
+  if (v && v.areas) Object.keys(v.areas).forEach(k => { const u = v.areas[k].utsikt; if (u && u.cm > prognos.cm) prognos = { cm: u.cm, first: u.first, omrade: k }; });
+  return { sno: !!l.sno, oversikt: !!l.oversikt, snoAt: l.snoAt || "", senasteSnofall: sf ? sf.start : "", prognos: prognos };
+}
+function setAppLage(data) {
+  const l = appLage();
+  if (typeof data.sno === "boolean" && data.sno !== !!l.sno) { l.sno = data.sno; l.snoAt = nowStamp(); }
+  if (typeof data.oversikt === "boolean") l.oversikt = data.oversikt;
+  PropertiesService.getScriptProperties().setProperty("APPLAGE", JSON.stringify(l));
+  return appLageForApp();
+}
+
 // Allt i panelen går härigenom – kräver en giltig SU-session
 function handleSuCall(data) {
   if (!suSessionValid(data.session)) return createJsonResponse({ status: "error", code: "su_login", message: "SU-inloggningen gäller inte längre. Be om en ny SU-länk." });
@@ -1030,7 +1052,7 @@ function handleSuCall(data) {
   const sheet = getStaffSheet();
   if (op === "staff") {
     const rows = sheet.getDataRange().getValues().slice(1).filter(r => r[0]);
-    return createJsonResponse({ status: "success", su: suName(), modules: MODULES, extraModules: EXTRA_MODULES, staff: rows.map(r => ({
+    return createJsonResponse({ status: "success", su: suName(), modules: MODULES, extraModules: EXTRA_MODULES, appLage: appLageForApp(), staff: rows.map(r => ({
       name: String(r[0]).trim(), role: staffRoleName(r), company: companyOf(r[6]), status: String(r[7] || "").trim() || "Aktiv",
       modules: readModules(r), extras: readExtraModules(r), su: isSuUser(r[0]) })) });
   }
@@ -1053,6 +1075,7 @@ function handleSuCall(data) {
     if (sheet.getRange(1, MODULES_COLUMN).getValue() === "") sheet.getRange(1, MODULES_COLUMN).setValue("Moduler").setFontWeight("bold").setBackground("#f3f3f3");
     return createJsonResponse({ status: "success", updated: done });
   }
+  if (op === "setAppLage") return createJsonResponse({ status: "success", appLage: setAppLage(data) });
   if (op === "resetMyLogin") {
     const hit = findStaffRow(sheet, suName());
     if (!hit) return createJsonResponse({ status: "error", message: "SU_NAMN (" + suName() + ") finns inte i Personal." });
@@ -3486,12 +3509,30 @@ function fetchSmhiHours(pos) {
   const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
   if (res.getResponseCode() !== 200) throw new Error("SMHI svarade HTTP " + res.getResponseCode());
   const now = Date.now();
-  return (JSON.parse(res.getContentText()).timeSeries || []).map(t => {
+  const all = (JSON.parse(res.getContentText()).timeSeries || []).map(t => {
     const d = t.data || {};
     const fp = Number(d.precipitation_frozen_part);
     return { t: new Date(t.time).getTime(), temp: Number(d.air_temperature), rh: Number(d.relative_humidity), p: Math.max(0, Number(d.precipitation_amount_mean) || 0),
       fr: fp >= 0 && fp <= 100 ? fp / 100 : (Number(d.probability_of_frozen_precipitation) || 0), pop: Number(d.probability_of_precipitation) || 0 };
-  }).filter(h => h.t > now - 3600000 && h.t <= now + 24 * 3600000);
+  });
+  const hours = all.filter(h => h.t > now - 3600000 && h.t <= now + 24 * 3600000);
+  hours.utsikt = snoUtsikt(all, now);
+  return hours;
+}
+
+// Snö de närmaste 5 dygnen (påminnelsen om ❄️ Snösäsong, docs/startsidan.md). SMHI har timsteg först, sedan
+// 3/6/12 h – mängden = intensitet × steglängd. first = första steget med snö (≥ 0,5 cm i steget).
+function snoUtsikt(all, now) {
+  let cm = 0, first = 0;
+  for (let i = 0; i < all.length; i++) {
+    const h = all[i];
+    if (h.t < now - 3600000 || h.t > now + 5 * 86400000) continue;
+    const stepH = i + 1 < all.length ? Math.max(1, (all[i + 1].t - h.t) / 3600000) : 1;
+    const c = h.p * h.fr * stepH;
+    cm += c;
+    if (!first && c >= 0.5) first = h.t;
+  }
+  return { cm: Math.round(cm * 10) / 10, first: first };
 }
 
 // Trafikverket: senaste mätningen från stationerna (vägyta, luft, daggpunkt, nederbörd)
@@ -3605,6 +3646,7 @@ function vaderKoll(force) {
     const st = {};
     cfg.stations.forEach(id => { if (stations[id]) st[id] = stations[id]; });
     const a = vaderBedom(hours, st, thr);
+    a.utsikt = hours.utsikt || null;
     const prevLevel = prev ? prev.level : 0;
     a.level = vaderNiva(Math.max(a.plog, a.sand), prevLevel);
     a.changeId = prev ? prev.changeId : 0;

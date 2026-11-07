@@ -25,50 +25,6 @@
 </head>
 <body>
 
-  <!-- GLIDANDE VÄNSTERMENY (SIDE-DRAWER FÖR ADMIN & VYER) -->
-  <nav class="side-nav-drawer" id="sideNav">
-    <div class="side-nav-item" onclick="location.href='radar.html'">
-      <span class="side-nav-icon" data-icon="radar">🔭</span>
-      <span class="side-nav-text">Framtidsradarn</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='offerter.html?view=customers'">
-      <span class="side-nav-icon" data-icon="kunder">💼</span>
-      <span class="side-nav-text">Kunder</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='offerter.html'">
-      <span class="side-nav-icon" data-icon="offerter">📄</span>
-      <span class="side-nav-text">Offerter &amp; ÄTA</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='planering.html'">
-      <span class="side-nav-icon" data-icon="sno">🚜</span>
-      <span class="side-nav-text">Snöplanering</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='ue.html'">
-      <span class="side-nav-icon">🤝</span>
-      <span class="side-nav-text">UE</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='vader.html'">
-      <span class="side-nav-icon" data-icon="vader">🌨️</span>
-      <span class="side-nav-text">Väder</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='snozoner.html'">
-      <span class="side-nav-icon" data-icon="zoner">❄️</span>
-      <span class="side-nav-text">Rita snözoner</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='ekonomi.html'">
-      <span class="side-nav-icon" data-icon="ekonomi">💰</span>
-      <span class="side-nav-text">Ekonomi</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='personal.html'">
-      <span class="side-nav-icon" data-icon="personal">👥</span>
-      <span class="side-nav-text">Personal</span>
-    </div>
-    <div class="side-nav-item" onclick="location.href='ikoner.html'">
-      <span class="side-nav-icon" data-icon="ikoner">🎨</span>
-      <span class="side-nav-text">Appikoner</span>
-    </div>
-  </nav>
-
   <!-- FLIKRAD FÖR ADMIN I TELEFON (som iPhone-appar: högst fem flikar, resten under Mer) -->
   <nav class="tab-bar" id="tabBar" aria-label="Admin">
     <button class="tab-item is-active" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"><span class="tab-icon" data-icon="hem">🏠</span>Hem</button>
@@ -83,10 +39,10 @@
         <div class="section-label" style="margin:0;">Mer</div>
         <button class="sheet-close" onclick="document.getElementById('moreSheet').classList.remove('active')">Stäng</button>
       </div>
-      <div class="sheet-item" onclick="location.href='offerter.html?view=customers'"><span data-icon="kunder">💼</span>&nbsp; Kunder</div>
-      <div class="sheet-item" onclick="location.href='ue.html'"><span>🤝</span>&nbsp; UE – företag, avtal &amp; kartor</div>
-      <div class="sheet-item" onclick="location.href='vader.html'"><span data-icon="vader">🌨️</span>&nbsp; Väder – Plogometern</div>
-      <div class="sheet-item" onclick="location.href='snozoner.html'"><span data-icon="zoner">❄️</span>&nbsp; Rita snözoner</div>
+      <div class="sheet-item" data-grupp="kontor" onclick="location.href='offerter.html?view=customers'"><span data-icon="kunder">💼</span>&nbsp; Kunder</div>
+      <div class="sheet-item" data-grupp="kontor" onclick="location.href='ue.html'"><span>🤝</span>&nbsp; UE – företag, avtal &amp; kartor</div>
+      <div class="sheet-item" data-grupp="sno" onclick="location.href='vader.html'"><span data-icon="vader">🌨️</span>&nbsp; Väder – Plogometern</div>
+      <div class="sheet-item" data-grupp="sno" onclick="location.href='snozoner.html'"><span data-icon="zoner">❄️</span>&nbsp; Rita snözoner</div>
       <div class="sheet-item" onclick="location.href='ekonomi.html'"><span data-icon="ekonomi">💰</span>&nbsp; Ekonomi</div>
       <div class="sheet-item" onclick="location.href='personal.html'"><span data-icon="personal">👥</span>&nbsp; Personal</div>
       <div class="sheet-item" onclick="location.href='ikoner.html'"><span data-icon="ikoner">🎨</span>&nbsp; Appikoner</div>
@@ -237,79 +193,52 @@
 
     </div>
 
-    <!-- DASHBOARD PANEL -->
-    <aside id="landscape-dashboard" class="dashboard-panel">
-      <div class="dashboard-header">
-        <div class="section-label" style="margin:0;">Översikt & Tider</div>
-        <span id="dash-date-badge" class="duration-pill">Idag</span>
-      </div>
-      <div class="dash-stats-grid">
-        <div class="stat-card">
-          <div class="stat-val" id="dash-total-hours">0.0 h</div>
-          <div class="stat-lbl">Totalt idag</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val" id="dash-pass-count">0 st</div>
-          <div class="stat-lbl">Sparade pass</div>
-        </div>
-      </div>
-      <div class="section-label" style="margin:14px 0 6px;">Dagens fördelning</div>
-      <div id="dash-activity-list" class="dash-list">
-        <div class="dash-empty">Inga registrerade pass än idag.</div>
-      </div>
+    <!-- HÖGERSPALTEN på iPad/dator (docs/startsidan.md): ❄️ Snöläget (admin, snösäsong), knappmenyn (admin),
+         Översikt & Tider (dold – SU kan slå på den). Spalten döljs helt när inget av det gäller. -->
+    <aside id="landscape-dashboard" class="dashboard-panel" hidden>
+      <section id="sno-lage" class="ios-card sno-lage" hidden aria-label="Snöläget"></section>
 
-      <!-- ADMIN-SEKTION -->
-      <div id="admin-tools-section" style="display: none; margin-top: 16px;">
-        <details id="admin-details" class="admin-details">
-        <summary class="admin-heading">🔧 Administratör – personer, länkar &amp; sidor</summary>
-        <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
-          <div class="admin-input-row">
-            <span class="admin-label">Mottagare</span>
-            <select id="admin-target-user" class="admin-select" onchange="onAdminUserSelect()">
-              <option value="">Laddar kontakter...</option>
-            </select>
-          </div>
-          <button type="button" class="admin-btn" style="width:100%; margin:4px 0 8px;" onclick="toggleNewPerson()">➕ Ny person</button>
-          <div id="admin-new-person" style="display:none; border:1px solid var(--glass-border, rgba(255,255,255,.15)); border-radius:12px; padding:8px 10px; margin-bottom:10px;">
-            <div class="admin-input-row"><span class="admin-label">Namn</span><input id="new-person-name" class="admin-val-input" placeholder="För- och efternamn" autocomplete="off"></div>
-            <div class="admin-input-row"><span class="admin-label">Mobil</span><input id="new-person-phone" type="tel" class="admin-val-input" placeholder="070..."></div>
-            <div class="admin-input-row"><span class="admin-label">E-post</span><input id="new-person-email" type="email" class="admin-val-input" placeholder="valfritt"></div>
-            <div class="admin-input-row"><span class="admin-label">Roll</span>
-              <select id="new-person-role" class="admin-select">
-                <option>Förare</option><option>UE</option><option>Ekonom</option><option>Admin</option>
-              </select></div>
-            <div class="admin-input-row"><span class="admin-label">Bolag</span><input id="new-person-company" class="admin-val-input" list="new-person-companies" value="LPV" placeholder="LPV, Klaryta eller UE-firma"></div>
-            <datalist id="new-person-companies"><option value="LPV"><option value="Klaryta"></datalist>
-            <button type="button" class="admin-btn" style="width:100%; margin-top:6px;" onclick="saveNewPerson()">💾 Lägg till &amp; skicka välkomstpaket</button>
-            <div id="new-person-msg" style="font-size:12px; margin-top:6px; color:var(--text-muted);"></div>
-          </div>
-          <div class="admin-input-row">
-            <span class="admin-label">Mobil (valfritt)</span>
-            <input type="tel" id="admin-target-phone" placeholder="070..." class="admin-val-input" oninput="updateAdminTargetLink()">
-          </div>
-          <div class="admin-input-row">
-            <span class="admin-label">Öppna i admin-läge</span>
-            <input type="checkbox" id="admin-target-is-admin" onchange="updateAdminTargetLink()">
-          </div>
-          <button type="button" class="admin-btn" style="width:100%; margin:4px 0 8px;" onclick="adminSendWelcomeKit()">📦 Skicka välkomstpaket</button>
-          <div class="admin-actions-grid">
-            <button type="button" class="admin-btn" onclick="adminSendSMS()">💬 SMS</button>
-            <button type="button" class="admin-btn" onclick="adminSendEmail()">✉️ Mail</button>
-            <button type="button" class="admin-btn" onclick="toggleAdminQR()">🏁 QR</button>
-          </div>
-          <button type="button" class="admin-btn" style="width:100%; margin-top:8px;" onclick="adminResetKey()">🔑 Spärra & skapa ny länk</button>
-          <div id="admin-qr-container" style="display: none; text-align: center; margin-top: 12px;">
-            <div id="admin-qr-caption" style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Skanna för att logga in:</div>
-            <div id="admin-qr-code" style="width: 176px; margin: 0 auto; padding: 8px; border-radius: 10px; background: #FFF;"></div>
-          </div>
-          <button type="button" class="main-btn admin-nav-btn" onclick="location.href='offerter.html'">📄 Offerter &amp; ÄTA</button>
-          <button type="button" class="main-btn admin-nav-btn" onclick="location.href='planering.html'">❄️ Snöplanering – tavla, fastigheter &amp; traktorer</button>
-          <button type="button" class="main-btn admin-nav-btn" onclick="location.href='ue.html'">🤝 UE – företag, avtal &amp; kartor</button>
-          <button type="button" class="main-btn admin-nav-btn" onclick="location.href='ekonomi.html'">💰 Ekonomi – fakturaunderlag</button>
-          <button type="button" class="main-btn admin-nav-btn" onclick="location.href='personal.html'">👥 Personal – översikt</button>
-          <button type="button" class="main-btn admin-nav-btn su-only" hidden onclick="location.href='moduler.html'">🎛️ Moduler – vem ser vad</button>
+      <nav id="admin-menu" class="admin-menu" hidden aria-label="Sidor">
+        <div class="section-label">Sidor</div>
+        <div class="admin-menu-grid" id="admin-menu-grid">
+          <button type="button" class="main-btn" data-grupp="sno" onclick="location.href='planering.html'"><span data-icon="sno">🚜</span> Snöplanering</button>
+          <button type="button" class="main-btn" data-grupp="sno" onclick="location.href='snozoner.html'"><span data-icon="zoner">❄️</span> Rita zoner</button>
+          <button type="button" class="main-btn" data-grupp="sno" onclick="location.href='vader.html'"><span data-icon="vader">🌨️</span> Väder</button>
+          <button type="button" class="main-btn" data-grupp="kontor" onclick="location.href='offerter.html'"><span data-icon="offerter">📄</span> Offerter &amp; ÄTA</button>
+          <button type="button" class="main-btn" data-grupp="kontor" onclick="location.href='offerter.html?view=customers'"><span data-icon="kunder">💼</span> Kunder</button>
+          <button type="button" class="main-btn" data-grupp="kontor" onclick="location.href='ue.html'"><span>🤝</span> UE</button>
+          <button type="button" class="main-btn" data-grupp="ovrigt" onclick="location.href='radar.html'"><span data-icon="radar">🔭</span> Radarn</button>
+          <button type="button" class="main-btn" data-grupp="ovrigt" onclick="location.href='ekonomi.html'"><span data-icon="ekonomi">💰</span> Ekonomi</button>
+          <button type="button" class="main-btn" data-grupp="ovrigt" onclick="location.href='personal.html'"><span data-icon="personal">👥</span> Personal</button>
+          <button type="button" class="main-btn" data-grupp="ovrigt" onclick="location.href='ikoner.html'"><span data-icon="ikoner">🎨</span> Appikoner</button>
+          <button type="button" class="main-btn" data-grupp="ovrigt" onclick="location.href='guide.html'"><span>📖</span> Bruksanvisning</button>
+          <button type="button" class="main-btn su-only" data-grupp="ovrigt" hidden onclick="location.href='moduler.html'"><span>🎛️</span> Moduler</button>
         </div>
+        <details id="admin-menu-more" class="admin-menu-more" hidden>
+          <summary class="main-btn">⋯ Fler</summary>
+          <div class="admin-menu-grid" id="admin-menu-fler"></div>
         </details>
+      </nav>
+
+      <div id="dash-oversikt" hidden>
+        <div class="dashboard-header">
+          <div class="section-label" style="margin:0;">Översikt & Tider</div>
+          <span id="dash-date-badge" class="duration-pill">Idag</span>
+        </div>
+        <div class="dash-stats-grid">
+          <div class="stat-card">
+            <div class="stat-val" id="dash-total-hours">0.0 h</div>
+            <div class="stat-lbl">Totalt idag</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="dash-pass-count">0 st</div>
+            <div class="stat-lbl">Sparade pass</div>
+          </div>
+        </div>
+        <div class="section-label" style="margin:14px 0 6px;">Dagens fördelning</div>
+        <div id="dash-activity-list" class="dash-list">
+          <div class="dash-empty">Inga registrerade pass än idag.</div>
+        </div>
       </div>
     </aside>
   </div>
@@ -332,13 +261,13 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="config.js"></script>
   <script src="knappar.js"></script>
   <script src="inloggning.js"></script>
   <script src="sasong.js"></script>
   <script src="appikoner.js"></script>
   <script src="vader.js"></script>
+  <script src="startspalt.js"></script>
   <script src="app.js"></script>
   <script src="nyheter.js"></script>
   <script>
@@ -372,11 +301,6 @@
       document.getElementById('packing-list').hidden = false;
       document.getElementById('packed-line').hidden = true;
     }
-    (function () {
-      const d = document.getElementById('admin-details'); if (!d) return;
-      try { d.open = localStorage.getItem('lpv_admin_oppen') === '1'; } catch (e) { /* privat läge */ }
-      d.addEventListener('toggle', () => { try { localStorage.setItem('lpv_admin_oppen', d.open ? '1' : ''); } catch (e) { /* privat läge */ } });
-    })();
     // Redan packat i dag på den här telefonen → verktygen är öppna direkt
     try { const p = JSON.parse(localStorage.getItem('lpv_packat') || 'null'); if (p && p.d === todayKey()) unlockFullMenu(true); } catch (e) { /* ingen lagring */ }
   </script>
