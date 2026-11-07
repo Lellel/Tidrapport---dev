@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
+  <script src="moduler.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>UE</title>
+  <!-- UE-vyn (bara admin, docs/snoplanering.md "UE-vyn, avtal och kundkartor till UE", 2026-11-07):
+       allt om varje UE-företag – uppgifter, ☐ Avtal accepterat, personer, traktorer och fastigheter.
+       Kryss i avtalet → mejl från Klaryta med kundkartorna (PDF), kopia till admin. Före avtal är UE:s kulor grå. -->
+  <style>
+    :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--t-font); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 90px); }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    h1 { font-size: var(--t-fs-title); margin: 14px 0 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    h1 small { font-size: 13px; color: var(--muted); font-weight: 600; }
+    h1 .btn { margin-left: auto; }
+    input, select, textarea { width: 100%; padding: 10px 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font-size: var(--t-fs-input); font-family: inherit; }
+    textarea { min-height: 70px; resize: vertical; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+    .co { display: block; text-align: left; width: 100%; padding: 14px; border-radius: var(--t-r-card); border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; font: inherit; }
+    .co-name { font-weight: 800; font-size: 17px; }
+    .co-meta { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+    .pill { display: inline-block; font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 999px; margin-top: 8px; }
+    .pill.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+    .pill.wait { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+    .empty { color: var(--muted); font-size: 14px; padding: 18px; text-align: center; background: var(--card); border-radius: var(--t-r-card); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: var(--t-r);
+      border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font: 700 13px var(--t-font); text-decoration: none; cursor: pointer; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .btn.danger { color: var(--danger); }
+    .btn.small { min-height: 32px; padding: 0 10px; font-size: 12px; }
+    .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 3050; display: none; align-items: flex-end; justify-content: center; }
+    .sheet-bg.open { display: flex; }
+    .sheet { width: min(720px, 100%); max-height: calc(100dvh - env(safe-area-inset-top) - 20px); overflow-y: auto; background: var(--panel);
+      border-radius: var(--t-r-card) var(--t-r-card) 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 20px); -webkit-overflow-scrolling: touch; }
+    @media (min-width: 700px) { .sheet-bg { align-items: center; } .sheet { border-radius: var(--t-r-card); max-height: calc(100dvh - 60px); } }
+    .shead { display: flex; gap: 10px; align-items: flex-start; }
+    .shead h2 { margin: 0; font-size: 21px; }
+    .shead .btn { margin-left: auto; }
+    h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 22px 0 8px; display: flex; align-items: center; gap: 8px; }
+    h3 .btn { margin-left: auto; text-transform: none; letter-spacing: 0; }
+    .agree { display: flex; gap: 12px; align-items: center; background: var(--card); border-radius: var(--t-r-card); padding: 12px 14px; margin-top: 14px; }
+    .agree input { width: 26px; height: 26px; flex: none; }
+    .agree b { font-size: 16px; }
+    .agree .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .row { display: flex; gap: 10px; align-items: center; background: var(--card); border-radius: var(--t-r); padding: 10px 12px; margin-bottom: 6px; cursor: pointer; }
+    .row .main { flex: 1; min-width: 0; }
+    .row .t { font-weight: 700; font-size: 14px; }
+    .row .m { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .row.static { cursor: default; }
+    .area { font-size: 12px; font-weight: 800; color: var(--muted); margin: 12px 0 6px; }
+    .form { background: var(--card); border-radius: var(--t-r-card); padding: 12px; margin: 6px 0 10px; }
+    .form label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin: 10px 0 4px; }
+    .form label.chk { display: flex; gap: 8px; align-items: center; text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--text); margin: 10px 0 0; }
+    .form label.chk input { width: 20px; height: 20px; flex-shrink: 0; }
+    .form .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .form .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .form .actions > * { flex: 1; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+    .msg { font-size: 13px; min-height: 18px; margin-top: 8px; color: var(--muted); }
+    .links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    @media (max-width: 480px) { .form .g2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span data-theme-slot></span></div>
+  <h1>🤝 UE <small id="count"></small><button class="btn primary" onclick="newCompany()">＋ Nytt UE-företag</button></h1>
+  <div id="list"><div class="empty">Hämtar UE-företagen…</div></div>
+</div>
+
+<div class="sheet-bg" id="sheetBg" onclick="if (event.target === this) closeSheet()">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="knappar.js"></script>
+<script src="inloggning.js"></script>
+<script src="sasong.js"></script>
+<script src="sno.js"></script>
+<script>
+  const esc = snoEscape;
+  const $ = (id) => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  let data = null;        // { companies, isSuper, me }
+  let cur = null;         // öppet företag (namn), '' = nytt
+  let open = '';          // öppet formulär i kortet: 'info' | 'p:<namn>' | 'p:+' | 't:<id>' | 't:+'
+  let fleetCache = null;  // getFleet (för traktorformuläret)
+
+  const fmt = (s) => String(s || '').slice(0, 10);
+  const fixPhone = (p) => { const s = String(p || '').trim(); return /^7\d{8}$/.test(s.replace(/\s/g, '')) ? '0' + s : s; };
+  const coBy = (name) => data && data.companies.find(c => c.name === name);
+  const jsArg = (v) => JSON.stringify(String(v)).replace(/"/g, '&quot;');
+
+  async function api(payload) {
+    try { return await snoApi(payload); } catch (e) { return { status: 'error', message: 'Ingen kontakt med servern.' }; }
+  }
+
+  async function load(quiet) {
+    const res = await api({ action: 'getUeOverview' });
+    if (res.status !== 'success') { $('list').innerHTML = `<div class="empty">❌ ${esc(res.message || 'Kunde inte hämta.')}</div>`; return false; }
+    data = res;
+    render();
+    if (cur !== null && (cur === '' || coBy(cur))) renderSheet();
+    return true;
+  }
+
+  function render() {
+    const list = data.companies;
+    $('count').textContent = list.length ? list.length + ' företag' : '';
+    if (!list.length) { $('list').innerHTML = '<div class="empty">Inga UE-företag än. Tryck ＋ Nytt UE-företag.</div>'; return; }
+    $('list').innerHTML = '<div class="grid">' + list.map(c => {
+      const lead = c.people.find(p => p.ueLead);
+      const withMap = c.properties.filter(p => p.maps).length;
+      return `<button type="button" class="co" onclick="openCompany(${jsArg(c.name)})">
+        <div class="co-name">${esc(c.name)}</div>
+        <div class="co-meta">🚜 ${c.tractors.length} traktor${c.tractors.length === 1 ? '' : 'er'} · 👷 ${c.people.length} person${c.people.length === 1 ? '' : 'er'} · 🏠 ${c.properties.length} fastighet${c.properties.length === 1 ? '' : 'er'}
+          ${c.properties.length ? `<br>📄 ${withMap} av ${c.properties.length} har kundkarta` : ''}${lead ? `<br>UE-ansvarig: ${esc(lead.name)}` : '<br>⚠️ Ingen UE-ansvarig'}</div>
+        <span class="pill ${c.ok ? 'ok' : 'wait'}">${c.ok ? '✅ Avtal accepterat ' + esc(fmt(c.acceptedAt)) : '⏳ Väntar på avtal'}</span>
+      </button>`;
+    }).join('') + '</div>';
+  }
+
+  function openCompany(name) { cur = name; open = ''; renderSheet(); $('sheetBg').classList.add('open'); history.replaceState(null, '', 'ue.html?f=' + encodeURIComponent(name)); }
+  function newCompany() { cur = ''; open = 'info'; renderSheet(); $('sheetBg').classList.add('open'); }
+  function closeSheet() { $('sheetBg').classList.remove('open'); cur = null; open = ''; history.replaceState(null, '', 'ue.html'); }
+  function toggle(key) { open = open === key ? '' : key; renderSheet(); }
+  function say(text) { const m = $('msg'); if (m) m.innerHTML = text; }
+
+  // ---------- KORTET FÖR ETT FÖRETAG ----------
+  function renderSheet() {
+    const c = cur === '' ? { name: '', id: '', registered: false, ok: false, people: [], tractors: [], properties: [] } : coBy(cur);
+    if (!c) { closeSheet(); return; }
+    const isNew = cur === '';
+    let h = `<div class="shead"><div><h2>${isNew ? 'Nytt UE-företag' : esc(c.name)}</h2>${isNew ? '' : `<span class="pill ${c.ok ? 'ok' : 'wait'}">${c.ok ? '✅ Avtal accepterat' : '⏳ Väntar på avtal – kulorna är grå'}</span>`}</div>
+      <button class="btn" onclick="closeSheet()">✕</button></div>`;
+    if (!isNew) {
+      h += `<label class="agree"><input type="checkbox" ${c.ok ? 'checked' : ''} onchange="setAgreement(this)">
+        <div><b>Avtal accepterat</b><div class="sub">${c.ok ? 'Kryssat ' + esc(c.acceptedAt) + (c.acceptedBy ? ' av ' + esc(c.acceptedBy) : '') : 'Kryssa i när UE har accepterat avtalet. Då får UE-ansvarig ett mejl från Klaryta med kundkartorna (kopia till dig).'}</div></div></label>
+        <div class="links"><button class="btn" onclick="sendMaps()">📧 Skicka kartor igen</button><a class="btn" href="planering.html">❄️ Öppna i Snöplanering</a></div>`;
+    }
+    h += `<div class="msg" id="msg"></div>`;
+
+    // Uppgifter
+    h += `<h3>🏢 Uppgifter ${isNew ? '' : `<button class="btn small" onclick="toggle('info')">${open === 'info' ? 'Stäng' : '✏️ Ändra'}</button>`}</h3>`;
+    if (open === 'info') h += infoForm(c);
+    else h += `<div class="row static"><div class="main"><div class="m" style="font-size:13px;line-height:1.6">${[
+      c.orgNr ? 'Org.nr ' + esc(c.orgNr) : '', c.address ? esc(c.address) : '', c.contact ? 'Kontakt: <b>' + esc(c.contact) + '</b>' : '',
+      c.phone ? `📞 <a href="tel:${esc(fixPhone(c.phone).replace(/[^\d+]/g, ''))}" style="color:var(--accent)">${esc(fixPhone(c.phone))}</a>` : '', c.email ? `✉️ <a href="mailto:${esc(c.email)}" style="color:var(--accent)">${esc(c.email)}</a>` : '',
+      c.note ? '📝 ' + esc(c.note) : ''].filter(Boolean).join('<br>') || 'Inga uppgifter ifyllda än.'}</div></div></div>`;
+    if (isNew) { $('sheet').innerHTML = h; return; }
+
+    // Personer
+    h += `<h3>👷 Personer (${c.people.length}) <button class="btn small" onclick="toggle('p:+')">＋ Ny person</button></h3>`;
+    if (open === 'p:+') h += personForm(c, null);
+    if (!c.people.length && open !== 'p:+') h += '<div class="hint">Lägg till UE-ansvarig först – hen får mejlet med kartorna och ser hela företagets runda.</div>';
+    c.people.forEach(p => {
+      const key = 'p:' + p.name;
+      h += `<div class="row" onclick="toggle(${jsArg(key)})"><div class="main"><div class="t">${esc(p.name)}${p.ueLead ? ' · UE-ansvarig' : ''}${p.shoveler ? ' · 🧹' : ''}${p.status !== 'Aktiv' ? ' · ' + esc(p.status) : ''}</div>
+        <div class="m">${[p.phone ? esc(fixPhone(p.phone)) : '⚠️ saknar mobil', p.email ? esc(p.email) : (p.ueLead ? '⚠️ saknar e-post' : ''), p.kitSent ? '📦 ' + esc(p.kitSent) : '📦 välkomstpaket inte skickat'].filter(Boolean).join(' · ')}</div></div><span>›</span></div>`;
+      if (open === key) h += personForm(c, p);
+    });
+
+    // Traktorer
+    h += `<h3>🚜 Traktorer (${c.tractors.length}) <button class="btn small" onclick="toggle('t:+')">＋ Ny traktor</button></h3>`;
+    if (open === 't:+') h += tractorForm(c, null);
+    c.tractors.forEach(t => {
+      const key = 't:' + t.id;
+      h += `<div class="row" onclick="toggle(${jsArg(key)})"><div class="main"><div class="t">${esc(t.model)} · ${t.size === 'stor' ? '🟠 Stor' : '🔵 Liten'}${t.active === false ? ' · inaktiv' : ''}</div>
+        <div class="m">${[t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare', t.base ? 'står i ' + esc(t.base) : '', t.count + ' fastighet' + (t.count === 1 ? '' : 'er')].filter(Boolean).join(' · ')}</div></div><span>›</span></div>`;
+      if (open === key) h += tractorForm(c, t);
+    });
+
+    // Fastigheter
+    h += `<h3>🏠 Fastigheter (${c.properties.length})</h3>`;
+    if (!c.properties.length) h += '<div class="hint">Inga än. Dra företagets traktorer och handskottare till fastigheterna i ❄️ Snöplanering.</div>';
+    let lastArea = null;
+    c.properties.forEach(p => {
+      const area = p.omrade || p.ort || 'Utan område';
+      if (area !== lastArea) { h += `<div class="area">${esc(area)}</div>`; lastArea = area; }
+      h += `<div class="row static"><div class="main"><div class="t">${esc(p.address)}</div>
+        <div class="m">${[p.tractor ? '🚜 ' + esc(p.tractor.model) + (p.tractor.driver ? ' (' + esc(p.tractor.driver) + ')' : '') : '', p.shovelers.length ? '🧹 ' + esc(p.shovelers.join(', ')) : '', p.maps ? '📄 karta' : '⚠️ karta saknas', p.kund ? esc(p.kund) : ''].filter(Boolean).join(' · ')}</div></div>
+        <button class="btn small danger" onclick="removeProperty(${jsArg(p.id)})">✕ Ta bort</button></div>`;
+    });
+
+    h += `<div class="links" style="margin-top:22px"><button class="btn danger" onclick="deleteCompany()">🗑 Ta bort företaget</button></div>`;
+    $('sheet').innerHTML = h;
+  }
+
+  function infoForm(c) {
+    return `<div class="form">
+      <label>Företagets namn</label><input id="cName" value="${esc(c.name)}" placeholder="t.ex. Snöbröderna AB">
+      <div class="g2"><div><label>Org.nr</label><input id="cOrg" value="${esc(c.orgNr || '')}"></div><div><label>Kontaktperson</label><input id="cContact" value="${esc(c.contact || '')}"></div></div>
+      <label>Adress</label><input id="cAddr" value="${esc(c.address || '')}">
+      <div class="g2"><div><label>Telefon</label><input id="cPhone" type="tel" value="${esc(fixPhone(c.phone || ''))}"></div><div><label>E-post</label><input id="cEmail" type="email" value="${esc(c.email || '')}"></div></div>
+      <label>Anteckning om avtalet</label><textarea id="cNote">${esc(c.note || '')}</textarea>
+      <div class="hint">Byter du namn följer det med på företagets traktorer och personer.</div>
+      <div class="actions"><button class="btn primary" onclick="saveCompany()">💾 Spara</button>${cur === '' ? '<button class="btn" onclick="closeSheet()">Avbryt</button>' : ''}</div></div>`;
+  }
+
+  function personForm(c, p) {
+    const isNew = !p;
+    return `<div class="form">
+      ${isNew ? '<label>Namn</label><input id="pName" placeholder="För- och efternamn">' : ''}
+      <div class="g2"><div><label>Mobil</label><input id="pPhone" type="tel" value="${esc(fixPhone(p ? p.phone : ''))}"></div><div><label>E-post</label><input id="pEmail" type="email" value="${esc(p ? p.email : '')}"></div></div>
+      <label>Hemort (för handskottare)</label><input id="pHome" value="${esc(p ? p.home : '')}" placeholder="t.ex. Flen">
+      <label class="chk"><input type="checkbox" id="pLead" ${p && p.ueLead ? 'checked' : ''}> UE-ansvarig – ser hela företagets runda och får mejlet med kartorna</label>
+      <label class="chk"><input type="checkbox" id="pShovel" ${p && p.shoveler ? 'checked' : ''}> 🧹 Handskottare</label>
+      ${isNew ? '' : `<label>Status</label><select id="pStatus">${['Aktiv', 'Inaktiv', 'Karantän'].map(s => `<option ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}</select>`}
+      <div class="actions"><button class="btn primary" onclick="savePerson(${isNew ? 'null' : jsArg(p.name)})">💾 ${isNew ? 'Lägg till' : 'Spara'}</button>
+        ${isNew ? '' : `<button class="btn" onclick="sendKit(${jsArg(p.name)})">📦 Välkomstpaket</button>`}</div>
+      ${isNew ? '<div class="hint">Personen läggs in i Personal med rollen UE. Skicka sedan 📦 Välkomstpaket så att hen kommer in i appen.</div>' : ''}</div>`;
+  }
+
+  function tractorForm(c, t) {
+    const drivers = c.people.filter(p => p.status === 'Aktiv' || (t && p.name === t.driver));
+    return `<div class="form">
+      <label>Tillverkare &amp; modell</label><input id="tModel" value="${esc(t ? t.model : '')}" placeholder="t.ex. Volvo L30">
+      <div class="g2"><div><label>Storlek</label><select id="tSize"><option value="stor" ${t && t.size === 'stor' ? 'selected' : ''}>🟠 Stor</option><option value="liten" ${t && t.size === 'liten' ? 'selected' : ''}>🔵 Liten</option></select></div>
+        <div><label>Ort / uppställning</label><input id="tBase" value="${esc(t ? t.base : '')}" placeholder="t.ex. Hälleforsnäs"></div></div>
+      <label>Förare</label><select id="tDriver"><option value="">– ingen än –</option>${drivers.map(p => `<option ${t && p.name === t.driver ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+      <label>Anteckning</label><input id="tNote" value="${esc(t ? t.note : '')}">
+      ${t ? `<label class="chk"><input type="checkbox" id="tActive" ${t.active === false ? '' : 'checked'}> Aktiv</label>` : ''}
+      <div class="actions"><button class="btn primary" onclick="saveTractor(${t ? jsArg(t.id) : 'null'})">💾 ${t ? 'Spara' : 'Lägg till'}</button>
+        ${t ? `<button class="btn danger" onclick="deleteTractor(${jsArg(t.id)})">🗑 Ta bort</button>` : ''}</div>
+      ${t ? '' : '<div class="hint">Traktorn får företaget som ägare. Lägg ut den på fastigheterna i ❄️ Snöplanering.</div>'}</div>`;
+  }
+
+  // ---------- SPARA ----------
+  async function saveCompany() {
+    const c = cur === '' ? null : coBy(cur);
+    const company = { id: c && c.id, oldName: c && !c.registered ? c.name : '', name: $('cName').value.trim(), orgNr: $('cOrg').value.trim(), address: $('cAddr').value.trim(),
+      contact: $('cContact').value.trim(), phone: $('cPhone').value.trim(), email: $('cEmail').value.trim(), note: $('cNote').value.trim() };
+    say('Sparar…');
+    const res = await api({ action: 'saveUeCompany', company });
+    if (res.status !== 'success') { say('❌ ' + esc(res.message)); return; }
+    cur = res.company.name; open = '';
+    await load();
+    say('✅ Sparat.');
+  }
+
+  // Företag som bara fanns som ägare får en rad i UE-företag innan avtalet kan kryssas
+  async function ensureRegistered(c) {
+    if (c.registered) return c;
+    const res = await api({ action: 'saveUeCompany', company: { oldName: c.name, name: c.name } });
+    if (res.status !== 'success') throw new Error(res.message);
+    return res.company;
+  }
+
+  async function setAgreement(box) {
+    const c = coBy(cur), on = box.checked;
+    const lead = c.people.filter(p => p.ueLead && p.email).map(p => p.email);
+    const to = lead.length ? lead.join(', ') : (c.email || '');
+    const text = on ? `Markera att ${c.name} har accepterat avtalet?\n\nKulorna blir färgade och UE kan starta snöpass och markera klart.\n` + (to ? `Ett mejl från Klaryta med kundkartorna går till ${to} (kopia till dig).` : '⚠️ Ingen e-post finns – inget mejl skickas. Lägg in e-post på UE-ansvarig eller företaget.')
+      : `Ta bort avtalet för ${c.name}?\n\nKulorna blir grå igen och UE kan inte starta snöpass eller markera klart.`;
+    if (!confirm(text)) { box.checked = !on; return; }
+    say(on ? 'Sparar och skickar mejlet med kartorna…' : 'Sparar…');
+    try {
+      const reg = await ensureRegistered(c);
+      const res = await api({ action: 'setUeAgreement', id: reg.id, accepted: on, sendMail: !!to });
+      if (res.status !== 'success') throw new Error(res.message);
+      await load();
+      say(on ? (res.mail ? '✅ Avtalet registrerat. Mejlet skickat till ' + esc(res.mail) + '.' : res.mailError ? '✅ Avtalet registrerat, men mejlet gick inte: ' + esc(res.mailError) : '✅ Avtalet registrerat (inget mejl – e-post saknas).') : 'Avtalet borttaget – kulorna är grå.');
+    } catch (e) { box.checked = !on; say('❌ ' + esc(e.message || e)); }
+  }
+
+  async function sendMaps() {
+    const c = coBy(cur);
+    if (!confirm(`Skicka kundkartorna för ${c.properties.length} fastigheter till ${c.name}?`)) return;
+    say('Gör PDF:en och skickar…');
+    try {
+      const reg = await ensureRegistered(c);
+      const res = await api({ action: 'sendUeMaps', id: reg.id });
+      if (res.status !== 'success') throw new Error(res.message);
+      await load();
+      say('✅ Skickat till ' + esc(res.mail) + '.');
+    } catch (e) { say('❌ ' + esc(e.message || e)); }
+  }
+
+  async function savePerson(name) {
+    const c = coBy(cur), isNew = !name;
+    const snow = { owner: c.name, home: $('pHome').value.trim(), shoveler: $('pShovel').checked, ueLead: $('pLead').checked };
+    const phone = $('pPhone').value.trim(), email = $('pEmail').value.trim();
+    say('Sparar…');
+    if (isNew) {
+      name = $('pName').value.trim();
+      if (!name) { say('❌ Skriv personens namn.'); return; }
+      const r1 = await api({ action: 'addStaff', name, phone, email, role: 'UE', company: 'Klaryta' });
+      if (r1.status !== 'success') { say('❌ ' + esc(r1.message)); return; }
+      name = r1.user;
+    } else {
+      const p = c.people.find(x => x.name === name);
+      const r1 = await api({ action: 'updateStaff', targetUser: name, email, phone, role: p.role, status: $('pStatus').value, company: p.company });
+      if (r1.status !== 'success') { say('❌ ' + esc(r1.message)); return; }
+    }
+    const r2 = await api({ action: 'saveSnowPerson', name, ...snow });
+    if (r2.status !== 'success') { say('❌ ' + esc(r2.message)); return; }
+    open = 'p:' + name;
+    await load();
+    say('✅ Sparat.' + (r2.note ? ' ' + esc(r2.note) : '') + (isNew ? ' Skicka 📦 Välkomstpaket så att ' + esc(name.split(' ')[0]) + ' kommer in i appen.' : ''));
+  }
+
+  async function sendKit(name) {
+    if (!confirm(`Skicka välkomstpaketet (personlig inloggning) till ${name}?`)) return;
+    say('Skickar…');
+    const res = await api({ action: 'sendWelcomeKit', targetUser: name });
+    if (res.status !== 'success') { say('❌ ' + esc(res.message)); return; }
+    await load();
+    say(`📦 SMS: ${esc(res.sms || '–')}${res.mail && res.mail !== 'behövs inte' ? ' · mejl: ' + esc(res.mail) : ''}`);
+  }
+
+  async function saveTractor(id) {
+    const c = coBy(cur);
+    const t = { id: id || undefined, model: $('tModel').value.trim(), size: $('tSize').value, base: $('tBase').value.trim(), note: $('tNote').value.trim(),
+      owner: c.name, driver: $('tDriver').value, active: id ? $('tActive').checked : true };
+    say('Sparar…');
+    const res = await api({ action: 'saveTractor', tractor: t });
+    if (res.status !== 'success') { say('❌ ' + esc(res.message)); return; }
+    open = 't:' + res.tractor.id;
+    await load();
+    say('✅ Sparat.');
+  }
+
+  async function deleteTractor(id) {
+    const c = coBy(cur), t = c.tractors.find(x => x.id === id);
+    if (!confirm(`Ta bort ${t.model}?` + (t.count ? `\n\nDen ligger på ${t.count} fastigheter – de får ett tomt traktorhål.` : ''))) return;
+    say('Tar bort…');
+    for (const p of c.properties.filter(p => p.tractor && p.tractor.id === id)) {
+      const r = await api({ action: 'assignSnow', propertyId: p.id, tractorId: '' });
+      if (r.status !== 'success') { say('❌ ' + esc(r.message)); return; }
+    }
+    const res = await api({ action: 'deleteTractor', id });
+    if (res.status !== 'success') { say('❌ ' + esc(res.message)); return; }
+    open = '';
+    await load();
+    say('🗑 Borttagen.');
+  }
+
+  async function removeProperty(pid) {
+    const c = coBy(cur), p = c.properties.find(x => x.id === pid);
+    if (!confirm(`Ta bort ${p.address} från ${c.name}?\n\nFöretagets traktor och handskottare plockas bort från fastigheten.`)) return;
+    say('Tar bort…');
+    const payload = { action: 'assignSnow', propertyId: pid, shovelers: p.allShovelers.filter(n => p.shovelers.indexOf(n) === -1) };
+    if (p.tractor) payload.tractorId = '';
+    const res = await api(payload);
+    if (res.status !== 'success') { say('❌ ' + esc(res.message)); return; }
+    await load();
+    say('✅ ' + esc(p.address) + ' borttagen från ' + esc(c.name) + '.');
+  }
+
+  async function deleteCompany() {
+    const c = coBy(cur);
+    if (c.people.length || c.tractors.length) { say(`❌ ${esc(c.name)} har personer eller traktorer kvar – ta bort eller flytta dem först.`); return; }
+    if (!confirm(`Ta bort ${c.name}?`)) return;
+    if (!c.registered) { closeSheet(); await load(); return; }
+    const res = await api({ action: 'deleteUeCompany', id: c.id });
+    if (res.status !== 'success') { say('❌ ' + esc(res.message)); return; }
+    closeSheet();
+    await load();
+  }
+
+  // Från Personal: ue.html?f=<företag>&p=<person> öppnar företaget och personen
+  load().then(ok => {
+    if (!ok) return;
+    const f = q.get('f'), p = q.get('p');
+    if (f && coBy(f)) { openCompany(f); if (p) { open = 'p:' + p; renderSheet(); } }
+  });
+</script>
+</body>
+</html>

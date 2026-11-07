@@ -165,7 +165,7 @@
         <li>Tryck <b>❄️ Snöjour – karta &amp; GPS</b> på startsidan.</li>
         <li>Tryck <b>▶️ Starta snöpass</b>.</li>
         <li>Du ser <b>dina fastigheter</b>, närmast först. <span data-roller="forare">Föraren ser maskinytorna,</span><span data-roller="handskottare"> handskottaren ser handytorna.</span> 🔴 Ej röjning och hinder syns alltid.</li>
-        <li><b>🧭 Kör dit</b> öppnar vägbeskrivningen. <b>📄 Kundkarta</b> lägger kundens karta över.</li>
+        <li><b>🧭 Kör dit</b> öppnar vägbeskrivningen. <b>📄 Kundkarta</b> lägger kundens karta över. <b>⬇️ PDF</b> ger kundkartan som PDF, och <b>📄 Alla mina kartor</b> ger alla dina fastigheter i en PDF (en sida per fastighet).</li>
         <li>Tryck <b>✅ Klar</b> på varje fastighet när du är färdig.</li>
         <li>Tryck <b>⏹ Avsluta snöpasset</b> när du är klar för natten.</li>
       </ol>
@@ -178,6 +178,7 @@
     <summary>👥 UE-ansvarig: hela företagets fastigheter</summary>
     <div class="body">
       <p>Är du UE-ansvarig ser du alla fastigheter som ditt företag har, med en rad per förare (t.ex. "Kalle 8/12"). Du kan markera klart åt dina förare.</p>
+      <p><b>⏳ Väntar på avtal:</b> innan avtalet är registrerat ser ni er runda och kan hämta kundkartorna (<b>📄 Alla mina kartor</b>), men ni kan inte starta snöpass eller trycka <b>✅ Klar</b>. När avtalet är registrerat får UE-ansvarig ett mejl från Klaryta med kundkartorna som PDF.</p>
     </div>
   </details>
 
@@ -270,6 +271,22 @@
         <li><b>🗺️ Karta:</b> vem kör var; tomma hål syns som röda ringar.</li>
         <li><b>❄️ Nytt snöfall</b> nollställer alla fastigheter. Kulorna ligger kvar.</li>
         <li>Adresser, positioner, foton och traktorernas uppgifter ändras under <b>⚙️ Register</b>.</li>
+        <li><b>Grå kula</b> = UE-företaget väntar på avtal. Den går att lägga ut som vanligt, så att UE ser sin runda.</li>
+      </ul>
+    </div>
+  </details>
+
+  <details data-roller="admin" data-modul="sno">
+    <summary>🤝 UE – företag, avtal och kartor</summary>
+    <div class="body">
+      <ul>
+        <li>Startsidan → Administratör → <b>🤝 UE – företag, avtal &amp; kartor</b> (eller <b>🤝 UE</b> i Snöplaneringen). Ett kort per UE-företag. Trycker du på en UE-person på Personal-sidan hamnar du här.</li>
+        <li><b>＋ Nytt UE-företag:</b> namn, org.nr, adress, kontaktperson, telefon, e-post och anteckning. <b>✏️ Ändra</b> under Uppgifter – byter du namn följer det med på traktorer och personer.</li>
+        <li><b>＋ Ny person:</b> läggs in i Personal med rollen UE. Bocka i <b>UE-ansvarig</b> (får mejlet och ser hela rundan) och/eller <b>🧹 Handskottare</b>. Skicka sedan <b>📦 Välkomstpaket</b>.</li>
+        <li><b>＋ Ny traktor:</b> modell, storlek, ort/uppställning och förare – företaget blir ägare. Lägg ut den på fastigheterna i Snöplaneringen.</li>
+        <li><b>Fastigheter:</b> företagets fastigheter per område. <b>✕ Ta bort</b> plockar bort företagets traktor och handskottare från fastigheten.</li>
+        <li><b>☐ Avtal accepterat</b> (bara admin): kryssa i när UE har accepterat avtalet. Kulorna blir färgade, UE kan starta snöpass och markera klart, och UE-ansvarig får ett mejl från Klaryta med kundkartorna som PDF (kopia till dig). Tar du bort krysset blir kulorna grå igen.</li>
+        <li><b>📧 Skicka kartor igen</b> när rundan har ändrats.</li>
       </ul>
     </div>
   </details>

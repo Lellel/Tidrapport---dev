@@ -106,3 +106,40 @@ Ersätter "Uppföljning/fakturering mot UE" under *Kvar att resonera om*.
 - **Ekonomi:** snöunderlaget per kund (försäljningspris), granska ⚠️, markera fakturerat – som tidrapporterna i dag.
 - **UE:** samma uträkning per UE-företag med inköpspris = kontrollunderlag mot deras faktura.
 - **Lön (egen personal):** passet delas i tidrapporten i *Snöröjning* och *Transport*.
+
+## UE-vyn, avtal och kundkartor till UE
+
+Resonerat med Daniel 2026-11-07. **Byggt samma dag** (se *Hur det blev* nedan).
+
+### 🤝 UE-vyn (bara admin)
+Allt som rör UE registreras och ändras här. Nås från Hem och från Snöplanering.
+- **＋ Nytt UE-företag:** namn, org.nr, adress, kontaktperson, telefon, e-post, anteckning om avtalet.
+- **Personer:** UE-ansvarig, förare och handskottare läggs till direkt på företaget (roll UE, UE-företag ifyllt) och får välkomstpaket som vanligt. Ändra/ta bort här.
+- **Traktorer:** ＋ Ny traktor (storlek, Ort/uppställning, förare) med företaget som ägare. Ändra/ta bort här.
+- **Fastigheter:** lista per kommundel med traktor och handskottare. Tilldelning sker som förut i Snöplanering; här kan man ta bort en fastighet från UE:t. "Öppna i Snöplanering" öppnar tavlan (ännu utan filter på företaget).
+- **Personal-sidan:** UE-personer syns kvar, men ett klick på dem öppnar företaget i UE-vyn.
+
+### ☐ Avtal accepterat
+- En kryssruta per UE-företag, bara admin. Sparar datum och vem som kryssade. Avkryssning kräver bekräftelse.
+- **Före avtal:** företagets traktorkulor är **grå** (tavlan, traktorvyn, kartan) men går att dra till fastigheter som vanligt. UE ser sin runda och kan hämta kartorna i Snöjour, men larmas inte vid snöfall och har inga ▶️ Starta pass / ✅ Klar – i stället "Väntar på avtal".
+- **Efter kryss:** färg som vanligt och UE är med i snöjouren.
+
+### Mejl med kundkartorna
+- Vid kryss får UE-ansvarig ett mejl **från Klaryta** (Klaryta-loggan, Klaryta som avsändarnamn), **kopia till admin**: "Avtalet är registrerat – ni är nu med i snöjouren", med en **samlad PDF** över rundan som bilaga.
+- **📧 Skicka kartor igen** i UE-vyn: samma mejl utan avtalstexten, när rundan har ändrats.
+- PDF:en: en sida per fastighet, adressen som rubrik, **bara kundkartan** (inga ritade zoner). Fastighet utan karta = sida med "Karta saknas".
+
+### Kundkartor i Snöjour
+- 📄 på varje fastighet och **Alla mina kartor** (samlad PDF). UE-ansvarig får hela företagets runda, förare bara sina egna fastigheter.
+
+### Väntar
+- **Inköpspris per UE-företag** tas med när faktureringen resoneras klart (se *Priser* ovan).
+
+### Hur det blev
+- **ue.html** (🤝 UE): från startsidan (Administratör, sidomenyn, Mer) och 🤝 UE i Snöplaneringens list. Personal-sidan skickar UE-personer (ägare ≠ Egna) hit: `ue.html?f=<företag>&p=<person>`.
+- **Kod.gs:** fliken **UE-företag** (UE-ID, Namn, Org.nr, Adress, Kontaktperson, Telefon, E-post, Anteckning, Avtal accepterat, Avtal av, Uppdaterad). Åtgärder (admin): `getUeOverview`, `saveUeCompany` (namnbyte skriver om Ägare i Snöresurser och Traktorer; företag som bara fanns som ägare får en rad med `oldName`), `deleteUeCompany` (bara tomt), `setUeAgreement`, `sendUeMaps`. Alla: `getSnowMapsPdf` (fastigheterna man ser i Snöjour, ev. en).
+- **Avtalet:** `ueAgreementOk(ägare)` – Egna alltid, UE bara med datum i fliken. `getFleet`/`saveTractor`/`getSnowBoard` får `ueOk` → grå kula. `getSnowJour` ger `waitingAgreement` och `canMark: false` för UE utan avtal; `markSnowDone` nekas (admin får alltid).
+- **Mejlet:** till UE-ansvarigas e-post (annars företagets), kopia + svara-till den admin som kryssar, avsändarnamn Klaryta med Klarytas logga, PDF bifogad. Saknas e-post sparas avtalet ändå och vyn säger att mejlet inte gick.
+- **PDF:en:** HTML → PDF i Apps Script, A4, en sida per kundkarta (alla kartor på fastigheten, inte bara utlagda), adress + område/kund som rubrik.
+- **Nya UE-personer** läggs in med rollen UE och bolag Klaryta (Klaryta-admin får alltid sitt eget bolag).
+- Tester: `uetest.js` (servern, i kor-alla.sh) och `ue-e2e.js` (webbläsaren).

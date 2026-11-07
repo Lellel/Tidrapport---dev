@@ -183,6 +183,12 @@
     function renderTimeBox() {
       const box = document.getElementById('time-box');
       clearInterval(timerInterval);
+      const pdfBtn = jour && jour.properties.length ? `<button class="small" style="width:100%; margin-top:8px;" onclick="mapsPdf('')">📄 Alla mina kartor</button>` : '';
+      // Före avtal: rundan och kartorna syns, men inget pass och ingen Klar
+      if (jour && jour.waitingAgreement) {
+        box.innerHTML = `<div class="obj-note" style="margin:0">⏳ <b>Väntar på avtal.</b> Här är er runda och kundkartorna. När avtalet är registrerat kan ni starta snöpass och markera klart.</div>${pdfBtn}`;
+        return;
+      }
       const draft = activeSnowDraft();
       if (draft) {
         const update = () => {
@@ -196,7 +202,7 @@
         update();
         timerInterval = setInterval(update, 30000);
       } else {
-        box.innerHTML = jour && jour.properties.length ? `<button class="btn-start" style="width:100%;" onclick="startPass()">▶️ Starta snöpass</button>` : '';
+        box.innerHTML = (jour && jour.properties.length ? `<button class="btn-start" style="width:100%;" onclick="startPass()">▶️ Starta snöpass</button>` : '') + pdfBtn;
       }
     }
 
@@ -270,7 +276,7 @@
           : [maskin ? '🔵 ' + m2(maskin) : '', hand ? '🟠 ' + m2(hand) : ''].filter(Boolean).join(' · ');
         const showParts = isLead() || p.parts.length > 1;
         const parts = showParts ? `<div class="obj-parts">${visibleParts(p).map(x => { const d = doneOf(p, x.part, x.unit);
-          return `<span class="${d ? 'ok' : ''}">${x.part === 'traktor' ? '🚜' : '🧹'} ${snoEscape(x.label)}${d ? ' ✅ ' + snoEscape(d.time.slice(11)) : ''}</span>`; }).join('')}</div>` : '';
+          return `<span class="${d ? 'ok' : ''}">${x.part === 'traktor' ? '🚜' : '🧹'} ${snoEscape(x.label)}${d ? ' ✅ ' + snoEscape(d.time.slice(11)) : ''}${x.waiting ? ' ⏳ väntar på avtal' : ''}</span>`; }).join('')}</div>` : '';
         const pos = p.lat !== null ? `${p.lat},${p.lng}` : encodeURIComponent(p.address + (p.ort ? ', ' + p.ort : ''));
         const buttons = mine.map(x => {
           const d = doneOf(p, x.part, x.unit), lbl = mine.length > 1 || !x.mine ? ` ${x.part === 'traktor' ? '🚜' : '🧹'} ${snoEscape(x.label)}` : '';
@@ -288,6 +294,7 @@
           <div class="obj-actions">
             <a href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
             ${p.maps.length ? `<button class="small ${kkProp === p.id ? 'on' : ''}" onclick="toggleKundkarta('${snoEscape(p.id)}')">📄 Kundkarta</button>` : ''}
+            <button class="small" onclick="mapsPdf('${snoEscape(p.id)}')">⬇️ PDF</button>
           </div>
           ${buttons}
         </div>`;
@@ -343,6 +350,23 @@
     }
 
     // ---------- ✅ KLAR (köas i telefonen och skickas när det finns täckning) ----------
+    // ---------- KUNDKARTOR SOM PDF (en fastighet eller alla mina) ----------
+    async function mapsPdf(propertyId) {
+      const st = document.getElementById('gps-status'), before = st.innerText;
+      st.innerText = '📄 Gör PDF:en…';
+      try {
+        const res = await snoApi({ action: 'getSnowMapsPdf', propertyId: propertyId });
+        if (res.status !== 'success') { st.innerText = '❌ ' + (res.message || 'Kunde inte göra PDF:en.'); return; }
+        const bytes = Uint8Array.from(atob(res.base64), c => c.charCodeAt(0));
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        const a = document.createElement('a');
+        a.href = url; a.download = res.name; a.target = '_blank'; a.rel = 'noopener';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        st.innerText = before;
+      } catch (e) { st.innerText = '❌ Ingen kontakt – PDF:en kräver täckning.'; }
+    }
+
     function loadQueue() { try { return JSON.parse(localStorage.getItem('lpv_sno_queue') || '[]'); } catch (e) { return []; } }
     function saveQueue(q) { try { localStorage.setItem('lpv_sno_queue', JSON.stringify(q)); } catch (e) { /* full */ } }
     function renderQueue() {

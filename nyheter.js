@@ -2,6 +2,12 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-07-ue-vyn', datum: '2026-11-07', roller: ['admin'], modul: 'sno',
+    titel: '🤝 UE – företag, avtal och kartor',
+    text: 'Ny vy för allt om UE: företagsuppgifter, personer, traktorer och fastigheter. ☐ Avtal accepterat färgar företagets kulor och skickar kundkartorna som PDF till UE-ansvarig (från Klaryta, kopia till dig). Före avtal är kulorna grå men går att lägga ut.' },
+  { id: '2026-11-07-ue-kartor', datum: '2026-11-07', roller: ['forare', 'handskottare', 'ue'], modul: 'sno',
+    titel: '📄 Kundkartorna som PDF',
+    text: 'I Snöjour: ⬇️ PDF på varje fastighet och 📄 Alla mina kartor för hela rundan. UE: innan avtalet är registrerat ser ni rundan och kartorna, men kan inte starta pass eller markera klart.' },
   { id: '2026-11-07-granska-ai', datum: '2026-11-07', roller: ['admin'], modul: 'sno',
     titel: '🤖 Granska AI-inpassade kundkartor',
     text: 'Kartor som AI:n passat in har 🤖 i adresslistan. 🤖 Granska AI-inpassade (⋯ på kundkartans kort) går igenom dem en i taget: ✅ Stämmer, ✋ Justera, ⏭ Hoppa över eller ❌ Fel. Varje karta visar hur säker den är – 🟢 under 1 m mot kommunens hus, 🟡 1–2 m, 🟠 granska noga.' },

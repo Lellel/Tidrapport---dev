@@ -183,6 +183,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <span class="warnline" id="warnline"></span>
     <button class="btn" id="tglSide">Kulpåse</button>
     <button class="btn" id="tglOrder">Traktorer</button>
+    <a class="link" href="ue.html">🤝 UE</a>
     <a class="link" href="snoregister.html">⚙️ Register</a>
     <span data-theme-slot></span>
     <span class="status" id="status"></span>
@@ -268,11 +269,13 @@ const shortModel = (t) => String(t.model).split(/\s+/).slice(0, 2).join(' ');
 const initials = (n) => String(n).split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
 function tKula(t, px, chk) {
   const inner = t.avatarUrl ? `<img src="${esc(t.avatarUrl)}" alt="">` : '🚜';
-  return `<div class="kula${t.active === false ? ' grey' : ''}" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .45)}px;--kc:${brandColor(t.model)}">${inner}${chk ? '<span class="chk">✓</span>' : ''}</div>`;
+  const wait = t.ueOk === false;
+  return `<div class="kula${t.active === false || wait ? ' grey' : ''}"${wait ? ` title="⏳ ${esc(t.owner)} väntar på avtal"` : ''} style="width:${px}px;height:${px}px;font-size:${Math.round(px * .45)}px;--kc:${brandColor(t.model)}">${inner}${chk ? '<span class="chk">✓</span>' : ''}</div>`;
 }
 function pKula(name, px, chk) {
   const av = avatars[name], x = personByName(name);
-  return `<div class="kula hk${x.active === false ? ' grey' : ''}" style="width:${px}px;height:${px}px;font-size:${Math.round(px * .36)}px">${av ? `<img src="${esc(av)}" alt="">` : esc(initials(name))}${chk ? '<span class="chk">✓</span>' : ''}</div>`;
+  const wait = x.ueOk === false;
+  return `<div class="kula hk${x.active === false || wait ? ' grey' : ''}"${wait ? ` title="⏳ ${esc(x.owner)} väntar på avtal"` : ''} style="width:${px}px;height:${px}px;font-size:${Math.round(px * .36)}px">${av ? `<img src="${esc(av)}" alt="">` : esc(initials(name))}${chk ? '<span class="chk">✓</span>' : ''}</div>`;
 }
 
 // ===== Listen =====
@@ -615,7 +618,7 @@ function drop(d, x, y) {
   if (r.act === 'removeTractor') { assign(d.from, { tractorId: '' }); toast('↩ Traktorn borttagen från kortet', true); return; }
   if (r.act === 'setDriver') {
     const t = tractorById(r.tid), x2 = personByName(d.id);
-    if ((x2.owner || 'Egna') !== (t.owner || 'Egna')) { toast(`🚫 ${esc(d.id)} hör till ${esc(ownerLabel(x2.owner))} – ${esc(shortModel(t))} till ${esc(ownerLabel(t.owner))}. Ändra ägare på Personal-sidan eller i ⚙️ Register.`); return; }
+    if ((x2.owner || 'Egna') !== (t.owner || 'Egna')) { toast(`🚫 ${esc(d.id)} hör till ${esc(ownerLabel(x2.owner))} – ${esc(shortModel(t))} till ${esc(ownerLabel(t.owner))}. Ändra ägare i 🤝 UE eller ⚙️ Register.`); return; }
     if (d.fromTractor && d.fromTractor !== t.id) saveTractor(tractorById(d.fromTractor), { driver: '' });
     if (t.driver && t.driver !== d.id) toast(`🔁 ${esc(t.driver)} tillbaka i kulpåsen`, true);
     return saveTractor(t, { driver: d.id });
@@ -713,7 +716,7 @@ function tractorSheetHtml(t) {
     <h4>Ägare och uppställning</h4>
     <div class="row2"><select onchange="saveTractor(tractorById('${id}'), { owner: this.value, driver: '' })">${owners.map(o => `<option value="${esc(o)}" ${o === (t.owner || 'Egna') ? 'selected' : ''}>${esc(ownerLabel(o))}</option>`).join('')}</select>
       <input value="${esc(t.base)}" placeholder="Ort / uppställning" onchange="saveTractor(tractorById('${id}'), { base: this.value.trim() })"></div>
-    <div class="hint">Byter du ägare tas föraren bort (föraren måste ha samma ägare). Nytt UE-företag skrivs in på Personal-sidan eller i ⚙️ Register.</div>
+    <div class="hint">Byter du ägare tas föraren bort (föraren måste ha samma ägare). Nya UE-företag, personer och avtal: <a href="ue.html" style="color:var(--accent)">🤝 UE</a>. Grå kula = UE:t väntar på avtal.</div>
     <h4>Fastigheter (${mine.length}${area ? ' · ' + m2(area) : ''})</h4>
     ${mine.map(p => `<div class="krow" style="cursor:pointer" onclick="openSheet('${esc(p.id)}')"><div class="who">${p.priority ? '⭐ ' : ''}${esc(p.address)}<em>${esc(kdOf(p))}${kdOf(p) === kd ? '' : ' (annan kommundel)'}</em></div>${statusText(p, 'traktor', t.id)}</div>`).join('') || '<div class="hint">Inga ännu.</div>'}
     <div class="row2" style="margin-top:14px"><button class="btn" onclick="saveTractor(tractorById('${id}'), { active: ${t.active === false} })">${t.active === false ? '▶️ I tjänst' : '⏸ Ur tjänst'}</button>

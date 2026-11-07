@@ -231,7 +231,7 @@ function doPost(e) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning (" + authFailReason(data) + "). Be om en ny inloggningslänk." });
     }
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
-      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall",
+      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall", "getUeOverview", "saveUeCompany", "deleteUeCompany", "setUeAgreement", "sendUeMaps",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "clearPropertyMapPlace", "analyzePropertyMap", "suggestMapPoints", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
@@ -342,6 +342,12 @@ function doPost(e) {
     if (action === "saveSnowPerson") return handleSaveSnowPerson(data, auth);
     if (action === "assignSnow") return handleAssignSnow(data);
     if (action === "newSnowfall") return handleNewSnowfall(auth);
+    if (action === "getUeOverview") return handleGetUeOverview(auth);
+    if (action === "saveUeCompany") return handleSaveUeCompany(data, auth);
+    if (action === "deleteUeCompany") return handleDeleteUeCompany(data);
+    if (action === "setUeAgreement") return handleSetUeAgreement(data, auth);
+    if (action === "sendUeMaps") return handleSendUeMaps(data, auth);
+    if (action === "getSnowMapsPdf") return handleGetSnowMapsPdf(data, auth);
     if (action === "getOffers") return handleGetOffers(auth);
     if (action === "recolorHouse") return handleRecolorHouse(data);
     if (action === "geocode") {
@@ -1514,7 +1520,7 @@ function readSnowDone(snowfallId) {
 
 // Tavlan (admin): personer med snöuppgifter, pågående snöfall och vad som är klart
 function handleGetSnowBoard(auth) {
-  const people = readSnowPeople();
+  const people = readSnowPeople(), companies = readUeCompanies();
   const staff = [];
   getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
     if (!r[0] || !inScope(auth, r[6])) return;
@@ -1522,7 +1528,7 @@ function handleGetSnowBoard(auth) {
     const status = String(r[7] || "").trim() || "Aktiv";
     const name = String(r[0]).trim(), sp = snowPerson(people, name);
     staff.push({ name: name, role: staffRoleName(r), active: status.toLowerCase() === "aktiv", status: status,
-      owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home, lat: sp.lat, lng: sp.lng });
+      owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home, lat: sp.lat, lng: sp.lng, ueOk: ueAgreementOk(sp.owner, companies) });
   });
   staff.sort((a, b) => a.name.localeCompare(b.name, "sv"));
   const sf = currentSnowfall();
@@ -1592,6 +1598,8 @@ function handleMarkSnowDone(data, auth) {
   if (part === "traktor" ? p.tractorId !== unit : p.shovelers.indexOf(unit) === -1) return createJsonResponse({ status: "error", message: "Den kulan ligger inte längre på " + p.address + "." });
   const fleet = readFleetMap(), people = readSnowPeople();
   if (!snowUnitVisible(auth, snowPerson(people, auth.user), part, unit, fleet, people)) return createJsonResponse({ status: "error", message: "Du kan bara markera dina egna fastigheter." });
+  const unitOwner = part === "traktor" ? (fleet[unit] ? fleet[unit].owner : "Egna") : snowPerson(people, unit).owner;
+  if (!auth.isAdmin && !ueAgreementOk(unitOwner)) return createJsonResponse({ status: "error", message: "⏳ " + unitOwner + " väntar på avtal – ni kan inte markera klart än." });
   let sf = currentSnowfall();
   if (!sf) { sf = JSON.parse(handleNewSnowfall({ user: auth.user }).getContent()).snowfall; }
   const sheet = getSnowfallSheet(), rows = sheet.getDataRange().getValues();
@@ -1609,7 +1617,9 @@ function handleMarkSnowDone(data, auth) {
 
 // Snöjour: fastigheterna där mina kulor ligger (UE-ansvarig: företagets, admin: alla) med zoner och status
 function handleGetSnowJour(auth) {
-  const fleet = readFleetMap(), people = readSnowPeople(), me = snowPerson(people, auth.user);
+  const fleet = readFleetMap(), people = readSnowPeople(), me = snowPerson(people, auth.user), companies = readUeCompanies();
+  // Före avtal: UE ser rundan och kartorna men kan inte markera klart (admin kan alltid)
+  const okFor = (owner) => auth.isAdmin || ueAgreementOk(owner, companies);
   const props = snowVisibleProperties(auth, { fleet: fleet, people: people });
   const sf = currentSnowfall(), done = sf ? readSnowDone(sf.id) : [];
   const addr = {};
@@ -1619,14 +1629,210 @@ function handleGetSnowJour(auth) {
     const t = p.tractorId ? fleet[p.tractorId] : null;
     const parts = [];
     if (t) parts.push({ part: "traktor", unit: t.id, label: t.model + (t.driver ? " (" + t.driver + ")" : ""), driver: t.driver, owner: t.owner,
-      mine: t.driver === auth.user, canMark: snowUnitVisible(auth, me, "traktor", t.id, fleet, people) });
-    p.shovelers.forEach(n => parts.push({ part: "hand", unit: n, label: n, driver: n, owner: snowPerson(people, n).owner,
-      mine: n === auth.user, canMark: snowUnitVisible(auth, me, "hand", n, fleet, people) }));
+      mine: t.driver === auth.user, waiting: !ueAgreementOk(t.owner, companies), canMark: okFor(t.owner) && snowUnitVisible(auth, me, "traktor", t.id, fleet, people) });
+    p.shovelers.forEach(n => { const o = snowPerson(people, n).owner; parts.push({ part: "hand", unit: n, label: n, driver: n, owner: o,
+      mine: n === auth.user, waiting: !ueAgreementOk(o, companies), canMark: okFor(o) && snowUnitVisible(auth, me, "hand", n, fleet, people) }); });
     return { id: p.id, address: p.address, ort: p.ort, omrade: p.omrade, kund: p.kund, lat: p.lat, lng: p.lng, priority: p.priority, note: p.note,
       maps: p.maps.filter(m => m.place), parts: parts, done: done.filter(d => d.propertyId === p.id) };
   });
   return createJsonResponse({ status: "success", user: auth.user, isAdmin: !!auth.isAdmin, owner: me.owner, ueLead: !!me.ueLead,
+    waitingAgreement: !auth.isAdmin && !ueAgreementOk(me.owner, companies),
     snowfall: sf, properties: out, zones: zones });
+}
+
+// ==========================================
+// 4b3. UE-FÖRETAG: register, avtal och kundkartor (docs/snoplanering.md "UE-vyn", 2026-11-07)
+// Fliken UE-företag. Ägaren på traktorer och personer (Snöresurser) är företagets namn – byter man namn
+// följer det med där. Ett UE-företag utan ikryssat avtal: kulorna är grå och UE kan se men inte jobba.
+// ==========================================
+const UE_HEADERS = ["UE-ID", "Namn", "Org.nr", "Adress", "Kontaktperson", "Telefon", "E-post", "Anteckning", "Avtal accepterat", "Avtal av", "Uppdaterad"];
+function getUeSheet() { return getSheetOrCreate(getSS(), "UE-företag", UE_HEADERS); }
+
+function ueFromRow(r) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const acc = r[8] instanceof Date ? Utilities.formatDate(r[8], tz, "yyyy-MM-dd HH:mm") : String(r[8] || "").trim();
+  return { id: String(r[0]), name: String(r[1] || "").trim(), orgNr: String(r[2] || ""), address: String(r[3] || ""), contact: String(r[4] || ""),
+    phone: String(r[5] || "").replace(/^'/, ""), email: String(r[6] || "").trim(), note: String(r[7] || ""), acceptedAt: acc, acceptedBy: String(r[9] || "") };
+}
+
+// { namn: företaget } – bara rader i fliken
+function readUeCompanies() {
+  const out = {};
+  getUeSheet().getDataRange().getValues().slice(1).forEach(r => { if (r[0] && String(r[1] || "").trim()) { const c = ueFromRow(r); out[c.name] = c; } });
+  return out;
+}
+
+// Egna är alltid OK. Ett UE-företag utan rad eller utan avtalsdatum väntar på avtal.
+function ueAgreementOk(owner, companies) {
+  const o = String(owner || "").trim() || "Egna";
+  if (o === "Egna") return true;
+  const c = (companies || readUeCompanies())[o];
+  return !!(c && c.acceptedAt);
+}
+
+// Fastigheter där företaget har en kula (traktor eller handskottare)
+function ueCompanyProperties(name, ctx) {
+  return ctx.properties.filter(p => (p.tractorId && ctx.fleet[p.tractorId] && ctx.fleet[p.tractorId].owner === name) ||
+    p.shovelers.some(n => snowPerson(ctx.people, n).owner === name));
+}
+
+function ueContext() {
+  return { fleet: readFleetMap(), people: readSnowPeople(), companies: readUeCompanies(),
+    properties: getPropertySheet().getDataRange().getValues().slice(1).filter(r => r[0]).map(propertyFromRow) };
+}
+
+// Admin: allt om varje UE-företag – uppgifter, avtal, personer, traktorer och fastigheter
+function handleGetUeOverview(auth) {
+  const ctx = ueContext(), names = {};
+  Object.keys(ctx.companies).forEach(n => { names[n] = true; });
+  Object.keys(ctx.people).forEach(n => { if (ctx.people[n].owner !== "Egna") names[ctx.people[n].owner] = true; });
+  Object.values(ctx.fleet).forEach(t => { if (t.owner !== "Egna") names[t.owner] = true; });
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm", kitSent = {};
+  const smsLog = getSS().getSheetByName("SMS-logg");
+  if (smsLog) smsLog.getDataRange().getValues().slice(1).forEach(r => {
+    if (String(r[4]) !== "välkomstpaket" || String(r[6]).indexOf("FEL") === 0) return;
+    kitSent[String(r[1])] = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10);
+  });
+  const staff = {};
+  getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
+    if (!r[0] || !inScope(auth, r[6])) return;
+    const name = String(r[0]).trim(), sp = snowPerson(ctx.people, name);
+    staff[name] = { name: name, email: String(r[1] || ""), phone: String(r[2] || "").replace(/^'/, ""), role: staffRoleName(r), company: companyOf(r[6]),
+      status: String(r[7] || "").trim() || "Aktiv", hasKey: !!String(r[KEY_COLUMN - 1] || ""), kitSent: kitSent[toE164(r[2])] || "",
+      owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home };
+  });
+  const list = Object.keys(names).sort((a, b) => a.localeCompare(b, "sv")).map(name => {
+    const c = ctx.companies[name] || { id: "", name: name, orgNr: "", address: "", contact: "", phone: "", email: "", note: "", acceptedAt: "", acceptedBy: "" };
+    const props = ueCompanyProperties(name, ctx).map(p => {
+      const t = p.tractorId ? ctx.fleet[p.tractorId] : null;
+      return { id: p.id, address: p.address, ort: p.ort, omrade: p.omrade, kund: p.kund, maps: p.maps.length,
+        tractor: t && t.owner === name ? { id: t.id, model: t.model, driver: t.driver } : null,
+        shovelers: p.shovelers.filter(n => snowPerson(ctx.people, n).owner === name), allShovelers: p.shovelers };
+    }).sort((a, b) => (a.omrade || a.ort).localeCompare(b.omrade || b.ort, "sv") || a.address.localeCompare(b.address, "sv"));
+    const people = Object.values(staff).filter(s => s.owner === name).sort((a, b) => b.ueLead - a.ueLead || a.name.localeCompare(b.name, "sv"));
+    const tractors = Object.values(ctx.fleet).filter(t => t.owner === name).map(t => ({ id: t.id, model: t.model, size: t.size, base: t.base, note: t.note, driver: t.driver, active: t.active,
+      count: ctx.properties.filter(p => p.tractorId === t.id).length }));
+    return Object.assign({}, c, { registered: !!c.id, ok: !!c.acceptedAt, people: people, tractors: tractors, properties: props });
+  });
+  return createJsonResponse({ status: "success", companies: list, isSuper: !!auth.isSuper, me: auth.user });
+}
+
+// Nytt eller ändrat UE-företag. Byter man namn följer ägaren med på traktorer och personer.
+function handleSaveUeCompany(data, auth) {
+  const c = data.company || {}, name = sanitize(c.name).replace(/\s+/g, " ").slice(0, 60);
+  if (!name) return createJsonResponse({ status: "error", message: "Skriv företagets namn." });
+  if (/^egna$/i.test(name)) return createJsonResponse({ status: "error", message: "\"Egna\" är våra egna resurser – välj ett annat namn." });
+  const email = sanitize(c.email).replace(/^'/, "").slice(0, 120);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return createJsonResponse({ status: "error", message: "E-postadressen ser inte rätt ut." });
+  const sheet = getUeSheet(), rows = sheet.getDataRange().getValues();
+  let rowNumber = 0, old = null;
+  for (let i = 1; i < rows.length; i++) {
+    if (c.id && String(rows[i][0]) === String(c.id)) { rowNumber = i + 1; old = ueFromRow(rows[i]); }
+    else if (String(rows[i][1] || "").trim().toLowerCase() === name.toLowerCase()) return createJsonResponse({ status: "error", message: name + " finns redan." });
+  }
+  if (c.id && !old) return createJsonResponse({ status: "error", message: "Företaget hittades inte." });
+  // Företag som bara fanns som ägare (innan fliken fanns) får en rad med samma namn
+  const oldName = old ? old.name : sanitize(c.oldName).slice(0, 60);
+  const phone = sanitize(c.phone).replace(/^'/, "").slice(0, 20);
+  const rowData = [old ? old.id : "UE-" + Utilities.getUuid().slice(0, 8), name, sanitize(c.orgNr).slice(0, 20), sanitize(c.address).slice(0, 160),
+    sanitize(c.contact).slice(0, 60), /^\d/.test(phone) ? "'" + phone : phone, email, sanitize(c.note).slice(0, 1000),
+    old ? old.acceptedAt : "", old ? old.acceptedBy : "", nowStamp()];
+  if (rowNumber) sheet.getRange(rowNumber, 1, 1, rowData.length).setValues([rowData]); else sheet.appendRow(rowData);
+  if (oldName && oldName !== name) {
+    [[getSnowPeopleSheet(), 2], [getFleetSheet(), FLEET_HEADERS.length + 1]].forEach(([sh, col]) => {
+      const vals = sh.getDataRange().getValues();
+      for (let i = 1; i < vals.length; i++) if (String(vals[i][col - 1] || "").trim() === oldName) sh.getRange(i + 1, col).setValue(name);
+    });
+  }
+  return createJsonResponse({ status: "success", company: ueFromRow(rowData) });
+}
+
+// Ta bort ett UE-företag – bara när inga personer eller traktorer hör till det längre
+function handleDeleteUeCompany(data) {
+  const sheet = getUeSheet(), hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Företaget hittades inte." });
+  const name = String(hit.row[1] || "").trim(), people = readSnowPeople();
+  const nP = Object.keys(people).filter(n => people[n].owner === name).length, nT = Object.values(readFleetMap()).filter(t => t.owner === name).length;
+  if (nP || nT) return createJsonResponse({ status: "error", message: name + " har " + [nP ? nP + " person(er)" : "", nT ? nT + " traktor(er)" : ""].filter(Boolean).join(" och ") + " kvar – flytta eller ta bort dem först." });
+  sheet.deleteRow(hit.rowNumber);
+  return createJsonResponse({ status: "success" });
+}
+
+// ☐ Avtal accepterat (bara admin). Ikryssat → mejl från Klaryta med kundkartorna, kopia till admin.
+function handleSetUeAgreement(data, auth) {
+  const sheet = getUeSheet(), hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Spara företaget först." });
+  const accepted = !!data.accepted;
+  sheet.getRange(hit.rowNumber, 9, 1, 3).setValues([[accepted ? nowStamp() : "", accepted ? auth.user : "", nowStamp()]]);
+  const company = ueFromRow(sheet.getRange(hit.rowNumber, 1, 1, UE_HEADERS.length).getValues()[0]);
+  const out = { status: "success", company: company, mail: "" };
+  if (accepted && data.sendMail !== false) {
+    try { out.mail = sendUeMapsMail(company, auth, true); } catch (err) { out.mailError = err.message; }
+  }
+  return createJsonResponse(out);
+}
+
+// 📧 Skicka kartor igen (när rundan ändrats)
+function handleSendUeMaps(data, auth) {
+  const hit = findRowById(getUeSheet(), data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Spara företaget först." });
+  try { return createJsonResponse({ status: "success", mail: sendUeMapsMail(ueFromRow(hit.row), auth, false) }); }
+  catch (err) { return createJsonResponse({ status: "error", message: err.message }); }
+}
+
+function sendUeMapsMail(company, auth, agreement) {
+  const ctx = ueContext(), staffRows = getStaffSheet().getDataRange().getValues().slice(1);
+  const emailOf = (n) => { const r = staffRows.find(x => String(x[0]).trim() === n); return r ? String(r[1] || "").trim() : ""; };
+  const ok = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
+  const leads = Object.keys(ctx.people).filter(n => ctx.people[n].owner === company.name && ctx.people[n].ueLead).map(emailOf).filter(ok);
+  const to = leads.length ? leads : (ok(company.email) ? [company.email] : []);
+  if (!to.length) throw new Error("Ingen e-post att skicka till – lägg in e-post på UE-ansvarig eller på företaget.");
+  const cc = emailOf(String(auth.user).trim());
+  const props = ueCompanyProperties(company.name, ctx);
+  const pdf = ueMapsPdf(props, company.name);
+  const greeting = company.contact ? "Hej " + firstName(company.contact) + "!" : "Hej!";
+  const inner = (agreement ? "<p><b>Avtalet är registrerat – ni är nu med i snöjouren.</b></p>" : "<p>Här kommer en uppdaterad version av er runda.</p>") +
+    "<p>I bilagan finns kundkartorna för era " + props.length + " fastigheter, en sida per fastighet. Kartorna finns också i appen under ❄️ Snöjour → 📄 Alla mina kartor.</p>" +
+    "<p style=\"color:#64748b;font-size:13px\">Frågor? Svara på det här mejlet.</p>";
+  const mail = { to: to.join(","), name: brandDisplayName("klaryta"), subject: (agreement ? "❄️ Avtalet är registrerat – " : "❄️ Kundkartor – ") + company.name,
+    htmlBody: welcomeMailFrame("klaryta", greeting, inner), attachments: [pdf] };
+  if (ok(cc)) { mail.replyTo = cc; if (to.indexOf(cc) === -1) mail.cc = cc; }
+  MailApp.sendEmail(mail);
+  return to.join(", ") + (ok(cc) ? " (kopia " + cc + ")" : "");
+}
+
+// Samlad PDF: en sida per kundkarta, adressen som rubrik. Fastighet utan karta = sida med "Karta saknas".
+function ueMapsPdf(props, title) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const sorted = props.slice().sort((a, b) => (a.omrade || a.ort).localeCompare(b.omrade || b.ort, "sv") || a.address.localeCompare(b.address, "sv"));
+  const pages = [];
+  sorted.forEach(p => {
+    const head = '<h1 style="font-size:20px;margin:0 0 2px">' + escHtml(p.address) + '</h1><div style="color:#64748b;font-size:12px;margin-bottom:10px">' +
+      escHtml([p.omrade || p.ort, p.kund].filter(Boolean).join(" · ")) + "</div>";
+    const maps = p.maps || [];
+    if (!maps.length) { pages.push(head + '<p style="color:#94a3b8;font-size:16px;margin-top:60px;text-align:center">Karta saknas</p>'); return; }
+    maps.forEach((m, i) => {
+      let img = "";
+      try { const blob = DriveApp.getFileById(m.id).getBlob(); img = "data:" + (blob.getContentType() || "image/jpeg") + ";base64," + Utilities.base64Encode(blob.getBytes()); }
+      catch (e) { /* bilden borta */ }
+      pages.push(head + (maps.length > 1 ? '<div style="font-size:12px;margin-bottom:6px">Karta ' + (i + 1) + " av " + maps.length + (m.label ? " – " + escHtml(m.label) : "") + "</div>" : "") +
+        (img ? '<img src="' + img + '" style="max-width:100%;max-height:235mm;display:block">' : '<p style="color:#94a3b8">Kartbilden kunde inte läsas.</p>'));
+    });
+  });
+  if (!pages.length) pages.push('<p style="color:#94a3b8;font-size:16px">Inga fastigheter ännu.</p>');
+  const html = '<html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{font-family:Arial,sans-serif;color:#0f172a}.pg{page-break-after:always}.pg:last-child{page-break-after:auto}</style></head><body>' +
+    pages.map(x => '<div class="pg">' + x + "</div>").join("") + "</body></html>";
+  const fname = "Kundkartor " + String(title || "").replace(/[\\/:*?"<>|]/g, "") + " " + Utilities.formatDate(new Date(), tz, "yyyy-MM-dd") + ".pdf";
+  return Utilities.newBlob(html, "text/html", "kartor.html").getAs("application/pdf").setName(fname);
+}
+
+// Snöjour: 📄 PDF för en fastighet eller Alla mina kartor (de fastigheter man ser i Snöjour)
+function handleGetSnowMapsPdf(data, auth) {
+  let props = snowVisibleProperties(auth);
+  if (data.propertyId) props = props.filter(p => p.id === String(data.propertyId));
+  if (!props.length) return createJsonResponse({ status: "error", message: "Hittade inga fastigheter." });
+  const blob = ueMapsPdf(props, data.propertyId ? props[0].address : auth.user);
+  return createJsonResponse({ status: "success", name: blob.getName(), base64: Utilities.base64Encode(blob.getBytes()) });
 }
 
 // ==========================================
@@ -1772,6 +1978,8 @@ function handleGetFleet() {
   const rows = getFleetSheet().getDataRange().getValues();
   const fleet = [];
   for (let i = 1; i < rows.length; i++) if (rows[i][0]) fleet.push(tractorFromRow(rows[i]));
+  const companies = readUeCompanies();
+  fleet.forEach(t => { t.ueOk = ueAgreementOk(t.owner, companies); });
   return createJsonResponse({ status: "success", fleet: fleet });
 }
 
@@ -1786,7 +1994,8 @@ function handleSaveTractor(t) {
   const rowData = [id, sanitize(t.model), size, sanitize(t.base), t.active === false ? "FALSE" : "TRUE",
     existing ? existing.row[5] : "", sanitize(t.note), nowStamp(), owner, driver];
   upsertById(sheet, rowData);
-  return createJsonResponse({ status: "success", tractor: tractorFromRow(rowData), suggestedSize: suggestTractorSize(t.model) });
+  const saved = tractorFromRow(rowData); saved.ueOk = ueAgreementOk(saved.owner);
+  return createJsonResponse({ status: "success", tractor: saved, suggestedSize: suggestTractorSize(t.model) });
 }
 
 function handleGenerateTractorAvatar(id) {
