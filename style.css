@@ -649,8 +649,8 @@ input[type="checkbox"] { min-height: 0; accent-color: var(--accent); }
 /* ---------- Knappmenyn i högerspalten (admin, iPad/dator) – docs/startsidan.md ---------- */
 .dashboard-panel[hidden], .admin-menu[hidden], .admin-menu-more[hidden], #dash-oversikt[hidden], .sno-lage[hidden] { display: none !important; }
 .admin-menu { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-.admin-menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-.admin-menu-grid .main-btn { min-height: 52px; font-size: var(--fs-body); justify-content: flex-start; text-align: left; padding: 0 12px; gap: 8px; }
+.admin-menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.admin-menu-grid .main-btn { min-height: 52px; min-width: 0; font-size: var(--fs-body); justify-content: flex-start; text-align: left; padding: 6px 10px; gap: 8px; overflow-wrap: anywhere; hyphens: auto; line-height: 1.15; }
 .admin-menu-more > summary { list-style: none; min-height: 44px; font-size: var(--fs-small); color: var(--fg2); cursor: pointer; }
 .admin-menu-more > summary::-webkit-details-marker { display: none; }
 .admin-menu-more[open] > summary { margin-bottom: 8px; }

@@ -99,13 +99,31 @@ if (appUrlParams.has('admin')) {
 const macSafari = /Macintosh/.test(navigator.userAgent) && /Safari\//.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg|Firefox|FxiOS|OPR/.test(navigator.userAgent);
 const iosBrowser = (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) || macSafari)
   && !(navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+// En nyckel i adressen sparas bara första gången den syns (lpv_url_key). Annars skriver en gammal adress (flik,
+// bokmärke, hemskärms-/Dock-appens startadress) över en nyare nyckel – t.ex. efter datorlänken eller Spärra (2026-11-07).
 if (appUrlParams.has('key')) {
-  localStorage.setItem('lpv_key', appUrlParams.get('key'));
+  const urlKey = appUrlParams.get('key');
+  if (urlKey !== localStorage.getItem('lpv_url_key') || !localStorage.getItem('lpv_key')) {
+    localStorage.setItem('lpv_key', urlKey);
+    localStorage.setItem('lpv_url_key', urlKey);
+  }
   if (!iosBrowser) {
     const cleanParams = new URLSearchParams(window.location.search);
     cleanParams.delete('key');
     const cleanQuery = cleanParams.toString();
     history.replaceState(null, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : ''));
+  }
+}
+
+// Safari (Mac/iPhone/iPad, inte den installerade appen): adressen visar alltid den nyckel som gäller, så att
+// "Lägg till i Dock"/"Lägg till på hemskärmen" får rätt inloggning med sig – även efter datorlänken (?dator=).
+if (iosBrowser && localStorage.getItem('lpv_key') && !appUrlParams.has('dator') && !appUrlParams.has('offert') && !appUrlParams.has('ata')) {
+  const k = localStorage.getItem('lpv_key'), u = localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || '';
+  if (u && appUrlParams.get('key') !== k) {
+    const q = new URLSearchParams(window.location.search);
+    q.set('user', u); q.set('key', k);
+    localStorage.setItem('lpv_url_key', k);
+    history.replaceState(null, '', window.location.pathname + '?' + q.toString());
   }
 }
 
