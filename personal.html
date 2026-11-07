@@ -189,6 +189,7 @@
         <a class="lpv-btn ${p.email ? '' : 'disabled'}" href="mailto:${esc(p.email)}">✉️ Mejl</a>
         <button type="button" class="lpv-btn ${p.canEdit ? '' : 'disabled'}" onclick="sendKit()">📦 Välkomstpaket</button>
         <button type="button" class="lpv-btn ${p.canEdit ? '' : 'disabled'}" onclick="$('form').classList.toggle('open')">✏️ Ändra</button>
+        <button type="button" class="lpv-btn ${p.canEdit && p.email ? '' : 'disabled'}" onclick="mailLogin()">📧 Mejla inloggningen</button>
         <button type="button" class="lpv-btn ${p.canEdit ? '' : 'disabled'}" onclick="toggleQR()">🏁 QR</button>
         <button type="button" class="lpv-btn danger ${p.canEdit ? '' : 'disabled'}" onclick="resetKey()">🔑 Spärra &amp; ny länk</button>
       </div>
@@ -344,6 +345,18 @@
       msg(`✅ ${p.name}s gamla länk fungerar inte längre. Skicka den nya med 📦 Välkomstpaket eller visa 🏁 QR.`);
     }
     if (!$('qrBox').hidden) drawQR(url, p.name);
+  }
+
+  // 📧 Mejla inloggningen: appen skickar mejlet med länken – inget SMS (2026-11-07)
+  async function mailLogin() {
+    const p = current;
+    if (!p.email) { msg('⚠️ ' + p.name + ' har ingen e-post. Lägg till den under ✏️ Ändra.', true); return; }
+    if (!confirm(`Mejla inloggningen till ${p.name}?\n\n${p.email}\n\nInget SMS skickas.`)) return;
+    msg('Skickar… ⏳');
+    let res;
+    try { res = await snoApi({ action: 'mailLogin', targetUser: p.name }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+    if (current !== p) return;
+    msg(res.status === 'success' ? `✅ Inloggningen mejlad till ${res.sentTo}.` : '❌ ' + (res.message || 'Kunde inte skicka.'), res.status !== 'success');
   }
 
   // ================= ＋ NY PERSON =================

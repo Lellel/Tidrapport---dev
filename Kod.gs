@@ -230,7 +230,7 @@ function doPost(e) {
     if (!auth) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning (" + authFailReason(data) + "). Be om en ny inloggningslänk." });
     }
-    const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
+    const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "mailLogin", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall", "getUeOverview", "saveUeCompany", "deleteUeCompany", "setUeAgreement", "sendUeMaps", "setUeFskatt", "lookupOrgNr",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "clearPropertyMapPlace", "analyzePropertyMap", "suggestMapPoints", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
@@ -316,6 +316,14 @@ function doPost(e) {
     if (action === "sickReport") return handleSickReport(data);
     if (action === "batchReports") return handleBatchReports(data);
     if (action === "getUsers") return handleGetUsers(auth);
+    // 📧 Mejla inloggningen (Personal-sidan): bara mejl, inget SMS (2026-11-07). Samma behörighet som välkomstpaketet.
+    if (action === "mailLogin") {
+      if (!auth.isSuper) {
+        const st = findStaffRow(getStaffSheet(), data.targetUser);
+        if (!st || !inScope(auth, st.row[6]) || isAdminRow(st.row) || isEconomistRow(st.row)) return createJsonResponse({ status: "error", message: "Åtkomst nekad: bara admin på LPV kan skicka till den personen." });
+      }
+      return handleMailLogin(data, auth);
+    }
     if (action === "sendWelcomeKit") {
       if (!auth.isSuper) {
         const st = findStaffRow(getStaffSheet(), data.targetUser);
@@ -770,6 +778,30 @@ function handleSendWelcomeKit(data, auth) {
   }
   result.receipt = sendWelcomeReceipt(sheet, auth.user, result, { name: name, company: company, brand: brand, phone: phone, email: email, sms: sms });
   return createJsonResponse(result);
+}
+
+// 📧 Mejla inloggningen: personens länk till telefon/iPad (och datorlänk för admin/ekonom) – inget SMS
+function handleMailLogin(data, auth) {
+  const sheet = getStaffSheet(), hit = findStaffRow(sheet, data.targetUser);
+  if (!hit) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
+  const row = hit.row, name = String(row[0]).trim(), roles = staffRoles(row), email = String(row[1] || "").trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return createJsonResponse({ status: "error", message: name + " har ingen e-post. Lägg till den under ✏️ Ändra." });
+  const brand = companyOf(row[6]) === "Klaryta" ? "klaryta" : "lpv", site = siteUrlFor(data);
+  let key = String(row[KEY_COLUMN - 1] || "");
+  if (!key) { key = Utilities.getUuid().replace(/-/g, ""); sheet.getRange(hit.rowNumber, KEY_COLUMN).setValue(key); clearStaffAuthCache(name); }
+  const loginUrl = site + "index.html?user=" + encodeURIComponent(name) + "&key=" + key + (roles.indexOf("admin") !== -1 ? "&admin=true" : "");
+  const office = roles.indexOf("admin") !== -1 || roles.indexOf("ekonom") !== -1;
+  try {
+    const pc = office ? createPcLink(name, auth.user, site) : "";
+    MailApp.sendEmail({ to: email, subject: "Din inloggning till appen", name: brandDisplayName(brand),
+      htmlBody: welcomeMailFrame(brand, "Hej " + firstName(name) + "!",
+        "<p>Här är din personliga inloggning. Öppna mejlet <b>på telefonen eller iPaden</b> och tryck på knappen. Dela den inte med någon annan.</p>" +
+        '<p style="margin:22px 0"><a href="' + escHtml(loginUrl) + '" style="background:#0a6fe0;color:#fff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;display:inline-block">📱 Logga in i appen</a></p>' +
+        "<p>Lägg den sedan på hemskärmen: i Safari → Dela → Lägg till på hemskärmen.</p>" +
+        (pc ? "<p><b>På datorn</b> – länken fungerar en gång och i " + PC_LINK_DAYS + " dagar:</p>" + pcButtonHtml(pc) : "") +
+        safariTipHtml()) });
+  } catch (err) { return createJsonResponse({ status: "error", message: "Mejlet gick inte iväg: " + err.message }); }
+  return createJsonResponse({ status: "success", user: name, sentTo: email });
 }
 
 // Kvittens till admin som skickade välkomstpaketet – alltid, även när något misslyckades.

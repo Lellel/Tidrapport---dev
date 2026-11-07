@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-07-mejla-inloggning', datum: '2026-11-07', roller: ['admin'],
+    titel: '📧 Mejla inloggningen',
+    text: 'På 👥 Personal → tryck på en person → 📧 Mejla inloggningen. Appen mejlar personens inloggningslänk – inget SMS skickas.' },
   { id: '2026-11-07-driftstopp-forare', datum: '2026-11-07', roller: ['forare', 'handskottare', 'ue'], modul: 'sno',
     titel: '⚠️ Traktorn står? Tryck i Snöjour',
     text: 'I Snöjour: ⚠️ Traktorn står → välj vad som hänt och när du är igång igen. Arbetsledningen får ett SMS. Får du en fastighet från någon annan står det 🆕 på kortet – tryck 👍 Uppfattat.' },
