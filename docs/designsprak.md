@@ -33,7 +33,14 @@ Alla knappar på alla sidor använder de gemensamma klasserna. Ingen sida har eg
 - Står i `CLAUDE.md`. Kontrolltestet `designtest.js` (i `verktyg/tester/kor-alla.sh`) räknar egna knappklasser och hårdkodade färger per sida mot `designbaslinje.json` och säger ifrån om någon sida får fler. När en sida görs om sänks baslinjen.
 - Undantag (kartfärger för zontyper, varumärkesfärger på traktorkulor) får ligga kvar – de är data, inte knappar.
 
-## Ordning för ombyggnaden (2026-11-07)
+## Ordning för ombyggnaden (2026-11-07) – **allt byggt samma dag**
 1. Knapparna i theme.css + regeln + kontrolltestet + Läget till Mer/startsidan.
 2. Sidorna går över till de gemensamma knapparna: Startsidan, Snöjour, Snöplanering, Rita zoner, Register, Radarn, Offerter, övriga.
 3. Informationen: startsidan för förare (en hälsning, status bara vid problem, packlistan en gång per dag, notisen inte över huvudknappen), admins högerspalt hopfälld (🔧 Administratör), Snöplanering (växlarna i en rad med tydliga namn, "⚠️ N saknar storlek →" i stället för varning per kort), Registret (＋ Ny fastighet öppnar formuläret).
+
+## Hur det blev (2026-11-07)
+- Alla 16 sidor använder de gemensamma knapparna (egna knappklasser 83 → 16, bara klickbara kort kvar; färger 107 → 86, mest kartmarkörer och zonfärger).
+- Startsidan: en hälsning, statusraden bara utan täckning, packlistan en gång per dag (`lpv_packat`), notisen under rubriken, 🔧 Administratör hopfälld (`lpv_admin_oppen`).
+- Snöplanering: "⚠️ N saknar storlek →" i listen öppnar `snoregister.html?filter=saknar`. Registret: ＋ Ny fastighet öppnar formuläret.
+- Läget: startsidan (Läge) och Mer-menyn. `[data-theme-slot="keep"]` om en sida ändå behöver en egen knapp.
+- Kända gamla fel (fanns före ombyggnaden): vader-e2e, fleraregistrerar-e2e och hinder-e2e (tom adresslista i testdatan) – ligger inte i kor-alla.sh.

@@ -193,7 +193,9 @@
     let pins = [];
     // Tavlan har flyttat till planering.html (Radar-stil, 2026-11-06) – registret har bara Fastigheter och Traktorer
     let tab = (() => { try { const t = localStorage.getItem('lpv_reg_tab'); return t === 'fleet' ? 'fleet' : 'props'; } catch (e) { return 'props'; } })();
-    let filter = 'alla';
+    // ?filter=saknar från Snöplaneringens "⚠️ N saknar storlek →"
+    let filter = (() => { const f = new URLSearchParams(location.search).get('filter'); return ['saknar', 'stor', 'liten', 'prio', 'nopos'].includes(f) ? f : 'alla'; })();
+    let showNew = false;
     let search = '';
     let selectedId = null;
     let placingPosition = false;
@@ -257,7 +259,7 @@
           <div class="stat"><b>${new Set(properties.map(p => p.ort).filter(Boolean)).size}</b>orter</div>
         </div>
         ${missing === 0 && properties.length ? '<div class="muted" style="text-align:center;">✅ Alla kort har storlek – redo att lägga ut kulor på 🎯 Tavla</div>' : ''}
-        ${sel ? renderDetail(sel) : renderNewForm()}
+        ${sel ? renderDetail(sel) : showNew ? renderNewForm() : '<button class="lpv-btn block" onclick="showNew=true; render()">＋ Ny fastighet</button>'}
         <div class="msg" id="msg">${message}</div>
         <input placeholder="🔍 Sök adress eller ort" value="${snoEscape(search)}" oninput="search=this.value; document.getElementById('plist').innerHTML = renderPropList()">
         <div class="filters">${fbtn('alla', 'Alla')}${fbtn('saknar', `⚠️ Saknar storlek (${missing})`)}${fbtn('stor', '🟠 Stor')}${fbtn('liten', '🔵 Liten')}${fbtn('prio', '⭐ Prio')}${noPos ? fbtn('nopos', `📍 Utan position (${noPos})`) : ''}</div>
@@ -279,7 +281,7 @@
 
     function renderNewForm() {
       return `<div class="detail" style="border-color: var(--line);">
-        <div class="detail-head"><h2>➕ Ny fastighet</h2></div>
+        <div class="detail-head"><h2>➕ Ny fastighet</h2><button class="lpv-btn icon small" onclick="showNew=false; render()" aria-label="Stäng">✕</button></div>
         <button class="lpv-btn" onclick="openImport()">📥 Importera från kalkylark</button>
         <div class="muted">…eller lägg till en i taget:</div>
         <input id="new-address" placeholder="Adress, t.ex. Drottninggatan 4">

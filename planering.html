@@ -31,7 +31,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sfchip { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .sfchip b { color: var(--fg); }
 .warnline { font-size: 12px; white-space: nowrap; }
-.warnline .bad { color: var(--warn); font-weight: 700; }
+.warnline .bad { color: var(--warn); font-weight: 700; text-decoration: none; }
 .warnline .good { color: var(--ok); font-weight: 700; }
 .status { font-size: 12px; color: var(--muted); margin-left: auto; min-width: 60px; text-align: right; }
 .status.err { color: var(--bad); }
@@ -284,6 +284,8 @@ function renderTop() {
   const parts = [noT ? `<span class="bad">⚠️ ${noT} utan traktor</span>` : '<span class="good">✅ Alla har traktor</span>'];
   if (noH) parts.push(`<span class="bad">⚠️ ${noH} saknar handskottare</span>`);
   if (noDrv) parts.push(`<span class="bad">⚠️ ${noDrv} traktor utan förare</span>`);
+  const noSize = list.filter(p => !p.size).length;
+  if (noSize) parts.push(`<a class="bad" href="snoregister.html?filter=saknar">⚠️ ${noSize} saknar storlek →</a>`);
   if (badPeople.size) parts.push(`<span class="bad">⚠️ ${[...badPeople].map(esc).join(', ')} inaktiv</span>`);
   $('warnline').innerHTML = list.length ? parts.join(' · ') : '';
   $('searchlist').innerHTML = properties.map(p => `<option value="${esc(p.address)}">${esc([p.kund, kdOf(p)].filter(Boolean).join(' · '))}</option>`).join('');
@@ -353,7 +355,8 @@ function cardHtml(p) {
   const drv = t ? `<span class="drvname">${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}</span>` : '';
   const hands = (p.shovelers || []).map(n => `<div class="drag" data-drag="person" data-kind="hand" data-id="${esc(n)}" data-from="${esc(p.id)}" title="${esc(n)}">${pKula(n, 30, !!doneOf(p, 'hand', n))}</div>`).join('');
   const slot = zs.hand > 0 || (p.shovelers || []).length ? `<div class="slot${needsHand(p) ? ' need' : ''}" data-drop="slot" data-pid="${esc(p.id)}">${(p.shovelers || []).length ? '＋' : '🧹'}</div>` : '';
-  const warns = [needsHand(p) ? '🧹⚠️ saknar handskottare' : '', !p.size ? '⚠️ storlek saknas' : '',
+  // Saknad storlek visas som en rad i listen (⚠️ N saknar storlek →), inte på varje kort
+  const warns = [needsHand(p) ? '🧹⚠️ saknar handskottare' : '',
     t && t.driver && personByName(t.driver).active === false ? `⚠️ ${esc(t.driver)} inaktiv` : '',
     ...(p.shovelers || []).filter(n => personByName(n).active === false).map(n => `⚠️ ${esc(n)} inaktiv`)].filter(Boolean);
   return `<div class="pcard ${st}" id="c-${esc(p.id)}" data-card="${esc(p.id)}" data-drop="card" data-pid="${esc(p.id)}">

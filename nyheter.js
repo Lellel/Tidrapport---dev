@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-07-renare', datum: '2026-11-07', roller: ['forare', 'handskottare', 'ue', 'ekonom', 'admin'],
+    titel: '🧹 Lugnare startsida och enhetliga knappar',
+    text: 'Packlistan bockas en gång per dag (sedan står det ✅ Packat). "Ansluten" syns bara när det saknas täckning. Alla knappar ser likadana ut i hela appen: fylld blå = gör det här, grön = Starta/Klar, blåtonad = vald.' },
   { id: '2026-11-07-ue-orgnr', datum: '2026-11-07', roller: ['admin'],
     titel: '🔍 Hämta UE-företag från Bolagsverket',
     text: 'I 🤝 UE: skriv org.nr och tryck 🔍 Hämta så fylls namn och adress i. I företagskortet finns nu ☐ F-skatt kontrollerad – 🔎 Kolla F-skatt öppnar Skatteverket med org.nr kopierat.' },
