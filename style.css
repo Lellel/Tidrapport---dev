@@ -294,7 +294,8 @@ button.btn-primary, .action-button, .btn-blue {
   color: var(--fg2);
   border-radius: 12px;
 }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: var(--fw-strong); }
+/* Valt läge ser upphöjt ut – fylld blå betyder "gör det här" (docs/designsprak.md) */
+.seg button[aria-pressed="true"] { background: var(--bg-solid); color: var(--fg); font-weight: var(--fw-strong); box-shadow: 0 1px 4px rgba(0, 0, 0, .16); }
 
 /* ---------- Morgonhälsning och glaskule-avatar ---------- */
 .morning-header-card {

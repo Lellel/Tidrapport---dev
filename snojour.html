@@ -14,18 +14,12 @@
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--t-font); }
     body { display: flex; flex-direction: column; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: calc(env(safe-area-inset-top) + 10px) 14px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
-    header a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 0; }
     .map-wrap { position: relative; height: 50vh; flex-shrink: 0; }
     #map { height: 100%; width: 100%; }
     .map-buttons { position: absolute; right: 10px; bottom: 10px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
-    .map-buttons button { min-height: 40px; padding: 0 12px; background: var(--t-overlay); }
-    .map-buttons button.active { background: var(--accent); color: var(--t-on-accent); }
     .sheet { flex: 1; overflow-y: auto; padding: 12px 14px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 12px; }
     select { width: 100%; padding: 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
-    button { min-height: 48px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; }
-    .btn-start { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 16px; }
-    .btn-stop { background: var(--danger); border-color: var(--danger); color: #fff; font-size: 16px; }
     .timer { text-align: center; font-size: 13px; color: var(--muted); }
     .timer b { color: var(--text); font-size: 22px; font-variant-numeric: tabular-nums; display: block; }
     .gps-status { font-size: 12px; color: var(--muted); }
@@ -37,20 +31,15 @@
     .obj-note { font-size: 13px; color: var(--warn); }
     .obj-parts { display: flex; flex-wrap: wrap; gap: 6px; }
     .obj-parts span { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--t-btn); }
-    .obj-parts span.ok { background: rgba(34,197,94,.2); color: var(--ok); }
+    .obj-parts span.ok { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
     .obj-actions { display: flex; gap: 6px; }
     .obj-actions > * { flex: 1; }
-    .obj-actions a, .obj-actions button.small { display: flex; align-items: center; justify-content: center; min-height: 40px; color: var(--accent); font-size: 13px; font-weight: 700; text-decoration: none; border: 1px solid var(--line); border-radius: var(--t-r); background: transparent; }
-    .obj-actions button.small.on { background: var(--accent); color: var(--t-on-accent); }
-    .btn-done { width: 100%; background: var(--ok); border-color: var(--ok); color: #fff; font-size: 16px; min-height: 52px; }
-    .btn-undo { width: 100%; min-height: 40px; font-size: 13px; background: transparent; color: var(--muted); }
     .progress { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); }
     .progress b { color: var(--text); font-size: 18px; }
     .bar { height: 8px; border-radius: 999px; background: var(--t-btn); overflow: hidden; }
     .bar > div { height: 100%; background: var(--ok); }
     .who { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
-    .who button { min-height: 36px; border-radius: 999px; font-size: 12px; padding: 0 12px; white-space: nowrap; flex-shrink: 0; }
-    .who button.active { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .who > * { flex-shrink: 0; }
     .queue { font-size: 12px; color: var(--warn); }
     .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px 0; }
     .sno-hazard { font-size: 22px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px #000); }
@@ -67,16 +56,16 @@
   <header>
     <a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
     <h1><span data-icon="snojour">❄️</span> Snöjour</h1>
-    <span style="display:flex;gap:8px;align-items:center;"><span data-theme-slot></span><a href="planering.html" id="link-plan" style="visibility:hidden;">Tavla 🎯</a></span>
+    <a href="planering.html" id="link-plan" class="lpv-btn small" style="visibility:hidden;">🎯 Tavla</a>
   </header>
 
   <div class="map-wrap">
     <div id="map"></div>
     <div class="sno-legend" id="sno-legend"></div>
     <div class="map-buttons">
-      <button id="btn-follow" onclick="toggleFollow()">📍 Följ mig</button>
-      <button onclick="toggleTiles()">🗺️ Karta</button>
-      <button onclick="location.href='snohinder.html'">⚠️ Lägg ut hinder</button>
+      <button id="btn-follow" class="lpv-toggle map" onclick="toggleFollow()">📍 Följ mig</button>
+      <button class="lpv-btn map" onclick="toggleTiles()">🗺️ Karta</button>
+      <button class="lpv-btn map" onclick="location.href='snohinder.html'">⚠️ Lägg ut hinder</button>
     </div>
   </div>
 
@@ -183,7 +172,7 @@
     function renderTimeBox() {
       const box = document.getElementById('time-box');
       clearInterval(timerInterval);
-      const pdfBtn = jour && jour.properties.length ? `<button class="small" style="width:100%; margin-top:8px;" onclick="mapsPdf('')">📄 Alla mina kartor</button>` : '';
+      const pdfBtn = jour && jour.properties.length ? `<button class="lpv-btn block" style="margin-top:8px;" onclick="mapsPdf('')">📄 Alla mina kartor</button>` : '';
       // Före avtal: rundan och kartorna syns, men inget pass och ingen Klar
       if (jour && jour.waitingAgreement) {
         box.innerHTML = `<div class="obj-note" style="margin:0">⏳ <b>Väntar på avtal.</b> Här är er runda och kundkartorna. När avtalet är registrerat kan ni starta snöpass och markera klart.</div>${pdfBtn}`;
@@ -197,12 +186,12 @@
           let mins = Math.floor((Date.now() - start) / 60000);
           if (mins < 0) mins += 1440; // startade före midnatt
           box.innerHTML = `<div class="timer">Snöpass sedan ${draft.start}<b>${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} min</b></div>
-            <button class="btn-stop" style="width:100%; margin-top:8px;" onclick="stopPass()">⏹ Avsluta snöpasset</button>`;
+            <button class="lpv-btn go big block" style="margin-top:8px;" onclick="stopPass()">⏹ Avsluta snöpasset</button>`;
         };
         update();
         timerInterval = setInterval(update, 30000);
       } else {
-        box.innerHTML = (jour && jour.properties.length ? `<button class="btn-start" style="width:100%;" onclick="startPass()">▶️ Starta snöpass</button>` : '') + pdfBtn;
+        box.innerHTML = (jour && jour.properties.length ? `<button class="lpv-btn go big block" onclick="startPass()">▶️ Starta snöpass</button>` : '') + pdfBtn;
       }
     }
 
@@ -252,8 +241,8 @@
         o.n++; if (doneOf(p, x.part, x.unit)) o.d++;
       }));
       const names = Object.keys(people).sort((a, b) => a.localeCompare(b, 'sv'));
-      box.innerHTML = `<div class="who"><button class="${who ? '' : 'active'}" onclick="setWho('')">Alla</button>${names.map(n =>
-        `<button class="${who === n ? 'active' : ''}" onclick="setWho(this.dataset.n)" data-n="${snoEscape(n)}">${people[n].icon} ${snoEscape(n)} ${people[n].d}/${people[n].n}</button>`).join('')}</div>`;
+      box.innerHTML = `<div class="who"><button class="lpv-chip ${who ? '' : 'on'}" onclick="setWho('')">Alla</button>${names.map(n =>
+        `<button class="lpv-chip ${who === n ? 'on' : ''}" onclick="setWho(this.dataset.n)" data-n="${snoEscape(n)}">${people[n].icon} ${snoEscape(n)} ${people[n].d}/${people[n].n}</button>`).join('')}</div>`;
     }
     function setWho(n) { who = n; renderAll(); fitToList(); }
 
@@ -281,8 +270,8 @@
         const buttons = mine.map(x => {
           const d = doneOf(p, x.part, x.unit), lbl = mine.length > 1 || !x.mine ? ` ${x.part === 'traktor' ? '🚜' : '🧹'} ${snoEscape(x.label)}` : '';
           const args = `'${snoEscape(p.id)}','${x.part}','${snoEscape(x.unit).replace(/&#39;/g, "\\'")}'`;
-          return d ? `<button class="btn-undo" onclick="markDone(${args}, true)">↶ Ångra klar${lbl} (${snoEscape(d.time.slice(11))})</button>`
-            : `<button class="btn-done" onclick="markDone(${args}, false)">✅ Klar${lbl}</button>`;
+          return d ? `<button class="lpv-btn small block" onclick="markDone(${args}, true)">↶ Ångra klar${lbl} (${snoEscape(d.time.slice(11))})</button>`
+            : `<button class="lpv-btn go big block" onclick="markDone(${args}, false)">✅ Klar${lbl}</button>`;
         }).join('');
         return `<div class="obj ${st}" id="o-${snoEscape(p.id)}">
           <div onclick="focusProp('${snoEscape(p.id)}')">
@@ -292,9 +281,9 @@
           ${p.note ? `<div class="obj-note">⚠️ ${snoEscape(p.note)}</div>` : ''}
           ${parts}
           <div class="obj-actions">
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
-            ${p.maps.length ? `<button class="small ${kkProp === p.id ? 'on' : ''}" onclick="toggleKundkarta('${snoEscape(p.id)}')">📄 Kundkarta</button>` : ''}
-            <button class="small" onclick="mapsPdf('${snoEscape(p.id)}')">⬇️ PDF</button>
+            <a class="lpv-btn" href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
+            ${p.maps.length ? `<button class="lpv-toggle ${kkProp === p.id ? 'on' : ''}" onclick="toggleKundkarta('${snoEscape(p.id)}')">📄 Kundkarta</button>` : ''}
+            <button class="lpv-btn" onclick="mapsPdf('${snoEscape(p.id)}')">⬇️ PDF</button>
           </div>
           ${buttons}
         </div>`;
@@ -483,7 +472,7 @@
       if (following && !myPos) document.getElementById('gps-status').innerText = 'Väntar på GPS…';
     }
     function updateFollowButton() {
-      document.getElementById('btn-follow').classList.toggle('active', following);
+      document.getElementById('btn-follow').classList.toggle('on', following);
     }
     function toggleTiles() {
       tilesSat = !tilesSat;
