@@ -44,3 +44,6 @@ Alla knappar på alla sidor använder de gemensamma klasserna. Ingen sida har eg
 - Snöplanering: "⚠️ N saknar storlek →" i listen öppnar `snoregister.html?filter=saknar`. Registret: ＋ Ny fastighet öppnar formuläret.
 - Läget: startsidan (Läge) och Mer-menyn. `[data-theme-slot="keep"]` om en sida ändå behöver en egen knapp.
 - Kända gamla fel (fanns före ombyggnaden): vader-e2e, fleraregistrerar-e2e och hinder-e2e (tom adresslista i testdatan) – ligger inte i kor-alla.sh.
+
+## Lägsta krav på telefon/webbläsare (2026-11-07)
+Daniel: hellre en tydlig spärr än en app som fungerar halvbra. `kravkoll.js` (först i `<head>` på alla appens sidor, skriven i gammal JavaScript) kräver `color-mix()` och `dvh` i CSS samt `?.`/`??` i JavaScript = **iOS/Safari 16.2** (iPhone 8/X, iPad 6:e gen och nyare) eller ny Chrome/Edge/Firefox. Annars visas "Telefonen behöver uppdateras" med enhetens version. Kundernas offert-/ÄTA-länkar (`?offert=`, `?ata=`) spärras aldrig. Test: `kravkoll-e2e.js`. Vill man använda något nyare i CSS/JS ska kontrollen höjas samtidigt.

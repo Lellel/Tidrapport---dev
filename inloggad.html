@@ -21,7 +21,8 @@
   <table id="t"></table>
   <p id="srv">Frågar servern…</p>
   <p><a href="index.html">← Till startsidan</a></p>
-<script src="config.js"></script>
+<script src="kravkoll.js"></script>
+  <script src="config.js"></script>
 <script>
   const get = (k) => { try { return localStorage.getItem(k); } catch (e) { return '(kan inte läsas)'; } };
   const show = (v) => v === null ? '<i>saknas</i>' : '<code>' + String(v).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</code> <small>(' + String(v).length + ' tecken)</small>';

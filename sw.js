@@ -2,7 +2,7 @@
 // Appens filer visas direkt från telefonen (snabb start, fungerar utan täckning).
 // Ny version: höj CACHE_NAME → telefonen hämtar allt nytt i bakgrunden och appen
 // visar "Ny version – tryck för att uppdatera". Deploy-workflowen höjer den automatiskt i prod.
-const CACHE_NAME = 'lpv-dev-v4.7.1-b105';
+const CACHE_NAME = 'lpv-dev-v4.7.1-b106';
 const RUNTIME_CACHE = 'lpv-runtime';   // CDN-bibliotek och Drive-bilder
 const TILE_CACHE = 'lpv-tiles';        // kartbitar för Snöjour
 const MAX_TILES = 1500;
@@ -53,6 +53,7 @@ const APP_SHELL = [
   './ekonomi.html',
   './personal.html',
   './ue.html',
+  './kravkoll.js',
   './ue-uppslag.js',
   './linjer.js'
 ];
