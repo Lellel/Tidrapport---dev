@@ -284,15 +284,8 @@ function renderMorningGreeting() {
     container.parentNode.insertBefore(greetingHtml, container);
   }
 
-  greetingHtml.innerHTML = `
-    <div class="morning-avatar-slot" style="width:40px; height:40px; border-radius:50%; overflow:hidden; flex-shrink:0; border:2px solid rgba(255,255,255,0.2); cursor:pointer;">
-      <img src="${savedAvatar}" alt="Avatar" style="width:100%; height:100%; object-fit:cover; display:block; pointer-events:none;">
-    </div>
-    <div style="flex:1;">
-      <div style="font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px;">LPV & Klaryta v4.7.1</div>
-      <div style="font-size: 16px; font-weight: 700; color: #FFF;">${greeting}, ${currentUser}!</div>
-    </div>
-  `;
+  // En hälsning (docs/designsprak.md): avataren visas stor i kortet nedanför, versionen bara vid problem
+  greetingHtml.innerHTML = `<div style="flex:1; font-size: 18px; font-weight: 700;">${greeting}, ${currentUser}!</div>`;
 }
 
 function updateAvatarDisplays(base64Data) {

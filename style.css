@@ -643,6 +643,13 @@ input[type="checkbox"] { min-height: 0; accent-color: var(--accent); }
 .dash-empty { padding: 12px 0; color: var(--fg2); font-size: var(--fs-small); }
 
 /* Admin (kontorsläget behåller kompaktare mått) */
+.admin-details > summary { cursor: pointer; list-style: none; min-height: var(--tap-min); display: flex; align-items: center; }
+.admin-details > summary::-webkit-details-marker { display: none; }
+.admin-details > summary::after { content: '▸'; margin-left: auto; transition: transform .2s; }
+.admin-details[open] > summary::after { transform: rotate(90deg); }
+.packed-line { display: flex; align-items: center; gap: 10px; font-weight: var(--fw-strong); color: var(--ok); }
+.packed-line .packed-again { margin-left: auto; min-height: 40px; padding: 0 12px; font-size: var(--fs-small); color: var(--fg2); background: transparent; border: 1px solid var(--sep); }
+.status-pill[hidden], .packed-line[hidden], #packing-list[hidden] { display: none; }
 .admin-heading { font-size: var(--fs-small); font-weight: var(--fw-medium); color: var(--fg2); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 4px 6px; }
 .admin-input-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 52px; border-bottom: 1px solid var(--sep); }
 .admin-label { font-size: var(--fs-small); font-weight: var(--fw-medium); }

@@ -1566,6 +1566,17 @@ function updateVersionBadge() {
 }
 
 document.addEventListener('DOMContentLoaded', updateVersionBadge);
+// Statusraden syns bara när något är fel (docs/designsprak.md): ingen täckning
+function updateStatusPill() {
+  const pill = document.getElementById('status-pill');
+  if (!pill) return;
+  pill.hidden = navigator.onLine;
+  const dot = pill.querySelector('.status-dot'); if (dot) dot.style.background = 'var(--warn)';
+  const txt = document.getElementById('status-text'); if (txt) txt.textContent = 'Ingen täckning – passen skickas sen';
+}
+document.addEventListener('DOMContentLoaded', updateStatusPill);
+window.addEventListener('online', updateStatusPill);
+window.addEventListener('offline', updateStatusPill);
 window.updateVersionBadge = updateVersionBadge;
 
 // ==========================================

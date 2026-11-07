@@ -102,8 +102,9 @@
         <h1>Tidrapport</h1>
         <div class="header-badges">
           <div class="user-pill" id="user-display" onclick="handleUserPillClick()">Daniel</div>
-          <div class="status-pill">
-            <div class="status-dot"></div>Ansluten <span id="app-version-tag">v4.7.1</span>
+          <!-- Statusen syns bara när något är fel (ingen täckning) – docs/designsprak.md -->
+          <div class="status-pill" id="status-pill" hidden>
+            <div class="status-dot"></div><span id="status-text">Ingen täckning</span> <span id="app-version-tag">v4.7.1</span>
           </div> 
         </div>
       </header>
@@ -124,10 +125,12 @@
         </div>
         
         <div style="text-align:center; margin-bottom:14px;">
-          <div class="avatar-kicker">Postis Per 3D Edition</div>
-          <div class="welcome-title" id="welcome-title">God dag!</div>
+          <div class="welcome-title" id="welcome-title"></div>
         </div>
 
+        <!-- Packlistan bockas en gång per dag och telefon; sedan bara en rad (lpv_packat) -->
+        <div class="packed-line" id="packed-line" hidden>✅ Packat <span id="packed-time"></span> <button type="button" class="packed-again" onclick="showPackingAgain()">Visa packlistan</button></div>
+        <div id="packing-list">
         <div class="section-label">📦 Fordonscheck & Packlista</div>
         
         <div class="checklist-item">
@@ -146,6 +149,7 @@
         <button type="button" id="unlock-menu-btn" class="main-btn main-btn-blue" style="width:100%; margin-top:16px;" onclick="unlockFullMenu()">
            Visat & Packat – Lås upp Dagen
         </button>
+        </div>
       </div>
 
       <!-- Tillbud/olycka ska alltid gå att rapportera, även innan packlistan är avbockad -->
@@ -255,7 +259,8 @@
 
       <!-- ADMIN-SEKTION -->
       <div id="admin-tools-section" style="display: none; margin-top: 16px;">
-        <div class="admin-heading">Administratör: Behörigheter & Länkar</div>
+        <details id="admin-details" class="admin-details">
+        <summary class="admin-heading">🔧 Administratör – personer, länkar &amp; sidor</summary>
         <div class="ios-card" style="padding: 10px 14px; margin-bottom: 0;">
           <div class="admin-input-row">
             <span class="admin-label">Mottagare</span>
@@ -303,6 +308,7 @@
           <button type="button" class="main-btn admin-nav-btn" onclick="location.href='personal.html'">👥 Personal – översikt</button>
           <button type="button" class="main-btn admin-nav-btn su-only" hidden onclick="location.href='moduler.html'">🎛️ Moduler – vem ser vad</button>
         </div>
+        </details>
       </div>
     </aside>
   </div>
@@ -347,12 +353,31 @@
       }
     }
 
-    function unlockFullMenu() {
+    const todayKey = () => new Date().toLocaleDateString('sv-SE');
+    function unlockFullMenu(auto) {
       const menu = document.getElementById('field-tools-menu');
-      const btn = document.getElementById('unlock-menu-btn');
       if (menu) menu.classList.add('unlocked');
-      if (btn) btn.style.display = 'none';
+      let at = '';
+      try {
+        const saved = JSON.parse(localStorage.getItem('lpv_packat') || 'null');
+        at = saved && saved.d === todayKey() ? saved.t : new Date().toTimeString().slice(0, 5);
+        if (!auto) localStorage.setItem('lpv_packat', JSON.stringify({ d: todayKey(), t: at }));
+      } catch (e) { /* privat läge */ }
+      document.getElementById('packing-list').hidden = true;
+      document.getElementById('packed-time').textContent = at;
+      document.getElementById('packed-line').hidden = false;
     }
+    function showPackingAgain() {
+      document.getElementById('packing-list').hidden = false;
+      document.getElementById('packed-line').hidden = true;
+    }
+    (function () {
+      const d = document.getElementById('admin-details'); if (!d) return;
+      try { d.open = localStorage.getItem('lpv_admin_oppen') === '1'; } catch (e) { /* privat läge */ }
+      d.addEventListener('toggle', () => { try { localStorage.setItem('lpv_admin_oppen', d.open ? '1' : ''); } catch (e) { /* privat läge */ } });
+    })();
+    // Redan packat i dag på den här telefonen → verktygen är öppna direkt
+    try { const p = JSON.parse(localStorage.getItem('lpv_packat') || 'null'); if (p && p.d === todayKey()) unlockFullMenu(true); } catch (e) { /* ingen lagring */ }
   </script>
 <script src="avatar_onboarding.js?v=4.7.1"></script>
 <script src="install.js"></script>

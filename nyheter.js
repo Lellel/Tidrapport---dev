@@ -72,7 +72,7 @@ window.lpvGuideRoll = function () {
     const bar = document.createElement('div');
     bar.id = 'lpv-nytt';
     bar.setAttribute('role', 'status');
-    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 84px);z-index:900;max-width:560px;margin:0 auto;' +
+    bar.style.cssText = 'margin:0 0 12px;' +
       'display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:16px;background:var(--t-panel,#fff);color:var(--t-text,#071d33);' +
       'border:1px solid var(--t-line,rgba(0,0,0,.15));box-shadow:var(--t-shadow,0 6px 20px rgba(0,0,0,.15));font:15px/1.35 var(--t-font,system-ui)';
     const esc = (t) => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -81,7 +81,9 @@ window.lpvGuideRoll = function () {
       '<button type="button" aria-label="Stäng" style="border:0;background:none;color:inherit;font-size:20px;padding:4px 6px;cursor:pointer">✕</button>';
     bar.querySelector('a').addEventListener('click', markSeen);
     bar.querySelector('button').addEventListener('click', () => { markSeen(); bar.remove(); });
-    document.body.appendChild(bar);
+    // Överst i innehållet (under rubriken) – aldrig ovanpå huvudknappen
+    const head = document.querySelector('.app-header');
+    if (head) head.insertAdjacentElement('afterend', bar); else document.body.prepend(bar);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show); else show();
 })();
