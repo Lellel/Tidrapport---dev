@@ -21,20 +21,13 @@
     .panel-head { padding: calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 10px 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
     .panel-body { flex: 1; overflow-y: auto; padding: 12px calc(14px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) 14px; display: flex; flex-direction: column; gap: 10px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 0; }
     .pick { display: grid; grid-template-columns: 1fr 1.4fr; gap: 6px; }
-    .tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-    .tabs button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
     label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
     input, textarea, select { width: 100%; padding: 10px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-input); color: var(--text); font-size: 16px !important; } /* 16 px: iPad zoomar inte in */
     textarea { resize: vertical; min-height: 54px; }
     input, textarea, select, button { font-family: inherit; }
-    button { min-height: 44px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; touch-action: manipulation; }
-    button:disabled { opacity: .45; cursor: default; }
-    button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
-    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
-    button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+    button { touch-action: manipulation; }
     .row2 { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
     .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .status { font-size: 13px; color: var(--muted); }
@@ -51,31 +44,26 @@
     .zone-item { display: flex; justify-content: space-between; gap: 8px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r); font-size: 13px; cursor: pointer; }
     .zone-item small { color: var(--muted); }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: transparent; }
-    .chip.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
+    .kk-row > * { flex: 1; }
+    .dock-row .tool { width: 52px; font-size: 20px; padding: 0; }
+    .dock-row .swatch { width: var(--t-tap); padding: 0; }
+    .kk-fab > * { width: 76px; min-height: 64px; border-radius: 0; flex-direction: column; font-size: 12px; }
     .warn { color: var(--t-warn); font-size: 12px; }
     .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,.7); vertical-align: -1px; margin-right: 4px; }
-    button.active .sw { border: 2px solid #fff; }
     .sugg { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px dashed var(--accent); border-radius: var(--t-r); font-size: 13px; background: var(--panel); }
     .sugg span { flex: 1; cursor: pointer; }
     .sugg-num { flex: none !important; width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111; border: 1px solid var(--line); font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
     .sugg-badge { pointer-events: none !important; }
     .sugg-badge div { width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111; border: 2px solid #111; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
     .sugg small { color: var(--muted); }
-    .sugg button { min-height: 36px; padding: 0 10px; }
     /* Kundkartan */
     .kk-overlay { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; max-width: none !important; }
     .kk-handle { width: 34px; height: 34px; border-radius: 50%; background: #38bdf8; color: var(--t-on-accent); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,.5); border: 2px solid #fff; }
     .kk-row { display: flex; gap: 6px; flex-wrap: wrap; }
-    .kk-row button { flex: 1; min-height: 44px; padding: 0 8px; }
-    .kk-icon { min-height: 32px; padding: 0 8px; background: transparent; font-size: 16px; border: none; }
-    .kk-main { min-height: 48px; font-size: 14px; }
-    .kk-small { min-height: 36px; font-size: 12px; background: transparent; }
     .kk-progress { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
     /* Ett moment i taget: kort rad om nästa steg, hjälpen bakom ?, Klar – nästa alltid längst ner */
     .step { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
     .step span { flex: 1; }
-    .help-btn { min-height: 30px; width: 30px; padding: 0; border-radius: 50%; font-size: 14px; flex: none; }
     .help { font-size: 12px; line-height: 1.55; color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r); padding: 10px 12px; }
     .help b { color: var(--text); }
     .zone-sum { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -88,38 +76,25 @@
     .panel-foot { padding: 10px calc(14px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) 14px; border-top: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; gap: 6px; }
     .panel-foot:empty { display: none; }
     /* Panelen fälls in med fliken vid kartans kant */
-    .panel-tab { position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 620; min-height: 64px; width: 26px; padding: 0; border-radius: 10px 0 0 10px; border-right: none; background: var(--t-overlay); font-size: 16px; box-shadow: var(--t-shadow); }
+    .panel-tab { position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 620; min-height: 64px; width: 26px; padding: 0; border-radius: 10px 0 0 10px; border: 1px solid var(--line); border-right: none; background: var(--t-overlay); color: var(--text); font-size: 16px; box-shadow: var(--t-shadow); }
     body.panel-off .layout { grid-template-columns: 1fr 0; }
     body.panel-off .panel { display: none; }
-    .map-toggle button.icon { width: 40px; padding: 0; font-size: 16px; }
     .sno-legend { display: none !important; } /* färgerna syns i verktygsraden; förklaringen finns kvar i Snöjour */
     input[type=range] { padding: 0; }
     /* På kartan */
     .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 60px); /* under tillbaka-knappen */ left: calc(env(safe-area-inset-left) + 12px); z-index: 500; display: flex; gap: 6px; }
-    .map-toggle button { min-height: 36px; padding: 0 12px; background: var(--t-overlay); }
     .sno-legend { position: absolute; left: calc(env(safe-area-inset-left) + 12px); bottom: calc(env(safe-area-inset-bottom) + 12px); z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: calc(100% - 460px); padding: 6px 10px; border-radius: var(--t-r); background: var(--t-overlay); font-size: 12px; font-weight: 600; pointer-events: none; }
     .sno-legend span { display: inline-flex; align-items: center; gap: 5px; }
     .sno-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,.7); vertical-align: -1px; }
     /* Gestknappen till vänster på kartan – nås med vänster tumme i liggande läge */
     .kk-fab { position: absolute; left: calc(env(safe-area-inset-left) + 12px); top: 50%; transform: translateY(-50%); z-index: 600; display: none; flex-direction: column; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.4); }
-    .kk-fab button { width: 76px; min-height: 64px; border: none; border-radius: 0; background: var(--t-overlay); font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-    .kk-fab button span { font-size: 22px; }
-    .kk-fab button.on { background: var(--accent); color: var(--t-on-accent); }
     /* Verktygslådan nere till höger: vad (typ) och hur (penna, pensel, sudd) */
     .tool-dock { position: absolute; right: calc(env(safe-area-inset-right) + 12px); bottom: calc(env(safe-area-inset-bottom) + 12px); z-index: 650; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: var(--t-r-card); background: var(--t-overlay); border: 1px solid var(--line); box-shadow: var(--t-shadow); max-width: calc(100% - 24px); }
     .dock-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-    .dock-row button { min-height: 44px; padding: 0 10px; }
-    .dock-row button.sudd.active { background: var(--danger); border-color: var(--danger); color: #fff; }
     .dock-pop { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
     .dock-foot { min-height: 40px; }
-    .dock-foot .chip { min-height: 36px; }
     .dock-hint { font-size: 12px; color: var(--muted); font-weight: 600; }
-    .dock-icon { width: 44px; padding: 0 !important; font-size: 18px; }
     /* Ritprogrammet (docs/ritprogram.md): smal rad som i Apples appar – tryck på valt verktyg för storlek och färg */
-    .dock-row button.tool { width: 52px; padding: 0 !important; font-size: 20px; }
-    .dock-row button.tool.active { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
-    .dock-row button.sudd.tool.active { background: var(--danger); border-color: var(--danger); }
-    .dock-row .swatch { width: 44px; padding: 0 !important; }
     .dock-row .swatch i { display: inline-block; width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35); vertical-align: middle; }
     .dock-sep { width: 1px; align-self: stretch; background: var(--line); margin: 4px 2px; }
     .dock-size { display: flex; align-items: center; gap: 10px; min-width: 230px; }
@@ -173,8 +148,8 @@
     <div class="map-wrap">
       <div id="map"></div>
       <div class="map-toggle">
-        <button id="btn-tiles" onclick="toggleTiles()" title="Byt mellan satellit och vägkarta">🗺️ Vägkarta</button>
-        <button id="btn-fs" class="icon" onclick="toggleFullscreen()" title="Helskärm – döljer klockan och batteriet">⛶</button>
+        <button id="btn-tiles" class="lpv-btn map small" onclick="toggleTiles()" title="Byt mellan satellit och vägkarta">🗺️ Vägkarta</button>
+        <button id="btn-fs" class="lpv-btn map small icon" onclick="toggleFullscreen()" title="Helskärm – döljer klockan och batteriet">⛶</button>
       </div>
       <button class="panel-tab" id="panel-tab" onclick="togglePanel()" title="Dölj/visa panelen">⟩</button>
       <div class="sno-legend" id="sno-legend"></div>
@@ -187,9 +162,9 @@
     <aside class="panel">
       <div class="panel-head">
         <div class="topbar">
-          <a href="snohinder.html">📷 Hinder</a>
-          <a href="snojour.html">Snöjour →</a>
-          <span data-theme-slot></span>
+          <a class="lpv-btn small" href="snohinder.html">📷 Hinder</a>
+          <a class="lpv-btn small" href="snojour.html">❄️ Snöjour →</a>
+          
         </div>
         <h1><span data-icon="zoner">❄️</span> Rita snözoner</h1>
         <div class="banner" id="admin-banner">Bara admin kan spara zoner. Logga in med din admin-länk.</div>
@@ -198,15 +173,15 @@
           <input id="f-fastighet" list="fastighet-list" placeholder="🔍 Sök fastighet" aria-label="Fastighet" onchange="chooseProperty(this.value)">
           <datalist id="fastighet-list"></datalist>
         </div>
-        <div class="tabs">
-          <button id="tab-fastighet" class="active" onclick="setTab('fastighet')"><span data-icon="fastighet">🏠</span> Fastighet</button>
-          <button id="tab-zoner" onclick="setTab('zoner')"><span data-icon="zonlista">🗂️</span> Zoner <span id="zone-count"></span></button>
+        <div class="lpv-seg block">
+          <button id="tab-fastighet" class="on" onclick="setTab('fastighet')"><span data-icon="fastighet">🏠</span> Fastighet</button>
+          <button class="lpv-btn" id="tab-zoner" onclick="setTab('zoner')"><span data-icon="zonlista">🗂️</span> Zoner <span id="zone-count"></span></button>
         </div>
       </div>
 
       <div class="panel-body" id="pane-fastighet">
         <!-- Ett moment i taget (docs/ritprogram.md): kort rad om nästa steg, hjälpen bakom ? -->
-        <div class="step"><span id="step-text"></span><button class="help-btn" onclick="toggleHelp()" title="Tips och kortkommandon" aria-label="Hjälp">?</button></div>
+        <div class="step"><span id="step-text"></span><button class="lpv-btn icon small" onclick="toggleHelp()" title="Tips och kortkommandon" aria-label="Hjälp">?</button></div>
         <div class="help" id="help" hidden>
           <b>Rita:</b> ✏️ penna ringar in (eller tryck ut hörn – tryck på första hörnet för att stänga), 🖌️ pensel målar, 🧽 sudd tar bort. Tryck på valt verktyg för färg och storlek. Allt sparas direkt, ↶ ångrar.<br>
           <b>Färger:</b> 🔵 maskin · 🟠 hand · 🟣 upplag · 🔴 ej snöröjning (målas över det som inte ska röjas).<br>
@@ -219,7 +194,7 @@
         <div class="zone-sum" id="zone-sum"></div>
 
         <div class="card" id="sugg-card" hidden>
-          <div class="card-head"><span><span data-icon="forslag">💡</span> Förslag</span><button class="chip" onclick="suggestions = []; renderSuggestions()">✕ Rensa</button></div>
+          <div class="card-head"><span><span data-icon="forslag">💡</span> Förslag</span><button class="lpv-btn small" onclick="suggestions = []; renderSuggestions()">✕ Rensa</button></div>
           <div class="zone-list" id="sugg-list"></div>
           <div class="muted" id="sugg-empty" hidden></div>
         </div>
@@ -238,10 +213,10 @@
             <textarea id="f-note" placeholder="T.ex. Snöupplag vid gaveln, se upp för låg grind"></textarea>
           </div>
           <div class="actions">
-            <button class="ok" id="btn-save" onclick="saveCurrent()">💾 Spara zon</button>
-            <button onclick="cancelAll()">✕ Stäng</button>
+            <button class="lpv-btn primary" id="btn-save" onclick="saveCurrent()">💾 Spara zon</button>
+            <button class="lpv-btn" onclick="cancelAll()">✕ Stäng</button>
           </div>
-          <button class="danger" id="btn-delete" onclick="deleteSelected()" style="display:none">🗑️ Ta bort zonen</button>
+          <button class="lpv-btn danger" id="btn-delete" onclick="deleteSelected()" style="display:none">🗑️ Ta bort zonen</button>
         </div>
       </div>
       <div class="panel-foot" id="panel-foot"></div>
@@ -301,7 +276,7 @@
       if (t !== 'zoner') t = 'fastighet'; // Förare-fliken är borttagen (slingorna ersatta av kulor 2026-11-05)
       ['fastighet', 'zoner'].forEach(k => {
         document.getElementById('pane-' + k).hidden = k !== t;
-        document.getElementById('tab-' + k).classList.toggle('active', k === t);
+        document.getElementById('tab-' + k).classList.toggle('on', k === t);
       });
       try { localStorage.setItem('lpv_zon_flik', t); } catch (e) { /* privat läge */ }
     }
@@ -319,40 +294,40 @@
         document.getElementById('tool-dock').innerHTML = `
           <div class="dock-title">${pin.on ? '📌 Passa in kundkartan' : '✋ Justera kundkartan'}</div>
           ${pin.on ? `<div class="dock-result">${pinText()}</div>
-            <div class="dock-row"><button onclick="undoPin()" ${pin.pending || pin.pairs.length ? '' : 'disabled'}>↶ Ångra punkt</button><button style="flex:1" onclick="stopPin()">✓ Klar med punkterna</button></div>`
+            <div class="dock-row"><button class="lpv-btn" onclick="undoPin()" ${pin.pending || pin.pairs.length ? '' : 'disabled'}>↶ Ångra punkt</button><button class="lpv-btn" style="flex:1" onclick="stopPin()">✓ Klar med punkterna</button></div>`
           : `<div class="dock-row"><span class="dock-hint" style="min-width:auto">Fingret flyttar</span>
-            <button class="${kk.gestures === 'kk' ? 'active' : ''}" onclick="setGestures('kk')">🗺️ Kundkartan</button>
-            <button class="${kk.gestures === 'map' ? 'active' : ''}" onclick="setGestures('map')">🛰️ Satelliten</button></div>
-            <div class="dock-row"><button style="flex:1" onclick="startPin()">📌 Passa in med punkter</button><button style="flex:1" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '🤖 Föreslå punkter'}</button></div>`}
+            <button class="lpv-toggle ${kk.gestures === 'kk' ? 'on' : ''}" onclick="setGestures('kk')">🗺️ Kundkartan</button>
+            <button class="lpv-toggle ${kk.gestures === 'map' ? 'on' : ''}" onclick="setGestures('map')">🛰️ Satelliten</button></div>
+            <div class="dock-row"><button class="lpv-btn" style="flex:1" onclick="startPin()">📌 Passa in med punkter</button><button class="lpv-btn" style="flex:1" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '🤖 Föreslå punkter'}</button></div>`}
           ${kk.aiResult ? `<div class="dock-result">${kk.aiResult}</div>` : ''}
           <div class="dock-size"><span class="dock-hint">Genomskinlighet</span>
             <input type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" aria-label="Genomskinlighet"></div>
-          <div class="dock-row"><button class="ok" style="flex:1" onclick="saveKkPlace()">💾 Spara läge</button><button onclick="cancelAdjust()">✕ Avbryt</button></div>`;
+          <div class="dock-row"><button class="lpv-btn primary" style="flex:1" onclick="saveKkPlace()">💾 Spara läge</button><button class="lpv-btn" onclick="cancelAdjust()">✕ Avbryt</button></div>`;
         return;
       }
       const area = isArea(), marker = MARKER_TYPES.includes(drawType) || drawType === 'stracka';
-      const tool = (key, icon, title) => `<button class="tool ${key} ${area && instrument === key ? 'active' : ''}" title="${title}" onclick="pickTool('${key}')"><span data-icon="${key}">${icon}</span></button>`;
+      const tool = (key, icon, title) => `<button class="lpv-toggle tool ${key} ${area && instrument === key ? 'on' : ''}" title="${title}" onclick="pickTool('${key}')"><span data-icon="${key}">${icon}</span></button>`;
       const swType = area ? toolType() : lastArea;
       let pop = '';
       if (toolPop && area) {
         const sizeOf = instrument === 'sudd' ? eraseW : brushW;
-        const typeRow = instrument !== 'sudd' ? `<div class="dock-title">Färg</div><div class="dock-row">${AREA_TYPES.map(t => `<button class="chip ${drawType === t ? 'on' : ''}" onclick="setType('${t}')"><i class="sw" style="background:${SNO_TYPES[t].color}"></i> ${SHORT[t]}</button>`).join('')}</div>` : '';
+        const typeRow = instrument !== 'sudd' ? `<div class="dock-title">Färg</div><div class="dock-row">${AREA_TYPES.map(t => `<button class="lpv-chip ${drawType === t ? 'on' : ''}" onclick="setType('${t}')"><i class="sw" style="background:${SNO_TYPES[t].color}"></i> ${SHORT[t]}</button>`).join('')}</div>` : '';
         const sizeRow = instrument !== 'penna' ? `<div class="dock-title">Storlek</div><div class="dock-size">
             <input type="range" min="${SIZE_MIN}" max="${SIZE_MAX}" step="0.5" value="${sizeOf}" oninput="setSize(this.value)" aria-label="Storlek">
             <b id="size-val">${fmtW(sizeOf)}</b></div>` : '';
-        const lasso = instrument === 'sudd' ? `<div class="dock-row"><button class="chip ${eraseLasso ? 'on' : ''}" onclick="eraseLasso=!eraseLasso; renderDock()"><span data-icon="penna">✏️</span> Ringa in det som ska bort</button></div>` : '';
+        const lasso = instrument === 'sudd' ? `<div class="dock-row"><button class="lpv-chip ${eraseLasso ? 'on' : ''}" onclick="eraseLasso=!eraseLasso; renderDock()"><span data-icon="penna">✏️</span> Ringa in det som ska bort</button></div>` : '';
         pop = `<div class="dock-pop">${typeRow}${sizeRow}${lasso}</div>`;
       }
-      if (markerMenu) pop = `<div class="dock-row dock-pop">${['stracka', ...MARKER_TYPES].map(k => `<button class="${drawType === k ? 'active' : ''}" onclick="setType('${k}')">${typeName(k)}</button>`).join('')}</div>`;
+      if (markerMenu) pop = `<div class="dock-row dock-pop">${['stracka', ...MARKER_TYPES].map(k => `<button class="lpv-toggle ${drawType === k ? 'on' : ''}" onclick="setType('${k}')">${typeName(k)}</button>`).join('')}</div>`;
       document.getElementById('tool-dock').innerHTML = `${pop}
         <div class="dock-row">
           ${tool('penna', '✏️', 'Penna – ringa in eller pricka ut hörn')}${tool('pensel', '🖌️', 'Pensel – måla')}${tool('sudd', '🧽', 'Sudd')}
-          <button class="swatch" title="Färg och storlek" onclick="${area ? 'toolPop=!toolPop; markerMenu=false; renderDock()' : `setType('${lastArea}')`}"><i style="background:${SNO_TYPES[swType].color}"></i></button>
+          <button class="lpv-btn swatch" title="Färg och storlek" onclick="${area ? 'toolPop=!toolPop; markerMenu=false; renderDock()' : `setType('${lastArea}')`}"><i style="background:${SNO_TYPES[swType].color}"></i></button>
           <span class="dock-sep"></span>
-          <button class="${marker ? 'active' : ''}" onclick="markerMenu=!markerMenu; toolPop=false; renderDock()">${marker ? typeName(drawType) + ' ✕' : '＋'}</button>
+          <button class="lpv-toggle ${marker ? 'on' : ''}" onclick="markerMenu=!markerMenu; toolPop=false; renderDock()">${marker ? typeName(drawType) + ' ✕' : '＋'}</button>
           <span class="dock-sep"></span>
-          <button class="dock-icon" id="btn-gps" onclick="addGpsPoint()" title="Punkt där jag står"><span data-icon="gps">📍</span></button>
-          <button class="dock-icon" onclick="undoPoint()" title="Ångra">↶</button>
+          <button class="lpv-btn icon" id="btn-gps" onclick="addGpsPoint()" title="Punkt där jag står"><span data-icon="gps">📍</span></button>
+          <button class="lpv-btn icon" onclick="undoPoint()" title="Ångra">↶</button>
         </div>
         ${!toolPop && !markerMenu ? `<div class="dock-row dock-foot"><span class="dock-hint">${dockHint()}</span></div>` : ''}`;
     }
@@ -759,7 +734,7 @@
       document.getElementById('sugg-list').innerHTML = suggestions.map((sg, i) => `<div class="sugg">
           <span class="sugg-num">${i + 1}</span>
           <span onclick="showSuggestion(${i})">${sg.icon} ${snoEscape(sg.what)} <small>${sg.size ? sg.size + ' ' : ''}→ ${SNO_TYPES[sg.type].label}</small></span>
-          <button onclick="takeSuggestion(${i})">Ta med</button><button onclick="dropSuggestion(${i})" title="Inte aktuell">✕</button></div>`).join('');
+          <button class="lpv-btn small" onclick="takeSuggestion(${i})">Ta med</button><button class="lpv-btn small icon" onclick="dropSuggestion(${i})" title="Inte aktuell">✕</button></div>`).join('');
       document.getElementById('sugg-card').hidden = !suggestions.length;
     }
 
@@ -1441,8 +1416,8 @@
       const busy = properties.filter(takenByOther).map(x => x.claimedBy);
       return `${takenByOther(currentProp) ? `<div class="warn">🔒 ${snoEscape(currentProp.claimedBy)} jobbar med den här just nu. Välj en annan – eller <a href="#" onclick="claim(currentProp, true); return false;" style="color:var(--accent)">ta över</a>.</div>` : ''}
         <div class="status" style="font-size:12px">${area ? snoEscape(area) : 'Genomgång'}: <b>${done} av ${mine.length}</b> klara${later ? ` · ${later} senare` : ''}${busy.length ? ` · 🔒 ${[...new Set(busy)].map(snoEscape).join(', ')} jobbar också` : ''}</div>
-        ${takenByOther(currentProp) ? `<div class="kk-row"><button onclick="const n = nextProperty(currentProp); if (n) openProperty(n)">⏭ Välj en annan</button></div>` :
-          `<div class="kk-row"><button class="ok" onclick="markAndNext('klar')">✅ Klar${group.length ? ` (${group.length + 1})` : ''} – nästa</button><button onclick="markAndNext('senare')">⏭ Senare – nästa</button></div>`}`;
+        ${takenByOther(currentProp) ? `<div class="kk-row"><button class="lpv-btn" onclick="const n = nextProperty(currentProp); if (n) openProperty(n)">⏭ Välj en annan</button></div>` :
+          `<div class="kk-row"><button class="lpv-btn go" onclick="markAndNext('klar')">✅ Klar${group.length ? ` (${group.length + 1})` : ''} – nästa</button><button class="lpv-btn" onclick="markAndNext('senare')">⏭ Senare – nästa</button></div>`}`;
     }
 
     function chooseProperty(label, mapIdx) {
@@ -1474,7 +1449,7 @@
       setPropPin(currentProp); renderKkCard();
     }
     const pinBtn = () => currentProp && currentProp.lat !== null && currentProp.lat !== undefined
-      ? `<button class="kk-icon" style="${pinHidden ? 'opacity:.45' : ''}" title="${pinHidden ? 'Visa nålen på adressen' : 'Dölj nålen på adressen'}" onclick="togglePin()">📍</button>` : '';
+      ? `<button class="lpv-btn icon small" style="${pinHidden ? 'opacity:.45' : ''}" title="${pinHidden ? 'Visa nålen på adressen' : 'Dölj nålen på adressen'}" onclick="togglePin()">📍</button>` : '';
     function setPropPin(p) {
       if (propPin) { map.removeLayer(propPin); propPin = null; }
       if (pinHidden || !p || p.lat === null || p.lat === undefined || !map.dragging) return;
@@ -1954,14 +1929,14 @@
       } catch (err) { setStatus('❌ ' + snoEscape(err.message || 'Kunde inte ta bort läget.')); }
     }
     function reviewHtml() {
-      if (!review.on) { const n = reviewList().length; return n ? `<button class="kk-small" onclick="startReview()">🤖 Granska AI-inpassade (${n})</button>` : ''; }
+      if (!review.on) { const n = reviewList().length; return n ? `<button class="lpv-btn small" onclick="startReview()">🤖 Granska AI-inpassade (${n})</button>` : ''; }
       const left = reviewLeft().length, x = review.cur;
-      if (!x || kkMap() !== x.m) return `<div class="kk-row"><button onclick="reviewNext()">▶ Fortsätt granska (${left} kvar)</button><button onclick="stopReview('Granskningen avslutad.')">⏹ Avsluta</button></div>`;
+      if (!x || kkMap() !== x.m) return `<div class="kk-row"><button class="lpv-btn" onclick="reviewNext()">▶ Fortsätt granska (${left} kvar)</button><button class="lpv-btn" onclick="stopReview('Granskningen avslutad.')">⏹ Avsluta</button></div>`;
       const ai = x.m.place && x.m.place.ai;
       return `<div class="status" style="font-size:13px"><b>🤖 Granska · ${left} kvar</b>${x.p.maps.length > 1 ? ` · ${snoEscape(x.m.label || 'Karta ' + (x.i + 1))}` : ''}<br>
           <small>${ai ? aiLevel(ai) + '. ' : ''}Stämmer kundkartan mot kartan under?</small></div>
-        <div class="kk-row"><button class="ok" onclick="reviewOk()" ${review.ready ? '' : 'disabled'}>${review.ready ? '✅ Stämmer – nästa' : '⏳ Laddar…'}</button><button onclick="adjustVisible()">✋ Justera</button></div>
-        <div class="kk-row"><button onclick="reviewSkip()">⏭ Hoppa över</button><button onclick="reviewWrong()">❌ Fel – ta bort läget</button><button onclick="stopReview('Granskningen avslutad.')">⏹ Avsluta</button></div>`;
+        <div class="kk-row"><button class="lpv-btn primary" onclick="reviewOk()" ${review.ready ? '' : 'disabled'}>${review.ready ? '✅ Stämmer – nästa' : '⏳ Laddar…'}</button><button class="lpv-btn" onclick="adjustVisible()">✋ Justera</button></div>
+        <div class="kk-row"><button class="lpv-btn" onclick="reviewSkip()">⏭ Hoppa över</button><button class="lpv-btn danger" onclick="reviewWrong()">❌ Fel – ta bort läget</button><button class="lpv-btn" onclick="stopReview('Granskningen avslutad.')">⏹ Avsluta</button></div>`;
     }
 
     async function saveKkPlace() {
@@ -2061,8 +2036,8 @@
       const fab = document.getElementById('kk-fab');
       fab.style.display = 'none'; // gesterna ligger nu i verktygsraden (renderDock)
       renderDock();
-      fab.innerHTML = `<button class="${kk.gestures === 'kk' ? 'on' : ''}" onclick="setGestures('kk')"><span>🗺️</span>Kundkarta</button>
-        <button class="${kk.gestures === 'map' ? 'on' : ''}" onclick="setGestures('map')"><span>🛰️</span>Satellit</button>`;
+      fab.innerHTML = `<button class="lpv-toggle ${kk.gestures === 'kk' ? 'on' : ''}" onclick="setGestures('kk')"><span>🗺️</span>Kundkarta</button>
+        <button class="lpv-toggle ${kk.gestures === 'map' ? 'on' : ''}" onclick="setGestures('map')"><span>🛰️</span>Satellit</button>`;
     }
 
     // Kundkartans kort: fullt när kartan läggs ut/justeras, annars en kompakt rad (det sällan använda bakom ⋯ Mer).
@@ -2075,7 +2050,7 @@
       const m = kkMap();
       if (!currentProp) { el.style.display = 'none'; return; }
       el.style.display = 'flex';
-      const vagkarta = `<button class="kk-small" id="btn-sugg" onclick="loadSuggestions()"><span data-icon="frankartan">🗺️</span> Förslag från vägkartan</button>`;
+      const vagkarta = `<button class="lpv-btn small" id="btn-sugg" onclick="loadSuggestions()"><span data-icon="frankartan">🗺️</span> Förslag från vägkartan</button>`;
       const nb = neighbors(currentProp).length;
       const more = (inner) => inner.trim() ? `<details class="more"${group.length || aiRun.total ? ' open' : ''}><summary>⋯ Mer${nb ? ` · 🏘️ ${nb} ${nb === 1 ? 'granne' : 'grannar'}${group.length ? ` (${group.length} med)` : ''}` : ''}</summary><div>${inner}</div></details>` : '';
       const note = currentProp.note ? `<div class="status" style="font-size:12px">${snoEscape(currentProp.note)}</div>` : '';
@@ -2085,10 +2060,10 @@
         return;
       }
       const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" onchange="renderKkCard()"></div>`;
-      const placeBtn = kal() ? `<button class="kk-small" onclick="startPin()">📌 Passa in med punkter</button>` : '';
-      const aiBtn = kal() ? `<button class="kk-small" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '<span data-icon="ai">🤖</span> Föreslå punkter'}</button>` : '';
+      const placeBtn = kal() ? `<button class="lpv-btn small" onclick="startPin()">📌 Passa in med punkter</button>` : '';
+      const aiBtn = kal() ? `<button class="lpv-btn small" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '<span data-icon="ai">🤖</span> Föreslå punkter'}</button>` : '';
       const nAll = kal() ? aiTargets().length : 0;
-      const allBtn = kal() && (aiRun.on || nAll || aiRun.total) ? `<button class="kk-small" onclick="runAllSuggest()">${aiRun.on ? (aiRun.stop ? '⏳ Stoppar…' : '⏹ Stoppa kör alla') : `🤖 Föreslå punkter för alla ej utlagda (${nAll})`}</button><div class="status" id="ai-run" style="font-size:12px"></div>` : '';
+      const allBtn = kal() && (aiRun.on || nAll || aiRun.total) ? `<button class="lpv-btn small" onclick="runAllSuggest()">${aiRun.on ? (aiRun.stop ? '⏳ Stoppar…' : '⏹ Stoppa kör alla') : `🤖 Föreslå punkter för alla ej utlagda (${nAll})`}</button><div class="status" id="ai-run" style="font-size:12px"></div>` : '';
       const aiMark = review.on ? '' : isAi(m) ? `<div class="status" style="font-size:12px">🤖 AI-inpassad ${snoEscape(m.place.ai.at || '')} · ${aiLevel(m.place.ai)} – granska och 💾 spara (✋ Justera) när den stämmer.</div>` : '';
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
@@ -2098,10 +2073,10 @@
         return;
       }
       const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;
-      const maps = kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}${isAi(x) ? ' 🤖' : ''}</button>`).join('')}</div>` : '';
+      const maps = kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="lpv-chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}${isAi(x) ? ' 🤖' : ''}</button>`).join('')}</div>` : '';
       el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="kundkarta">📄</span> Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || currentProp.address))}</small></span>
-          <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button>${kal() ? '<button class="kk-icon" title="Justera läge" onclick="adjustVisible()"><span data-icon="justera">✋</span></button>' : ''}</span></div>
-        ${!m.place && !kal() ? '<div class="status" style="font-size:12px">📄 Kundkartan är inte inpassad än och visas inte på kartan.</div>' : ''}${reviewHtml()}${aiMark}${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'points' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn + aiBtn}
+          <span>${pinBtn()}<button class="lpv-btn icon small" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button>${kal() ? '<button class="lpv-btn icon small" title="Justera läge" onclick="adjustVisible()"><span data-icon="justera">✋</span></button>' : ''}</span></div>
+        ${!m.place && !kal() ? '<div class="status" style="font-size:12px">📄 Kundkartan är inte inpassad än och visas inte på kartan.</div>' : ''}${reviewHtml()}${aiMark}${m.place ? `<button id="kk-ai" class="lpv-btn block" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'points' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn + aiBtn}
         ${kk.aiResult && !kk.adjusting ? `<div class="status" style="font-size:12px">${kk.aiResult}</div>` : ''}
         ${more(maps + opacity + (m.place ? placeBtn + aiBtn : '') + allBtn + vagkarta + note + neighborsHtml())}`;
       renderAiRun();
@@ -2156,7 +2131,7 @@
       return `<div class="kk-progress"><label><span data-icon="grannar">🏘️</span> Grannar</label>
         <div class="chips">${list.map(n => {
           const on = group.includes(n.p.id), busy = takenByOther(n.p);
-          return `<button class="chip ${on ? 'on' : ''}" ${busy ? 'disabled' : ''} onclick="toggleNeighbor('${snoEscape(n.p.id)}')">${on ? '✓ ' : ''}${busy ? '🔒 ' : ''}${snoEscape(n.p.address)} · ${Math.round(n.d)} m${n.overlap ? ' · kartorna överlappar' : ''}${n.p.zoneStatus === 'klar' ? ' ✅' : ''}</button>`;
+          return `<button class="lpv-chip ${on ? 'on' : ''}" ${busy ? 'disabled' : ''} onclick="toggleNeighbor('${snoEscape(n.p.id)}')">${on ? '✓ ' : ''}${busy ? '🔒 ' : ''}${snoEscape(n.p.address)} · ${Math.round(n.d)} m${n.overlap ? ' · kartorna överlappar' : ''}${n.p.zoneStatus === 'klar' ? ' ✅' : ''}</button>`;
         }).join('')}</div>
         <div class="muted">${group.length ? 'Zonerna får adressen till närmaste fastighet – ändra i kortet om det blir fel. ✅ Klar gäller alla ibockade.' : `Samma kund inom ${NEIGHBOR_M} m, eller med överlappande kundkarta. Bocka i dem du vill rita samtidigt.`}</div>${mapsHtml()}</div>`;
     }
@@ -2168,8 +2143,8 @@
       return `<label style="margin-top:4px"><span data-icon="kundkarta">🗺️</span> Kundkartor på kartan</label>
         <div class="zone-list">${props.map(p => {
           const m = p === kp() ? kkMap() : p.maps[0], active = p === kp(), hid = hiddenMaps.has(m.id);
-          return `<div class="kk-row" style="align-items:center"><button class="chip ${active ? 'on' : ''}" style="flex:1;text-align:left" onclick="setActiveMap('${snoEscape(p.id)}')">${active ? '✏️ ' : ''}${snoEscape(p.address)}${m.place ? (isAi(m) ? ' · 🤖' : '') : ' · inte utlagd'}</button>
-            <button class="kk-icon" style="flex:none;width:44px" title="${hid ? 'Visa' : 'Dölj'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button></div>`;
+          return `<div class="kk-row" style="align-items:center"><button class="lpv-chip ${active ? 'on' : ''}" style="flex:1;text-align:left" onclick="setActiveMap('${snoEscape(p.id)}')">${active ? '✏️ ' : ''}${snoEscape(p.address)}${m.place ? (isAi(m) ? ' · 🤖' : '') : ' · inte utlagd'}</button>
+            <button class="lpv-btn icon small" style="flex:none;width:44px" title="${hid ? 'Visa' : 'Dölj'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button></div>`;
         }).join('')}</div>
         <div class="muted">Tryck på en adress för att göra dess karta aktiv – den justeras och läses av 🤖 AI:n.</div>`;
     }
