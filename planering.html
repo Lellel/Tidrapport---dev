@@ -26,13 +26,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Listen */
 .top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .top h1 { font-size: var(--t-fs-title); margin: 0 8px 0 2px; white-space: nowrap; }
-.seg { display: inline-flex; background: var(--panel2); border-radius: var(--t-r); padding: 3px; gap: 2px; }
-.seg button { border: 0; background: none; padding: 7px 11px; border-radius: var(--t-r); font-size: 13px; font-weight: 600; color: var(--muted); min-height: 36px; }
-.seg button.on { background: var(--accent); color: var(--t-on-accent); }
-.btn { border: 1px solid var(--line); background: var(--panel2); border-radius: var(--t-r); padding: 7px 12px; font-weight: 600; font-size: 13px; min-height: 38px; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
-.btn.on { background: var(--accent); border-color: var(--accent); color: var(--t-on-accent); }
-.btn.danger { color: var(--bad); border-color: var(--bad); background: transparent; }
 .period { font-weight: 700; font-size: 14px; min-width: 130px; text-align: center; white-space: nowrap; }
 .search { border: 1px solid var(--line); background: var(--panel2); color: var(--fg); border-radius: var(--t-r); padding: 7px 10px; font-size: 14px; min-height: 38px; width: 170px; }
 .sfchip { font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -42,7 +35,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .warnline .good { color: var(--ok); font-weight: 700; }
 .status { font-size: 12px; color: var(--muted); margin-left: auto; min-width: 60px; text-align: right; }
 .status.err { color: var(--bad); }
-.top a.link { color: var(--accent); font-weight: 700; font-size: 13px; text-decoration: none; white-space: nowrap; }
 /* Traktorremsan (där Radarns orderbok är) */
 .order { display: flex; gap: 10px; align-items: stretch; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; min-height: 92px; }
 .order.hidden { display: none; }
@@ -154,19 +146,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .krow { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .krow .who { flex: 1; min-width: 0; font-size: 13px; }
 .krow .who em { display: block; font-style: normal; color: var(--muted); font-size: 12px; }
-.krow .x { border: 0; background: var(--bad); color: #fff; border-radius: 99px; font-size: 11px; padding: 3px 8px; }
 .krow .st { font-size: 12px; }
 .krow .st.ok { color: var(--ok); font-weight: 700; }
 .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .thumbs a { aspect-ratio: 1; border-radius: var(--t-r); overflow: hidden; background: var(--bg); display: block; }
 .thumbs img { width: 100%; height: 100%; object-fit: cover; }
 .sizes { display: flex; gap: 6px; }
-.sizes button { flex: 1; }
+.sizes > * { flex: 1; }
 .sizes .on.stor { background: var(--stor); border-color: var(--stor); color: #111; }
 .sizes .on.liten { background: var(--liten); border-color: var(--liten); color: #111; }
-.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #7f1d1d; color: #fff; padding: 12px 16px; border-radius: var(--t-r); z-index: 120; font-weight: 600; display: none; max-width: 92vw; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
-.toast.ok { background: #065f46; }
-.toast button { margin-left: 10px; border: 0; background: #fff; color: #065f46; border-radius: var(--t-r); padding: 6px 10px; font-weight: 800; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--bad); color: var(--t-on-accent); padding: 12px 16px; border-radius: var(--t-r); z-index: 120; font-weight: 600; display: none; max-width: 92vw; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+.toast.ok { background: var(--ok); }
+.toast .lpv-btn { margin-left: 10px; }
 @media (max-width: 800px) { .side { width: 150px; } .search { width: 120px; } .lane .lab { width: 120px; } .lane .sum { width: 80px; } }
 </style>
 </head>
@@ -175,17 +166,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
   <div class="top">
     <a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a>
     <h1><span data-icon="sno">❄️</span> Snöplanering</h1>
-    <div class="seg" id="viewseg"><button data-v="props">🏠 Fastigheter</button><button data-v="tractors">🚜 Traktorer</button><button data-v="map">🗺️ Karta</button></div>
-    <button class="btn" id="prev" aria-label="Föregående kommundel">‹</button><span class="period" id="period"></span><button class="btn" id="next" aria-label="Nästa kommundel">›</button>
+    <div class="lpv-seg" id="viewseg"><button data-v="props">🏠 Fastigheter</button><button data-v="tractors">🚜 Traktorer</button><button data-v="map">🗺️ Karta</button></div>
+    <button class="lpv-btn icon" id="prev" aria-label="Föregående kommundel">‹</button><span class="period" id="period"></span><button class="lpv-btn icon" id="next" aria-label="Nästa kommundel">›</button>
     <input class="search" id="search" list="searchlist" placeholder="🔍 Sök adress/kund" autocomplete="off"><datalist id="searchlist"></datalist>
     <span class="sfchip" id="sfchip"></span>
-    <button class="btn" id="newSf">❄️ Nytt snöfall</button>
+    <button class="lpv-btn" id="newSf">❄️ Nytt snöfall</button>
     <span class="warnline" id="warnline"></span>
-    <button class="btn" id="tglSide">Kulpåse</button>
-    <button class="btn" id="tglOrder">Traktorer</button>
-    <a class="link" href="ue.html">🤝 UE</a>
-    <a class="link" href="snoregister.html">⚙️ Register</a>
-    <span data-theme-slot></span>
+    <button class="lpv-toggle" id="tglOrder">🚜 Traktorremsan</button>
+    <button class="lpv-toggle" id="tglSide">👷 Kulpåsen</button>
+    <a class="lpv-btn small" href="ue.html">🤝 UE</a>
+    <a class="lpv-btn small" href="snoregister.html">⚙️ Register</a>
     <span class="status" id="status"></span>
   </div>
   <div class="order" id="order"></div>
@@ -325,7 +315,7 @@ function renderOrder() {
   owners.forEach(o => { h += `<div class="owner">${esc(ownerLabel(o))}</div>` + here.filter(t => (t.owner || 'Egna') === o).map(t => tchip(t, kd)).join(''); });
   if (!here.length) h += `<div class="empty">Ingen traktor står i ${esc(kd)}. Sätt Ort / uppställning i ⚙️ Register – eller låna under ⋯</div>`;
   if (others.length) {
-    h += `<button class="btn more" id="othersBtn">${showOthers ? '◂' : '⋯'} Övriga (${others.length})</button>`;
+    h += `<button class="lpv-btn small more" id="othersBtn">${showOthers ? '◂' : '⋯'} Övriga (${others.length})</button>`;
     if (showOthers) h += others.map(x => tchip(x.t, kd, x.d < 1e11 ? snoFormatDistance(x.d) : '')).join('');
   }
   $('order').innerHTML = h;
@@ -451,7 +441,7 @@ function setStatus(t, err) { const s = $('status'); s.textContent = t; s.classNa
 let toastT;
 function toast(html, ok, action) {
   const el = $('toast');
-  el.innerHTML = html + (action ? ` <button id="toastAct">${action.label}</button>` : '');
+  el.innerHTML = html + (action ? ` <button class="lpv-btn small" id="toastAct">${action.label}</button>` : '');
   el.className = 'toast' + (ok ? ' ok' : ''); el.style.display = 'block';
   if (action) $('toastAct').onclick = () => { el.style.display = 'none'; action.run(); };
   clearTimeout(toastT); toastT = setTimeout(() => { el.style.display = 'none'; }, action ? 9000 : ok ? 2200 : 5000);
@@ -664,23 +654,23 @@ function propSheetHtml(p) {
   const freeT = fleet.filter(x => x.active !== false && x.id !== p.tractorId && (!p.size || fits(x, p)));
   const freeH = people.filter(x => x.active !== false && x.shoveler && !(p.shovelers || []).includes(x.name));
   const id = esc(p.id);
-  return `<div class="head"><div><h2>${p.priority ? '⭐ ' : ''}${esc(p.address)}</h2><div class="sub">${esc([p.kund, p.ort, kdOf(p) !== p.ort ? kdOf(p) : ''].filter(Boolean).join(' · '))}</div></div><button class="btn" onclick="closeSheet()">✕</button></div>
-    <div class="row2"><button class="btn ${p.priority ? 'on' : ''}" onclick="saveProp(propById('${id}'), { priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
-      <a class="btn" style="text-align:center;text-decoration:none" href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
-      <a class="btn" style="text-align:center;text-decoration:none" href="snozoner.html?fastighet=${encodeURIComponent(p.id)}">✏️ Rita zoner</a></div>
+  return `<div class="head"><div><h2>${p.priority ? '⭐ ' : ''}${esc(p.address)}</h2><div class="sub">${esc([p.kund, p.ort, kdOf(p) !== p.ort ? kdOf(p) : ''].filter(Boolean).join(' · '))}</div></div><button class="lpv-btn icon small" onclick="closeSheet()" aria-label="Stäng">✕</button></div>
+    <div class="row2"><button class="lpv-toggle ${p.priority ? 'on' : ''}" onclick="saveProp(propById('${id}'), { priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
+      <a class="lpv-btn" href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
+      <a class="lpv-btn" href="snozoner.html?fastighet=${encodeURIComponent(p.id)}">✏️ Rita zoner</a></div>
     <h4>Storlek (traktorhålet)</h4>
-    <div class="sizes"><button class="btn stor ${p.size === 'stor' ? 'on' : ''}" onclick="saveProp(propById('${id}'), { size: 'stor', forced: false })">🟠 Stor</button>
-      <button class="btn liten ${p.size === 'liten' ? 'on' : ''}" onclick="saveProp(propById('${id}'), { size: 'liten' })">🔵 Liten</button>
-      ${p.size === 'liten' ? `<button class="btn ${p.forced ? 'on' : ''}" onclick="if (${p.forced} || confirm('Tvinga in en stor traktor på en liten plats? Bara för gränsfall.')) saveProp(propById('${id}'), { forced: ${!p.forced} })">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}</div>
+    <div class="sizes"><button class="lpv-toggle stor ${p.size === 'stor' ? 'on' : ''}" onclick="saveProp(propById('${id}'), { size: 'stor', forced: false })">🟠 Stor</button>
+      <button class="lpv-toggle liten ${p.size === 'liten' ? 'on' : ''}" onclick="saveProp(propById('${id}'), { size: 'liten' })">🔵 Liten</button>
+      ${p.size === 'liten' ? `<button class="lpv-toggle ${p.forced ? 'on' : ''}" onclick="if (${p.forced} || confirm('Tvinga in en stor traktor på en liten plats? Bara för gränsfall.')) saveProp(propById('${id}'), { forced: ${!p.forced} })">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}</div>
     <h4>Kulorna${snowfall ? ' · snöfall ' + esc(snowfall.start.slice(5)) : ''}</h4>
     ${t ? `<div class="krow">${tKula(t, 34)}<div class="who">${esc(t.model)}<em>${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}${t.owner !== 'Egna' ? ' · ' + esc(t.owner) : ''}</em></div>${statusText(p, 'traktor', t.id)}
-        ${snowfall ? `<button class="btn" onclick="adminMark('${id}','traktor','${esc(t.id)}', ${!!doneOf(p, 'traktor', t.id)})">${doneOf(p, 'traktor', t.id) ? '↶' : '✅'}</button>` : ''}
-        <button class="x" onclick="assign('${id}', { tractorId: '' })">✕</button></div>`
+        ${snowfall ? `<button class="lpv-btn small" onclick="adminMark('${id}','traktor','${esc(t.id)}', ${!!doneOf(p, 'traktor', t.id)})">${doneOf(p, 'traktor', t.id) ? '↶' : '✅'}</button>` : ''}
+        <button class="lpv-btn icon small danger" aria-label="Ta bort" onclick="assign('${id}', { tractorId: '' })">✕</button></div>`
       : `<div class="krow"><div class="hole ${p.size || 'none'} empty"></div><div class="who">Ingen traktor<em>Dra från remsan – eller välj:</em></div></div>`}
     <select onchange="if (this.value) putTractor(tractorById(this.value), propById('${id}'), null); this.value=''"><option value="">${t ? '🔁 Byt traktor…' : '🚜 Välj traktor…'}</option>${freeT.map(x => `<option value="${esc(x.id)}">${esc(x.model)}${x.driver ? ' (' + esc(x.driver) + ')' : ''}</option>`).join('')}</select>
     ${(p.shovelers || []).map(n => `<div class="krow">${pKula(n, 34)}<div class="who">${esc(n)}<em>🧹 Handskottare${personByName(n).active === false ? ' · ⚠️ inaktiv' : ''}</em></div>${statusText(p, 'hand', n)}
-        ${snowfall ? `<button class="btn" onclick="adminMark('${id}','hand','${esc(n).replace(/&#39;/g, "\\'")}', ${!!doneOf(p, 'hand', n)})">${doneOf(p, 'hand', n) ? '↶' : '✅'}</button>` : ''}
-        <button class="x" onclick="assign('${id}', { shovelers: propById('${id}').shovelers.filter(x => x !== this.dataset.n) })" data-n="${esc(n)}">✕</button></div>`).join('')}
+        ${snowfall ? `<button class="lpv-btn small" onclick="adminMark('${id}','hand','${esc(n).replace(/&#39;/g, "\\'")}', ${!!doneOf(p, 'hand', n)})">${doneOf(p, 'hand', n) ? '↶' : '✅'}</button>` : ''}
+        <button class="lpv-btn icon small danger" aria-label="Ta bort" onclick="assign('${id}', { shovelers: propById('${id}').shovelers.filter(x => x !== this.dataset.n) })" data-n="${esc(n)}">✕</button></div>`).join('')}
     ${freeH.length ? `<select style="margin-top:6px" onchange="if (this.value) assign('${id}', { shovelers: [...(propById('${id}').shovelers || []), this.value] }); this.value=''"><option value="">🧹 Lägg till handskottare…</option>${freeH.map(x => `<option>${esc(x.name)}</option>`).join('')}</select>` : ''}
     ${needsHand(p) ? '<div class="hint" style="color:var(--warn);margin-top:4px">🧹⚠️ Har handytor men ingen handskottare.</div>' : ''}
     <h4>Ytor</h4>
@@ -709,9 +699,9 @@ function tractorSheetHtml(t) {
   const drivers = people.filter(x => x.active !== false && (x.owner || 'Egna') === (t.owner || 'Egna') && x.name !== t.driver);
   const id = esc(t.id);
   const area = mine.reduce((s, p) => s + zoneStats(p).maskin, 0);
-  return `<div class="head"><div style="display:flex;gap:10px;align-items:center">${tKula(t, 52)}<div><h2>${esc(t.model)}</h2><div class="sub">${t.size === 'stor' ? '🟠 Stor' : '🔵 Liten'} · ${esc(ownerLabel(t.owner))}${t.base ? ' · står i ' + esc(t.base) : ''}</div></div></div><button class="btn" onclick="closeSheet()">✕</button></div>
+  return `<div class="head"><div style="display:flex;gap:10px;align-items:center">${tKula(t, 52)}<div><h2>${esc(t.model)}</h2><div class="sub">${t.size === 'stor' ? '🟠 Stor' : '🔵 Liten'} · ${esc(ownerLabel(t.owner))}${t.base ? ' · står i ' + esc(t.base) : ''}</div></div></div><button class="lpv-btn icon small" onclick="closeSheet()" aria-label="Stäng">✕</button></div>
     <h4>Förare</h4>
-    ${t.driver ? `<div class="krow">${pKula(t.driver, 34)}<div class="who">${esc(t.driver)}<em>${personByName(t.driver).active === false ? '⚠️ inaktiv' : 'Fast förare'}</em></div><button class="x" onclick="saveTractor(tractorById('${id}'), { driver: '' })">✕</button></div>` : '<div class="hint" style="color:var(--warn)">⚠️ Ingen förare – dra en från kulpåsen till traktorn, eller välj:</div>'}
+    ${t.driver ? `<div class="krow">${pKula(t.driver, 34)}<div class="who">${esc(t.driver)}<em>${personByName(t.driver).active === false ? '⚠️ inaktiv' : 'Fast förare'}</em></div><button class="lpv-btn icon small danger" aria-label="Ta bort" onclick="saveTractor(tractorById('${id}'), { driver: '' })">✕</button></div>` : '<div class="hint" style="color:var(--warn)">⚠️ Ingen förare – dra en från kulpåsen till traktorn, eller välj:</div>'}
     <select onchange="if (this.value) { const o = fleet.find(x => x.driver === this.value && x.id !== '${id}'); if (o) saveTractor(o, { driver: '' }); saveTractor(tractorById('${id}'), { driver: this.value }); } this.value=''"><option value="">👷 ${t.driver ? 'Byt förare…' : 'Välj förare…'}</option>${drivers.map(x => `<option>${esc(x.name)}</option>`).join('')}</select>
     <h4>Ägare och uppställning</h4>
     <div class="row2"><select onchange="saveTractor(tractorById('${id}'), { owner: this.value, driver: '' })">${owners.map(o => `<option value="${esc(o)}" ${o === (t.owner || 'Egna') ? 'selected' : ''}>${esc(ownerLabel(o))}</option>`).join('')}</select>
@@ -719,8 +709,8 @@ function tractorSheetHtml(t) {
     <div class="hint">Byter du ägare tas föraren bort (föraren måste ha samma ägare). Nya UE-företag, personer och avtal: <a href="ue.html" style="color:var(--accent)">🤝 UE</a>. Grå kula = UE:t väntar på avtal.</div>
     <h4>Fastigheter (${mine.length}${area ? ' · ' + m2(area) : ''})</h4>
     ${mine.map(p => `<div class="krow" style="cursor:pointer" onclick="openSheet('${esc(p.id)}')"><div class="who">${p.priority ? '⭐ ' : ''}${esc(p.address)}<em>${esc(kdOf(p))}${kdOf(p) === kd ? '' : ' (annan kommundel)'}</em></div>${statusText(p, 'traktor', t.id)}</div>`).join('') || '<div class="hint">Inga ännu.</div>'}
-    <div class="row2" style="margin-top:14px"><button class="btn" onclick="saveTractor(tractorById('${id}'), { active: ${t.active === false} })">${t.active === false ? '▶️ I tjänst' : '⏸ Ur tjänst'}</button>
-      <a class="btn" style="text-align:center;text-decoration:none" href="snoregister.html">⚙️ Register (AI-kula, ta bort)</a></div>`;
+    <div class="row2" style="margin-top:14px"><button class="lpv-btn" onclick="saveTractor(tractorById('${id}'), { active: ${t.active === false} })">${t.active === false ? '▶️ I tjänst' : '⏸ Ur tjänst'}</button>
+      <a class="lpv-btn" href="snoregister.html">⚙️ Register (AI-kula, ta bort)</a></div>`;
 }
 
 // ===== Snöfall =====
