@@ -269,6 +269,7 @@ function doPost(e) {
     // --- ROUTER ---
     if (action === "me") return createJsonResponse({ status: "success", user: auth.user, role: auth.role || "", company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist,
       modules: (readStaffAuth(auth.user) || {}).modules || null, su: isSuUser(auth.user),
+      extras: isSuUser(auth.user) ? EXTRA_MODULES.slice() : ((readStaffAuth(auth.user) || {}).extras || []),
       guideRoll: guideRollFor([auth.isAdmin ? "admin" : "", auth.isEconomist || /^ekonom$/i.test(auth.role || "") ? "ekonom" : "", /^ue$/i.test(auth.role || "") ? "ue" : ""].filter(Boolean), auth.user) });
     // Offerter: Klaryta-admin får bara röra Klarytas offerter
     if ((action === "sendOffer" || action === "cancelOffer") && !auth.isSuper) {
@@ -478,7 +479,8 @@ function readStaffAuth(name) {
     role: String(hit.row[3] || "").trim(),
     company: companyOf(hit.row[6]),
     quarantined: String(hit.row[7] || "").toLowerCase() === "karantän",
-    modules: readModules(hit.row)
+    modules: readModules(hit.row),
+    extras: readExtraModules(hit.row)
   };
   cache.put(cacheKey, JSON.stringify(info), AUTH_CACHE_SECONDS);
   return info;
@@ -942,14 +944,22 @@ function handleUpdateStaff(data, auth) {
 // ==========================================
 const MODULES_COLUMN = 13; // Kolumn M
 const MODULES = ["tid", "sno", "radar", "offerter", "ekonomi", "personal"];
+// Tilläggsmoduler: dolda för alla utom SU och den som fått dem (2026-11-07). Ligger i samma kolumn, t.ex. "kartor" eller "tid,sno,kartor".
+// "kartor" = 📌 Kartkalibrering i Rita zoner (Passa in, Justera, Föreslå punkter, Granska AI-inpassade).
+const EXTRA_MODULES = ["kartor"];
 const SU_LINK_MINUTES = 15, SU_SESSION_DAYS = 30;
 
 function readModules(row) {
   const t = String((row && row[MODULES_COLUMN - 1]) || "").trim().toLowerCase();
   if (!t) return null;
   const list = t.split(/[\s,;]+/).filter(m => MODULES.indexOf(m) !== -1);
+  if (!list.length) return null; // bara tilläggsmoduler = allt rollen ger + tilläggen
   if (list.indexOf("tid") === -1) list.unshift("tid"); // Tidrapport syns alltid
   return list;
+}
+function readExtraModules(row) {
+  const t = String((row && row[MODULES_COLUMN - 1]) || "").trim().toLowerCase();
+  return t ? t.split(/[\s,;]+/).filter(m => EXTRA_MODULES.indexOf(m) !== -1) : [];
 }
 
 function suProps() { return PropertiesService.getScriptProperties(); }
@@ -1018,20 +1028,23 @@ function handleSuCall(data) {
   const sheet = getStaffSheet();
   if (op === "staff") {
     const rows = sheet.getDataRange().getValues().slice(1).filter(r => r[0]);
-    return createJsonResponse({ status: "success", su: suName(), modules: MODULES, staff: rows.map(r => ({
+    return createJsonResponse({ status: "success", su: suName(), modules: MODULES, extraModules: EXTRA_MODULES, staff: rows.map(r => ({
       name: String(r[0]).trim(), role: staffRoleName(r), company: companyOf(r[6]), status: String(r[7] || "").trim() || "Aktiv",
-      modules: readModules(r), su: isSuUser(r[0]) })) });
+      modules: readModules(r), extras: readExtraModules(r), su: isSuUser(r[0]) })) });
   }
   if (op === "setModules") {
     const names = Array.isArray(data.names) ? data.names.map(n => String(n).trim()).filter(Boolean).slice(0, 200) : [];
+    // modules: vanliga modulerna (null = allt) – utelämnas = rör inte. extras: tilläggsmodulerna – utelämnas = rör inte.
     let mods = data.modules === null ? null : (Array.isArray(data.modules) ? data.modules.filter(m => MODULES.indexOf(m) !== -1) : undefined);
-    if (mods === undefined || !names.length) return createJsonResponse({ status: "error", message: "Välj personer och moduler." });
+    const extras = Array.isArray(data.extras) ? data.extras.filter(m => EXTRA_MODULES.indexOf(m) !== -1) : undefined;
+    if ((mods === undefined && extras === undefined) || !names.length) return createJsonResponse({ status: "error", message: "Välj personer och moduler." });
     if (mods && mods.indexOf("tid") === -1) mods.unshift("tid");
     const done = [];
     names.forEach(n => {
       const hit = findStaffRow(sheet, n);
       if (!hit) return;
-      sheet.getRange(hit.rowNumber, MODULES_COLUMN).setValue(mods ? mods.join(",") : "");
+      const m = mods !== undefined ? mods : readModules(hit.row), x = extras !== undefined ? extras : readExtraModules(hit.row);
+      sheet.getRange(hit.rowNumber, MODULES_COLUMN).setValue((m || []).concat(x).join(","));
       clearStaffAuthCache(hit.row[0]);
       done.push(String(hit.row[0]).trim());
     });

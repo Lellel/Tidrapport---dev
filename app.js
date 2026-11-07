@@ -137,6 +137,7 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
     // Moduler per person (SU-panelen) och om det är SU själv – styr bara vad som visas, servern avgör behörigheten
     localStorage.setItem('lpv_modules', me.modules ? JSON.stringify(me.modules) : '');
     localStorage.setItem('lpv_su', me.su ? 'true' : 'false');
+    localStorage.setItem('lpv_extra_modules', JSON.stringify(me.extras || [])); // tilläggsmoduler, t.ex. kartor
     if (window.lpvApplyModules) window.lpvApplyModules();
     showSuLinks();
     applyRoleUI();

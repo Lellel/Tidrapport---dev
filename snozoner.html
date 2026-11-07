@@ -424,7 +424,7 @@
       const m = currentProp ? kkMap() : null;
       el.innerHTML = !currentProp ? '① Välj fastighet i sökfältet ovan.'
         : kk.adjusting ? (pin.on ? '② Passa in: följ instruktionen nere på kartan.' : '② Lägg kundkartan rätt – 📌 Passa in med punkter, 🤖 Föreslå punkter, eller dra och vrid den. Spara läget när den stämmer.')
-        : m && !m.place ? '② Kundkartan är inte utlagd – 📌 Passa in med punkter eller ✋ Justera.'
+        : m && !m.place ? (kal() ? '② Kundkartan är inte utlagd – 📌 Passa in med punkter eller ✋ Justera.' : '② Kundkartan är inte inpassad än – rita mot kartan, eller be den som passar in kartor.')
         : selectedZone ? 'Vald zon – ändra uppgifterna eller formen och spara.'
         : (shape || drawingPoints.length) ? 'Tryck 💾 Spara när du är klar.'
         : '③ Rita zonerna. Tryck ✅ Klar – nästa när fastigheten är färdig.';
@@ -1351,7 +1351,10 @@
     }
     const me = snoCurrentUser();
     const takenByOther = (p) => p.claimedBy && p.claimedBy !== me;
-    const isAi = (m) => !!(m && m.place && m.place.ai);
+    // 📌 Kartkalibrering är en tilläggsmodul (docs/moduler-su.md): Passa in, Justera, Föreslå punkter och 🤖 Granska
+    // syns bara för SU och den som fått modulen. Övriga ser utlagda kundkartor och ritar som vanligt.
+    const kal = () => !window.lpvModuleOn || window.lpvModuleOn('kartor');
+    const isAi = (m) => kal() && !!(m && m.place && m.place.ai);
     const hasAiMap = (p) => (p.maps || []).some(isAi);
     const propLabel = (p) => p.address + (p.ort ? ', ' + p.ort : '') + (p.maps && p.maps.length ? ' 📄' : '') + (hasAiMap(p) ? ' 🤖' : '') + (p.zoneStatus === 'klar' ? ' ✅' : p.zoneStatus === 'senare' ? ' ⏭' : '');
     const areaOf = (p) => p.omrade || p.ort || 'Utan område';
@@ -1495,13 +1498,14 @@
       removeCustomerMap();
       const m = kkMap();
       if (!m) { renderKkCard(); return; }
+      if (!m.place && !kal()) { renderKkCard(); renderStep(); return; } // en karta som inte är inpassad skulle ligga fel
       const img = new Image();
       img.onload = () => {
         kk.W = img.naturalWidth; kk.H = img.naturalHeight;
         // Första gången: mitt på fastigheten, ca 150 m bred (LandInfo-kartorna visar mer omgivning)
         kk.place = m.place ? { ...m.place } : { c: hasPos(kp()) ? [kp().lat, kp().lng] : [map.getCenter().lat, map.getCenter().lng], w: /LandInfo/.test(m.label) ? 140 : 160, rot: 0 };
         kk.layer = new KundOverlay(m.url).addTo(map);
-        if (!m.place) startAdjust();
+        if (!m.place && kal()) startAdjust();
         else if (kk.afterLoad) { const f = kk.afterLoad; kk.afterLoad = null; f(); }
         renderKkCard();
       };
@@ -1574,6 +1578,7 @@
     }
 
     function startAdjust() {
+      if (!kal()) return; // 📌 Kartkalibrering saknas
       kk.adjusting = true; kk.gestures = 'kk'; kk.placeBefore = { ...kk.place }; kk.aiResult = null; endPin();
       cancelDrawing(); placeHandles(); applyGestureMode(); renderKkCard();
       setStatus('Dra med ett finger för att flytta kundkartan, vrid och nyp med två fingrar (eller använd <b>✥</b> och <b>⟳</b>). Byt till <b>🛰️ Satellit</b> (till vänster på kartan) för att flytta satellitbilden. Tryck sedan <b>Spara läge</b>.');
@@ -1707,6 +1712,7 @@
     }
 
     function startPin() {
+      if (!kal()) return; // 📌 Kartkalibrering saknas
       if (!kk.layer) return;
       if (!kk.adjusting) startAdjust();
       pin.on = true; pin.pairs = []; pin.pending = null; pin.err = null;
@@ -2079,11 +2085,11 @@
         return;
       }
       const opacity = `<div><label for="kk-op">Genomskinlighet</label><input id="kk-op" type="range" min="0.15" max="1" step="0.05" value="${kk.opacity}" oninput="kk.opacity=Number(this.value); updateOverlays()" onchange="renderKkCard()"></div>`;
-      const placeBtn = `<button class="kk-small" onclick="startPin()">📌 Passa in med punkter</button>`;
-      const aiBtn = `<button class="kk-small" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '<span data-icon="ai">🤖</span> Föreslå punkter'}</button>`;
-      const nAll = aiTargets().length;
-      const allBtn = aiRun.on || nAll || aiRun.total ? `<button class="kk-small" onclick="runAllSuggest()">${aiRun.on ? (aiRun.stop ? '⏳ Stoppar…' : '⏹ Stoppa kör alla') : `🤖 Föreslå punkter för alla ej utlagda (${nAll})`}</button><div class="status" id="ai-run" style="font-size:12px"></div>` : '';
-      const aiMark = review.on ? '' : m.place && m.place.ai ? `<div class="status" style="font-size:12px">🤖 AI-inpassad ${snoEscape(m.place.ai.at || '')} · ${aiLevel(m.place.ai)} – granska och 💾 spara (✋ Justera) när den stämmer.</div>` : '';
+      const placeBtn = kal() ? `<button class="kk-small" onclick="startPin()">📌 Passa in med punkter</button>` : '';
+      const aiBtn = kal() ? `<button class="kk-small" onclick="suggestPointsKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy === 'points' ? '⏳ AI:n letar punkter…' : '<span data-icon="ai">🤖</span> Föreslå punkter'}</button>` : '';
+      const nAll = kal() ? aiTargets().length : 0;
+      const allBtn = kal() && (aiRun.on || nAll || aiRun.total) ? `<button class="kk-small" onclick="runAllSuggest()">${aiRun.on ? (aiRun.stop ? '⏳ Stoppar…' : '⏹ Stoppa kör alla') : `🤖 Föreslå punkter för alla ej utlagda (${nAll})`}</button><div class="status" id="ai-run" style="font-size:12px"></div>` : '';
+      const aiMark = review.on ? '' : isAi(m) ? `<div class="status" style="font-size:12px">🤖 AI-inpassad ${snoEscape(m.place.ai.at || '')} · ${aiLevel(m.place.ai)} – granska och 💾 spara (✋ Justera) när den stämmer.</div>` : '';
       if (kk.adjusting) {
         el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="justera">✋</span> Justera kundkartan</span><span>${pinBtn()}</span></div>
           <div class="status" style="font-size:12px">Verktygen ligger nere på kartan: vad fingret flyttar, genomskinlighet, 📌 Passa in med punkter, 🤖 Föreslå punkter och 💾 Spara läge. Dölj gärna panelen med ⟩.</div>
@@ -2094,8 +2100,8 @@
       const hid = hiddenMaps.has(m.id), other = kp() !== currentProp;
       const maps = kp().maps.length > 1 ? `<div class="chips">${kp().maps.map((x, i) => `<button class="chip ${i === kk.idx ? 'on' : ''}" onclick="kk.idx=${i}; showCustomerMap()">${snoEscape(x.label || 'Karta ' + (i + 1))}${isAi(x) ? ' 🤖' : ''}</button>`).join('')}</div>` : '';
       el.innerHTML = `<div class="slinga-card-head"><span><span data-icon="kundkarta">📄</span> Kundkarta <small>· ${snoEscape(other ? kp().address : (currentProp.kund || currentProp.address))}</small></span>
-          <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button><button class="kk-icon" title="Justera läge" onclick="adjustVisible()"><span data-icon="justera">✋</span></button></span></div>
-        ${reviewHtml()}${aiMark}${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'points' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn + aiBtn}
+          <span>${pinBtn()}<button class="kk-icon" title="${hid ? 'Visa kundkartan' : 'Dölj kundkartan'}" onclick="toggleMapHidden('${snoEscape(m.id)}')">${hid ? '🙈' : '👁'}</button>${kal() ? '<button class="kk-icon" title="Justera läge" onclick="adjustVisible()"><span data-icon="justera">✋</span></button>' : ''}</span></div>
+        ${!m.place && !kal() ? '<div class="status" style="font-size:12px">📄 Kundkartan är inte inpassad än och visas inte på kartan.</div>' : ''}${reviewHtml()}${aiMark}${m.place ? `<button id="kk-ai" class="kk-main" onclick="analyzeKk()" ${kk.busy ? 'disabled' : ''}>${kk.busy && kk.busy !== 'points' ? '⏳ AI:n läser kundkartan…' : '<span data-icon="ai">🤖</span> Föreslå zoner från kundkartan'}</button>` : placeBtn + aiBtn}
         ${kk.aiResult && !kk.adjusting ? `<div class="status" style="font-size:12px">${kk.aiResult}</div>` : ''}
         ${more(maps + opacity + (m.place ? placeBtn + aiBtn : '') + allBtn + vagkarta + note + neighborsHtml())}`;
       renderAiRun();

@@ -81,6 +81,8 @@
 <script>
 (function () {
   const MODS = [['sno', '❄️ Snö'], ['radar', '🔭 Radarn'], ['offerter', '📄 Offerter & kunder'], ['ekonomi', '💰 Ekonomi'], ['personal', '👥 Personal']];
+  // Tilläggsmoduler: av tills man bockar i (SU har dem alltid)
+  const EXTRAS = [['kartor', '📌 Kartkalibrering']];
   const SITE = location.origin + location.pathname.replace(/[^/]*$/, '');
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -108,7 +110,8 @@
   function render() {
     $('list').innerHTML = staff.map((p, i) => {
       const all = !p.modules;
-      const chips = MODS.map(([k, label]) => `<button type="button" class="chip" data-i="${i}" data-m="${k}" aria-pressed="${all || p.modules.indexOf(k) !== -1}">${esc(label)}</button>`).join('');
+      const chips = MODS.map(([k, label]) => `<button type="button" class="chip" data-i="${i}" data-m="${k}" aria-pressed="${all || p.modules.indexOf(k) !== -1}">${esc(label)}</button>`).join('') +
+        EXTRAS.map(([k, label]) => `<button type="button" class="chip" data-i="${i}" data-x="${k}" aria-pressed="${p.su || (p.extras || []).indexOf(k) !== -1}" ${p.su ? 'disabled title="SU har alltid tilläggen"' : ''}>${esc(label)}</button>`).join('');
       return `<div class="person"><input type="checkbox" data-mark="${i}" ${marked.has(p.name) ? 'checked' : ''} aria-label="Markera ${esc(p.name)}">
         <div><div class="name">${esc(p.name)}${p.su ? '<span class="tag">SU</span>' : ''}${all ? '<span class="tag">Allt</span>' : ''}</div>
         <div class="meta">${esc(p.role)} · ${esc(p.company)}${p.status !== 'Aktiv' ? ' · ' + esc(p.status) : ''}</div>
@@ -116,18 +119,25 @@
     }).join('') || '<p class="sub">Ingen personal hittades.</p>';
   }
 
-  async function save(names, modules) {
+  async function save(names, modules, extras) {
     say($('msg'), '⏳ Sparar…', true);
-    const r = await su('setModules', { names, modules }).catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
+    const body = { names }; if (modules !== undefined) body.modules = modules; if (extras !== undefined) body.extras = extras;
+    const r = await su('setModules', body).catch(() => ({ status: 'error', message: 'Ingen kontakt med servern.' }));
     if (r.code === 'su_login') { ls.set('lpv_su_session', ''); return showLogin(); }
     if (r.status !== 'success') return say($('msg'), '❌ ' + (r.message || 'Kunde inte spara.'));
-    staff.forEach(p => { if (r.updated.indexOf(p.name) !== -1) p.modules = modules ? ['tid'].concat(modules.filter(m => m !== 'tid')) : null; });
+    staff.forEach(p => { if (r.updated.indexOf(p.name) === -1) return;
+      if (modules !== undefined) p.modules = modules ? ['tid'].concat(modules.filter(m => m !== 'tid')) : null;
+      if (extras !== undefined) p.extras = extras; });
     render();
     say($('msg'), '✅ Sparat för ' + r.updated.join(', ') + '. Gäller nästa gång de öppnar appen.', true);
   }
 
   $('list').addEventListener('click', (e) => {
     const c = e.target.closest('.chip');
+    if (c && c.dataset.x) {
+      const p = staff[+c.dataset.i], cur = p.extras || [];
+      return save([p.name], undefined, cur.indexOf(c.dataset.x) !== -1 ? cur.filter(x => x !== c.dataset.x) : cur.concat(c.dataset.x));
+    }
     if (c) {
       const p = staff[+c.dataset.i];
       const cur = p.modules ? p.modules.filter(m => m !== 'tid') : MODS.map(x => x[0]);
