@@ -654,6 +654,29 @@ input[type="checkbox"] { min-height: 0; accent-color: var(--accent); }
 .admin-menu-more > summary { list-style: none; min-height: 44px; font-size: var(--fs-small); color: var(--fg2); cursor: pointer; }
 .admin-menu-more > summary::-webkit-details-marker { display: none; }
 .admin-menu-more[open] > summary { margin-bottom: 8px; }
+/* ---------- ❄️ Snöläget i högerspalten (admin, snösäsong) – snolage.js ---------- */
+.sno-lage { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.sl-weather, .sl-sum { font-size: var(--fs-body); }
+.sl-sub { font-size: var(--fs-small); color: var(--fg2); }
+.sl-bad { color: var(--bad); font-weight: var(--fw-strong); }
+.sl-kd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sl-kd .main-btn { min-height: 44px; min-width: 52px; }
+.sl-map { height: 280px; border-radius: 14px; overflow: hidden; border: 1px solid var(--sep); }
+.sl-rows { display: flex; flex-direction: column; }
+.sl-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 44px; border-bottom: 1px solid var(--sep); cursor: pointer; }
+.sl-row:last-child { border-bottom: 0; }
+.sl-row .main-btn { min-height: 40px; min-width: 44px; }
+.sl-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-small); color: var(--fg2); }
+.sl-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sl-lamp { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--fg2); border: 2px solid var(--bg-solid); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.sl-lamp.part { background: var(--warn); } .sl-lamp.done { background: var(--ok); }
+.sl-lamp.ring { background: transparent; border: 3px solid var(--bad); box-shadow: none; }
+.sl-lamp.prio { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sl-pick { background: var(--surface2); border-radius: 14px; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+.sl-link { color: var(--accent); font-weight: var(--fw-strong); text-decoration: none; font-size: var(--fs-small); }
+.sl-stops { display: flex; flex-direction: column; }
+.sl-btns { display: grid; gap: 8px; }
+.stopp-card { border: 2px solid var(--bad); margin-bottom: 10px; }
 .sheet-label { padding: 14px 8px 4px; font-size: var(--fs-small); color: var(--fg2); text-transform: uppercase; letter-spacing: .04em; }
 
 /* ---------- Aktivitetslistan (bottenark) ---------- */

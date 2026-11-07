@@ -9,6 +9,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Snöjour</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="driftstopp.css">
   <style>
     :root { --bg: var(--t-bg); --panel: var(--t-panel); --card: var(--t-card); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); --danger: var(--t-danger); }
     * { box-sizing: border-box; }
@@ -75,6 +76,7 @@
     <div id="progress-box"></div>
     <div id="who-box"></div>
     <div id="time-box"></div>
+    <div id="stopp-box" class="ds-stack"></div>
     <div class="gps-status" id="gps-status">GPS startar…</div>
     <div class="queue" id="queue-box"></div>
     <div id="obj-list"></div>
@@ -87,6 +89,7 @@
   <script src="sasong.js"></script>
   <script src="sno.js"></script>
   <script src="vader.js"></script>
+  <script src="driftstopp.js"></script>
   <script>
     // Snöjour (docs/snoplanering.md): mina fastigheter = där min kula ligger. Närmast först, ✅ Klar per del.
     // UE-ansvarig ser företagets fastigheter, admin alla. Klar-markeringar köas utan täckning.
@@ -172,6 +175,7 @@
 
     function renderTimeBox() {
       const box = document.getElementById('time-box');
+      document.body.classList.toggle('ds-still', !!activeSnowDraft());
       clearInterval(timerInterval);
       const pdfBtn = jour && jour.properties.length ? `<button class="lpv-btn block" style="margin-top:8px;" onclick="mapsPdf('')">📄 Alla mina kartor</button>` : '';
       // Före avtal: rundan och kartorna syns, men inget pass och ingen Klar
@@ -280,6 +284,7 @@
             <div class="obj-meta">${[snoEscape(p.kund), areas].filter(Boolean).join(' · ')}${dist}</div>
           </div>
           ${p.note ? `<div class="obj-note">⚠️ ${snoEscape(p.note)}</div>` : ''}
+          ${lpvStopp.movedHtml(p, myUnits().map(x => x.part + ':' + x.unit))}
           ${parts}
           <div class="obj-actions">
             <a class="lpv-btn" href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
@@ -311,7 +316,32 @@
       });
     }
 
-    function renderAll() { renderProgress(); renderList(); renderMap(); renderTimeBox(); renderQueue(); }
+    // ---------- DRIFTSTOPP (docs/snoplanering.md): ⚠️ Traktorn står, min status, kollegor som står ----------
+    // Mina enheter = de jag själv kör (UE-ansvarig: även företagets)
+    function myUnits() {
+      if (!jour) return [];
+      const out = {};
+      jour.properties.forEach(p => p.parts.forEach(x => { if (x.canMark && (x.mine || (jour.ueLead && !jour.isAdmin))) out[x.part + ':' + x.unit] = { part: x.part, unit: x.unit, label: x.label }; }));
+      return Object.values(out);
+    }
+    function renderStops() {
+      // Animeringen står still medan föraren kör (pågående snöpass)
+      document.body.classList.toggle('ds-still', !!activeSnowDraft());
+      if (!jour || jour.waitingAgreement) { document.getElementById('stopp-box').innerHTML = ''; return; }
+      lpvStopp.renderJour(document.getElementById('stopp-box'), jour.stops, myUnits(), (stops) => { if (stops) jour.stops = stops; saveCache(); renderAll(); loadJour(false); });
+    }
+    document.getElementById('obj-list').addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-ack]');
+      if (!b) return;
+      b.disabled = true;
+      const res = await lpvStopp.ack(b.dataset.ack);
+      if (res.status !== 'success') { b.disabled = false; return; }
+      const p = jour.properties.find(x => x.id === b.dataset.ack);
+      if (p) (p.moved || []).forEach(m => { m.ack = m.ack || { at: Date.now(), by: me }; });
+      saveCache(); renderList();
+    });
+
+    function renderAll() { renderProgress(); renderList(); renderMap(); renderTimeBox(); renderStops(); renderQueue(); }
 
     function focusProp(id) {
       const p = jour.properties.find(x => x.id === id);

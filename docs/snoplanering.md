@@ -153,7 +153,7 @@ Allt som rör UE registreras och ändras här. Nås från Hem och från Snöplan
 - **Nya UE-personer** läggs in med rollen UE och bolag Klaryta (Klaryta-admin får alltid sitt eget bolag).
 - Tester: `uetest.js` (servern, i kor-alla.sh) och `ue-e2e.js` (webbläsaren).
 
-## Strandade traktorer och byten – även i telefonen (bestämt 2026-11-07, ej byggt)
+## Strandade traktorer och byten – även i telefonen (bestämt och byggt 2026-11-07)
 Tavlan (dra och släpp) fungerar inte i en telefon. Admin behöver ett eget **tryckflöde som utgår från traktorn**.
 
 **Larmet:** föraren trycker **⚠️ Traktorn står** i Snöjour och väljer orsak (fast / trasig / slut på diesel / annat). UE-ansvarig kan göra samma sak för sitt företags traktorer. Larmet går till admin som SMS med en länk rakt in i flödet, och för UE-traktorer även till UE-ansvarig. Bara admin, och UE-ansvarig inom sitt eget företag, flyttar fastigheter.
@@ -195,3 +195,12 @@ Alla admin ska kunna avgöra om det behövs ett byte eller om det bara blir en f
 - **Tre vägar i flödet:** ⏳ **Vänta** (det blir en fördröjning, inget flyttas, kulan ligger kvar med sina fastigheter) · 🔁 En annan traktor tar hela rundan · 🧩 Fördela det som är kvar.
 - **Appen rekommenderar** (markerad först, admin väljer alltid själv): åter om ≤ 30 min → ⏳ Vänta. Längre tid eller Vet inte → 🧩 Fördela. Finns ⭐ prio-fastigheter kvar är gränsen 15 min.
 - **När klockslaget har passerat** får föraren en mjukfråga i Snöjour: "Igång igen?" [✅ Ja] [⏱ +30 min] [Nej, resten av passet]. Svarar föraren inte inom 10 min blir det "⏱ försenad" på kulan, och den som tagit ärendet får ett SMS. ✅ Ja = Tillbaka i drift.
+
+### Hur det blev (2026-11-07)
+- **Kod.gs** (avsnitt 4b2b DRIFTSTOPP): Skriptegenskapen `DRIFTSTOPP` = `{ sf, units: { "traktor:<id>"|"hand:<namn>": { reason, eta (ms | "resten" | null), at, by, handler, decision, back, lateSms } }, moves: [{ pid, part, from, to, at, by, ack }] }`. Gäller bara när `sf` = pågående snöfall, och ett nytt snöfall nollställer allt.
+- `applySnowMoves` lägger flyttarna ovanpå fastigheterna i `snowVisibleProperties` (Snöjour, väderområden) och `markSnowDone`. Fliken Fastigheter rörs aldrig.
+- Anrop: `reportStop`, `stopUpdate` (op `take`/`wait`/`eta`/`plus30`/`resten`/`back`), `stopSuggest`, `stopMove`, `stopSms`, `stopAck`, `stopSwapDriver`, `getStops`. Fältet heter `stop` (inte `key`, som är inloggningen).
+- **Förslaget**: poäng = km + 0,8 × antal kvar. Läget = senaste klara fastigheten i snöfallet, annars mitten av enhetens fastigheter (handskottare: hemorten). En enhet utan fastigheter och hemort har okänt läge och hamnar sist.
+- **⏱ försenad**: `driftstoppKoll` körs i vädermätningens kvartsutlösare (`vaderKollTrigger`). SMS:et kommer därför 10–25 min efter utlovad tid.
+- **Gränssnittet**: `driftstopp.js` + `driftstopp.css` (samma ruta överallt, knappklass efter sida). Snöjour: `#stopp-box`, 🆕 + 👍 på korten, animeringen står still under pågående pass (`body.ds-still`). Snöplaneringen: kulorna som står, `🔧 … står →` i listen, 🚨 i traktorrutan, traktorlistan `#phoneList` (≤ 700 px).
+- Tester: `driftstopptest.js` (33) och `driftstopp-e2e.js` (27).

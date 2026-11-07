@@ -1,0 +1,213 @@
+/* Driftstopp (docs/snoplanering.md "Strandade traktorer och byten", 2026-11-07): kulan som står + rutorna.
+   Används på Snöjour, Snöplanering (theme.css) och startsidan (style.css) – därför egna namn som pekar på
+   den sidans färger. Animeringsfärgerna (olja, sand, rök …) är data, inte knappfärger. */
+:root {
+  --ds-panel: var(--t-panel, var(--bg-solid, #fff));
+  --ds-card: var(--t-card, var(--surface2, #f2f7fc));
+  --ds-line: var(--t-line, var(--sep, rgba(7,29,51,.16)));
+  --ds-text: var(--t-text, var(--fg, #071d33));
+  --ds-muted: var(--t-muted, var(--fg2, rgba(7,29,51,.66)));
+  --ds-accent: var(--t-accent, var(--accent, #0a6fe0));
+  --ds-on: var(--t-on-accent, var(--on-accent, #fff));
+  --ds-ok: var(--t-ok, var(--ok, #17803a));
+  --ds-warn: var(--t-warn, var(--warn, #9e5500));
+  --ds-danger: var(--t-danger, var(--bad, #c0251b));
+  --ds-orb-a: #cfe3fb; --ds-orb-b: #6d9fd8; --ds-shine: rgba(255,255,255,.95);
+  --ds-oil: #2b1d08; --ds-oil-sheen: #7a5a1c; --ds-sand: #c9a467; --ds-snow: #ffffff; --ds-snow-edge: #c9d8ea;
+  --ds-smoke: #7d8794; --ds-ice: #a8dcff; --ds-light: #ffe680; --ds-metal: #59636f; --ds-wood: #9a6a35;
+}
+:root[data-theme="dark"] {
+  --ds-orb-a: #3a5f8f; --ds-orb-b: #14243f; --ds-shine: rgba(255,255,255,.55);
+  --ds-oil: #120b02; --ds-oil-sheen: #5e4515; --ds-sand: #b48d4f; --ds-snow: #eef4fb; --ds-snow-edge: #8fa6c2;
+  --ds-smoke: #9aa4b2; --ds-ice: #7cc4f5; --ds-metal: #8792a0; --ds-wood: #b07c44;
+}
+:root[data-theme="night"] {
+  --ds-orb-a: #3a0703; --ds-orb-b: #140100; --ds-shine: rgba(255,80,60,.25);
+  --ds-oil: #3a0703; --ds-oil-sheen: #6b1a14; --ds-sand: #8a2a20; --ds-snow: #8a2a20; --ds-snow-edge: #5a140e;
+  --ds-smoke: #6b1a14; --ds-ice: #8a2a20; --ds-light: #8a2a20; --ds-metal: #6b1a14; --ds-wood: #6b1a14;
+}
+
+/* ---------- Scenen: 150 × 132, kulan 84 px vid (33, 22) ---------- */
+.ds-scene { position: relative; width: 150px; height: 132px; flex: none; }
+.ds-mini { position: relative; flex: none; overflow: visible; }
+.ds-mini > .ds-scene { position: absolute; transform-origin: 0 0; pointer-events: none; }
+.ds-orb { position: absolute; left: 33px; top: 22px; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; font-size: 38px; line-height: 1;
+  background: radial-gradient(circle at 32% 26%, var(--ds-shine), transparent 36%), radial-gradient(circle at 50% 62%, var(--ds-orb-a), var(--ds-orb-b));
+  background-size: cover; background-position: center;
+  border: 4px solid var(--ds-danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ds-danger) 25%, transparent); z-index: 2; overflow: hidden; }
+.ds-orb img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.ds-badge { position: absolute; left: 18px; top: 6px; z-index: 4; font-size: 11px; font-weight: 700; background: var(--ds-danger); color: var(--ds-on); border-radius: 99px; padding: 2px 7px; white-space: nowrap; }
+.ds-fx { position: absolute; z-index: 3; pointer-events: none; }
+.ds-txt { font-size: 12px; font-weight: 700; color: var(--ds-muted); font-style: italic; }
+
+.ds-dx { left: 108px; top: 62px; width: 0; height: 0; }
+.ds-dy { width: 6px; height: 6px; border-radius: 50%; background: var(--ds-oil); box-shadow: inset 1px 1px 0 var(--ds-oil-sheen); opacity: 0; }
+.ds-orb + .ds-dx .ds-dy { opacity: .9; transform: translate(14px, -6px); }
+.ds-orb + .ds-dx + .ds-dx .ds-dy { opacity: .9; transform: translate(26px, 18px); }
+.ds-puddle { left: 104px; top: 108px; width: 40px; height: 9px; border-radius: 50%; background: radial-gradient(ellipse at 40% 35%, var(--ds-oil-sheen), var(--ds-oil) 60%); transform-origin: 30% 50%; }
+.ds-disc { left: 22px; top: 86px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ds-metal); transform: rotate(20deg);
+  background: conic-gradient(var(--ds-metal) 0 20%, transparent 0 25%, var(--ds-metal) 0 45%, transparent 0 50%, var(--ds-metal) 0 70%, transparent 0 75%, var(--ds-metal) 0 95%, transparent 0); }
+.ds-puff { left: 10px; top: 80px; width: 16px; height: 16px; border-radius: 50%; background: var(--ds-sand); opacity: 0; }
+.ds-disc + .ds-puff { opacity: .5; transform: translate(-6px, -6px) scale(1.2); }
+.ds-s-punktering .ds-orb { transform-origin: 30% 100%; transform: scaleY(.86) rotate(-6deg); }
+.ds-air { left: 30px; top: 102px; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--ds-muted); opacity: 0; }
+.ds-s-punktering .ds-txt { left: 4px; top: 112px; }
+.ds-gauge { left: 106px; top: 6px; width: 36px; height: 20px; border-radius: 36px 36px 0 0; background: var(--ds-panel); border: 2px solid var(--ds-metal); border-bottom: 0; }
+.ds-gauge::before { content: "E"; position: absolute; left: 2px; bottom: -2px; font-size: 9px; font-weight: 700; color: var(--ds-danger); }
+.ds-gauge::after { content: "F"; position: absolute; right: 2px; bottom: -2px; font-size: 9px; font-weight: 700; color: var(--ds-muted); }
+.ds-needle { position: absolute; left: 16px; bottom: 0; width: 2px; height: 15px; background: var(--ds-danger); transform-origin: 50% 100%; transform: rotate(-68deg); border-radius: 2px; }
+.ds-ring { left: 60px; top: 10px; width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--ds-smoke); opacity: 0; }
+.ds-zzz { left: 112px; top: 34px; font-size: 18px; }
+.ds-s-fast .ds-orb { transform: rotate(-4deg); }
+.ds-mound { left: 22px; top: 96px; width: 106px; height: 22px; border-radius: 50% 50% 8px 8px / 100% 100% 8px 8px; background: var(--ds-snow); border: 1px solid var(--ds-snow-edge); z-index: 3; }
+.ds-flake { left: 70px; top: 98px; width: 6px; height: 6px; border-radius: 50%; background: var(--ds-snow); border: 1px solid var(--ds-snow-edge); opacity: 0; }
+.ds-beam { left: 112px; width: 38px; height: 22px; clip-path: polygon(0 40%, 100% 0, 100% 100%, 0 60%); background: linear-gradient(90deg, var(--ds-light), transparent); opacity: .12; }
+.ds-beam.b1 { top: 48px; } .ds-beam.b2 { top: 66px; }
+.ds-spark { left: 104px; top: 28px; font-size: 16px; opacity: 0; }
+.ds-blade { left: 104px; top: 82px; width: 40px; height: 12px; border-radius: 3px; background: var(--ds-metal); border-left: 4px solid var(--ds-warn); transform-origin: 2px 2px; transform: rotate(32deg); }
+.ds-bolt { left: 102px; top: 80px; width: 6px; height: 6px; border-radius: 50%; background: var(--ds-text); }
+.ds-ice { top: 100px; width: 8px; height: 16px; background: linear-gradient(180deg, var(--ds-ice), transparent); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.ds-ice.i1 { left: 50px; } .ds-ice.i2 { left: 64px; height: 20px; } .ds-ice.i3 { left: 80px; height: 13px; } .ds-ice.i4 { left: 94px; }
+.ds-frost .ds-orb::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 70% 75%, color-mix(in srgb, var(--ds-ice) 55%, transparent), transparent 60%); }
+.ds-frost .ds-txt { left: 112px; top: 30px; }
+.ds-thermo { left: 102px; top: 66px; width: 30px; height: 6px; border-radius: 3px; background: var(--ds-snow); border: 1px solid var(--ds-snow-edge); transform: rotate(-18deg); transform-origin: 0 50%; }
+.ds-thermo::after { content: ""; position: absolute; right: -5px; top: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--ds-danger); }
+.ds-merc { position: absolute; right: 2px; top: 1px; height: 2px; width: 70%; background: var(--ds-danger); border-radius: 2px; }
+.ds-tea { left: 4px; top: 86px; font-size: 24px; }
+.ds-steam { left: 14px; top: 78px; width: 5px; height: 5px; border-radius: 50%; background: var(--ds-smoke); opacity: .35; }
+.ds-smoke { left: 86px; top: 18px; width: 18px; height: 18px; border-radius: 50%; background: var(--ds-smoke); opacity: 0; }
+.ds-orb + .ds-smoke { opacity: .45; transform: translate(6px, -8px) scale(1.4); }
+.ds-orb + .ds-smoke + .ds-smoke { opacity: .25; transform: translate(14px, -22px) scale(2); }
+.ds-ball { left: 100px; top: 96px; width: 14px; height: 12px; border-radius: 50% 50% 45% 45%; background: var(--ds-snow); border: 1px solid var(--ds-snow-edge); }
+.ds-s-slunga .ds-txt { left: 108px; top: 40px; opacity: 0; }
+.ds-shaft { left: 124px; top: 40px; width: 4px; height: 30px; background: var(--ds-wood); border-radius: 2px; }
+.ds-shaft.top { top: 12px; transform-origin: 50% 100%; transform: rotate(38deg); }
+.ds-scoop { left: 116px; top: 68px; width: 20px; height: 18px; background: var(--ds-metal); clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%); }
+.ds-s-skyffel .ds-txt { left: 92px; top: 2px; opacity: 0; }
+.ds-car { left: 104px; top: 80px; font-size: 28px; }
+.ds-s-bil .ds-txt { left: 96px; top: 56px; }
+.ds-exh { left: 98px; top: 96px; width: 8px; height: 8px; border-radius: 50%; background: var(--ds-smoke); opacity: 0; }
+.ds-bucket { left: 112px; top: 30px; width: 26px; height: 24px; background: var(--ds-metal); clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); transform: rotate(180deg); }
+.ds-grain { left: 123px; top: 106px; width: 4px; height: 4px; border-radius: 1px; background: var(--ds-sand); }
+.ds-q { left: 110px; top: 22px; font-size: 22px; }
+
+/* Rörelse bara när den är tillåten: inte "minska rörelse", inte Natt, inte .ds-still (föraren kör) */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-dx { animation: ds-jetX .9s linear infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-dx .ds-dy { animation: ds-jetY .9s cubic-bezier(.3,0,.9,.6) infinite; opacity: 1; transform: none; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-orb + .ds-dx + .ds-dx, :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-orb + .ds-dx + .ds-dx .ds-dy { animation-delay: .18s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-orb + .ds-dx + .ds-dx + .ds-dx, :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-orb + .ds-dx + .ds-dx + .ds-dx .ds-dy { animation-delay: .36s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-orb + .ds-dx + .ds-dx + .ds-dx + .ds-dx, :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-orb + .ds-dx + .ds-dx + .ds-dx + .ds-dx .ds-dy { animation-delay: .54s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-puddle { animation: ds-grow 9s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-disc { animation: ds-hackspin 2.4s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-puff { animation: ds-burst 2.4s ease-out infinite; opacity: 0; transform: none; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-puff + .ds-puff { animation-delay: .7s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-puff + .ds-puff + .ds-puff { animation-delay: 1.5s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-s-punktering .ds-orb { animation: ds-squish 4s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-air { animation: ds-air 4s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-air + .ds-air { animation-delay: .15s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-air + .ds-air + .ds-air { animation-delay: .3s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-s-punktering .ds-txt { animation: ds-pfff 4s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-needle { animation: ds-fuel 7s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-ring { animation: ds-ring 7s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-zzz { animation: ds-zzz 7s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-s-fast .ds-orb { animation: ds-rock .45s ease-in-out infinite alternate; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-flake { animation: ds-spray .9s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-mound + .ds-flake, :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-flake + .ds-flake + .ds-flake { animation-name: ds-sprayL; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-flake + .ds-flake { animation-delay: .15s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-flake + .ds-flake + .ds-flake { animation-delay: .3s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-flake + .ds-flake + .ds-flake + .ds-flake { animation-delay: .45s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-beam { animation: ds-flicker 3.2s linear infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-spark { animation: ds-spark 3.2s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-blade { animation: ds-dangle 2.2s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-frost .ds-orb { animation: ds-shiver .14s linear infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-ice { animation: ds-drip 3s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-frost .ds-txt { animation: ds-brr 2s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-merc { animation: ds-merc 3.5s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-steam { animation: ds-steam 2.4s ease-out infinite; opacity: 0; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-steam + .ds-steam { animation-delay: .8s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-steam + .ds-steam + .ds-steam { animation-delay: 1.6s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-smoke { animation: ds-smoke 3s ease-out infinite; opacity: 0; transform: none; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-smoke + .ds-smoke { animation-delay: 1s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-smoke + .ds-smoke + .ds-smoke { animation-delay: 2s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-ball { animation: ds-lob 2.8s ease-in infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-s-slunga .ds-orb { animation: ds-cough 2.8s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-s-slunga .ds-txt { animation: ds-hacktxt 2.8s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-shaft.top { animation: ds-snap 3.4s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-s-skyffel .ds-txt { animation: ds-boing 3.4s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-car { animation: ds-shiver .18s linear infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live.ds-s-bil .ds-txt { animation: ds-rrr 1.6s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-exh { animation: ds-exh 1.6s ease-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-exh + .ds-exh { animation-delay: .5s; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-bucket { animation: ds-flip 4.5s ease-in-out infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-grain { animation: ds-grain 4.5s ease-in infinite; }
+  :root:not([data-theme="night"]) body:not(.ds-still) .ds-live .ds-q { animation: ds-bob 1.8s ease-in-out infinite alternate; }
+}
+@keyframes ds-jetX { from { transform: translateX(0); } to { transform: translateX(34px); } }
+@keyframes ds-jetY { 0% { transform: translateY(0); } 30% { transform: translateY(-12px); } 100% { transform: translateY(44px); opacity: .2; } }
+@keyframes ds-grow { 0% { transform: scaleX(.25) scaleY(.5); } 85%, 100% { transform: none; } }
+@keyframes ds-hackspin { 0% { transform: rotate(0); } 30% { transform: rotate(240deg); } 34% { transform: rotate(225deg); } 55% { transform: rotate(300deg); } 58%, 100% { transform: rotate(290deg); } }
+@keyframes ds-burst { 0% { opacity: .9; transform: translate(0,0) scale(.3); } 100% { opacity: 0; transform: translate(-16px,-14px) scale(1.8); } }
+@keyframes ds-squish { 0%, 35% { transform: none; } 45% { transform: scaleY(.84) rotate(-7deg); } 55% { transform: scaleY(.9) rotate(-5deg); } 62%, 88% { transform: scaleY(.86) rotate(-6deg); } 100% { transform: none; } }
+@keyframes ds-air { 0%, 40% { opacity: 0; transform: translate(0,0) scale(.5); } 46% { opacity: .9; } 70% { opacity: 0; transform: translate(-22px,-4px) scale(1.6); } 100% { opacity: 0; } }
+@keyframes ds-pfff { 0%, 42% { opacity: 0; } 50% { opacity: 1; } 75%, 100% { opacity: 0; } }
+@keyframes ds-fuel { 0% { transform: rotate(68deg); } 50% { transform: rotate(-60deg); } 54% { transform: rotate(-72deg); } 58%, 100% { transform: rotate(-68deg); } }
+@keyframes ds-ring { 0%, 56% { opacity: 0; transform: translateY(0) scale(.4); } 62% { opacity: .9; } 85% { opacity: 0; transform: translateY(-26px) scale(1.5); } 100% { opacity: 0; } }
+@keyframes ds-zzz { 0%, 70% { opacity: 0; transform: translate(0,0) scale(.8); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(10px,-18px) scale(1.1); } }
+@keyframes ds-rock { from { transform: rotate(-8deg) translateX(-3px); } to { transform: rotate(8deg) translateX(3px); } }
+@keyframes ds-spray { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(36px,-30px); } }
+@keyframes ds-sprayL { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(-40px,-26px); } }
+@keyframes ds-flicker { 0% { opacity: 1; } 7% { opacity: .15; } 9% { opacity: 1; } 28% { opacity: 1; } 30% { opacity: .1; } 33% { opacity: .9; } 46% { opacity: .1; } 48% { opacity: .8; } 51%, 100% { opacity: .05; } }
+@keyframes ds-spark { 0%, 48% { opacity: 0; transform: scale(.5); } 52% { opacity: 1; transform: scale(1.2); } 70%, 100% { opacity: 0; } }
+@keyframes ds-dangle { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(40deg); } }
+@keyframes ds-shiver { 0%, 100% { translate: 0 0; } 25% { translate: -1.5px 0; } 75% { translate: 1.5px 0; } }
+@keyframes ds-drip { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.25); } }
+@keyframes ds-brr { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+@keyframes ds-merc { 0% { width: 15%; } 70%, 100% { width: 88%; } }
+@keyframes ds-steam { 0% { opacity: 0; transform: translate(0,0) scale(.6); } 25% { opacity: .55; } 60% { transform: translate(-4px,-14px) scale(1.1); } 100% { opacity: 0; transform: translate(3px,-28px) scale(1.6); } }
+@keyframes ds-smoke { 0% { opacity: 0; transform: translate(0,0) scale(.5); } 20% { opacity: .55; } 100% { opacity: 0; transform: translate(16px,-34px) scale(2.3); } }
+@keyframes ds-lob { 0%, 20% { transform: translate(-6px,-46px) scale(.6); opacity: 0; } 24% { opacity: 1; transform: translate(-4px,-46px) scale(.8); } 50% { transform: translate(10px,-58px) scale(1); } 72% { transform: translate(18px,0) scale(1); } 76% { transform: translate(18px,2px) scale(1.3,.7); } 82%, 100% { transform: translate(18px,0) scale(1); opacity: 1; } }
+@keyframes ds-cough { 0%, 16%, 30%, 100% { transform: none; } 20% { transform: scale(1.06) rotate(-3deg); } 24% { transform: scale(.96) rotate(2deg); } }
+@keyframes ds-hacktxt { 0%, 16% { opacity: 0; } 22% { opacity: 1; } 40%, 100% { opacity: 0; } }
+@keyframes ds-snap { 0%, 30% { transform: rotate(0); } 34% { transform: rotate(58deg); } 42% { transform: rotate(28deg); } 50% { transform: rotate(44deg); } 58%, 100% { transform: rotate(38deg); } }
+@keyframes ds-boing { 0%, 32% { opacity: 0; transform: translateY(6px) scale(.6); } 38% { opacity: 1; transform: translateY(0) scale(1.15); } 46% { transform: scale(1); } 70%, 100% { opacity: 0; } }
+@keyframes ds-rrr { 0%, 50%, 100% { opacity: .35; } 25%, 75% { opacity: 1; } }
+@keyframes ds-exh { 0% { opacity: .6; transform: translate(0,0) scale(.6); } 100% { opacity: 0; transform: translate(-16px,-8px) scale(1.8); } }
+@keyframes ds-flip { 0%, 12% { transform: rotate(0); } 32%, 100% { transform: rotate(180deg); } }
+@keyframes ds-grain { 0%, 38% { transform: translateY(-58px); opacity: 0; } 40% { opacity: 1; } 62% { transform: translateY(0); } 66% { transform: translateY(-4px); } 70%, 100% { transform: translateY(0); opacity: 1; } }
+@keyframes ds-bob { from { transform: translateY(0) rotate(-8deg); } to { transform: translateY(-6px) rotate(8deg); } }
+
+/* ---------- Rutan (samma i telefon, iPad och dator) ---------- */
+.ds-overlay { position: fixed; inset: 0; z-index: 12000; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; }
+.ds-sheet { width: min(560px, 100%); max-height: calc(100dvh - env(safe-area-inset-top) - 16px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: var(--ds-panel); color: var(--ds-text); border-radius: 20px 20px 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 20px);
+  display: flex; flex-direction: column; gap: 12px; font-size: 15px; }
+@media (min-width: 700px) { .ds-overlay { align-items: center; } .ds-sheet { border-radius: 20px; max-height: calc(100dvh - 60px); } }
+.ds-head { display: flex; gap: 10px; align-items: center; }
+.ds-head h2 { margin: 0; font-size: 18px; line-height: 1.25; }
+.ds-head .ds-close { margin-left: auto; align-self: flex-start; }
+.ds-sub { font-size: 13px; color: var(--ds-muted); }
+.ds-late { color: var(--ds-danger); font-weight: 700; }
+.ds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ds-grid > button { min-height: 52px; text-align: left; justify-content: flex-start; }
+.ds-stack { display: flex; flex-direction: column; gap: 8px; }
+.ds-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ds-row > .ds-grow { flex: 1; min-width: 0; }
+.ds-card { background: var(--ds-card); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ds-card.ds-on { outline: 2px solid var(--ds-accent); }
+.ds-rec { font-size: 12px; font-weight: 700; color: var(--ds-accent); }
+.ds-time { display: flex; gap: 10px; align-items: center; }
+.ds-time input[type="time"] { font-size: 28px; font-weight: 700; padding: 6px 10px; border-radius: 12px; border: 1px solid var(--ds-line); background: var(--ds-panel); color: var(--ds-text); font-variant-numeric: tabular-nums; }
+.ds-sheet select { width: 100%; min-height: 44px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--ds-line); background: var(--ds-panel); color: var(--ds-text); font-size: 16px; }
+.ds-prop { font-weight: 700; }
+.ds-done { color: var(--ds-ok); font-weight: 700; font-size: 13px; }
+.ds-msg { font-size: 13px; color: var(--ds-muted); min-height: 18px; }
+.ds-msg.ds-bad { color: var(--ds-danger); }
+/* Raden i listor: kula + text */
+.ds-item { display: flex; gap: 12px; align-items: center; padding: 8px 4px; border-top: 1px solid var(--ds-line); cursor: pointer; }
+.ds-item:first-child { border-top: 0; }
+.ds-item .ds-grow { flex: 1; min-width: 0; }
+.ds-item b { display: block; }
+.ds-new { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 700; color: var(--ds-accent);
+  background: color-mix(in srgb, var(--ds-accent) 14%, transparent); border-radius: 99px; padding: 3px 8px; }
+.ds-hidden { display: none !important; }

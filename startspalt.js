@@ -54,6 +54,7 @@
       else if (window.lpvSnolage) window.lpvSnolage.stop();
     }
     if (aside) aside.hidden = !(admin || l.oversikt);
+    if (window.lpvSnolage && !showSno) window.lpvSnolage.ensureBanner();
   }
 
   // ===== Påminnelser till SU (kort i kortsnurran) =====

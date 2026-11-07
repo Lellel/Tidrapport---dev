@@ -360,6 +360,16 @@ function doPost(e) {
     if (action === "saveOffer") return handleSaveOffer(data.offer, auth.user, auth);
     if (action === "sendOffer") return handleSendOffer(data.id, data.appUrl, data.drawingPng);
     if (action === "cancelOffer") return handleCancelOffer(data.id);
+    // Driftstopp (docs/snoplanering.md): behörigheten kontrolleras i varje funktion (förare, UE-ansvarig, admin)
+    if (action === "reportStop") return handleReportStop(data, auth);
+    if (action === "stopUpdate") return handleStopUpdate(data, auth);
+    if (action === "stopSuggest") return handleStopSuggest(data, auth);
+    if (action === "stopMove") return handleStopMove(data, auth);
+    if (action === "stopSms") return handleStopSms(data, auth);
+    if (action === "stopAck") return handleStopAck(data, auth);
+    if (action === "stopSwapDriver") return handleStopSwapDriver(data, auth);
+    if (action === "getSnowStatus") return auth.isAdmin ? handleGetSnowStatus(auth) : createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver administratör." });
+    if (action === "getStops") return createJsonResponse({ status: "success", stops: stopsForClient(auth), snowfall: currentSnowfall() });
     if (action === "hubspotSyncPending") return handleHubspotSyncPending();
     if (action === "hubspotImport") return handleHubspotImport();
     if (action === "getCustomers") return handleGetCustomers(auth);
@@ -1529,7 +1539,8 @@ function snowVisibleProperties(auth, ctx) {
   ctx = ctx || {};
   const fleet = ctx.fleet || readFleetMap(), people = ctx.people || readSnowPeople();
   const me = snowPerson(people, auth.user);
-  const props = ctx.properties || getPropertySheet().getDataRange().getValues().slice(1).filter(r => r[0]).map(propertyFromRow);
+  // Flyttar vid driftstopp (bara detta snöfall) läggs ovanpå planeringen
+  const props = ctx.properties || applySnowMoves(getPropertySheet().getDataRange().getValues().slice(1).filter(r => r[0]).map(propertyFromRow));
   return props.filter(p => auth.isAdmin ||
     (p.tractorId && snowUnitVisible(auth, me, "traktor", p.tractorId, fleet, people)) ||
     p.shovelers.some(n => snowUnitVisible(auth, me, "hand", n, fleet, people)));
@@ -1570,7 +1581,8 @@ function handleGetSnowBoard(auth) {
   });
   staff.sort((a, b) => a.name.localeCompare(b.name, "sv"));
   const sf = currentSnowfall();
-  return createJsonResponse({ status: "success", people: staff, snowfall: sf, done: sf ? readSnowDone(sf.id) : [] });
+  const done = sf ? readSnowDone(sf.id) : [];
+  return createJsonResponse({ status: "success", people: staff, snowfall: sf, done: done, stops: stopsForClient(auth, { people: people, done: done }) });
 }
 
 // Personal-sidan: ägare (Egna / UE-företag), handskottare, UE-ansvarig och hemort
@@ -1632,7 +1644,7 @@ function handleMarkSnowDone(data, auth) {
   const part = data.part === "hand" ? "hand" : "traktor", unit = sanitize(data.unit);
   const hit = findRowById(getPropertySheet(), data.propertyId);
   if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
-  const p = propertyFromRow(hit.row);
+  const p = applySnowMoves([propertyFromRow(hit.row)])[0];
   if (part === "traktor" ? p.tractorId !== unit : p.shovelers.indexOf(unit) === -1) return createJsonResponse({ status: "error", message: "Den kulan ligger inte längre på " + p.address + "." });
   const fleet = readFleetMap(), people = readSnowPeople();
   if (!snowUnitVisible(auth, snowPerson(people, auth.user), part, unit, fleet, people)) return createJsonResponse({ status: "error", message: "Du kan bara markera dina egna fastigheter." });
@@ -1653,6 +1665,383 @@ function handleMarkSnowDone(data, auth) {
   return createJsonResponse({ status: "success", snowfall: sf, done: readSnowDone(sf.id).filter(d => d.propertyId === p.id) });
 }
 
+// ==========================================
+// 4b2b. DRIFTSTOPP: traktor/handskottare som står (docs/snoplanering.md "Strandade traktorer och byten", 2026-11-07)
+// Föraren (eller UE-ansvarig) trycker ⚠️ Traktorn står i Snöjour: orsak + när den är igång igen. Alla admin får SMS.
+// Admin (eller UE-ansvarig inom sitt företag) väljer ⏳ Vänta, 🔁 en annan tar hela rundan eller 🧩 fördela det som är kvar.
+// Flyttarna gäller BARA detta snöfall: de ligger i Skriptegenskapen DRIFTSTOPP märkt med snöfallets id och läggs
+// ovanpå planeringen (applySnowMoves) – fliken Fastigheter rörs inte. Nytt snöfall = allt som vanligt igen.
+// ==========================================
+const STOPP_ORSAKER = {
+  traktor: ["hydraul", "sand", "punktering", "diesel", "fast", "el", "plogblad", "kyla", "sjuk", "annat"],
+  hand: ["slunga", "skyffel", "bil", "salt", "frusen", "sjuk", "annat"]
+};
+const STOPP_NAMN = { hydraul: "💦 Hydraulslang", sand: "🪣 Sandspridaren", punktering: "🛞 Punktering", diesel: "⛽ Slut på diesel", fast: "🧊 Fast i snön",
+  el: "💡 Elfel / lampor", plogblad: "❄️ Plogbladet", kyla: "🥶 Startar inte", sjuk: "🤒 Sjuk", annat: "❓ Annat",
+  slunga: "🧹 Snöslungan", skyffel: "🪓 Skyffeln gick av", bil: "🚗 Bilen startar inte", salt: "🧂 Slut på sand/salt", frusen: "🥶 Frusen" };
+const STOPP_SEN_MIN = 10;      // så länge efter utlovad tid innan det blir "⏱ försenad"
+
+function driftstopp() {
+  const sf = currentSnowfall();
+  let st = null;
+  try { st = JSON.parse(PropertiesService.getScriptProperties().getProperty("DRIFTSTOPP") || "null"); } catch (e) { st = null; }
+  if (!st || !sf || st.sf !== sf.id) return { sf: sf ? sf.id : "", units: {}, moves: [] };
+  st.units = st.units || {}; st.moves = st.moves || [];
+  return st;
+}
+function saveDriftstopp(st) { PropertiesService.getScriptProperties().setProperty("DRIFTSTOPP", JSON.stringify(st)); }
+const stopKey = (part, unit) => (part === "hand" ? "hand" : "traktor") + ":" + unit;
+function stopParse(key) { const m = /^(traktor|hand):(.+)$/.exec(String(key || "")); return m ? { part: m[1], unit: m[2] } : null; }
+const stopIsDown = (u) => !!u && !u.back;
+
+// Flyttarna läggs ovanpå fastigheterna (bara detta snöfall). moved = varifrån, för 🆕 i Snöjour.
+function applySnowMoves(props, st) {
+  const mv = (st || driftstopp()).moves;
+  if (!mv.length) return props;
+  props.forEach(p => mv.filter(m => m.pid === p.id).forEach(m => {
+    if (m.part === "traktor") { if (p.tractorId === m.from) { p.tractorId = m.to; (p.moved = p.moved || []).push(m); } }
+    else { const i = p.shovelers.indexOf(m.from); if (i !== -1 && p.shovelers.indexOf(m.to) === -1) { p.shovelers[i] = m.to; (p.moved = p.moved || []).push(m); } }
+  }));
+  return props;
+}
+
+function allSnowProperties() { return getPropertySheet().getDataRange().getValues().slice(1).filter(r => r[0]).map(propertyFromRow); }
+
+function stopUnitInfo(part, unit, fleet, people) {
+  if (part === "traktor") {
+    const t = fleet[unit];
+    return t ? { label: t.model + (t.driver ? " (" + t.driver + ")" : ""), short: t.model, driver: t.driver, owner: t.owner, size: t.size, avatarUrl: t.avatarUrl, active: t.active } : null;
+  }
+  const sp = snowPerson(people, unit);
+  return { label: unit, short: unit, driver: unit, owner: sp.owner, size: "", avatarUrl: "", active: true, shoveler: sp.shoveler };
+}
+
+function staffPhone(name) {
+  const st = getStaffSheet(), hit = st && name ? findStaffRow(st, name) : null;
+  return hit ? String(hit.row[2] || "").replace(/^'/, "") : "";
+}
+
+// Får den inloggade hantera (flytta/vänta) för den här enheten? Admin: allt. UE-ansvarig: sitt företags enheter.
+function stopCanHandle(auth, owner, people) {
+  if (auth.isAdmin) return true;
+  const me = snowPerson(people, auth.user);
+  return !!me.ueLead && (owner || "Egna") !== "Egna" && me.owner === owner;
+}
+
+// Vad som är kvar för enheten i snöfallet: fastigheter där den ligger (med flyttar) och dess del inte är klar
+function stopRemaining(part, unit, props, done) {
+  return props.filter(p => (part === "traktor" ? p.tractorId === unit : p.shovelers.indexOf(unit) !== -1) &&
+    !done.some(d => d.propertyId === p.id && d.part === part && d.unit === unit));
+}
+
+// Allt om driftstoppen till appen. Telefonnummer bara till den som får hantera.
+function stopsForClient(auth, ctx) {
+  ctx = ctx || {};
+  const st = ctx.st || driftstopp(), fleet = ctx.fleet || readFleetMap(), people = ctx.people || readSnowPeople();
+  const sf = currentSnowfall(), done = ctx.done || (sf ? readSnowDone(sf.id) : []);
+  const props = ctx.props || applySnowMoves(allSnowProperties(), st);
+  const now = Date.now();
+  const units = Object.keys(st.units).map(k => {
+    const u = st.units[k], info = stopUnitInfo(u.part, u.unit, fleet, people) || { label: u.unit, driver: "", owner: "Egna" };
+    const left = stopRemaining(u.part, u.unit, props, done);
+    const can = stopCanHandle(auth, info.owner, people);
+    return { key: k, part: u.part, unit: u.unit, label: info.label, short: info.short || info.label, driver: info.driver, owner: info.owner, avatarUrl: info.avatarUrl || "",
+      reason: u.reason, reasonText: STOPP_NAMN[u.reason] || u.reason, eta: u.eta, at: u.at, by: u.by, handler: u.handler || "", decision: u.decision || "",
+      back: u.back || 0, late: !u.back && typeof u.eta === "number" && now > u.eta + STOPP_SEN_MIN * 60000,
+      left: left.length, leftPriority: left.filter(p => p.priority).length, canHandle: can, phone: can ? staffPhone(info.driver) : "" };
+  });
+  const moves = st.moves.map(m => {
+    const to = stopUnitInfo(m.part, m.to, fleet, people) || {}, p = props.find(x => x.id === m.pid);
+    return { pid: m.pid, address: p ? p.address : "", part: m.part, from: m.from, to: m.to, toLabel: to.label || m.to, toDriver: to.driver || "", at: m.at, by: m.by, ack: m.ack || null };
+  });
+  // Admin: telefonnummer till alla förare och handskottare (📞 Ring föraren i traktormenyn)
+  let phones;
+  if (auth.isAdmin) {
+    phones = {};
+    const sheet = getStaffSheet();
+    if (sheet) sheet.getDataRange().getValues().slice(1).forEach(r => { if (r[0] && r[2]) phones[String(r[0]).trim()] = String(r[2]).replace(/^'/, ""); });
+  }
+  return { sf: st.sf, units: units, moves: moves, phones: phones };
+}
+
+function stopSmsAdmins(text, owner, people) {
+  const out = { sent: 0, notConfigured: false };
+  const sheet = getStaffSheet();
+  if (!sheet) return out;
+  const lead = (owner || "Egna") !== "Egna";
+  sheet.getDataRange().getValues().slice(1).forEach(r => {
+    if (!r[0] || (String(r[7] || "").trim() || "Aktiv").toLowerCase() !== "aktiv" || !r[2]) return;
+    const name = String(r[0]).trim(), isAdm = isTrue(r[4]) || /^admin$/i.test(String(r[3] || ""));
+    const sp = snowPerson(people, name);
+    if (!isAdm && !(lead && sp.ueLead && sp.owner === owner)) return;
+    const res = sendSmsViaElks(String(r[2]), text, String(r[6] || "LPV"), "driftstopp", "Snöjour");
+    if (res.ok) out.sent++; else if (res.code === "not_configured") out.notConfigured = true;
+  });
+  return out;
+}
+
+const stopHhmm = (ms) => Utilities.formatDate(new Date(ms), Session.getScriptTimeZone() || "Europe/Stockholm", "HH:mm");
+const stopEtaText = (eta) => eta === "resten" ? "⏱ resten av passet" : typeof eta === "number" ? "⏱ åter ~" + stopHhmm(eta) : "⏱ vet inte när";
+
+function stopReadEta(v) {
+  if (v === "resten") return "resten";
+  const n = Number(v);
+  return isFinite(n) && n > Date.now() - 3600000 && n < Date.now() + 36 * 3600000 ? n : null;
+}
+
+// ⚠️ Traktorn står (eller handskottaren kan inte fortsätta). Föraren, UE-ansvarig eller admin.
+function handleReportStop(data, auth) {
+  const part = data.part === "hand" ? "hand" : "traktor", unit = sanitize(data.unit);
+  const fleet = readFleetMap(), people = readSnowPeople();
+  const info = stopUnitInfo(part, unit, fleet, people);
+  if (!info || !unit) return createJsonResponse({ status: "error", message: "Hittar inte " + (part === "traktor" ? "traktorn." : "personen.") });
+  if (!snowUnitVisible(auth, snowPerson(people, auth.user), part, unit, fleet, people)) return createJsonResponse({ status: "error", message: "Du kan bara rapportera för din egen " + (part === "traktor" ? "traktor." : "del.") });
+  const reason = STOPP_ORSAKER[part].indexOf(data.reason) !== -1 ? data.reason : "annat";
+  if (!currentSnowfall()) handleNewSnowfall({ user: auth.user });
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  let st, first;
+  try {
+    st = driftstopp();
+    const key = stopKey(part, unit), old = st.units[key];
+    first = !stopIsDown(old);
+    st.units[key] = Object.assign(first ? {} : old, { part: part, unit: unit, reason: reason, eta: stopReadEta(data.eta), at: first ? Date.now() : old.at, by: auth.user,
+      back: 0, lateSms: false, handler: first ? "" : (old.handler || ""), decision: first ? "" : (old.decision || "") });
+    saveDriftstopp(st);
+  } finally { lock.releaseLock(); }
+  const out = stopsForClient(auth, { st: st, fleet: fleet, people: people });
+  let sms = { sent: 0 };
+  if (first) {
+    const u = out.units.find(x => x.key === stopKey(part, unit));
+    const site = siteUrlFor(data);
+    const text = "🔧 " + info.label + " står – " + (STOPP_NAMN[reason] || reason).replace(/^\S+\s/, "").toLowerCase() + " – " + stopEtaText(u.eta) +
+      " – " + u.left + " kvar" + (u.leftPriority ? " (" + u.leftPriority + " ⭐)" : "") + ". Öppna: " + site + "index.html?stopp=" + encodeURIComponent(u.key);
+    sms = stopSmsAdmins(text, info.owner, people);
+  }
+  return createJsonResponse({ status: "success", stops: out, sms: sms });
+}
+
+// Ändra tiden, svara på mjukfrågan ("Igång igen?") eller ✅ Tillbaka i drift
+function handleStopUpdate(data, auth) {
+  const k = stopParse(data.stop);
+  if (!k) return createJsonResponse({ status: "error", message: "Okänd enhet." });
+  const fleet = readFleetMap(), people = readSnowPeople(), info = stopUnitInfo(k.part, k.unit, fleet, people) || { owner: "Egna" };
+  const mayReport = snowUnitVisible(auth, snowPerson(people, auth.user), k.part, k.unit, fleet, people);
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  let st;
+  try {
+    st = driftstopp();
+    const u = st.units[data.stop];
+    if (!stopIsDown(u)) return createJsonResponse({ status: "success", stops: stopsForClient(auth, { st: st, fleet: fleet, people: people }) });
+    const op = String(data.op || "");
+    if (op === "take") {
+      if (!stopCanHandle(auth, info.owner, people)) return createJsonResponse({ status: "error", message: "Bara admin (eller företagets UE-ansvarige) kan ta ärendet." });
+      u.handler = auth.user; u.handlerAt = Date.now();
+    } else if (op === "wait") {
+      if (!stopCanHandle(auth, info.owner, people)) return createJsonResponse({ status: "error", message: "Bara admin kan bestämma." });
+      u.decision = "vanta"; u.handler = u.handler || auth.user;
+    } else {
+      if (!mayReport && !stopCanHandle(auth, info.owner, people)) return createJsonResponse({ status: "error", message: "Du kan bara ändra din egen." });
+      if (op === "eta") { u.eta = stopReadEta(data.eta); u.lateSms = false; }
+      else if (op === "plus30") { u.eta = Math.max(Date.now(), typeof u.eta === "number" ? u.eta : 0) + 30 * 60000; u.lateSms = false; }
+      else if (op === "resten") { u.eta = "resten"; u.lateSms = false; }
+      else if (op === "back") { u.back = Date.now(); u.backBy = auth.user; }
+      else return createJsonResponse({ status: "error", message: "Okänd åtgärd." });
+    }
+    saveDriftstopp(st);
+  } finally { lock.releaseLock(); }
+  return createJsonResponse({ status: "success", stops: stopsForClient(auth, { st: st, fleet: fleet, people: people }) });
+}
+
+// Förslag: det som är kvar med närmaste enhet i drift som passar, och kandidaterna för hela rundan
+function handleStopSuggest(data, auth) {
+  const k = stopParse(data.stop);
+  if (!k) return createJsonResponse({ status: "error", message: "Okänd enhet." });
+  const fleet = readFleetMap(), people = readSnowPeople(), info = stopUnitInfo(k.part, k.unit, fleet, people) || { owner: "Egna" };
+  if (!stopCanHandle(auth, info.owner, people)) return createJsonResponse({ status: "error", message: "Bara admin kan flytta." });
+  const st = driftstopp(), sf = currentSnowfall(), done = sf ? readSnowDone(sf.id) : [];
+  const props = applySnowMoves(allSnowProperties(), st);
+  const remaining = stopRemaining(k.part, k.unit, props, done);
+  const ueOnly = !auth.isAdmin ? info.owner : "";
+  // Kandidaterna: traktorer i drift (annan än den som står) eller handskottare
+  const cands = [];
+  if (k.part === "traktor") Object.keys(fleet).forEach(id => {
+    const t = fleet[id];
+    if (id === k.unit || !t.active || stopIsDown(st.units[stopKey("traktor", id)]) || (ueOnly && t.owner !== ueOnly)) return;
+    cands.push({ unit: id, label: t.model + (t.driver ? " (" + t.driver + ")" : ""), driver: t.driver, size: t.size, owner: t.owner });
+  });
+  if (k.part === "hand") {
+    const seen = {};
+    Object.keys(people).map(n => people[n]).forEach(sp => {
+      if (!sp.shoveler || sp.name === k.unit || seen[sp.name] || stopIsDown(st.units[stopKey("hand", sp.name)]) || (ueOnly && sp.owner !== ueOnly)) return;
+      seen[sp.name] = true;
+      cands.push({ unit: sp.name, label: sp.name, driver: sp.name, size: "", owner: sp.owner, home: sp.lat !== null ? [sp.lat, sp.lng] : null });
+    });
+  }
+  // Var enheten är nu: senaste klara fastigheten i snöfallet, annars mitten av dess fastigheter (handskottare: hemorten)
+  cands.forEach(c => {
+    const mine = props.filter(p => (k.part === "traktor" ? p.tractorId === c.unit : p.shovelers.indexOf(c.unit) !== -1));
+    c.left = stopRemaining(k.part, c.unit, props, done).length;
+    const lastDone = done.filter(d => d.part === k.part && d.unit === c.unit).sort((a, b) => a.time < b.time ? 1 : -1)[0];
+    const lp = lastDone ? props.find(p => p.id === lastDone.propertyId) : null;
+    const pts = mine.filter(p => p.lat !== null);
+    c.pos = lp && lp.lat !== null ? [lp.lat, lp.lng] : c.home ? c.home : pts.length ? [pts.reduce((s, p) => s + p.lat, 0) / pts.length, pts.reduce((s, p) => s + p.lng, 0) / pts.length] : null;
+  });
+  const fits = (c, p) => !(c.size === "stor" && p.size === "liten" && !p.forced);
+  const kmTo = (c, p) => c.pos && p.lat !== null ? kmBetween(c.pos, [p.lat, p.lng]) : null;
+  const rem = remaining.map(p => {
+    const opts = cands.map(c => ({ unit: c.unit, label: c.label, km: kmTo(c, p), left: c.left, fits: fits(c, p) }))
+      .sort((a, b) => (b.fits - a.fits) || ((a.km === null ? 999 : a.km) + a.left * 0.8) - ((b.km === null ? 999 : b.km) + b.left * 0.8));
+    const best = opts.find(o => o.fits);
+    return { id: p.id, address: p.address, omrade: p.omrade || p.ort, size: p.size, priority: p.priority, suggest: best ? best.unit : "",
+      options: opts.map(o => ({ unit: o.unit, label: o.label, km: o.km === null ? null : Math.round(o.km * 10) / 10, left: o.left, fits: o.fits })) };
+  });
+  const whole = cands.map(c => {
+    const fitAll = remaining.every(p => fits(c, p));
+    const pts = remaining.filter(p => p.lat !== null);
+    const center = pts.length ? [pts.reduce((s, p) => s + p.lat, 0) / pts.length, pts.reduce((s, p) => s + p.lng, 0) / pts.length] : null;
+    const km = c.pos && center ? Math.round(kmBetween(c.pos, center) * 10) / 10 : null;
+    return { unit: c.unit, label: c.label, left: c.left, km: km, fitsAll: fitAll };
+  }).sort((a, b) => (b.fitsAll - a.fitsAll) || (a.left === 0 ? 0 : 1) - (b.left === 0 ? 0 : 1) || ((a.km === null ? 999 : a.km) - (b.km === null ? 999 : b.km)));
+  const u = st.units[data.stop] || {};
+  const mins = typeof u.eta === "number" ? (u.eta - Date.now()) / 60000 : null;
+  const limit = remaining.some(p => p.priority) ? 15 : 30;
+  return createJsonResponse({ status: "success", remaining: rem, whole: whole, recommend: mins !== null && mins <= limit ? "vanta" : "fordela", limit: limit });
+}
+
+// 🔁 / 🧩 Flytta det som är kvar: moves = [{ propertyId, to }]
+function handleStopMove(data, auth) {
+  const k = stopParse(data.stop);
+  if (!k) return createJsonResponse({ status: "error", message: "Okänd enhet." });
+  const fleet = readFleetMap(), people = readSnowPeople(), info = stopUnitInfo(k.part, k.unit, fleet, people) || { owner: "Egna" };
+  if (!stopCanHandle(auth, info.owner, people)) return createJsonResponse({ status: "error", message: "Bara admin kan flytta." });
+  const list = Array.isArray(data.moves) ? data.moves.slice(0, 200) : [];
+  if (!list.length) return createJsonResponse({ status: "error", message: "Välj vem som tar fastigheterna." });
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  let st;
+  const receivers = {};
+  try {
+    st = driftstopp();
+    const sf = currentSnowfall(), done = sf ? readSnowDone(sf.id) : [];
+    const props = applySnowMoves(allSnowProperties(), st);
+    const left = stopRemaining(k.part, k.unit, props, done);
+    for (const m of list) {
+      const p = left.find(x => x.id === String(m.propertyId));
+      const to = sanitize(m.to);
+      if (!p || !to) continue;
+      const ti = stopUnitInfo(k.part, to, fleet, people);
+      if (!ti || to === k.unit) return createJsonResponse({ status: "error", message: "Okänd mottagare: " + to });
+      if (!auth.isAdmin && ti.owner !== info.owner) return createJsonResponse({ status: "error", message: "Du kan bara flytta inom ditt företag." });
+      if (k.part === "traktor" && ti.size === "stor" && p.size === "liten" && !p.forced) return createJsonResponse({ status: "error", message: "En stor traktor får inte plats på " + p.address + "." });
+      // Var den redan flyttad hit (A → B, B står) flyttas den vidare – ursprunget följer med
+      const prev = st.moves.find(x => x.pid === p.id && x.part === k.part && x.to === k.unit);
+      if (prev) { prev.to = to; prev.at = Date.now(); prev.by = auth.user; prev.ack = null; }
+      else st.moves.push({ pid: p.id, part: k.part, from: k.unit, to: to, at: Date.now(), by: auth.user, ack: null });
+      const r = receivers[to] || (receivers[to] = { unit: to, label: ti.label, driver: ti.driver, addresses: [] });
+      r.addresses.push(p.address);
+    }
+    const u = st.units[data.stop];
+    if (u) { u.decision = "flytta"; u.handler = u.handler || auth.user; }
+    saveDriftstopp(st);
+  } finally { lock.releaseLock(); }
+  const out = Object.keys(receivers).map(n => Object.assign(receivers[n], { phone: staffPhone(receivers[n].driver),
+    smsText: "Hej " + (receivers[n].driver || "") + "! Du har fått " + receivers[n].addresses.length + (receivers[n].addresses.length === 1 ? " fastighet" : " fastigheter") +
+      " från " + info.label + ": " + receivers[n].addresses.join(", ") + ". De ligger i Snöjour (🆕)." }));
+  return createJsonResponse({ status: "success", receivers: out, stops: stopsForClient(auth, { st: st, fleet: fleet, people: people }) });
+}
+
+// 💬 SMS till en mottagare (bara när admin trycker)
+function handleStopSms(data, auth) {
+  const k = stopParse(data.stop), people = readSnowPeople(), fleet = readFleetMap();
+  const info = k ? stopUnitInfo(k.part, k.unit, fleet, people) : null;
+  if (!info || !stopCanHandle(auth, info.owner, people)) return createJsonResponse({ status: "error", message: "Bara admin kan skicka." });
+  const hit = findStaffRow(getStaffSheet(), sanitize(data.to));
+  if (!hit || !hit.row[2]) return createJsonResponse({ status: "error", message: "Inget mobilnummer för " + sanitize(data.to) + "." });
+  const res = sendSmsViaElks(String(hit.row[2]), String(data.text || "").slice(0, 600), String(hit.row[6] || "LPV"), "driftstopp", auth.user);
+  return createJsonResponse(res.ok ? { status: "success" } : { status: "error", code: res.code, message: res.message });
+}
+
+// 👍 Uppfattat (mjukfråga – låser ingenting)
+function handleStopAck(data, auth) {
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const st = driftstopp(), fleet = readFleetMap(), people = readSnowPeople(), me = snowPerson(people, auth.user);
+    let n = 0;
+    st.moves.forEach(m => {
+      if (m.pid !== String(data.propertyId) || m.ack) return;
+      if (!snowUnitVisible(auth, me, m.part, m.to, fleet, people)) return;
+      m.ack = { at: Date.now(), by: auth.user }; n++;
+    });
+    if (n) saveDriftstopp(st);
+    return createJsonResponse({ status: "success", acked: n });
+  } finally { lock.releaseLock(); }
+}
+
+// 👤 Byt förare på traktorn (sjuk/skiftbyte): samma traktor och runda
+function handleStopSwapDriver(data, auth) {
+  const fleet = readFleetMap(), people = readSnowPeople(), t = fleet[sanitize(data.tractorId)];
+  if (!t) return createJsonResponse({ status: "error", message: "Traktorn hittades inte." });
+  if (!stopCanHandle(auth, t.owner, people)) return createJsonResponse({ status: "error", message: "Bara admin kan byta förare." });
+  const driver = sanitize(data.driver).slice(0, 60);
+  const sheet = getFleetSheet(), hit = findRowById(sheet, t.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Traktorn hittades inte." });
+  // En förare sitter på en traktor i taget
+  if (driver) sheet.getDataRange().getValues().forEach((r, i) => { if (i && String(r[9] || "").trim() === driver && String(r[0]) !== t.id) sheet.getRange(i + 1, 10).setValue(""); });
+  sheet.getRange(hit.rowNumber, 10).setValue(driver);
+  return createJsonResponse({ status: "success", tractor: tractorFromRow(sheet.getRange(hit.rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0]) });
+}
+
+// Kvartsutlösaren (vaderKollTrigger): passerad tid + 10 min utan svar → "⏱ försenad" och SMS till den som tagit ärendet
+function driftstoppKoll() {
+  const st = driftstopp();
+  if (!st.sf) return;
+  const now = Date.now(), fleet = readFleetMap(), people = readSnowPeople();
+  let changed = false;
+  Object.keys(st.units).forEach(k => {
+    const u = st.units[k];
+    if (!stopIsDown(u) || typeof u.eta !== "number" || u.lateSms || now < u.eta + STOPP_SEN_MIN * 60000) return;
+    u.lateSms = true; changed = true;
+    const info = stopUnitInfo(u.part, u.unit, fleet, people) || { label: u.unit, owner: "Egna" };
+    const text = "⏱ " + info.label + " skulle vara igång " + stopHhmm(u.eta) + " men har inte svarat. Öppna: " +
+      (PropertiesService.getScriptProperties().getProperty("SITE_URL") || DEFAULT_SITE_URL) + "index.html?stopp=" + encodeURIComponent(k);
+    const phone = u.handler ? staffPhone(u.handler) : "";
+    if (phone) sendSmsViaElks(phone, text, "LPV", "driftstopp", "Snöjour");
+    else stopSmsAdmins(text, info.owner, people);
+  });
+  if (changed) saveDriftstopp(st);
+}
+
+// ❄️ Snöläget på startsidan (admin, docs/startsidan.md): kompakt status per fastighet och kommundel i snöfallet.
+// Pågår = snöfallet startade för mindre än 24 timmar sedan (snöfall avslutas inte – nästa ersätter).
+function handleGetSnowStatus(auth) {
+  const sf = currentSnowfall(), st = driftstopp(), fleet = readFleetMap(), people = readSnowPeople();
+  const done = sf ? readSnowDone(sf.id) : [];
+  const props = applySnowMoves(allSnowProperties(), st);
+  const pagar = !!sf && Date.now() - stampMs(sf.start) < 24 * 3600000;
+  const kds = {};
+  const out = props.map(p => {
+    const parts = (p.tractorId ? [{ part: "traktor", unit: p.tractorId }] : []).concat(p.shovelers.map(n => ({ part: "hand", unit: n })));
+    const d = parts.map(x => done.find(y => y.propertyId === p.id && y.part === x.part && y.unit === x.unit)).filter(Boolean);
+    const state = !parts.length ? "" : d.length === parts.length ? "done" : d.length ? "part" : "";
+    const kd = String(p.omrade || p.ort || "Utan område").trim();
+    const k = kds[kd] || (kds[kd] = { name: kd, total: 0, done: 0, part: 0, noTractor: 0 });
+    k.total++; if (state === "done") k.done++; if (state === "part") k.part++; if (!p.tractorId) k.noTractor++;
+    return { id: p.id, address: p.address, kd: kd, lat: p.lat, lng: p.lng, priority: p.priority, state: state, noTractor: !p.tractorId,
+      parts: parts.map(x => { const i = stopUnitInfo(x.part, x.unit, fleet, people); const dd = done.find(y => y.propertyId === p.id && y.part === x.part && y.unit === x.unit);
+        return { part: x.part, unit: x.unit, label: i ? i.label : x.unit, done: dd ? dd.time.slice(11) : "" }; }) };
+  });
+  const stops = stopsForClient(auth, { st: st, fleet: fleet, people: people, done: done, props: props });
+  // Var kulan som står syns på kartan: senaste klara fastigheten, annars nästa som är kvar
+  stops.units.forEach(u => {
+    const last = done.filter(x => x.part === u.part && x.unit === u.unit).sort((a, b) => a.time < b.time ? 1 : -1)[0];
+    const lp = last ? out.find(p => p.id === last.propertyId) : out.find(p => p.parts.some(x => x.part === u.part && x.unit === u.unit && !x.done));
+    u.pos = lp && lp.lat !== null ? [lp.lat, lp.lng] : null;
+  });
+  const out24 = {};
+  done.forEach(x => { if (x.part === "traktor") out24[x.unit] = true; });
+  return createJsonResponse({ status: "success", snowfall: sf, pagar: pagar, properties: out, kommundelar: Object.keys(kds).sort((a, b) => a.localeCompare(b, "sv")).map(k => kds[k]),
+    tractorsOut: Object.keys(out24).length, stops: stops });
+}
+
 // Snöjour: fastigheterna där mina kulor ligger (UE-ansvarig: företagets, admin: alla) med zoner och status
 function handleGetSnowJour(auth) {
   const fleet = readFleetMap(), people = readSnowPeople(), me = snowPerson(people, auth.user), companies = readUeCompanies();
@@ -1670,12 +2059,14 @@ function handleGetSnowJour(auth) {
       mine: t.driver === auth.user, waiting: !ueAgreementOk(t.owner, companies), canMark: okFor(t.owner) && snowUnitVisible(auth, me, "traktor", t.id, fleet, people) });
     p.shovelers.forEach(n => { const o = snowPerson(people, n).owner; parts.push({ part: "hand", unit: n, label: n, driver: n, owner: o,
       mine: n === auth.user, waiting: !ueAgreementOk(o, companies), canMark: okFor(o) && snowUnitVisible(auth, me, "hand", n, fleet, people) }); });
+    // 🆕 Flyttad hit vid driftstopp: varifrån och om mottagaren tryckt 👍 Uppfattat
+    const moved = (p.moved || []).map(m => { const fi = stopUnitInfo(m.part, m.from, fleet, people); return { part: m.part, to: m.to, from: m.from, fromLabel: fi ? fi.label : m.from, ack: m.ack || null }; });
     return { id: p.id, address: p.address, ort: p.ort, omrade: p.omrade, kund: p.kund, lat: p.lat, lng: p.lng, priority: p.priority, note: p.note,
-      maps: p.maps.filter(m => m.place), parts: parts, done: done.filter(d => d.propertyId === p.id) };
+      maps: p.maps.filter(m => m.place), parts: parts, done: done.filter(d => d.propertyId === p.id), moved: moved };
   });
   return createJsonResponse({ status: "success", user: auth.user, isAdmin: !!auth.isAdmin, owner: me.owner, ueLead: !!me.ueLead,
     waitingAgreement: !auth.isAdmin && !ueAgreementOk(me.owner, companies),
-    snowfall: sf, properties: out, zones: zones });
+    snowfall: sf, properties: out, zones: zones, stops: stopsForClient(auth, { fleet: fleet, people: people, done: done }) });
 }
 
 // ==========================================
@@ -3665,7 +4056,10 @@ function vaderKoll(force) {
   return state;
 }
 
-function vaderKollTrigger() { vaderKoll(false); }
+function vaderKollTrigger() {
+  vaderKoll(false);
+  try { driftstoppKoll(); } catch (e) { Logger.log("driftstoppKoll: " + e.message); } // "⏱ försenad" vid driftstopp
+}
 
 // Kör en gång i Apps Script: startar mätningen var 15:e minut (dygnet runt)
 function installeraVaderKoll() {

@@ -1,6 +1,6 @@
 # Startsidan – iPad/dator, knappmenyn och snösäsongen
 
-Bestämt med Daniel 2026-11-07. **Inte byggt än** – byggs när Daniel säger till. Följer docs/designsprak.md.
+Bestämt med Daniel 2026-11-07. **Byggt samma dag** (se *Hur det blev* längst ner). Följer docs/designsprak.md.
 
 ## Varför
 En admin kan i dag nå samma sidor på fyra ställen: vänstermenyn som fälls ut (`side-nav-drawer`), flikraden, Mer-menyn och knapparna i 🔧 Administratör. Vänstermenyn öppnas när musen hålls över den, något som inte finns på iPad, så där blir den krånglig. Personformuläret är det största blocket i högerspalten men används sällan. Målet är **en** plats för navigeringen per skärmstorlek och ett renare flöde.
@@ -37,3 +37,12 @@ Det mesta är byggt men inget är provat. En offert skickas som kontakt plus aff
 - Uppdatera guide.html (admin: var Personal/knapparna finns, ❄️ Snösäsong), lägg en rad i nyheter.js och räkna upp `CACHE_NAME` i sw.js.
 - Sänk baslinjen i designbaslinje.json när admin-knapparna (`admin-btn`, `main-btn admin-nav-btn`) och `side-nav-item` försvinner.
 - Kör kor-alla.sh, och kor-e2e.sh på iPad-storlek.
+
+## Hur det blev (2026-11-07)
+- **index.html**: vänstermenyn borta. Högerspalten (`#landscape-dashboard`) = `#sno-lage` + `#admin-menu` (knappar med `data-grupp` sno/kontor/ovrigt) + `#dash-oversikt`. Spalten döljs helt när inget gäller. `#stopp-banner` överst = larmraden för admin.
+- **startspalt.js**: ordning efter säsong, ⋯ Fler, Mer-menyn, påminnelsekorten till SU (`lpv_sno_paminn` = "Inte nu").
+- **snolage.js**: ❄️ Snöläget (anropet `getSnowStatus`, varje minut) och larmraden (`getStops`, varannan minut, bara i telefonen eller när Snöläget inte syns). Leaflet laddas bara när kartan behövs. `?stopp=traktor:<id>` från SMS:et öppnar rutan.
+- **Kod.gs**: Skriptegenskapen `APPLAGE` (`sno`, `oversikt`) skickas i `me`, och SU ändrar den med `suCall` `setAppLage`. `snoUtsikt` = snö de närmaste 5 dygnen per väderområde (`utsikt` i VADER_LAGE).
+- **Pågående snöfall** = startat för mindre än 24 h sedan (snöfall avslutas inte, nästa ersätter).
+- **personal.html**: ＋ Ny person, 🏁 QR och 🔑 Spärra & ny länk. Snöplaneringen tar `?p=<fastighet>`.
+- Tester: `sutest` (appläget), `vadertest` (utsikten), `startspalt-e2e`, `driftstopp-e2e`.

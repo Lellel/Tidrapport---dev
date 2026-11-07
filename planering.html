@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Snöplanering</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="driftstopp.css">
 <style>
 /* Snöplaneringen i Radarns stil (docs/snoplanering.md, 2026-11-06):
    traktorremsan där Radarns orderbok är, kulpåsen (förare + handskottare) till vänster,
@@ -159,6 +160,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--bad); color: var(--t-on-accent); padding: 12px 16px; border-radius: var(--t-r); z-index: 120; font-weight: 600; display: none; max-width: 92vw; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
 .toast.ok { background: var(--ok); }
 .toast .lpv-btn { margin-left: 10px; }
+/* Telefon: traktorlistan med lampor överst – tryck på en rad för traktormenyn (docs/snoplanering.md) */
+.phonelist { display: none; }
+@media (max-width: 700px) { .phonelist { display: block; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); } }
+.phonelist h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 6px 0 2px; }
+.lamp { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--line); }
+.lamp.part { background: var(--warn); } .lamp.done { background: var(--ok); } .lamp.down { background: var(--bad); }
 @media (max-width: 800px) { .side { width: 150px; } .search { width: 120px; } .lane .lab { width: 120px; } .lane .sum { width: 80px; } }
 </style>
 </head>
@@ -180,6 +187,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <span class="status" id="status"></span>
   </div>
   <div class="order" id="order"></div>
+  <section class="phonelist" id="phoneList" aria-label="Traktorer och handskottare"></section>
   <div class="main">
     <aside class="side" id="side"></aside>
     <div class="area" id="area"><div id="cardsview"></div><div id="map" hidden></div></div>
@@ -195,9 +203,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 <script src="inloggning.js"></script>
 <script src="sasong.js"></script>
 <script src="sno.js"></script>
+<script src="driftstopp.js"></script>
 <script>
 // ===== Data =====
 let properties = [], fleet = [], people = [], zonesAll = [], avatars = {}, snowfall = null, doneList = [];
+let stops = { units: [], moves: [] }; // driftstopp i snöfallet (docs/snoplanering.md) – flyttarna gäller bara detta snöfall
 let view = 'props', kommundel = '', showOthers = false, loaded = false;
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* privat/fullt */ } } };
 view = ['props', 'tractors', 'map'].includes(store.get('lpv_plan_view')) ? store.get('lpv_plan_view') : 'props';
@@ -228,7 +238,10 @@ function zoneStats(p) {
 }
 
 // Status i pågående snöfall
-const partsOf = (p) => (p.tractorId ? [{ part: 'traktor', unit: p.tractorId }] : []).concat((p.shovelers || []).map(n => ({ part: 'hand', unit: n })));
+// Flyttar vid driftstopp: status räknas på den som kör nu (planeringen själv ändras inte)
+const movedTo = (p, part, unit) => { const m = (stops.moves || []).find(x => x.pid === p.id && x.part === part && x.from === unit); return m ? m.to : unit; };
+const partsOf = (p) => (p.tractorId ? [{ part: 'traktor', unit: movedTo(p, 'traktor', p.tractorId) }] : []).concat((p.shovelers || []).map(n => ({ part: 'hand', unit: movedTo(p, 'hand', n) })));
+const downOf = (part, unit) => (stops.units || []).find(u => u.key === part + ':' + unit && lpvStopp.isDown(u));
 const doneOf = (p, part, unit) => doneList.find(d => d.propertyId === p.id && d.part === part && d.unit === unit);
 function stateOf(p) {
   const parts = partsOf(p), n = parts.filter(x => doneOf(p, x.part, x.unit)).length;
@@ -259,11 +272,15 @@ const brandColor = (m) => { const s = String(m).toLowerCase(); const k = Object.
 const shortModel = (t) => String(t.model).split(/\s+/).slice(0, 2).join(' ');
 const initials = (n) => String(n).split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
 function tKula(t, px, chk) {
+  const down = downOf('traktor', t.id);
+  if (down) return `<div data-stopp="${esc(down.key)}" title="${esc(down.reasonText + ' · ' + lpvStopp.etaText(down))}">${lpvStopp.sceneHtml(Object.assign({}, down, { avatarUrl: t.avatarUrl }), px)}</div>`;
   const inner = t.avatarUrl ? `<img src="${esc(t.avatarUrl)}" alt="">` : '🚜';
   const wait = t.ueOk === false;
   return `<div class="kula${t.active === false || wait ? ' grey' : ''}"${wait ? ` title="⏳ ${esc(t.owner)} väntar på avtal"` : ''} style="width:${px}px;height:${px}px;font-size:${Math.round(px * .45)}px;--kc:${brandColor(t.model)}">${inner}${chk ? '<span class="chk">✓</span>' : ''}</div>`;
 }
 function pKula(name, px, chk) {
+  const down = downOf('hand', name);
+  if (down) return `<div data-stopp="${esc(down.key)}" title="${esc(down.reasonText + ' · ' + lpvStopp.etaText(down))}">${lpvStopp.sceneHtml(Object.assign({}, down, { avatarUrl: avatars[name] || '' }), px)}</div>`;
   const av = avatars[name], x = personByName(name);
   const wait = x.ueOk === false;
   return `<div class="kula hk${x.active === false || wait ? ' grey' : ''}"${wait ? ` title="⏳ ${esc(x.owner)} väntar på avtal"` : ''} style="width:${px}px;height:${px}px;font-size:${Math.round(px * .36)}px">${av ? `<img src="${esc(av)}" alt="">` : esc(initials(name))}${chk ? '<span class="chk">✓</span>' : ''}</div>`;
@@ -288,7 +305,9 @@ function renderTop() {
   const noSize = list.filter(p => !p.size).length;
   if (noSize) parts.push(`<a class="bad" href="snoregister.html?filter=saknar">⚠️ ${noSize} saknar storlek →</a>`);
   if (badPeople.size) parts.push(`<span class="bad">⚠️ ${[...badPeople].map(esc).join(', ')} inaktiv</span>`);
-  $('warnline').innerHTML = list.length ? parts.join(' · ') : '';
+  const downs = (stops.units || []).filter(lpvStopp.isDown);
+  if (downs.length) parts.unshift(downs.map(u => `<a class="bad" href="#" data-stopp="${esc(u.key)}">🔧 ${esc(u.short || u.label)} står${lpvStopp.isLate(u) ? ' ⏱' : ''} →</a>`).join(' · '));
+  $('warnline').innerHTML = list.length || downs.length ? parts.join(' · ') : '';
   $('searchlist').innerHTML = properties.map(p => `<option value="${esc(p.address)}">${esc([p.kund, kdOf(p)].filter(Boolean).join(' · '))}</option>`).join('');
 }
 
@@ -425,16 +444,34 @@ function renderMapPins(fit) {
   if (fit) { const pts = kdProps().filter(p => p.lat !== null).map(p => [p.lat, p.lng]); if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 }); }
 }
 
+// ===== Telefon: traktorlistan =====
+function renderPhoneList() {
+  const el = $('phoneList');
+  if (!el || !window.matchMedia('(max-width: 700px)').matches) { if (el) el.innerHTML = ''; return; }
+  const rowFor = (part, unit, label, sub, kula) => {
+    const mine = properties.filter(p => partsOf(p).some(x => x.part === part && x.unit === unit));
+    const done = mine.filter(p => doneOf(p, part, unit)).length, down = downOf(part, unit);
+    const lamp = down ? 'down' : !snowfall || !mine.length ? '' : done === mine.length ? 'done' : done ? 'part' : '';
+    const status = down ? `🔧 ${esc(down.reasonText)} · ${esc(lpvStopp.etaText(down))}${lpvStopp.isLate(down) ? ' · ⏱ försenad' : ''}` : snowfall && mine.length ? `${done}/${mine.length} klara` : `${mine.length} fastigheter`;
+    return `<div class="ds-item" ${down ? `data-stopp="${esc(down.key)}"` : `data-unitmenu="${part}|${esc(unit)}"`}>${kula}<span class="lamp ${lamp}"></span>
+      <div class="ds-grow"><b>${esc(label)}</b><span class="hint">${esc(sub)}${sub ? ' · ' : ''}${status}</span></div></div>`;
+  };
+  const tr = fleet.filter(t => t.active !== false && properties.some(p => p.tractorId === t.id)).sort((a, b) => !!downOf('traktor', b.id) - !!downOf('traktor', a.id) || sv(a.model, b.model));
+  const hs = [...new Set(properties.flatMap(p => p.shovelers || []))].sort((a, b) => !!downOf('hand', b) - !!downOf('hand', a) || sv(a, b));
+  el.innerHTML = `<h3>🚜 Traktorer</h3>${tr.map(t => rowFor('traktor', t.id, shortModel(t), t.driver ? '👷 ' + t.driver : '⚠️ ingen förare', tKula(t, 40))).join('') || '<div class="hint">Inga traktorer på fastigheter.</div>'}` +
+    (hs.length ? `<h3>🧹 Handskottare</h3>${hs.map(n => rowFor('hand', n, n, '', pKula(n, 40))).join('')}` : '');
+}
+
 // ===== Rita allt =====
 function render(fitMap) {
-  renderTop(); renderOrder(); renderSide();
+  renderTop(); renderOrder(); renderSide(); renderPhoneList();
   const isMap = view === 'map';
   $('area').classList.toggle('mapmode', isMap);
   $('map').hidden = !isMap; $('cardsview').hidden = isMap;
   if (isMap) { ensureMap(); renderMapPins(fitMap); }
   else $('cardsview').innerHTML = view === 'tractors' ? renderTractors() : renderProps();
   if (sheetFor) renderSheet();
-  if (loaded) store.set('lpv_plan_cache2', JSON.stringify({ properties, fleet, people, zonesAll, snowfall, doneList }));
+  if (loaded) store.set('lpv_plan_cache2', JSON.stringify({ properties, fleet, people, zonesAll, snowfall, doneList, stops }));
 }
 function setView(v) { view = v; store.set('lpv_plan_view', v); render(true); }
 function setKd(kd) { kommundel = kd; store.set('lpv_plan_kd', kd); showOthers = false; render(true); $('area').scrollTop = 0; }
@@ -543,11 +580,18 @@ document.addEventListener('pointerup', (e) => {
 document.addEventListener('pointercancel', () => { if (drag) { if (drag.ghost) drag.ghost.remove(); drag.el.style.opacity = ''; } drag = null; clearHighlight(); });
 // Tryck på ett kort (utan att dra) öppnar detaljrutan; på en traktor öppnas traktorns ruta
 document.addEventListener('click', (e) => {
+  const sp = e.target.closest('[data-stopp]'); if (sp && !e.target.closest('[data-drag]')) { lpvStopp.openAdmin(sp.dataset.stopp, stopCtx()); return; }
+  const um = e.target.closest('[data-unitmenu]'); if (um) { const [part, unit] = um.dataset.unitmenu.split('|'); const t = part === 'traktor' ? tractorById(unit) : null;
+    lpvStopp.openUnitMenu({ part, unit, label: t ? t.model + (t.driver ? ' (' + t.driver + ')' : '') : unit, driver: t ? t.driver : unit }, stopCtx()); return; }
   if (e.target.closest('.sheet, [data-drag]')) return;
   const ts = e.target.closest('[data-tractor-sheet]'); if (ts) { openTractorSheet(ts.dataset.tractorSheet); return; }
   const c = e.target.closest('[data-card]'); if (c) openSheet(c.dataset.card);
 });
+const stopCtx = () => ({ stops, drivers: people.filter(x => x.active !== false && !x.shoveler && (x.role === 'Förare' || x.role === 'UE')).map(x => x.name),
+  onChange: (s) => { if (s) stops = s; render(); refreshStatus(true); }, onSwap: (t) => { fleet = fleet.map(x => x.id === t.id ? Object.assign(x, t) : x); render(); } });
 function tapOn(d) {
+  if (d.type === 'tractor' && downOf('traktor', d.id)) { lpvStopp.openAdmin('traktor:' + d.id, stopCtx()); return; }
+  if (d.type === 'person' && d.id && downOf('hand', d.id)) { lpvStopp.openAdmin('hand:' + d.id, stopCtx()); return; }
   if (d.type === 'tractor') openTractorSheet(d.id);
   else if (d.type === 'prop') openSheet(d.id);
   else if (d.from) openSheet(d.from);
@@ -704,6 +748,7 @@ function tractorSheetHtml(t) {
   const id = esc(t.id);
   const area = mine.reduce((s, p) => s + zoneStats(p).maskin, 0);
   return `<div class="head"><div style="display:flex;gap:10px;align-items:center">${tKula(t, 52)}<div><h2>${esc(t.model)}</h2><div class="sub">${t.size === 'stor' ? '🟠 Stor' : '🔵 Liten'} · ${esc(ownerLabel(t.owner))}${t.base ? ' · står i ' + esc(t.base) : ''}</div></div></div><button class="lpv-btn icon small" onclick="closeSheet()" aria-label="Stäng">✕</button></div>
+    <div class="row2"><button class="lpv-btn" data-unitmenu="traktor|${id}">${downOf('traktor', t.id) ? '🔧 Står – öppna' : '🚨 Traktorn står'}</button></div>
     <h4>Förare</h4>
     ${t.driver ? `<div class="krow">${pKula(t.driver, 34)}<div class="who">${esc(t.driver)}<em>${personByName(t.driver).active === false ? '⚠️ inaktiv' : 'Fast förare'}</em></div><button class="lpv-btn icon small danger" aria-label="Ta bort" onclick="saveTractor(tractorById('${id}'), { driver: '' })">✕</button></div>` : '<div class="hint" style="color:var(--warn)">⚠️ Ingen förare – dra en från kulpåsen till traktorn, eller välj:</div>'}
     <select onchange="if (this.value) { const o = fleet.find(x => x.driver === this.value && x.id !== '${id}'); if (o) saveTractor(o, { driver: '' }); saveTractor(tractorById('${id}'), { driver: this.value }); } this.value=''"><option value="">👷 ${t.driver ? 'Byt förare…' : 'Välj förare…'}</option>${drivers.map(x => `<option>${esc(x.name)}</option>`).join('')}</select>
@@ -728,13 +773,13 @@ async function newSnowfall() {
     toast('❄️ Nytt snöfall startat – förarna ser alla sina fastigheter som ogjorda.', true);
   } catch (err) { setStatus('Fel', true); toast('❌ ' + esc(err.message)); }
 }
-async function refreshStatus() {
-  if (document.hidden || drag) return;
+async function refreshStatus(force) {
+  if ((document.hidden || drag) && !force) return;
   try {
     const res = await snoApi({ action: 'getSnowBoard' });
     if (res.status !== 'success') return;
-    const changed = JSON.stringify([res.snowfall, res.done]) !== JSON.stringify([snowfall, doneList]);
-    people = res.people || people; snowfall = res.snowfall; doneList = res.done || [];
+    const changed = force || JSON.stringify([res.snowfall, res.done, res.stops]) !== JSON.stringify([snowfall, doneList, stops]);
+    people = res.people || people; snowfall = res.snowfall; doneList = res.done || []; stops = res.stops || stops;
     if (changed && !drag) render();
   } catch (e) { /* ingen täckning */ }
 }
@@ -757,14 +802,14 @@ function jumpTo(text) {
 async function load() {
   let cache = null;
   try { cache = JSON.parse(store.get('lpv_plan_cache2') || 'null'); } catch (e) { cache = null; }
-  if (cache) { ({ properties, fleet, people, zonesAll, snowfall, doneList } = Object.assign({ properties: [], fleet: [], people: [], zonesAll: [], snowfall: null, doneList: [] }, cache)); zoneCache = null; loaded = true; render(true); }
+  if (cache) { ({ properties, fleet, people, zonesAll, snowfall, doneList, stops } = Object.assign({ properties: [], fleet: [], people: [], zonesAll: [], snowfall: null, doneList: [], stops: { units: [], moves: [] } }, cache)); zoneCache = null; loaded = true; render(true); }
   setStatus('Hämtar…');
   try {
     const [pRes, fRes, bRes, zRes] = await Promise.all([snoApi({ action: 'getProperties' }), snoApi({ action: 'getFleet' }), snoApi({ action: 'getSnowBoard' }), snoApi({ action: 'getSnowZones' })]);
     if (pRes.status !== 'success') throw new Error(pRes.message || 'Kunde inte hämta.');
     properties = pRes.properties || [];
     if (fRes.status === 'success') fleet = fRes.fleet || [];
-    if (bRes.status === 'success') { people = bRes.people || []; snowfall = bRes.snowfall; doneList = bRes.done || []; }
+    if (bRes.status === 'success') { people = bRes.people || []; snowfall = bRes.snowfall; doneList = bRes.done || []; stops = bRes.stops || stops; }
     if (zRes.status === 'success') { zonesAll = zRes.zones || []; zoneCache = null; }
     loaded = true; setStatus('');
     render(!cache);
@@ -792,7 +837,8 @@ $('tglOrder').onclick = () => { panels.order = !panels.order; store.set('lpv_pla
 applyPanels();
 if (!snoIsAdmin()) $('cardsview').innerHTML = '<div class="empty">⚠️ Snöplaneringen är bara för admin. Logga in med din admin-länk.</div>';
 render();
-load();
+// ?p=<fastighet> (från Snöläget på startsidan): öppna kommundelen och fastighetens ruta
+load().then(() => { const pid = new URLSearchParams(location.search).get('p'), p = pid && propById(pid); if (p) { setKd(kdOf(p)); openSheet(p.id); } });
 setInterval(refreshStatus, 60000);
 </script>
 </body>

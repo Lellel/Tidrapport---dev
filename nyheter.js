@@ -2,6 +2,12 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-07-driftstopp-forare', datum: '2026-11-07', roller: ['forare', 'handskottare', 'ue'], modul: 'sno',
+    titel: '⚠️ Traktorn står? Tryck i Snöjour',
+    text: 'I Snöjour: ⚠️ Traktorn står → välj vad som hänt och när du är igång igen. Arbetsledningen får ett SMS. Får du en fastighet från någon annan står det 🆕 på kortet – tryck 👍 Uppfattat.' },
+  { id: '2026-11-07-driftstopp-admin', datum: '2026-11-07', roller: ['admin'], modul: 'sno',
+    titel: '🔧 Traktor som står – och ❄️ Snöläget',
+    text: 'När en förare trycker ⚠️ Traktorn står får alla admin SMS. Välj ⏳ Vänta, 🔁 en annan tar hela rundan eller 🧩 fördela – även i telefonen (Snö → traktorlistan). På iPad visar ❄️ Snöläget kartan med lampor per kommundel under snöfallet.' },
   { id: '2026-11-07-knappmeny', datum: '2026-11-07', roller: ['admin'],
     titel: '🧭 Knappmeny på startsidan – personer på Personal-sidan',
     text: 'På iPad och dator finns alla sidor i en knappmeny till höger. Menyn som fälldes ut till vänster är borta. Ny person, välkomstpaket, 🏁 QR och 🔑 Spärra & ny länk finns nu på 👥 Personal. Under snösäsongen kommer snöknapparna först.' },
