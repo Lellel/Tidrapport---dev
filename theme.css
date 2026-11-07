@@ -159,6 +159,7 @@ h1 { font-weight: 800; letter-spacing: -0.01em; }
   border: 1px solid var(--t-line); background: var(--t-btn); color: var(--t-text); font: 700 13px/1.2 var(--t-font); cursor: pointer; white-space: nowrap; text-decoration: none; }
 .lpv-chip.on, .lpv-chip[aria-pressed="true"] { background: var(--t-sel); border-color: var(--t-accent); color: var(--t-accent); }
 .lpv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lpv-btn[hidden], .lpv-toggle[hidden], .lpv-chip[hidden], .lpv-seg > [hidden] { display: none !important; }
 :root[data-theme="night"] .lpv-btn.map { box-shadow: none; }
 /* Läget i Mer-menyn */
 .lpv-more .lpv-more-theme { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 14px 4px; border: 0; border-top: 1px solid var(--t-line); background: none; color: var(--t-text); font: 600 17px var(--t-font); cursor: pointer; }

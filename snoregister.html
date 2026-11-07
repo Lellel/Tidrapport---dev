@@ -21,23 +21,15 @@
     .topbar { display: flex; justify-content: space-between; align-items: center; }
     .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
     h1 { font-size: var(--t-fs-title); margin: 8px 0 10px; }
-    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .tabs button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
     .panel-body { flex: 1; overflow-y: auto; padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 10px; }
     label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
     input, textarea, select { width: 100%; padding: 10px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: var(--t-fs-input); }
     textarea { min-height: 60px; resize: vertical; }
-    button { min-height: 42px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--t-btn); color: var(--text); font-weight: 700; font-size: 13px; cursor: pointer; padding: 0 12px; }
-    button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
-    button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
-    button.on { background: var(--warn); border-color: var(--warn); color: #111; }
     .row { display: flex; gap: 8px; align-items: center; }
     .row > * { flex: 1; }
     .muted { color: var(--muted); font-size: 12px; }
     .msg { font-size: 13px; min-height: 18px; color: var(--muted); }
     .filters { display: flex; flex-wrap: wrap; gap: 6px; }
-    .filters button { min-height: 32px; border-radius: 999px; font-size: 12px; }
-    .filters button.active { background: var(--accent); color: var(--t-on-accent); border-color: var(--accent); }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; }
     .stat { background: var(--card); border-radius: var(--t-r); padding: 8px 4px; font-size: 11px; color: var(--muted); }
     .stat b { display: block; font-size: 18px; color: var(--text); }
@@ -78,10 +70,9 @@
     .tcard { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 12px; }
     .tcard-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
     .tcard-title { font-weight: 800; font-size: 15px; }
-    .tcard .row button { min-height: 34px; font-size: 12px; }
     .size-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .size-toggle button.active.stor { background: var(--stor); border-color: var(--stor); color: #111; }
-    .size-toggle button.active.liten { background: var(--liten); border-color: var(--liten); color: #111; }
+    .size-toggle .on.stor { background: var(--stor); border-color: var(--stor); color: #111; }
+    .size-toggle .on.liten { background: var(--liten); border-color: var(--liten); color: #111; }
 
     /* Detaljvy för ett kort */
     .detail { background: var(--card); border: 1px solid var(--accent); border-radius: var(--t-r-card); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -91,10 +82,9 @@
     .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .photo { position: relative; aspect-ratio: 1; border-radius: var(--t-r); overflow: hidden; background: var(--bg); }
     .photo img { width: 100%; height: 100%; object-fit: cover; }
-    .photo button { position: absolute; top: 4px; right: 4px; min-height: 26px; width: 26px; padding: 0; border-radius: 50%; background: rgba(0,0,0,.6); border: none; font-size: 12px; }
+    .photo .del { position: absolute; top: 4px; right: 4px; }
     .map-hint { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: 50%; transform: translateX(-50%); z-index: 600; background: var(--warn); color: #111; font-weight: 800; font-size: 13px; padding: 8px 14px; border-radius: 999px; display: none; }
     .map-toggle { position: absolute; top: calc(env(safe-area-inset-top) + 60px); left: calc(env(safe-area-inset-left) + 12px); /* under tillbaka-knappen */ z-index: 500; display: flex; gap: 6px; }
-    .map-toggle button { min-height: 36px; background: var(--t-overlay); }
     .pin { border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
     .pin.stor { width: 18px; height: 18px; background: var(--stor); }
     .pin.liten { width: 12px; height: 12px; background: var(--liten); }
@@ -120,7 +110,6 @@
     .tabs.three { grid-template-columns: 1fr 1fr 1fr; }
     .sf { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r); padding: 8px 10px; font-size: 12px; color: var(--muted); }
     .sf b { color: var(--text); }
-    .sf button { min-height: 34px; font-size: 12px; flex-shrink: 0; }
     .bag { background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
     .bag.target { outline: 3px dashed var(--accent); outline-offset: -3px; }
     .bag-return { background: var(--accent); color: var(--t-on-accent); border-radius: var(--t-r); padding: 8px; text-align: center; font-weight: 800; font-size: 13px; }
@@ -169,8 +158,8 @@
     <div class="map-wrap">
       <div id="map"></div>
       <div class="map-toggle">
-        <button onclick="mapCtl.setTiles('sat')">🛰️ Satellit</button>
-        <button onclick="mapCtl.setTiles('street')">🗺️ Vägkarta</button>
+        <button class="lpv-btn map small" onclick="mapCtl.setTiles('sat')">🛰️ Satellit</button>
+        <button class="lpv-btn map small" onclick="mapCtl.setTiles('street')">🗺️ Vägkarta</button>
       </div>
       <div class="map-hint" id="map-hint">📍 Tryck på kartan där fastigheten ligger</div>
     </div>
@@ -178,13 +167,12 @@
     <aside class="panel">
       <div class="panel-head">
         <div class="topbar">
-          <a href="planering.html">← Snöplanering</a> <a href="snozoner.html">Rita zoner →</a>
-        <span data-theme-slot></span></div>
+          <a class="lpv-btn small" href="planering.html">← Snöplanering</a> <a class="lpv-btn small" href="snozoner.html">✏️ Rita zoner →</a></div>
         <h1><span data-icon="sno">❄️</span> Snöregister</h1>
-        <div class="tabs">
-          <button id="tab-board" hidden onclick="showTab('board')">🎯 Tavla</button>
-          <button id="tab-props" onclick="showTab('props')"><span data-icon="fastighet">🏠</span> Fastigheter</button>
-          <button id="tab-fleet" onclick="showTab('fleet')"><span data-icon="sno">🚜</span> Traktorer</button>
+        <div class="lpv-seg block">
+          <button class="lpv-btn" id="tab-board" hidden onclick="showTab('board')">🎯 Tavla</button>
+          <button class="lpv-btn" id="tab-props" onclick="showTab('props')"><span data-icon="fastighet">🏠</span> Fastigheter</button>
+          <button class="lpv-btn" id="tab-fleet" onclick="showTab('fleet')"><span data-icon="sno">🚜</span> Traktorer</button>
         </div>
       </div>
       <div class="panel-body" id="panel-body"></div>
@@ -226,7 +214,7 @@
     function showTab(name) {
       tab = name;
       try { localStorage.setItem('lpv_reg_tab', name); } catch (e) { /* privat läge */ }
-      ['board', 'props', 'fleet'].forEach(n => document.getElementById('tab-' + n).classList.toggle('active', n === name));
+      ['board', 'props', 'fleet'].forEach(n => document.getElementById('tab-' + n).classList.toggle('on', n === name));
       message = ''; picked = null;
       render(); renderPins();
       if (name === 'board') fitToKommundel();
@@ -261,7 +249,7 @@
       const missing = properties.filter(p => !p.size).length;
       const noPos = properties.filter(p => p.lat === null).length;
       const sel = properties.find(p => p.id === selectedId);
-      const fbtn = (key, text) => `<button class="${filter === key ? 'active' : ''}" onclick="filter='${key}'; render()">${text}</button>`;
+      const fbtn = (key, text) => `<button class="lpv-chip ${filter === key ? 'on' : ''}" onclick="filter='${key}'; render()">${text}</button>`;
       return `
         <div class="stats">
           <div class="stat"><b>${properties.length}</b>fastigheter</div>
@@ -292,27 +280,27 @@
     function renderNewForm() {
       return `<div class="detail" style="border-color: var(--line);">
         <div class="detail-head"><h2>➕ Ny fastighet</h2></div>
-        <button onclick="openImport()">📥 Importera från kalkylark</button>
+        <button class="lpv-btn" onclick="openImport()">📥 Importera från kalkylark</button>
         <div class="muted">…eller lägg till en i taget:</div>
         <input id="new-address" placeholder="Adress, t.ex. Drottninggatan 4">
         <input id="new-ort" placeholder="Ort (valfritt), t.ex. Flen">
-        <button class="ok" onclick="createProperty()">Lägg till & hitta på kartan</button>
+        <button class="lpv-btn primary" onclick="createProperty()">Lägg till & hitta på kartan</button>
       </div>`;
     }
 
     function renderDetail(p) {
-      const sizeBtn = (s, text) => `<button class="${s} ${p.size === s ? 'active' : ''}" onclick="updateProperty({ size: '${s}' })">${text}</button>`;
+      const sizeBtn = (s, text) => `<button class="lpv-toggle ${s} ${p.size === s ? 'on' : ''}" onclick="updateProperty({ size: '${s}' })">${text}</button>`;
       return `<div class="detail">
         <div class="detail-head">
           <div><h2>${snoEscape(p.address)}</h2><div class="muted">${snoEscape(p.ort || 'Ort saknas')}${p.lat === null ? ' · 📍 saknar position' : ''}</div></div>
-          <button onclick="selectProperty(null)">✕</button>
+          <button class="lpv-btn" onclick="selectProperty(null)">✕</button>
         </div>
         <div class="hal hal-big ${holeClass(p)}">${p.size ? '' : '?'}</div>
         <div class="fit">${fitText(p)}</div>
         <div class="size-toggle">${sizeBtn('stor', '🟠 Stor')}${sizeBtn('liten', '🔵 Liten')}</div>
         <div class="row">
-          <button class="${p.priority ? 'on' : ''}" onclick="updateProperty({ priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
-          ${p.size === 'liten' ? `<button class="${p.forced ? 'on' : ''}" onclick="toggleForced()">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}
+          <button class="lpv-toggle ${p.priority ? 'on' : ''}" onclick="updateProperty({ priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
+          ${p.size === 'liten' ? `<button class="lpv-toggle ${p.forced ? 'on' : ''}" onclick="toggleForced()">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}
         </div>
         <div>
           <label>Att tänka på (visas för föraren)</label>
@@ -321,22 +309,22 @@
         <div>
           <label>Foton (${p.photos.length})</label>
           <div class="photos">
-            ${p.photos.map(ph => `<div class="photo"><a href="${snoEscape(ph.url)}" target="_blank" rel="noopener"><img src="${snoEscape(ph.url)}" alt="Foto" loading="lazy"></a><button onclick="removePhoto('${snoEscape(ph.id)}')" title="Ta bort">✕</button></div>`).join('')}
+            ${p.photos.map(ph => `<div class="photo"><a href="${snoEscape(ph.url)}" target="_blank" rel="noopener"><img src="${snoEscape(ph.url)}" alt="Foto" loading="lazy"></a><button class="lpv-btn icon small del" onclick="removePhoto('${snoEscape(ph.id)}')" title="Ta bort">✕</button></div>`).join('')}
           </div>
           <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="addPhoto(event)">
-          <button style="width:100%; margin-top:6px;" onclick="document.getElementById('photo-input').click()">📷 Lägg till foto</button>
+          <button class="lpv-btn" style="width:100%; margin-top:6px;" onclick="document.getElementById('photo-input').click()">📷 Lägg till foto</button>
         </div>
         ${(p.maps || []).length || p.kund ? `<div>
           <label>Kund och kundkartor</label>
           <div class="muted">${snoEscape(p.kund || '')}${p.omrade ? ' · ' + snoEscape(p.omrade) : ''}</div>
           <div class="photos">${(p.maps || []).map(m => `<div class="photo"><a href="${snoEscape(m.url)}" target="_blank" rel="noopener"><img src="${snoEscape(m.url)}" alt="${snoEscape(m.label)}" loading="lazy"></a></div>`).join('')}</div>
-          ${(p.maps || []).length ? `<button style="width:100%; margin-top:6px;" onclick="location.href='snozoner.html?fastighet=${encodeURIComponent(p.id)}'">❄️ Rita zoner från kundkartan</button>` : ''}
+          ${(p.maps || []).length ? `<button class="lpv-btn" style="width:100%; margin-top:6px;" onclick="location.href='snozoner.html?fastighet=${encodeURIComponent(p.id)}'">❄️ Rita zoner från kundkartan</button>` : ''}
         </div>` : ''}
         <div class="row">
-          <button onclick="startPlacing()">📍 Flytta på kartan</button>
-          <button onclick="editAddress()">✏️ Ändra adress</button>
+          <button class="lpv-btn" onclick="startPlacing()">📍 Flytta på kartan</button>
+          <button class="lpv-btn" onclick="editAddress()">✏️ Ändra adress</button>
         </div>
-        <button class="danger" onclick="deleteProperty()">🗑️ Ta bort fastigheten</button>
+        <button class="lpv-btn danger" onclick="deleteProperty()">🗑️ Ta bort fastigheten</button>
       </div>`;
     }
 
@@ -601,7 +589,7 @@
         html += `<div class="bag-owner">${snoEscape(ownerLabel(o))}</div><div class="bag-group">${here.filter(t => (t.owner || 'Egna') === o).map(t => chip('traktor', t.id, '· ' + countText('traktor', t.id, kd))).join('')}</div>`;
       });
       if (others.length) {
-        html += `<button class="more" onclick="showOthers=!showOthers; render()">${showOthers ? '▾' : '⋯'} Övriga traktorer (${others.length}) – närmast först</button>`;
+        html += `<button class="lpv-btn small more" onclick="showOthers=!showOthers; render()">${showOthers ? '▾' : '⋯'} Övriga traktorer (${others.length}) – närmast först</button>`;
         if (showOthers) owners(others.map(o => o.t), t => t.owner || 'Egna').forEach(o => {
           html += `<div class="bag-owner">${snoEscape(ownerLabel(o))}</div><div class="bag-group">${others.filter(x => (x.t.owner || 'Egna') === o).map(x => {
             const d = distText(x.home, center);
@@ -662,7 +650,7 @@
         <select onchange="setKommundel(this.value)">${kommundelar().map(k => `<option ${k === kd ? 'selected' : ''} value="${snoEscape(k)}">${snoEscape(k)} (${kdProps(k).length})</option>`).join('')}</select>
         <div class="muted" style="text-align:center;"><b style="color:${withT === list.length ? 'var(--ok)' : 'var(--text)'}">${withT} av ${list.length}</b> fastigheter har traktor${picked ? ' · <b style="color:var(--accent)">Tryck på ett hål för kulan</b>' : ''}</div>
         <div class="sf"><span>❄️ ${snowfall ? `Snöfall sedan <b>${snoEscape(snowfall.start.slice(5))}</b> · <b>${doneN} av ${assigned.length}</b> klara` : 'Inget snöfall startat'}</span>
-          <button onclick="newSnowfall()">❄️ Nytt snöfall</button></div>
+          <button class="lpv-btn" onclick="newSnowfall()">❄️ Nytt snöfall</button></div>
         <div class="msg" id="msg">${message}</div>
         ${renderBag(kd, center)}
         <div style="display:flex; flex-direction:column; gap:6px;">${cards}</div>
@@ -870,7 +858,7 @@
           <div class="detail-head"><h2>➕ Ny traktor</h2></div>
           <input id="new-model" placeholder="Tillverkare och modell, t.ex. Kramer 8095">
           <input id="new-base" placeholder="Ort / uppställning (valfritt), t.ex. Bettna">
-          <button class="ok" onclick="createTractor()">Lägg till</button>
+          <button class="lpv-btn primary" onclick="createTractor()">Lägg till</button>
           <div class="muted">Storleken föreslås utifrån modellen och kan ändras.</div>
         </div>
         <div class="msg" id="msg">${message}</div>
@@ -885,13 +873,13 @@
                 <select onchange="updateTractor('${snoEscape(t.id)}', { driver: this.value })" title="Förare">${driverOptions(t)}</select>
               </div>
               <div class="size-toggle">
-                <button class="stor ${t.size === 'stor' ? 'active' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'stor' })">🟠 Stor</button>
-                <button class="liten ${t.size === 'liten' ? 'active' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'liten' })">🔵 Liten</button>
+                <button class="lpv-toggle stor ${t.size === 'stor' ? 'on' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'stor' })">🟠 Stor</button>
+                <button class="lpv-toggle liten ${t.size === 'liten' ? 'on' : ''}" onclick="updateTractor('${snoEscape(t.id)}', { size: 'liten' })">🔵 Liten</button>
               </div>
               <div class="row">
-                <button onclick="generateKula('${snoEscape(t.id)}')" ${generating.has(t.id) ? 'disabled' : ''}>${generating.has(t.id) ? '✨ Skapar…' : (t.avatarUrl ? '✨ Ny AI-kula' : '✨ Skapa AI-kula')}</button>
-                <button onclick="updateTractor('${snoEscape(t.id)}', { active: ${!t.active} })">${t.active ? '⏸ Ur tjänst' : '▶️ I tjänst'}</button>
-                <button class="danger" onclick="deleteTractor('${snoEscape(t.id)}')" style="flex:0 0 42px;">🗑️</button>
+                <button class="lpv-btn" onclick="generateKula('${snoEscape(t.id)}')" ${generating.has(t.id) ? 'disabled' : ''}>${generating.has(t.id) ? '✨ Skapar…' : (t.avatarUrl ? '✨ Ny AI-kula' : '✨ Skapa AI-kula')}</button>
+                <button class="lpv-btn" onclick="updateTractor('${snoEscape(t.id)}', { active: ${!t.active} })">${t.active ? '⏸ Ur tjänst' : '▶️ I tjänst'}</button>
+                <button class="lpv-btn danger" onclick="deleteTractor('${snoEscape(t.id)}')" style="flex:0 0 42px;">🗑️</button>
               </div>
             </div>
           </div>`).join('') || '<div class="muted">Inga traktorer ännu.</div>'}`;
@@ -1062,7 +1050,7 @@
       const sized = rows.filter(r => r.size).length;
       const unknownSize = [...new Set(rows.filter(r => r.sizeRaw && !r.size).map(r => r.sizeRaw))];
       el.innerHTML = `
-        <div class="detail-head"><h2>📥 Importera fastigheter</h2><button onclick="closeImport()">✕</button></div>
+        <div class="detail-head"><h2>📥 Importera fastigheter</h2><button class="lpv-btn" onclick="closeImport()">✕</button></div>
         ${!importTable.length ? `
           <div class="muted"><b>1.</b> Öppna arket, markera cellerna (gärna med rubrikraden), kopiera (Cmd+C) och klistra in här (Cmd+V).</div>
           <textarea id="imp-text" placeholder="Klistra in här…" oninput="importTable = parseTable(this.value); guessMapping(); if (importTable.length) renderImport()"></textarea>
@@ -1073,7 +1061,7 @@
         : `
           <div class="row"><span class="muted"><b>${rows.length}</b> rader · ${cols} kolumner</span>
             <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;font-size:13px;"><input type="checkbox" ${importHeader ? 'checked' : ''} onchange="importHeader=this.checked; guessMapping(); renderImport()" style="width:20px;height:20px;"> Första raden är rubriker</label>
-            <button onclick="importTable=[]; renderImport()">↺ Börja om</button></div>
+            <button class="lpv-btn" onclick="importTable=[]; renderImport()">↺ Börja om</button></div>
           <div class="muted"><b>2.</b> Kontrollera vilken kolumn som är vad:</div>
           <div class="imp-map">${IMPORT_FIELDS.map(([key, label]) => `<div><label>${label}</label><select onchange="importMap.${key}=Number(this.value); renderImport()">
             <option value="-1">– ingen –</option>${Array.from({ length: cols }, (_, i) => `<option value="${i}" ${importMap[key] === i ? 'selected' : ''}>${snoEscape(colName(i))}</option>`).join('')}</select></div>`).join('')}</div>
@@ -1091,7 +1079,7 @@
           ${dupes ? '<div class="muted">Adresser som redan finns hoppas över.</div>' : ''}
           <div class="bar" id="imp-bar" style="display:none"><div></div></div>
           <div class="msg" id="imp-msg"></div>
-          <button class="ok" id="imp-go" ${rows.length - dupes ? '' : 'disabled'} onclick="runImport()">📥 Importera ${rows.length - dupes} fastigheter</button>`}`;
+          <button class="lpv-btn primary" id="imp-go" ${rows.length - dupes ? '' : 'disabled'} onclick="runImport()">📥 Importera ${rows.length - dupes} fastigheter</button>`}`;
     }
 
     function readImportFile(event) {
@@ -1115,7 +1103,7 @@
           if (data.typ !== 'snöunderlag' || !Array.isArray(data.fastigheter)) throw new Error('fel fil');
           snoBundle = data.fastigheter;
           renderSnoBundle();
-        } catch (err) { renderImport(`<div class="detail-head"><h2>📥 Snöunderlag</h2><button onclick="closeImport()">✕</button></div><div class="msg">❌ Filen är inte ett snöunderlag.</div><button onclick="renderImport()">↺ Börja om</button>`); }
+        } catch (err) { renderImport(`<div class="detail-head"><h2>📥 Snöunderlag</h2><button class="lpv-btn" onclick="closeImport()">✕</button></div><div class="msg">❌ Filen är inte ett snöunderlag.</div><button class="lpv-btn" onclick="renderImport()">↺ Börja om</button>`); }
       };
       reader.readAsText(file, 'utf-8');
     }
@@ -1128,7 +1116,7 @@
       const noGeo = snoBundle.filter(r => !r.geo).length;
       const byKund = {};
       snoBundle.forEach(r => { byKund[r.kund] = (byKund[r.kund] || 0) + 1; });
-      renderImport(`<div class="detail-head"><h2>📥 Snöunderlag</h2><button onclick="closeImport()">✕</button></div>
+      renderImport(`<div class="detail-head"><h2>📥 Snöunderlag</h2><button class="lpv-btn" onclick="closeImport()">✕</button></div>
         <div class="stats"><div class="stat"><b>${fresh}</b>nya</div><div class="stat"><b>${maps}</b>kundkartor</div><div class="stat"><b style="color:${noGeo ? 'var(--warn)' : 'var(--ok)'}">${noGeo}</b>pekas ut själv</div></div>
         <div class="muted">${Object.entries(byKund).map(([k, n]) => `${snoEscape(k)}: ${n}`).join(' · ')}</div>
         <div class="muted"><b>Granska listan.</b> "Söks som" är adressen kartan letar efter. Saknas den pekar du ut fastigheten på kartan efteråt. Adresser som redan finns hoppas över – deras kartor läggs till om de saknas.</div>
@@ -1137,8 +1125,8 @@
             <td>${snoEscape(r.kund)}</td><td>${r.hardyta ? r.hardyta.toLocaleString('sv-SE') + ' m²' : '–'}</td><td>${r.brunnar || ''}</td><td>${r.maps.length}</td></tr>`).join('')}</table></div>
         <div class="bar" id="imp-bar" style="display:none"><div></div></div>
         <div class="msg" id="imp-msg"></div>
-        <div class="row"><button onclick="snoBundle=null; renderImport()">↺ Börja om</button>
-          <button class="ok" id="imp-go" onclick="runSnoImport()">📥 Importera ${snoBundle.length} fastigheter och ${maps} kartor</button></div>`);
+        <div class="row"><button class="lpv-btn" onclick="snoBundle=null; renderImport()">↺ Börja om</button>
+          <button class="lpv-btn primary" id="imp-go" onclick="runSnoImport()">📥 Importera ${snoBundle.length} fastigheter och ${maps} kartor</button></div>`);
     }
 
     async function runSnoImport() {
@@ -1177,12 +1165,12 @@
       importBusy = false;
       snoBundle = null;
       await loadAll();
-      renderImport(`<div class="detail-head"><h2>✅ Snöunderlaget är inlagt</h2><button onclick="closeImport()">✕</button></div>
+      renderImport(`<div class="detail-head"><h2>✅ Snöunderlaget är inlagt</h2><button class="lpv-btn" onclick="closeImport()">✕</button></div>
         <div class="stats"><div class="stat"><b style="color:var(--ok)">${added}</b>fastigheter</div><div class="stat"><b style="color:var(--ok)">${mapsAdded}</b>kundkartor</div><div class="stat"><b style="color:${notFound.length ? 'var(--warn)' : 'var(--ok)'}">${notFound.length}</b>utan position</div></div>
         ${notFound.length ? `<div class="muted">Peka ut de här på kartan (filtret "📍 Utan position"):<br>${notFound.map(snoEscape).join(', ')}</div>` : ''}
         ${failed.length ? `<div class="muted" style="color:var(--danger)">Gick inte att skicka: ${failed.map(snoEscape).join(', ')}. Kör importen igen – det som redan finns hoppas över.</div>` : ''}
         <div class="muted"><b>Nästa steg:</b> Rita snözoner → välj fastighet → lägg kundkartan på plats → 🤖 Föreslå zoner.</div>
-        <button class="ok" onclick="location.href='snozoner.html'">❄️ Till Rita snözoner</button>`);
+        <button class="lpv-btn primary" onclick="location.href='snozoner.html'">❄️ Till Rita snözoner</button>`);
     }
 
     async function runImport() {
@@ -1204,12 +1192,12 @@
       }
       importBusy = false;
       await loadAll();
-      renderImport(`<div class="detail-head"><h2>✅ Import klar</h2><button onclick="closeImport()">✕</button></div>
+      renderImport(`<div class="detail-head"><h2>✅ Import klar</h2><button class="lpv-btn" onclick="closeImport()">✕</button></div>
         <div class="stats"><div class="stat"><b style="color:var(--ok)">${added}</b>importerade</div><div class="stat"><b>${skipped.length}</b>fanns redan</div><div class="stat"><b style="color:${notFound.length ? 'var(--warn)' : 'var(--ok)'}">${notFound.length}</b>utan position</div></div>
         ${notFound.length ? `<div class="muted">Hittades inte på kartan – välj filtret "📍 Utan position" och tryck på kartan för var och en:<br>${notFound.slice(0, 20).map(snoEscape).join(', ')}${notFound.length > 20 ? ' …' : ''}</div>` : ''}
         ${failed ? `<div class="muted" style="color:var(--danger)">${failed} rader kunde inte skickas – försök igen (dubbletter hoppas över).</div>` : ''}
         <div class="muted">Nästa steg: filtret <b>⚠️ Saknar storlek</b> visar kort som behöver en storlek.</div>
-        <button class="ok" onclick="closeImport(); filter='saknar'; render()">Visa de som saknar storlek</button>`);
+        <button class="lpv-btn primary" onclick="closeImport(); filter='saknar'; render()">Visa de som saknar storlek</button>`);
     }
 
     async function loadAll() {
@@ -1247,7 +1235,7 @@
     map = mapCtl.map;
     map.setZoom(11, { animate: false }); // utan animering, annars kan den skriva över fitToProperties
     map.on('click', onMapClick);
-    ['board', 'props', 'fleet'].forEach(n => document.getElementById('tab-' + n).classList.toggle('active', n === tab));
+    ['board', 'props', 'fleet'].forEach(n => document.getElementById('tab-' + n).classList.toggle('on', n === tab));
     setupBoardInput();
     setInterval(refreshBoardStatus, 60000);
     render();
