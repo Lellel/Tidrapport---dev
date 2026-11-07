@@ -231,7 +231,7 @@ function doPost(e) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Ogiltig inloggning (" + authFailReason(data) + "). Be om en ny inloggningslänk." });
     }
     const adminOnly = ["getUsers", "getUserKey", "sendWelcomeKit", "signDocument", "geocode", "recolorHouse", "getOffers", "saveOffer", "sendOffer", "cancelOffer",
-      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall", "getUeOverview", "saveUeCompany", "deleteUeCompany", "setUeAgreement", "sendUeMaps",
+      "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall", "getUeOverview", "saveUeCompany", "deleteUeCompany", "setUeAgreement", "sendUeMaps", "setUeFskatt", "lookupOrgNr",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "clearPropertyMapPlace", "analyzePropertyMap", "suggestMapPoints", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
       "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
@@ -348,6 +348,8 @@ function doPost(e) {
     if (action === "deleteUeCompany") return handleDeleteUeCompany(data);
     if (action === "setUeAgreement") return handleSetUeAgreement(data, auth);
     if (action === "sendUeMaps") return handleSendUeMaps(data, auth);
+    if (action === "setUeFskatt") return handleSetUeFskatt(data, auth);
+    if (action === "lookupOrgNr") return handleLookupOrgNr(data);
     if (action === "getSnowMapsPdf") return handleGetSnowMapsPdf(data, auth);
     if (action === "getOffers") return handleGetOffers(auth);
     if (action === "recolorHouse") return handleRecolorHouse(data);
@@ -1658,14 +1660,15 @@ function handleGetSnowJour(auth) {
 // Fliken UE-företag. Ägaren på traktorer och personer (Snöresurser) är företagets namn – byter man namn
 // följer det med där. Ett UE-företag utan ikryssat avtal: kulorna är grå och UE kan se men inte jobba.
 // ==========================================
-const UE_HEADERS = ["UE-ID", "Namn", "Org.nr", "Adress", "Kontaktperson", "Telefon", "E-post", "Anteckning", "Avtal accepterat", "Avtal av", "Uppdaterad"];
+const UE_HEADERS = ["UE-ID", "Namn", "Org.nr", "Adress", "Kontaktperson", "Telefon", "E-post", "Anteckning", "Avtal accepterat", "Avtal av", "Uppdaterad", "F-skatt kontrollerad", "F-skatt av"];
 function getUeSheet() { return getSheetOrCreate(getSS(), "UE-företag", UE_HEADERS); }
 
 function ueFromRow(r) {
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   const acc = r[8] instanceof Date ? Utilities.formatDate(r[8], tz, "yyyy-MM-dd HH:mm") : String(r[8] || "").trim();
   return { id: String(r[0]), name: String(r[1] || "").trim(), orgNr: String(r[2] || ""), address: String(r[3] || ""), contact: String(r[4] || ""),
-    phone: String(r[5] || "").replace(/^'/, ""), email: String(r[6] || "").trim(), note: String(r[7] || ""), acceptedAt: acc, acceptedBy: String(r[9] || "") };
+    phone: String(r[5] || "").replace(/^'/, ""), email: String(r[6] || "").trim(), note: String(r[7] || ""), acceptedAt: acc, acceptedBy: String(r[9] || ""),
+    fskattAt: r[11] instanceof Date ? Utilities.formatDate(r[11], tz, "yyyy-MM-dd HH:mm") : String(r[11] || "").trim(), fskattBy: String(r[12] || "") };
 }
 
 // { namn: företaget } – bara rader i fliken
@@ -1715,7 +1718,7 @@ function handleGetUeOverview(auth) {
       owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home };
   });
   const list = Object.keys(names).sort((a, b) => a.localeCompare(b, "sv")).map(name => {
-    const c = ctx.companies[name] || { id: "", name: name, orgNr: "", address: "", contact: "", phone: "", email: "", note: "", acceptedAt: "", acceptedBy: "" };
+    const c = ctx.companies[name] || { id: "", name: name, orgNr: "", address: "", contact: "", phone: "", email: "", note: "", acceptedAt: "", acceptedBy: "", fskattAt: "", fskattBy: "" };
     const props = ueCompanyProperties(name, ctx).map(p => {
       const t = p.tractorId ? ctx.fleet[p.tractorId] : null;
       return { id: p.id, address: p.address, ort: p.ort, omrade: p.omrade, kund: p.kund, maps: p.maps.length,
@@ -1783,6 +1786,87 @@ function handleSetUeAgreement(data, auth) {
     try { out.mail = sendUeMapsMail(company, auth, true); } catch (err) { out.mailError = err.message; }
   }
   return createJsonResponse(out);
+}
+
+// ☐ F-skatt kontrollerad (bara admin). Kontrollen görs för hand i Skatteverkets "Hämta företagsinformation" –
+// deras API kräver organisationscertifikat och avtal (beslut 2026-11-07, docs/snoplanering.md "UE-vyn").
+function handleSetUeFskatt(data, auth) {
+  const sheet = getUeSheet(), hit = findRowById(sheet, data.id);
+  if (!hit) return createJsonResponse({ status: "error", message: "Spara företaget först." });
+  // Fliken skapades innan kolumnerna fanns – fyll i rubrikerna vid behov
+  const head = sheet.getRange(1, 12, 1, 2).getValues()[0];
+  if (!head[0] || !head[1]) sheet.getRange(1, 12, 1, 2).setValues([[UE_HEADERS[11], UE_HEADERS[12]]]).setFontWeight("bold").setBackground("#f3f3f3");
+  const on = !!data.checked;
+  sheet.getRange(hit.rowNumber, 12, 1, 2).setValues([[on ? nowStamp() : "", on ? auth.user : ""]]);
+  return createJsonResponse({ status: "success", company: ueFromRow(sheet.getRange(hit.rowNumber, 1, 1, UE_HEADERS.length).getValues()[0]) });
+}
+
+// 🔍 Hämta från Bolagsverket: namn, adress och bolagsform utifrån org.nr ("värdefulla datamängder", gratis).
+// Nycklarna (BV_CLIENT_ID, BV_CLIENT_SECRET) skapas på portal.api.bolagsverket.se och läggs i Skriptegenskaper.
+// Bolagsverket har ingen namnsökning i det öppna API:et, och enskilda firmor utan handelsregistrering finns inte där.
+const BV_TOKEN_URL = "https://portal.api.bolagsverket.se/oauth2/token";
+const BV_API_URL = "https://gw.api.bolagsverket.se/vardefulla-datamangder/v1";
+
+function orgNrValid(nr) {
+  if (!/^\d{10}$/.test(nr)) return false;
+  let sum = 0;
+  for (let i = 0; i < 10; i++) { let d = Number(nr[i]) * (i % 2 ? 1 : 2); sum += d > 9 ? d - 9 : d; }
+  return sum % 10 === 0;
+}
+
+function bvToken(force) {
+  const cache = CacheService.getScriptCache();
+  if (!force) { const t = cache.get("BV_TOKEN"); if (t) return t; }
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty("BV_CLIENT_ID"), secret = props.getProperty("BV_CLIENT_SECRET");
+  if (!id || !secret) throw new Error("Bolagsverket-nycklarna saknas (BV_CLIENT_ID / BV_CLIENT_SECRET i Skriptegenskaper).");
+  const res = UrlFetchApp.fetch(BV_TOKEN_URL, { method: "post", muteHttpExceptions: true,
+    payload: { grant_type: "client_credentials", client_id: id, client_secret: secret, scope: "vardefulla-datamangder:read" } });
+  if (res.getResponseCode() !== 200) throw new Error("Bolagsverket godtog inte nycklarna (" + res.getResponseCode() + ").");
+  const j = JSON.parse(res.getContentText());
+  cache.put("BV_TOKEN", j.access_token, Math.max(60, Math.min(21600, (Number(j.expires_in) || 3600) - 120)));
+  return j.access_token;
+}
+
+// Första objektet i svaret som har ett postnummer = adressen
+function bvFindAddress(o) {
+  if (!o || typeof o !== "object") return null;
+  if (o.postnummer) return o;
+  for (const k in o) { const hit = bvFindAddress(o[k]); if (hit) return hit; }
+  return null;
+}
+
+function bvText(v) { return v && typeof v === "object" ? String(v.klartext || v.namn || v.beskrivning || "") : String(v || ""); }
+
+function handleLookupOrgNr(data) {
+  const nr = String(data.orgNr || "").replace(/\D/g, "").replace(/^(16|19|20)(\d{10})$/, "$2");
+  if (!orgNrValid(nr)) return createJsonResponse({ status: "error", message: "Det ser inte ut som ett giltigt org.nr (10 siffror)." });
+  try {
+    let res = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      res = UrlFetchApp.fetch(BV_API_URL + "/organisationer", { method: "post", contentType: "application/json", muteHttpExceptions: true,
+        headers: { Authorization: "Bearer " + bvToken(attempt > 0), Accept: "application/json" }, payload: JSON.stringify({ identitetsbeteckning: nr }) });
+      if (res.getResponseCode() !== 401) break;
+    }
+    const code = res.getResponseCode(), text = res.getContentText();
+    if (code === 404) return createJsonResponse({ status: "error", message: "Bolagsverket hittade inget företag med org.nr " + nr + "." });
+    if (code !== 200) { console.warn("Bolagsverket " + code + ": " + text.slice(0, 500)); return createJsonResponse({ status: "error", message: "Bolagsverket svarade med fel (" + code + "). Fyll i för hand." }); }
+    const j = JSON.parse(text), org = (j.organisationer || [])[0];
+    if (!org) return createJsonResponse({ status: "error", message: "Bolagsverket hittade inget företag med org.nr " + nr + "." });
+    const name = bvText(Array.isArray(org.organisationsnamn) ? org.organisationsnamn[0] : org.organisationsnamn) ||
+      bvText(org.organisationsnamn && org.organisationsnamn.organisationsnamnLista && org.organisationsnamn.organisationsnamnLista[0]);
+    const a = bvFindAddress(org) || {};
+    const street = [a.coAdress ? "c/o " + a.coAdress : "", a.utdelningsadress || a.gatuadress || ""].filter(Boolean).join(", ");
+    const zip = String(a.postnummer || "").replace(/^(\d{3})(\d{2})$/, "$1 $2");
+    const address = [street, [zip, a.postort || ""].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    const dereg = JSON.stringify(org).match(/"avregistrerings?datum"\s*:\s*"([^"]+)"/i);
+    const out = { status: "success", orgNr: nr.slice(0, 6) + "-" + nr.slice(6), name: name, address: address,
+      form: bvText(org.organisationsform), deregistered: dereg ? dereg[1] : "" };
+    if (data.debug === true) out.raw = org;
+    return createJsonResponse(out);
+  } catch (e) {
+    return createJsonResponse({ status: "error", message: e.message });
+  }
 }
 
 // 📧 Skicka mejl med kartorna. Är avtalet ikryssat står det i mejlet att avtalet är registrerat.

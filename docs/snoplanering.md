@@ -133,6 +133,14 @@ Allt som rör UE registreras och ändras här. Nås från Hem och från Snöplan
 ### Kundkartor i Snöjour
 - 📄 på varje fastighet och **Alla mina kartor** (samlad PDF). UE-ansvarig får hela företagets runda, förare bara sina egna fastigheter.
 
+### 🔍 Org.nr-uppslag och ☐ F-skatt kontrollerad (resonerat och byggt 2026-11-07)
+- **Varför så här:** Bolagsverkets öppna API ("värdefulla datamängder") är gratis men slår bara upp **på org.nr** – ingen namnsökning. Skatteverkets API för F-skatt (*Beskattningsengagemang*) kräver organisationscertifikat + avtal och klaras inte av Apps Script. Betaltjänster (Roaring, Creditsafe) ger allt men kostar – Daniel valde gratisvägen (väg 2). Telefon/e-post finns inte i registren och fylls i för hand.
+- **🔍 Hämta** vid Org.nr i Uppgifter fyller i namn och adress (frågar innan något ifyllt skrivs över), visar bolagsform och varnar om företaget är avregistrerat. Enskilda firmor utan handelsregistrering finns inte hos Bolagsverket.
+- **☐ F-skatt kontrollerad** i företagskortet under avtalet, bara admin. **🔎 Kolla F-skatt** öppnar Skatteverkets *Hämta företagsinformation* och kopierar org.nr. Krysset sparar datum och vem. Det stoppar inget – det är en påminnelse.
+- **Kod.gs:** `lookupOrgNr` (admin; org.nr kontrolleras med Luhn, OAuth client credentials mot portal.api.bolagsverket.se, token i CacheService, POST `/vardefulla-datamangder/v1/organisationer` med `identitetsbeteckning`; `debug: true` ger rå-svaret) och `setUeFskatt`. Nycklarna: Skriptegenskaper `BV_CLIENT_ID`, `BV_CLIENT_SECRET`. Fliken UE-företag fick kolumnerna **F-skatt kontrollerad, F-skatt av** (rubrikerna skrivs första gången någon kryssar).
+- **Overifierat:** Bolagsverkets svarsformat är inte provat än – adressen letas upp som första objektet med `postnummer`. Prova med `debug: true` när nycklarna finns.
+- Sidlogiken ligger i `ue-uppslag.js`.
+
 ### Väntar
 - **Inköpspris per UE-företag** tas med när faktureringen resoneras klart (se *Priser* ovan).
 

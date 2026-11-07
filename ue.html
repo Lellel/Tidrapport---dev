@@ -58,6 +58,7 @@
     .form .actions > * { flex: 1; }
     .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
     .msg { font-size: 13px; min-height: 18px; margin-top: 8px; color: var(--muted); }
+    .orgrow { display: flex; gap: 6px; } .orgrow .lpv-btn { flex: none; }
     .links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
     @media (max-width: 480px) { .form .g2 { grid-template-columns: 1fr; } }
   </style>
@@ -78,6 +79,7 @@
 <script src="inloggning.js"></script>
 <script src="sasong.js"></script>
 <script src="sno.js"></script>
+<script src="ue-uppslag.js"></script>
 <script>
   const esc = snoEscape;
   const $ = (id) => document.getElementById(id);
@@ -138,6 +140,7 @@
       h += `<label class="agree"><input type="checkbox" ${c.ok ? 'checked' : ''} onchange="setAgreement(this)">
         <div><b>Avtal accepterat</b><div class="sub">${c.ok ? 'Kryssat ' + esc(c.acceptedAt) + (c.acceptedBy ? ' av ' + esc(c.acceptedBy) : '') : 'Kryssa i när UE har accepterat avtalet – då blir kulorna färgade och UE kan jobba.'}</div></div></label>
         <div class="links"><button class="lpv-btn primary" onclick="sendMaps()">📧 Skicka mejl med kartorna</button><a class="lpv-btn" href="planering.html">❄️ Öppna i Snöplanering</a></div>`;
+      h += fskattBlock(c);
     }
     h += `<div class="msg" id="msg"></div>`;
 
@@ -189,8 +192,10 @@
 
   function infoForm(c) {
     return `<div class="form">
+      <label>Org.nr</label><div class="orgrow"><input id="cOrg" value="${esc(c.orgNr || '')}" inputmode="numeric" placeholder="556677-8899"><button class="lpv-btn" onclick="lookupOrgNr()">🔍 Hämta</button></div>
+      <div class="hint">🔍 Hämta fyller i namn och adress från Bolagsverket. Enskilda firmor finns oftast inte där – fyll i för hand.</div>
       <label>Företagets namn</label><input id="cName" value="${esc(c.name)}" placeholder="t.ex. Snöbröderna AB">
-      <div class="g2"><div><label>Org.nr</label><input id="cOrg" value="${esc(c.orgNr || '')}"></div><div><label>Kontaktperson</label><input id="cContact" value="${esc(c.contact || '')}"></div></div>
+      <label>Kontaktperson</label><input id="cContact" value="${esc(c.contact || '')}">
       <label>Adress</label><input id="cAddr" value="${esc(c.address || '')}">
       <div class="g2"><div><label>Telefon</label><input id="cPhone" type="tel" value="${esc(fixPhone(c.phone || ''))}"></div><div><label>E-post</label><input id="cEmail" type="email" value="${esc(c.email || '')}"></div></div>
       <label>Anteckning om avtalet</label><textarea id="cNote">${esc(c.note || '')}</textarea>

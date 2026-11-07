@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-07-ue-orgnr', datum: '2026-11-07', roller: ['admin'],
+    titel: '🔍 Hämta UE-företag från Bolagsverket',
+    text: 'I 🤝 UE: skriv org.nr och tryck 🔍 Hämta så fylls namn och adress i. I företagskortet finns nu ☐ F-skatt kontrollerad – 🔎 Kolla F-skatt öppnar Skatteverket med org.nr kopierat.' },
   { id: '2026-11-07-lage', datum: '2026-11-07', roller: ['forare', 'handskottare', 'ue', 'ekonom', 'admin'],
     titel: '🌓 Läget väljs på startsidan',
     text: 'Knappen Auto/Ljust/Mörkt/Natt finns inte längre på varje sida. Välj läge längst ner på startsidan (Läge) – det gäller alla sidor. Admin på telefon: även under Mer.' },
