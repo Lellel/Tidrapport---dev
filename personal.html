@@ -296,6 +296,8 @@
     const mail = res.mail === 'behövs inte' ? '' : '\n✉️ Mejl: ' + res.mail;
     const receipt = res.receipt ? '\n🧾 Kvittens: ' + res.receipt : '';
     alert(`📦 Välkomstpaket till ${res.user}\n\n${sms}${mail}${receipt}`);
+    // Hämta om så att "Välkomstpaket inte skickat" försvinner direkt
+    await load(true); if (current && current.name === p.name) openPerson(p.name);
     if (res.sms === 'not_configured') location.href = `sms.html?to=${encodeURIComponent(p.phone)}&body=${encodeURIComponent(res.smsText)}`;
   }
 
@@ -356,6 +358,7 @@
     let res;
     try { res = await snoApi({ action: 'mailLogin', targetUser: p.name }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
     if (current !== p) return;
+    if (res.status === 'success') { await load(true); if (current && current.name === p.name) openPerson(p.name); }
     msg(res.status === 'success' ? `✅ Inloggningen mejlad till ${res.sentTo}.` : '❌ ' + (res.message || 'Kunde inte skicka.'), res.status !== 'success');
   }
 

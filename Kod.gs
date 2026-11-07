@@ -776,6 +776,8 @@ function handleSendWelcomeKit(data, auth) {
       result.mail = "fel: " + err.message;
     }
   }
+  // Räknas som skickat när SMS:et gick (eller öppnas i Meddelanden på telefonen) eller mejlet gick
+  if (result.sms === "skickat" || result.sms === "not_configured" || result.mail === "skickat") markKitSent(name);
   result.receipt = sendWelcomeReceipt(sheet, auth.user, result, { name: name, company: company, brand: brand, phone: phone, email: email, sms: sms });
   return createJsonResponse(result);
 }
@@ -801,7 +803,30 @@ function handleMailLogin(data, auth) {
         (pc ? "<p><b>På datorn</b> – länken fungerar en gång och i " + PC_LINK_DAYS + " dagar:</p>" + pcButtonHtml(pc) : "") +
         safariTipHtml()) });
   } catch (err) { return createJsonResponse({ status: "error", message: "Mejlet gick inte iväg: " + err.message }); }
+  markKitSent(name);
   return createJsonResponse({ status: "success", user: name, sentTo: email });
+}
+
+// "Välkomstpaket skickat" per person (2026-11-07). Förut bara ur SMS-logg per mobilnummer – missade när kalkylarket
+// gjort om +46… till ett tal, när SMS:et öppnades i Meddelanden (46elks ej inställt) och när bara mejlet gick.
+// Nu sparas datumet per namn i Skriptegenskapen VALKOMST_SKICKAT; SMS-loggen är kvar som reserv för äldre utskick.
+function markKitSent(name) {
+  const props = PropertiesService.getScriptProperties();
+  let m = {};
+  try { m = JSON.parse(props.getProperty("VALKOMST_SKICKAT") || "{}"); } catch (e) { m = {}; }
+  m[String(name).trim()] = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd");
+  props.setProperty("VALKOMST_SKICKAT", JSON.stringify(m));
+}
+function kitSentMap(tz) {
+  let byName = {};
+  try { byName = JSON.parse(PropertiesService.getScriptProperties().getProperty("VALKOMST_SKICKAT") || "{}"); } catch (e) { byName = {}; }
+  const byPhone = {};
+  const smsLog = getSS().getSheetByName("SMS-logg");
+  if (smsLog) smsLog.getDataRange().getValues().slice(1).forEach(r => {
+    if (String(r[4]) !== "välkomstpaket" || String(r[6]).indexOf("FEL") === 0) return;
+    byPhone[toE164(String(r[1]))] = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10);
+  });
+  return { byName: byName, byPhone: byPhone };
 }
 
 // Kvittens till admin som skickade välkomstpaketet – alltid, även när något misslyckades.
@@ -862,14 +887,7 @@ function handleStaffOverview(auth) {
       (j.assigned || []).forEach(p => { (todayJobs[p] = todayJobs[p] || []).push(j.title || j.client || "Jobb"); });
     });
   } catch (e) { /* radarn saknas – visa ändå personalen */ }
-  // Senaste välkomstpaketet per mobilnummer (fliken SMS-logg: Tid, Till, …, Typ)
-  const kitSent = {};
-  const smsLog = getSS().getSheetByName("SMS-logg");
-  if (smsLog) smsLog.getDataRange().getValues().slice(1).forEach(r => {
-    if (String(r[4]) !== "välkomstpaket" || String(r[6]).indexOf("FEL") === 0) return;
-    const t = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10);
-    kitSent[String(r[1])] = t;
-  });
+  const kitSent = kitSentMap(tz);
   const staff = [], snowPeople = readSnowPeople();
   getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
     if (!r[0] || !inScope(auth, r[6])) return;
@@ -883,7 +901,7 @@ function handleStaffOverview(auth) {
       today: todayJobs[name] || [],
       canEdit: auth.isSuper || !(isAdminRow(r) || isEconomistRow(r)),
       // Kontrollen på Personal-sidan (inget missas när ny personal läggs till)
-      hasKey: !!String(r[KEY_COLUMN - 1] || ""), kitSent: kitSent[toE164(r[2])] || "", hasAvatar: !!String(r[5] || ""),
+      hasKey: !!String(r[KEY_COLUMN - 1] || ""), kitSent: kitSent.byName[String(r[0]).trim()] || kitSent.byPhone[toE164(r[2])] || "", hasAvatar: !!String(r[5] || ""),
       // Snöplaneringen (fliken Snöresurser): ägare, handskottare, UE-ansvarig, hemort
       snow: { owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home }
     });
@@ -2149,18 +2167,13 @@ function handleGetUeOverview(auth) {
   Object.keys(ctx.companies).forEach(n => { names[n] = true; });
   Object.keys(ctx.people).forEach(n => { if (ctx.people[n].owner !== "Egna") names[ctx.people[n].owner] = true; });
   Object.values(ctx.fleet).forEach(t => { if (t.owner !== "Egna") names[t.owner] = true; });
-  const tz = Session.getScriptTimeZone() || "Europe/Stockholm", kitSent = {};
-  const smsLog = getSS().getSheetByName("SMS-logg");
-  if (smsLog) smsLog.getDataRange().getValues().slice(1).forEach(r => {
-    if (String(r[4]) !== "välkomstpaket" || String(r[6]).indexOf("FEL") === 0) return;
-    kitSent[String(r[1])] = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10);
-  });
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm", kitSent = kitSentMap(tz);
   const staff = {};
   getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
     if (!r[0] || !inScope(auth, r[6])) return;
     const name = String(r[0]).trim(), sp = snowPerson(ctx.people, name);
     staff[name] = { name: name, email: String(r[1] || ""), phone: String(r[2] || "").replace(/^'/, ""), role: staffRoleName(r), company: companyOf(r[6]),
-      status: String(r[7] || "").trim() || "Aktiv", hasKey: !!String(r[KEY_COLUMN - 1] || ""), kitSent: kitSent[toE164(r[2])] || "",
+      status: String(r[7] || "").trim() || "Aktiv", hasKey: !!String(r[KEY_COLUMN - 1] || ""), kitSent: kitSent.byName[String(r[0]).trim()] || kitSent.byPhone[toE164(r[2])] || "",
       owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home };
   });
   const list = Object.keys(names).sort((a, b) => a.localeCompare(b, "sv")).map(name => {
