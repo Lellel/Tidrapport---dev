@@ -125,8 +125,9 @@ Allt som rör UE registreras och ändras här. Nås från Hem och från Snöplan
 - **Efter kryss:** färg som vanligt och UE är med i snöjouren.
 
 ### Mejl med kundkartorna
-- Vid kryss får UE-ansvarig ett mejl **från Klaryta** (Klaryta-loggan, Klaryta som avsändarnamn), **kopia till admin**: "Avtalet är registrerat – ni är nu med i snöjouren", med en **samlad PDF** över rundan som bilaga.
-- **📧 Skicka kartor igen** i UE-vyn: samma mejl utan avtalstexten, när rundan har ändrats.
+- **📧 Skicka mejl med kartorna** (egen knapp, ändrat 2026-11-07 – krysset skickar inget mejl): UE-ansvarig får ett mejl **från Klaryta** (Klaryta-loggan, Klaryta som avsändarnamn), **kopia till admin**: "Avtalet är registrerat – ni är nu med i snöjouren", med en **samlad PDF** över rundan som bilaga.
+- Är avtalet inte ikryssat skickas mejlet utan avtalstexten (bara rundan). Skickas igen när rundan har ändrats.
+- **Samma kartbild** (t.ex. en karta för två adresser) kommer bara med en gång – en sida med alla adresserna. Kartorna är redan JPEG 1600 px (snitt 330 kB), så mer går inte att krympa utan att ändra bilderna.
 - PDF:en: en sida per fastighet, adressen som rubrik, **bara kundkartan** (inga ritade zoner). Fastighet utan karta = sida med "Karta saknas".
 
 ### Kundkartor i Snöjour

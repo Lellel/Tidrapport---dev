@@ -141,8 +141,8 @@
       <button class="btn" onclick="closeSheet()">✕</button></div>`;
     if (!isNew) {
       h += `<label class="agree"><input type="checkbox" ${c.ok ? 'checked' : ''} onchange="setAgreement(this)">
-        <div><b>Avtal accepterat</b><div class="sub">${c.ok ? 'Kryssat ' + esc(c.acceptedAt) + (c.acceptedBy ? ' av ' + esc(c.acceptedBy) : '') : 'Kryssa i när UE har accepterat avtalet. Då får UE-ansvarig ett mejl från Klaryta med kundkartorna (kopia till dig).'}</div></div></label>
-        <div class="links"><button class="btn" onclick="sendMaps()">📧 Skicka kartor igen</button><a class="btn" href="planering.html">❄️ Öppna i Snöplanering</a></div>`;
+        <div><b>Avtal accepterat</b><div class="sub">${c.ok ? 'Kryssat ' + esc(c.acceptedAt) + (c.acceptedBy ? ' av ' + esc(c.acceptedBy) : '') : 'Kryssa i när UE har accepterat avtalet – då blir kulorna färgade och UE kan jobba.'}</div></div></label>
+        <div class="links"><button class="btn primary" onclick="sendMaps()">📧 Skicka mejl med kartorna</button><a class="btn" href="planering.html">❄️ Öppna i Snöplanering</a></div>`;
     }
     h += `<div class="msg" id="msg"></div>`;
 
@@ -254,24 +254,25 @@
 
   async function setAgreement(box) {
     const c = coBy(cur), on = box.checked;
-    const lead = c.people.filter(p => p.ueLead && p.email).map(p => p.email);
-    const to = lead.length ? lead.join(', ') : (c.email || '');
-    const text = on ? `Markera att ${c.name} har accepterat avtalet?\n\nKulorna blir färgade och UE kan starta snöpass och markera klart.\n` + (to ? `Ett mejl från Klaryta med kundkartorna går till ${to} (kopia till dig).` : '⚠️ Ingen e-post finns – inget mejl skickas. Lägg in e-post på UE-ansvarig eller företaget.')
+    const text = on ? `Markera att ${c.name} har accepterat avtalet?\n\nKulorna blir färgade och UE kan starta snöpass och markera klart. Mejlet skickar du med 📧 Skicka mejl med kartorna.`
       : `Ta bort avtalet för ${c.name}?\n\nKulorna blir grå igen och UE kan inte starta snöpass eller markera klart.`;
     if (!confirm(text)) { box.checked = !on; return; }
-    say(on ? 'Sparar och skickar mejlet med kartorna…' : 'Sparar…');
+    say('Sparar…');
     try {
       const reg = await ensureRegistered(c);
-      const res = await api({ action: 'setUeAgreement', id: reg.id, accepted: on, sendMail: !!to });
+      const res = await api({ action: 'setUeAgreement', id: reg.id, accepted: on });
       if (res.status !== 'success') throw new Error(res.message);
       await load();
-      say(on ? (res.mail ? '✅ Avtalet registrerat. Mejlet skickat till ' + esc(res.mail) + '.' : res.mailError ? '✅ Avtalet registrerat, men mejlet gick inte: ' + esc(res.mailError) : '✅ Avtalet registrerat (inget mejl – e-post saknas).') : 'Avtalet borttaget – kulorna är grå.');
+      say(on ? '✅ Avtalet registrerat. Tryck 📧 Skicka mejl med kartorna när du vill att UE ska få dem.' : 'Avtalet borttaget – kulorna är grå.');
     } catch (e) { box.checked = !on; say('❌ ' + esc(e.message || e)); }
   }
 
   async function sendMaps() {
     const c = coBy(cur);
-    if (!confirm(`Skicka kundkartorna för ${c.properties.length} fastigheter till ${c.name}?`)) return;
+    const lead = c.people.filter(p => p.ueLead && p.email).map(p => p.email);
+    const to = lead.length ? lead.join(', ') : (c.email || '');
+    if (!to) { say('❌ Ingen e-post – lägg in e-post på UE-ansvarig eller under Uppgifter.'); return; }
+    if (!confirm(`Skicka mejl från Klaryta till ${to} (kopia till dig) med kundkartorna för ${c.properties.length} fastigheter?` + (c.ok ? '\n\nMejlet säger att avtalet är registrerat.' : '\n\nAvtalet är inte ikryssat – mejlet skickar bara rundan.'))) return;
     say('Gör PDF:en och skickar…');
     try {
       const reg = await ensureRegistered(c);

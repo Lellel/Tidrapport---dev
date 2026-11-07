@@ -4,7 +4,7 @@
 window.LPV_NYHETER = [
   { id: '2026-11-07-ue-vyn', datum: '2026-11-07', roller: ['admin'], modul: 'sno',
     titel: '🤝 UE – företag, avtal och kartor',
-    text: 'Ny vy för allt om UE: företagsuppgifter, personer, traktorer och fastigheter. ☐ Avtal accepterat färgar företagets kulor och skickar kundkartorna som PDF till UE-ansvarig (från Klaryta, kopia till dig). Före avtal är kulorna grå men går att lägga ut.' },
+    text: 'Ny vy för allt om UE: företagsuppgifter, personer, traktorer och fastigheter. ☐ Avtal accepterat färgar företagets kulor. 📧 Skicka mejl med kartorna skickar kundkartorna som PDF till UE-ansvarig (från Klaryta, kopia till dig). Före avtal är kulorna grå men går att lägga ut.' },
   { id: '2026-11-07-ue-kartor', datum: '2026-11-07', roller: ['forare', 'handskottare', 'ue'], modul: 'sno',
     titel: '📄 Kundkartorna som PDF',
     text: 'I Snöjour: ⬇️ PDF på varje fastighet och 📄 Alla mina kartor för hela rundan. UE: innan avtalet är registrerat ser ni rundan och kartorna, men kan inte starta pass eller markera klart.' },

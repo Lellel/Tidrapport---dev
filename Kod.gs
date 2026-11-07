@@ -1758,7 +1758,7 @@ function handleDeleteUeCompany(data) {
   return createJsonResponse({ status: "success" });
 }
 
-// ☐ Avtal accepterat (bara admin). Ikryssat → mejl från Klaryta med kundkartorna, kopia till admin.
+// ☐ Avtal accepterat (bara admin). Mejlet skickas separat med 📧 Skicka mejl med kartorna (sendUeMaps).
 function handleSetUeAgreement(data, auth) {
   const sheet = getUeSheet(), hit = findRowById(sheet, data.id);
   if (!hit) return createJsonResponse({ status: "error", message: "Spara företaget först." });
@@ -1766,17 +1766,18 @@ function handleSetUeAgreement(data, auth) {
   sheet.getRange(hit.rowNumber, 9, 1, 3).setValues([[accepted ? nowStamp() : "", accepted ? auth.user : "", nowStamp()]]);
   const company = ueFromRow(sheet.getRange(hit.rowNumber, 1, 1, UE_HEADERS.length).getValues()[0]);
   const out = { status: "success", company: company, mail: "" };
-  if (accepted && data.sendMail !== false) {
+  if (accepted && data.sendMail === true) {
     try { out.mail = sendUeMapsMail(company, auth, true); } catch (err) { out.mailError = err.message; }
   }
   return createJsonResponse(out);
 }
 
-// 📧 Skicka kartor igen (när rundan ändrats)
+// 📧 Skicka mejl med kartorna. Är avtalet ikryssat står det i mejlet att avtalet är registrerat.
 function handleSendUeMaps(data, auth) {
   const hit = findRowById(getUeSheet(), data.id);
   if (!hit) return createJsonResponse({ status: "error", message: "Spara företaget först." });
-  try { return createJsonResponse({ status: "success", mail: sendUeMapsMail(ueFromRow(hit.row), auth, false) }); }
+  const company = ueFromRow(hit.row);
+  try { return createJsonResponse({ status: "success", mail: sendUeMapsMail(company, auth, !!company.acceptedAt) }); }
   catch (err) { return createJsonResponse({ status: "error", message: err.message }); }
 }
 
@@ -1805,23 +1806,29 @@ function sendUeMapsMail(company, auth, agreement) {
 function ueMapsPdf(props, title) {
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
   const sorted = props.slice().sort((a, b) => (a.omrade || a.ort).localeCompare(b.omrade || b.ort, "sv") || a.address.localeCompare(b.address, "sv"));
-  const pages = [];
+  const pages = [], byImage = {}; // samma kartbild (t.ex. en karta för två adresser) tas bara med en gång
+  const headOf = (list) => list.map(p => '<h1 style="font-size:20px;margin:0 0 2px">' + escHtml(p.address) + '</h1>').join("") +
+    '<div style="color:#64748b;font-size:12px;margin-bottom:10px">' + escHtml([...new Set(list.map(p => [p.omrade || p.ort, p.kund].filter(Boolean).join(" · ")))].join(" / ")) + "</div>";
   sorted.forEach(p => {
-    const head = '<h1 style="font-size:20px;margin:0 0 2px">' + escHtml(p.address) + '</h1><div style="color:#64748b;font-size:12px;margin-bottom:10px">' +
-      escHtml([p.omrade || p.ort, p.kund].filter(Boolean).join(" · ")) + "</div>";
     const maps = p.maps || [];
-    if (!maps.length) { pages.push(head + '<p style="color:#94a3b8;font-size:16px;margin-top:60px;text-align:center">Karta saknas</p>'); return; }
+    if (!maps.length) { pages.push({ props: [p], body: '<p style="color:#94a3b8;font-size:16px;margin-top:60px;text-align:center">Karta saknas</p>' }); return; }
     maps.forEach((m, i) => {
-      let img = "";
-      try { const blob = DriveApp.getFileById(m.id).getBlob(); img = "data:" + (blob.getContentType() || "image/jpeg") + ";base64," + Utilities.base64Encode(blob.getBytes()); }
-      catch (e) { /* bilden borta */ }
-      pages.push(head + (maps.length > 1 ? '<div style="font-size:12px;margin-bottom:6px">Karta ' + (i + 1) + " av " + maps.length + (m.label ? " – " + escHtml(m.label) : "") + "</div>" : "") +
-        (img ? '<img src="' + img + '" style="max-width:100%;max-height:235mm;display:block">' : '<p style="color:#94a3b8">Kartbilden kunde inte läsas.</p>'));
+      let img = "", key = "";
+      try {
+        const blob = DriveApp.getFileById(m.id).getBlob(), bytes = blob.getBytes();
+        key = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, bytes));
+        if (byImage[key]) { if (byImage[key].props.indexOf(p) === -1) byImage[key].props.push(p); return; }
+        img = "data:" + (blob.getContentType() || "image/jpeg") + ";base64," + Utilities.base64Encode(bytes);
+      } catch (e) { /* bilden borta */ }
+      const page = { props: [p], body: (maps.length > 1 ? '<div style="font-size:12px;margin-bottom:6px">Karta ' + (i + 1) + " av " + maps.length + (m.label ? " – " + escHtml(m.label) : "") + "</div>" : "") +
+        (img ? '<img src="' + img + '" style="max-width:100%;max-height:225mm;display:block">' : '<p style="color:#94a3b8">Kartbilden kunde inte läsas.</p>') };
+      if (key) byImage[key] = page;
+      pages.push(page);
     });
   });
-  if (!pages.length) pages.push('<p style="color:#94a3b8;font-size:16px">Inga fastigheter ännu.</p>');
+  if (!pages.length) pages.push({ head: '<p style="color:#94a3b8;font-size:16px">Inga fastigheter ännu.</p>' });
   const html = '<html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{font-family:Arial,sans-serif;color:#0f172a}.pg{page-break-after:always}.pg:last-child{page-break-after:auto}</style></head><body>' +
-    pages.map(x => '<div class="pg">' + x + "</div>").join("") + "</body></html>";
+    pages.map(x => '<div class="pg">' + (x.head || headOf(x.props) + x.body) + "</div>").join("") + "</body></html>";
   const fname = "Kundkartor " + String(title || "").replace(/[\\/:*?"<>|]/g, "") + " " + Utilities.formatDate(new Date(), tz, "yyyy-MM-dd") + ".pdf";
   return Utilities.newBlob(html, "text/html", "kartor.html").getAs("application/pdf").setName(fname);
 }
