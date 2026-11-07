@@ -17,3 +17,6 @@ Mål: när en kund ringer visas kundens namn (och logga) på telefonen – i van
 
 ## Animerat timglas (2026-11-05)
 Alla ⏳ som visas medan något väntar (t.ex. "⏳ AI:n placerar kartan…") vänds sakta upp och ner. Byggs i knappar.js (byter ⏳-tecknen mot ett animerat element) så att ingen sida behöver ändras. Tas efter att kartplaceringen är klar.
+
+## Kundkartor till UE från original-PDF:erna (vilande, 2026-11-07)
+Om UE-mejlets PDF blir för stor: de 75 originalen (`~/Desktop/Snöadresser/uppackat`) är i snitt 159 kB mot 328 kB för appens JPEG. LandInfo = grundkarta som bild (794×568) + skraffering/symboler/text som vektor, alltså skarpare och mindre. Plan: ladda upp originalen till Drive, koppla till kartorna via snöunderlag.json, foga ihop sidorna med pdf-lib i Kod.gs och använd JPEG:en där original saknas. Att vektorisera JPEG:en är ingen väg – skrafferingen blir tiotusentals streck. Daniel 2026-11-07: släpps tills det blir ett problem.
