@@ -100,7 +100,15 @@ Ersätter "Uppföljning/fakturering mot UE" under *Kvar att resonera om*.
 ### Priser
 - **Olika timpris för maskin och handskottning.**
 - **Försäljning (det vi tar betalt) och inköp (det vi betalar UE) är olika priser.**
-- Öppet: per traktor eller per storlek (stor/liten)? Inköpspris per UE-företag? Kundunika priser?
+- ~~Öppet: per traktor eller per storlek (stor/liten)? Inköpspris per UE-företag? Kundunika priser?~~ Svar från Danne 2026-11-08:
+  1. **Pris per ort, inte per traktor/storlek:** Flen 1 000 kr/h för alla, Nyköping 1 250 kr/h för alla.
+  2. **Varje UE har eget avtal**, men det som skiljer just nu är **jouren**.
+  3. **Kundpriser:** Flen = bara kommunen, ett pris. Nyköping = olika priser mot kund men samma mot UE. Danne samlar ihop priserna under veckan 2026-11-09.
+- Följdfrågor till Danne (inte ställda än):
+  - Är 1 000/1 250 kr/h det vi betalar UE, det kunden betalar, eller båda?
+  - Samma timpris för maskin och handskottning, eller olika (vi bestämde olika 2026-11-06)?
+  - Hur skiljer jouren mellan UE: fast ersättning per vecka/säsong, per pass, eller ett påslag på timpriset?
+- **Bygg inte prislogiken förrän Nyköpings kundpriser och följdfrågorna är klara.** Troligen räcker en tabell *ort → timpris (inköp)*, *kund → timpris (försäljning, standard per ort)* och *UE → jour*.
 
 ### Ut i systemet
 - **Ekonomi:** snöunderlaget per kund (försäljningspris), granska ⚠️, markera fakturerat – som tidrapporterna i dag.

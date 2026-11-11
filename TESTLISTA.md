@@ -520,7 +520,8 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [x] Byt personalnamnen i Blacksta-filerna och prototyperna mot påhittade (Lisa, Kalle, Stina …) och UE-numret mot ett fiktivt
 - [x] Rensa namnen ur Git-historiken (gjort 2026-11-02, säkerhetskopia i ~/Dev-repot/backup/)
 - [ ] Be GitHub Support rensa gamla commits (pull request #1 pekar på gammal historik)
-- [ ] Flytta kalkylark/Drive/Apps Script från privat Gmail till **Google Workspace** och godkänn Googles databehandlingsavtal (DPA)
+- [x] Kalkylarket ligger på **Google Workspace** (Daniel 2026-11-08)
+- [ ] Kolla att även Drive-bilderna och Apps Script-projektet ligger på Workspace, och att Googles databehandlingstillägg (DPA) är godkänt i Admin-konsolen (Konto → Juridik och efterlevnad)
 - [ ] Tvåstegsverifiering på Google, HubSpot, GitHub och 46elks
 
 **Sedan:**
