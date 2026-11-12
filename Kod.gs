@@ -270,6 +270,7 @@ function doPost(e) {
     if (action === "me") return createJsonResponse({ status: "success", user: auth.user, role: auth.role || "", company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist,
       modules: (readStaffAuth(auth.user) || {}).modules || null, su: isSuUser(auth.user), appLage: appLageForApp(),
       extras: isSuUser(auth.user) ? EXTRA_MODULES.slice() : ((readStaffAuth(auth.user) || {}).extras || []),
+      avatar: data.wantAvatar ? myAvatarFromSheet(auth.user) : undefined, // ny enhet utan egen avatar hämtar sin (2026-11-12)
       guideRoll: guideRollFor([auth.isAdmin ? "admin" : "", auth.isEconomist || /^ekonom$/i.test(auth.role || "") ? "ekonom" : "", /^ue$/i.test(auth.role || "") ? "ue" : ""].filter(Boolean), auth.user) });
     // Offerter: Klaryta-admin får bara röra Klarytas offerter
     if ((action === "sendOffer" || action === "cancelOffer") && !auth.isSuper) {
@@ -5683,6 +5684,13 @@ function getBrandColorPrompt(machineName) {
   if (name.includes("weidemann") || name.includes("giant") || name.includes("schäffer")) return "compact loader in signature bright industrial colors with black counterweight";
 
   return "authentic industrial machinery colors matching the manufacturer";
+}
+
+// Den lilla avataren (kolumn F i Personal) – skickas bara när enheten säger att den saknar en (wantAvatar)
+function myAvatarFromSheet(name) {
+  const st = getStaffSheet(), hit = st ? findStaffRow(st, name) : null;
+  const v = hit ? String(hit.row[5] || "") : "";
+  return (/^data:image\/(jpeg|png);base64,/.test(v) && v.length < 60000) || /^https:\/\//.test(v) ? v : "";
 }
 
 function saveAvatarToSheet(resursId, base64Image) {

@@ -146,8 +146,16 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
 (async () => {
   try {
     if (!navigator.onLine || !localStorage.getItem('lpv_key')) return;
-    const me = await apiPost({ action: 'me' });
+    // Ny enhet/webbläsare: avataren finns bara i Personal-fliken – hämta den hit (förut visades ingen).
+    // Samma nyckel som avatar_onboarding.js (som laddas efter app.js och därför inte går att anropa här än).
+    const avKey = 'lpv_user_avatar:' + (window.currentUser || '');
+    const noAvatar = !localStorage.getItem(avKey) && !localStorage.getItem('lpv_user_avatar');
+    const me = await apiPost({ action: 'me', wantAvatar: noAvatar });
     if (me.status !== 'success') return;
+    if (noAvatar && me.avatar) {
+      try { localStorage.setItem(avKey, me.avatar); } catch (e) { /* full lagring – visas ändå nu */ }
+      if (typeof updateAvatarDisplays === 'function') updateAvatarDisplays(me.avatar);
+    }
     localStorage.setItem('lpv_company', me.company);
     localStorage.setItem('lpv_role', me.role || '');
     localStorage.setItem('lpv_guide_roll', me.guideRoll || ''); // vilken bruksanvisning (nyheter.js, guide.html)
