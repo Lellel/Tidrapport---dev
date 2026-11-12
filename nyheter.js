@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-12-storlek-varnar', datum: '2026-11-12', roller: ['admin'], modul: 'sno',
+    titel: '⚠️ Storleken varnar i stället för att stoppa',
+    text: 'I Snöplaneringen går det nu att lägga en stor traktor i ett litet hål – appen varnar, fastigheten får 💪 och du kan trycka Ångra. Saknas storlek läggs traktorn ut med en påminnelse.' },
   { id: '2026-11-07-mejla-inloggning', datum: '2026-11-07', roller: ['admin'],
     titel: '📧 Mejla inloggningen',
     text: 'På 👥 Personal → tryck på en person → 📧 Mejla inloggningen. Appen mejlar personens inloggningslänk – inget SMS skickas.' },

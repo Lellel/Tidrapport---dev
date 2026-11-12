@@ -87,7 +87,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .pcard.part { border-left-color: var(--warn); }
 .pcard.flash { box-shadow: 0 0 0 3px var(--accent); }
 .pcard.drop-ok { outline: 3px solid var(--accent); }
-.pcard.drop-bad { outline: 3px solid var(--bad); }
+.pcard.drop-warn { outline: 3px dashed var(--warn); }
 .pcard .t { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcard .m { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcard .w { font-size: 11px; color: var(--warn); font-weight: 700; }
@@ -102,13 +102,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .slot { width: 30px; height: 30px; border-radius: 50%; border: 2px dashed var(--hand); display: grid; place-items: center; color: var(--hand); font-weight: 800; flex-shrink: 0; font-size: 13px; }
 .slot.need { border-color: var(--warn); color: var(--warn); }
 .hole.drop-ok, .slot.drop-ok { outline: 3px solid var(--accent); outline-offset: 2px; }
-.hole.drop-bad { outline: 3px solid var(--bad); outline-offset: 2px; }
+.hole.drop-warn { outline: 3px dashed var(--warn); outline-offset: 2px; }
 .drvname { font-size: 11px; color: var(--muted); max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .drag { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
 /* Traktorvyn: en rad per traktor */
 .lane { display: flex; gap: 10px; align-items: stretch; border-bottom: 1px solid var(--line); padding: 8px 0; min-height: 76px; }
 .lane.drop-ok { background: rgba(56, 189, 248, .08); }
-.lane.drop-bad { background: rgba(239, 68, 68, .08); }
+.lane.drop-warn { background: rgba(245, 158, 11, .10); }
 .lane .lab { width: 170px; flex: none; display: flex; gap: 8px; align-items: center; cursor: pointer; }
 .lane .lab span { font-size: 13px; font-weight: 700; min-width: 0; }
 .lane .lab em { display: block; font-style: normal; font-size: 11px; color: var(--muted); font-weight: 400; }
@@ -527,13 +527,27 @@ async function saveProp(p, changes) {
 }
 
 // Traktor på en fastighet + förslag: grannar inom 300 m utan traktor
+// Storleken varnar men stoppar inte: stor traktor i litet hål → fastigheten blir 💪 Tvingad stor (går att ångra).
 async function putTractor(t, p, fromPid) {
-  if (!p.size) { bounce(p.id); toast(`🚫 ${esc(p.address)} saknar storlek – välj stor/liten i detaljrutan.`); return; }
-  if (!fits(t, p)) { bounce(p.id); toast(`🚫 ${esc(shortModel(t))} är stor – ${esc(p.address)} har ett litet hål.`); return; }
   if (p.tractorId === t.id) return;
-  if (fromPid && fromPid !== p.id) assign(fromPid, { tractorId: '' });
+  const tooBig = !!p.size && !fits(t, p);
+  if (tooBig) { await saveProp(p, { forced: true }); if (!p.forced) return; }
+  const prev = p.tractorId || '';
+  const moved = fromPid && fromPid !== p.id;
+  if (moved) assign(fromPid, { tractorId: '' });
   const ok = await assign(p.id, { tractorId: t.id });
-  if (!ok || p.lat === null) return;
+  if (!ok) return;
+  if (tooBig) {
+    bounce(p.id);
+    toast(`⚠️ ${esc(shortModel(t))} är stor – ${esc(p.address)} har ett litet hål. Lagd ändå 💪`, false, { label: 'Ångra', run: async () => {
+      await assign(p.id, { tractorId: prev });
+      if (moved) assign(fromPid, { tractorId: t.id });
+      saveProp(p, { forced: false });
+    } });
+    return;
+  }
+  if (!p.size) { bounce(p.id); toast(`⚠️ ${esc(p.address)} saknar storlek – välj stor/liten i detaljrutan.`); return; }
+  if (p.lat === null) return;
   const near = properties.filter(x => x.id !== p.id && !x.tractorId && x.lat !== null && kdOf(x) === kdOf(p) && x.size && fits(t, x) && snoDistance([p.lat, p.lng], [x.lat, x.lng]) <= 300);
   if (near.length) toast(`${near.length} ${near.length === 1 ? 'granne' : 'grannar'} inom 300 m saknar traktor (${near.slice(0, 3).map(x => esc(x.address)).join(', ')}${near.length > 3 ? ' …' : ''}).`, true,
     { label: `Lägg ${esc(shortModel(t))} där också`, run: async () => { for (const x of near) await assign(x.id, { tractorId: t.id }); toast(`✅ ${esc(shortModel(t))} lagd på ${near.length} till`, true); } });
@@ -605,7 +619,7 @@ function targetAt(x, y) {
   return { el: t, type: t && t.dataset.drop, pid: t && t.dataset.pid, tid: t && t.dataset.tid, order: el.closest('#order'), side: el.closest('#side'),
     card: el.closest('.pcard'), lane: el.closest('.lane'), map: el.closest('#map') };
 }
-function clearHighlight() { document.querySelectorAll('.drop-ok,.drop-bad').forEach(x => x.classList.remove('drop-ok', 'drop-bad')); }
+function clearHighlight() { document.querySelectorAll('.drop-ok,.drop-warn').forEach(x => x.classList.remove('drop-ok', 'drop-warn')); }
 // Vart kulan skulle hamna – samma regler för markering och släpp
 function resolve(d, x, y) {
   const t = targetAt(x, y);
@@ -637,7 +651,7 @@ function resolve(d, x, y) {
 function highlight(x, y) {
   clearHighlight();
   const r = resolve(drag, x, y);
-  if (r && r.el) r.el.classList.add(r.ok === false ? 'drop-bad' : 'drop-ok');
+  if (r && r.el) r.el.classList.add(r.ok === false ? 'drop-warn' : 'drop-ok');
 }
 function nearestPin(x, y) {
   if (!map) return null;
@@ -672,7 +686,6 @@ function drop(d, x, y) {
   if (r.act === 'propToLane') {
     const p = propById(d.id);
     if (!r.tid) { if (p.tractorId) assign(p.id, { tractorId: '' }); return; }
-    if (!r.ok) { toast(p.size ? `🚫 ${esc(shortModel(tractorById(r.tid)))} är stor – ${esc(p.address)} har ett litet hål.` : `🚫 ${esc(p.address)} saknar storlek.`); return; }
     return putTractor(tractorById(r.tid), p, null);
   }
 }
