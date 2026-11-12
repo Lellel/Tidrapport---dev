@@ -231,7 +231,7 @@
       </table>
       <button class="lpv-btn" style="margin-top:8px; min-height:34px;" onclick="groups[${gi}].extra.push({text:'',qty:'',unit:'st',price:''}); render()">＋ Material / egen rad</button>
       <div class="sum">Exkl. moms ${kr(t.net)} · inkl. moms ${kr(t.gross)}${t.deduction ? ` · ${g.deduction.toUpperCase()} −${kr(t.deduction)}` : ''}<br><b>Att betala ${kr(t.toPay)}</b></div>
-      <details ${inc.length !== g.reports.length ? 'open' : ''}><summary>Passen (${inc.length} av ${g.reports.length} med)</summary>
+      <details ${inc.length !== g.reports.length || g.open || g.reports.some(r => r.row === editRow) ? 'open' : ''} ontoggle="groups[${gi}].open=this.open"><summary>Passen (${inc.length} av ${g.reports.length} med)</summary>
         <table>
           <tr><th></th><th>Datum</th><th>Utfört av</th><th>Aktivitet</th><th class="r hide-sm">Tid</th><th class="r">Timmar</th><th></th></tr>
           ${g.reports.map(r => `<tr class="${g.included[r.row] ? '' : 'pass-off'}">

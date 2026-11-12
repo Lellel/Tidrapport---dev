@@ -159,6 +159,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sizes .on.liten { background: var(--liten); border-color: var(--liten); color: #111; }
 .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--bad); color: var(--t-on-accent); padding: 12px 16px; border-radius: var(--t-r); z-index: 120; font-weight: 600; display: none; max-width: 92vw; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
 .toast.ok { background: var(--ok); }
+.toast.warn { background: var(--warn); }
 .toast .lpv-btn { margin-left: 10px; }
 /* Telefon: traktorlistan med lampor överst – tryck på en rad för traktormenyn (docs/snoplanering.md) */
 .phonelist { display: none; }
@@ -483,9 +484,9 @@ let toastT;
 function toast(html, ok, action) {
   const el = $('toast');
   el.innerHTML = html + (action ? ` <button class="lpv-btn small" id="toastAct">${action.label}</button>` : '');
-  el.className = 'toast' + (ok ? ' ok' : ''); el.style.display = 'block';
+  el.className = 'toast' + (ok === 'warn' ? ' warn' : ok ? ' ok' : ''); el.style.display = 'block'; // ok: true = grön, 'warn' = gul varning
   if (action) $('toastAct').onclick = () => { el.style.display = 'none'; action.run(); };
-  clearTimeout(toastT); toastT = setTimeout(() => { el.style.display = 'none'; }, action ? 9000 : ok ? 2200 : 5000);
+  clearTimeout(toastT); toastT = setTimeout(() => { el.style.display = 'none'; }, action ? 9000 : ok === true ? 2200 : 5000);
 }
 async function assign(pid, changes) {
   const p = propById(pid);
@@ -539,14 +540,14 @@ async function putTractor(t, p, fromPid) {
   if (!ok) return;
   if (tooBig) {
     bounce(p.id);
-    toast(`⚠️ ${esc(shortModel(t))} är stor – ${esc(p.address)} har ett litet hål. Lagd ändå 💪`, false, { label: 'Ångra', run: async () => {
+    toast(`⚠️ ${esc(shortModel(t))} är stor – ${esc(p.address)} har ett litet hål. Lagd ändå 💪`, 'warn', { label: 'Ångra', run: async () => {
       await assign(p.id, { tractorId: prev });
       if (moved) assign(fromPid, { tractorId: t.id });
       saveProp(p, { forced: false });
     } });
     return;
   }
-  if (!p.size) { bounce(p.id); toast(`⚠️ ${esc(p.address)} saknar storlek – välj stor/liten i detaljrutan.`); return; }
+  if (!p.size) { bounce(p.id); toast(`⚠️ ${esc(p.address)} saknar storlek – välj stor/liten i detaljrutan.`, 'warn'); return; }
   if (p.lat === null) return;
   const near = properties.filter(x => x.id !== p.id && !x.tractorId && x.lat !== null && kdOf(x) === kdOf(p) && x.size && fits(t, x) && snoDistance([p.lat, p.lng], [x.lat, x.lng]) <= 300);
   if (near.length) toast(`${near.length} ${near.length === 1 ? 'granne' : 'grannar'} inom 300 m saknar traktor (${near.slice(0, 3).map(x => esc(x.address)).join(', ')}${near.length > 3 ? ' …' : ''}).`, true,
