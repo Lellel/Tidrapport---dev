@@ -205,10 +205,11 @@
         <div class="g2">
           <div><label for="fPhone">Mobil</label><input id="fPhone" type="tel" value="${esc(fixPhone(p.phone))}" placeholder="070…"></div>
           <div><label for="fEmail">E-post</label><input id="fEmail" type="email" value="${esc(p.email)}" placeholder="namn@exempel.se"></div>
-          <div><label for="fRole">Roll</label><select id="fRole">${roleOpts.map(r => `<option ${r === p.role ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+          <div><label for="fRole">Roll</label><select id="fRole" onchange="if ($('fEco')) $('fEco').style.display = this.value === 'Ekonom' ? '' : 'none'">${roleOpts.map(r => `<option ${r === p.role ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
           <div><label for="fStatus">Status</label><select id="fStatus">${data.statuses.map(s => `<option ${s === (p.active ? 'Aktiv' : p.status) ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
           ${data.isSuper ? `<div><label for="fCompany">Bolag</label><select id="fCompany">${['LPV', 'Klaryta'].map(c => `<option ${c === p.company ? 'selected' : ''}>${c}</option>`).join('')}</select></div>` : ''}
         </div>
+        ${ecoBox('f', p.role, p.ecoSees, p.company)}
         <div class="note">Inaktiv = döljs i listan. Karantän spärrar dessutom inloggningen. Namnet ändras i fliken Personal.</div>
         <h3 style="margin-top:14px">❄️ Snö</h3>
         <div class="g2">
@@ -262,11 +263,26 @@
   }
   const historyCache = {};         // namn (|all) → svar från getStaffHistory
 
+  // Kryssrutor: vilka bolag en ekonom ser i Ekonomi (bara admin på LPV, docs/pass-rattning.md)
+  function ecoBox(prefix, role, sees, own) {
+    if (!data || !data.isSuper) return '';
+    const on = sees && sees.length ? sees : [own || 'LPV'];
+    return `<div id="${prefix}Eco" style="${role === 'Ekonom' ? '' : 'display:none'}"><label>💰 Ekonomen ser</label>
+      ${['LPV', 'Klaryta'].map(c => `<label class="chk"><input type="checkbox" id="${prefix}Eco${c}" ${on.includes(c) ? 'checked' : ''}> ${c}</label>`).join('')}
+      <div class="note">Gäller bara Ekonomi (fakturaunderlag och pass). Ser hon båda kan hon filtrera i Ekonomi.</div></div>`;
+  }
+  function ecoPicked(prefix) {
+    if (!$(prefix + 'Eco')) return undefined;
+    return ['LPV', 'Klaryta'].filter(c => $(prefix + 'Eco' + c).checked);
+  }
+
   async function savePerson() {
     const p = current;
     const payload = { action: 'updateStaff', targetUser: p.name, phone: $('fPhone').value.trim(), email: $('fEmail').value.trim(),
       role: $('fRole').value, status: $('fStatus').value };
     if ($('fCompany')) payload.company = $('fCompany').value;
+    const sees = ecoPicked('f');
+    if (sees) { if (payload.role === 'Ekonom' && !sees.length) { msg('⚠️ Kryssa i minst ett bolag som ekonomen ser.', true); return; } payload.ecoSees = sees; }
     let res;
     try { res = await snoApi(payload); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
     if (res.status !== 'success') { msg('❌ ' + (res.message || 'Kunde inte spara.'), true); return; }
@@ -373,9 +389,10 @@
         <div class="g2">
           <div><label for="nPhone">Mobil</label><input id="nPhone" type="tel" placeholder="070…"></div>
           <div><label for="nEmail">E-post</label><input id="nEmail" type="email" placeholder="valfritt (krävs för admin/ekonom)"></div>
-          <div><label for="nRole">Roll</label><select id="nRole">${roles.map(r => `<option>${esc(r)}</option>`).join('')}</select></div>
+          <div><label for="nRole">Roll</label><select id="nRole" onchange="if ($('nEco')) $('nEco').style.display = this.value === 'Ekonom' ? '' : 'none'">${roles.map(r => `<option>${esc(r)}</option>`).join('')}</select></div>
           ${data && data.isSuper ? `<div><label for="nCompany">Bolag</label><select id="nCompany"><option>LPV</option><option>Klaryta</option></select></div>` : ''}
         </div>
+        ${ecoBox('n', roles[0], null, 'LPV')}
         <div class="note">Personen får en personlig länk direkt. Har den mobil eller e-post skickas välkomstpaketet med en gång.</div>
         <div class="actions"><button type="button" class="lpv-btn primary" onclick="saveNew()">💾 Lägg till &amp; skicka välkomstpaket</button></div>
         <div class="msg" id="pMsg"></div>
@@ -387,6 +404,8 @@
     const v = (id) => ($(id) ? $(id).value.trim() : '');
     const person = { name: v('nName'), phone: v('nPhone'), email: v('nEmail'), role: v('nRole'), company: v('nCompany') }; // admin på Klaryta: servern sätter alltid Klaryta
     if (!person.name) { msg('⚠️ Skriv personens namn.', true); return; }
+    const sees = ecoPicked('n');
+    if (sees && person.role === 'Ekonom') { if (!sees.length) { msg('⚠️ Kryssa i minst ett bolag som ekonomen ser.', true); return; } person.ecoSees = sees; }
     msg('Sparar… ⏳');
     let res;
     try { res = await snoApi({ action: 'addStaff', ...person }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }

@@ -2,6 +2,15 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-12-ny-kund', datum: '2026-11-12', roller: ['admin'], modul: 'offerter',
+    titel: '＋ Ny kund under Kunder',
+    text: 'Under 💼 Kunder finns ＋ Ny kund: företag/BRF eller privatperson. Kunden går sedan att välja i offerter och i Ekonomi.' },
+  { id: '2026-11-12-ekonom-bolag', datum: '2026-11-12', roller: ['ekonom', 'admin'], modul: 'ekonomi',
+    titel: '💰 Ekonomi: filtrera på bolag',
+    text: 'Ser du både LPV och Klaryta i Ekonomi finns Alla · LPV · Klaryta överst. Admin på LPV väljer på personalkortet (💰 Ekonomen ser) vilka bolag en ekonom ser.' },
+  { id: '2026-11-12-ratta-pass', datum: '2026-11-12', roller: ['ekonom', 'admin'], modul: 'ekonomi',
+    titel: '✏️ Rätta och radera pass i Ekonomi',
+    text: 'I Ekonomi → Passen: tryck ✏️ på ett pass för att ändra datum, tid, plats eller anteckning. 🗑 Radera flyttar passet till bladet "Raderade pass". Fakturerade pass är låsta.' },
   { id: '2026-11-12-storlek-varnar', datum: '2026-11-12', roller: ['admin'], modul: 'sno',
     titel: '⚠️ Storleken varnar i stället för att stoppa',
     text: 'I Snöplaneringen går det nu att lägga en stor traktor i ett litet hål – appen varnar, fastigheten får 💪 och du kan trycka Ångra. Saknas storlek läggs traktorn ut med en påminnelse.' },

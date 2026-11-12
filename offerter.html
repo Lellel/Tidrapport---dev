@@ -105,6 +105,7 @@
     let brandFilter = 'alla';
     let customers = null;      // kundregistret (hämtas när det behövs)
     let customerSearch = '', pickSearch = '', openCustomer = '';
+    let newCust = null;        // ＋ Ny kund: formulärets värden medan det är öppet
 
     const KIND_LABELS = { arbete: 'Arbete', maskin: 'Maskin', material: 'Material', resa: 'Resa', ovrigt: 'Övrigt' };
     const money = (v) => Math.round(v).toLocaleString('sv-SE') + ' kr';
@@ -332,11 +333,41 @@
     function renderCustomers() {
       if (!customers) return '<div class="muted">Hämtar kundregistret…</div>';
       const importBox = scope ? `<div class="msg" id="msg">${message}</div>` : `<div class="msg" id="msg">${message}</div><label class="btn-like" style="display:block;text-align:center;padding:10px;border:1px dashed var(--line);border-radius:12px;cursor:pointer;font-weight:700;font-size:13px">📥 Importera kunder från Fortnox (tabellfil)<input type="file" accept=".tsv,.csv,.txt" style="display:none" onchange="importCustomerFile(this.files[0])"></label>`;
-      if (!customers.length) return importBox + `<div class="card"><h2>Kundregistret är tomt</h2><div class="muted">${scope ? 'Inga kunder för ' + esc(scope) + ' ännu.' : 'Importera från Fortnox ovan, eller hämta från HubSpot under ⚙️ Inställningar → HubSpot.'}</div></div>`;
+      if (!customers.length) return importBox + renderNewCustomer() + `<div class="card"><h2>Kundregistret är tomt</h2><div class="muted">${scope ? 'Inga kunder för ' + esc(scope) + ' ännu.' : 'Importera från Fortnox ovan, eller hämta från HubSpot under ⚙️ Inställningar → HubSpot.'}</div></div>`;
       const list = customers.filter(c => customerMatches(c, customerSearch));
-      return importBox + `<input placeholder="🔎 Sök namn, kundnr, orgnr, telefon, e-post, adress" value="${esc(customerSearch)}" oninput="customerSearch=this.value; document.getElementById('custlist').innerHTML=renderCustomerList()">
+      return importBox + renderNewCustomer() + `<input placeholder="🔎 Sök namn, kundnr, orgnr, telefon, e-post, adress" value="${esc(customerSearch)}" oninput="customerSearch=this.value; document.getElementById('custlist').innerHTML=renderCustomerList()">
         <div id="custlist">${renderCustomerList(list)}</div>`;
     }
+    // ＋ Ny kund (bara i appen, inte HubSpot – se docs/pass-rattning.md)
+    function renderNewCustomer() {
+      if (!newCust) return `<button class="lpv-btn block" onclick="newCust={ type: 'foretag', rotRut: 'none', company: 'LPV' }; render()">＋ Ny kund</button>`;
+      const n = newCust, f = (k, label, ph, type) => `<div><label>${label}</label><input ${type ? `type="${type}"` : ''} placeholder="${ph || ''}" value="${esc(n[k] || '')}" oninput="newCust.${k}=this.value"></div>`;
+      return `<div class="card"><h2>＋ Ny kund</h2>
+        <div class="lpv-seg block">${[['foretag', '🏢 Företag / BRF'], ['privat', '🏠 Privatperson']].map(([v, l]) => `<button class="${n.type === v ? 'on' : ''}" onclick="newCust.type='${v}'; render()">${l}</button>`).join('')}</div>
+        ${f('name', 'Namn', n.type === 'privat' ? 'För- och efternamn' : 'Företagets namn')}
+        <div class="grid2">
+          ${n.type === 'privat' ? `<div><label>ROT/RUT</label><select onchange="newCust.rotRut=this.value">${[['none', 'Inget'], ['rot', 'ROT'], ['rut', 'RUT']].map(([v, l]) => `<option value="${v}" ${n.rotRut === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>` : f('orgnr', 'Org.nr', '556123-4567')}
+          ${n.type === 'privat' ? '<div></div>' : f('contact', 'Kontaktperson', 'Namn')}
+          ${f('phone', 'Telefon', '070…', 'tel')}
+          ${f('email', 'E-post', 'namn@exempel.se', 'email')}
+        </div>
+        ${f('address', 'Adress', 'Gata 1, 642 30 Flen')}
+        ${scope ? '' : `<label>Bolag</label><div class="lpv-seg block">${['LPV', 'Klaryta'].map(c => `<button class="${n.company === c ? 'on' : ''}" onclick="newCust.company='${c}'; render()">${c}</button>`).join('')}</div>`}
+        <div class="muted" style="margin-top:6px">Kunden sparas i kundregistret i appen (inte i HubSpot). Personnummer sparas inte.</div>
+        <div class="chips"><button class="lpv-btn primary" onclick="saveNewCustomer(this)">💾 Spara kund</button><button class="lpv-btn" onclick="newCust=null; render()">Avbryt</button></div>
+      </div>`;
+    }
+    async function saveNewCustomer(btn) {
+      if (!(newCust.name || '').trim()) { message = '⚠️ Skriv kundens namn.'; render(); return; }
+      btn.disabled = true;
+      let res;
+      try { res = await snoApi({ action: 'saveCustomer', customer: newCust }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+      if (res.status !== 'success') { message = '❌ ' + esc(res.message || 'Kunde inte spara.'); render(); return; }
+      customers = null; await loadCustomers();
+      newCust = null; openCustomer = res.customer.id; customerSearch = res.customer.name;
+      message = '✅ ' + esc(res.customer.name) + ' tillagd i kundregistret.'; render();
+    }
+
     function renderCustomerList(list) {
       list = list || customers.filter(c => customerMatches(c, customerSearch));
       return `<div class="muted">${list.length} kunder</div>` + list.slice(0, 200).map(c => `

@@ -234,7 +234,7 @@ function doPost(e) {
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall", "getUeOverview", "saveUeCompany", "deleteUeCompany", "setUeAgreement", "sendUeMaps", "setUeFskatt", "lookupOrgNr",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "clearPropertyMapPlace", "analyzePropertyMap", "suggestMapPoints", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
-      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers",
+      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers", "saveCustomer",
       "getStaffOverview", "getStaffHistory", "updateStaff",
       "saveStall", "addStallPhoto", "robotAlarm", "generateAppIcon", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
@@ -252,7 +252,7 @@ function doPost(e) {
     if (["getStalls", "setRobotRow"].indexOf(action) !== -1 && auth.company !== "LPV") {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: stalltvätten hör till LPV." });
     }
-    const economyOnly = ["getInvoiceBasis", "markInvoiced", "invoicePdf"];
+    const economyOnly = ["getInvoiceBasis", "markInvoiced", "invoicePdf", "updateReport", "deleteReport"];
     if (economyOnly.indexOf(action) !== -1 && !auth.isAdmin && !auth.isEconomist) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver ekonom eller administratör." });
     }
@@ -417,6 +417,9 @@ function doPost(e) {
     if (action === "analyzeSnowPhoto") return handleAnalyzeSnowPhoto(data, auth);
     if (action === "getInvoiceBasis") return handleGetInvoiceBasis(auth);
     if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user, auth);
+    if (action === "updateReport") return handleUpdateReport(data, auth.user, auth);
+    if (action === "saveCustomer") return handleSaveCustomer(data.customer, auth);
+    if (action === "deleteReport") return handleDeleteReport(data, auth.user, auth);
     if (action === "invoicePdf") return handleInvoicePdf(data.draft, auth);
     if (action === "sendSms") return handleSendSms(data, auth.user);
     if (action === "addStaff") {
@@ -424,6 +427,7 @@ function doPost(e) {
       if (!auth.isSuper) {
         if (data.role === "Admin" || data.role === "Ekonom") return createJsonResponse({ status: "error", message: "Bara admin på LPV kan ge admin- eller ekonombehörighet." });
         data.company = auth.company;
+        delete data.ecoSees;
       }
       return handleAddStaff(data);
     }
@@ -496,6 +500,7 @@ function readStaffAuth(name) {
     key: String(hit.row[KEY_COLUMN - 1] || ""),
     isAdmin: isAdminRow(hit.row),
     isEconomist: isEconomistRow(hit.row),
+    ecoSees: readEcoSees(hit.row),
     role: String(hit.row[3] || "").trim(),
     company: companyOf(hit.row[6]),
     quarantined: String(hit.row[7] || "").toLowerCase() === "karantän",
@@ -518,13 +523,26 @@ function companyOf(value) { return /kla/i.test(String(value || "")) ? "Klaryta" 
 // Utan auth = internt anrop (alla anrop utifrån går via doPost med auth) – ingen begränsning.
 function scopeOf(auth) { return !auth || (auth.isAdmin && auth.company === "LPV") ? null : auth.company || "LPV"; }
 function inScope(auth, company) { const sc = scopeOf(auth); return !sc || companyOf(company) === sc; }
+// Ekonomi: en ekonom kan få se fler bolag än sitt eget – kryssrutor på personalkortet som bara admin på LPV ändrar (kolumn N).
+// Gäller bara Ekonomi (fakturaunderlag, PDF, markera fakturerat, rätta pass). Allt annat följer inScope.
+const ECO_SEES_COLUMN = 14; // Kolumn N i Personal, t.ex. "LPV,Klaryta". Tom = eget bolag.
+function readEcoSees(row) {
+  const t = String((row && row[ECO_SEES_COLUMN - 1]) || "").trim();
+  const list = ["LPV", "Klaryta"].filter(c => new RegExp(c, "i").test(t));
+  return list.length ? list : null;
+}
+function ecoSeesOf(auth) { return auth && auth.isEconomist && !auth.isAdmin && auth.ecoSees && auth.ecoSees.length ? auth.ecoSees : null; }
+function inEconomyScope(auth, company) {
+  const sees = ecoSeesOf(auth);
+  return sees ? sees.indexOf(companyOf(company)) !== -1 : inScope(auth, company);
+}
 
 function authenticate(data) {
   if (data.user && data.key) {
     const info = readStaffAuth(data.user);
     if (info && info.key && info.key === String(data.key) && !info.quarantined) {
       const company = info.company || "LPV";
-      return { user: info.user, isAdmin: info.isAdmin, isEconomist: !!info.isEconomist, role: info.role || "", company: company, isSuper: info.isAdmin && company === "LPV", legacy: false };
+      return { user: info.user, isAdmin: info.isAdmin, isEconomist: !!info.isEconomist, ecoSees: info.ecoSees || null, role: info.role || "", company: company, isSuper: info.isAdmin && company === "LPV", legacy: false };
     }
     return null;
   }
@@ -534,7 +552,7 @@ function authenticate(data) {
     const info = data.user ? readStaffAuth(data.user) : null;
     const company = (info && info.company) || "LPV";
     const isAdmin = !!(info && info.isAdmin);
-    return { user: String(data.user || "Okänd"), isAdmin: isAdmin, isEconomist: !!(info && info.isEconomist), company: company, isSuper: isAdmin && company === "LPV", legacy: true };
+    return { user: String(data.user || "Okänd"), isAdmin: isAdmin, isEconomist: !!(info && info.isEconomist), ecoSees: (info && info.ecoSees) || null, company: company, isSuper: isAdmin && company === "LPV", legacy: true };
   }
   return null;
 }
@@ -585,6 +603,8 @@ function handleAddStaff(data) {
     role === "Admin" ? "TRUE" : (role === "Ekonom" ? "Ekonom" : ""), "", sanitize(data.company).slice(0, 60) || "LPV", "Aktiv"];
   while (row.length < KEY_COLUMN - 1) row.push("");
   row.push(key);
+  const sees = role === "Ekonom" && Array.isArray(data.ecoSees) ? ecoSeesText(data.ecoSees) : "";
+  if (sees) { row.push(""); row.push(sees); ensureEcoSeesHeader(sheet); }
   sheet.appendRow(row);
   clearStaffAuthCache(name);
   return createJsonResponse({ status: "success", user: name, key: key, role: role });
@@ -896,7 +916,7 @@ function handleStaffOverview(auth) {
     const av = String(r[5] || "");
     staff.push({
       name: name, email: String(r[1] || ""), phone: String(r[2] || ""), role: staffRoleName(r), roleText: String(r[3] || ""),
-      company: companyOf(r[6]), status: status, active: status.toLowerCase() === "aktiv",
+      company: companyOf(r[6]), ecoSees: readEcoSees(r), status: status, active: status.toLowerCase() === "aktiv",
       avatar: (/^data:image\/(jpeg|png);base64,/.test(av) && av.length < 60000) || /^https:\/\//.test(av) ? av : "",
       today: todayJobs[name] || [],
       canEdit: auth.isSuper || !(isAdminRow(r) || isEconomistRow(r)),
@@ -965,6 +985,11 @@ function handleStaffHistory(data, auth) {
 
 // Ändra en person: e-post, mobil, roll, bolag och status. Namnet går inte att ändra (det är nyckeln i alla flikar).
 // Samma regler som välkomstpaketet: Klaryta-admin ändrar bara förare/UE i Klaryta.
+function ecoSeesText(list) { return ["LPV", "Klaryta"].filter(c => list.indexOf(c) !== -1).join(","); }
+function ensureEcoSeesHeader(sheet) {
+  if (sheet.getRange(1, ECO_SEES_COLUMN).getValue() === "") sheet.getRange(1, ECO_SEES_COLUMN).setValue("Ekonomi ser").setFontWeight("bold").setBackground("#f3f3f3");
+}
+
 function handleUpdateStaff(data, auth) {
   const sheet = getStaffSheet(), hit = findStaffRow(sheet, data.targetUser);
   if (!hit || !inScope(auth, hit.row[6])) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
@@ -993,6 +1018,7 @@ function handleUpdateStaff(data, auth) {
   }
   sheet.getRange(r, 7).setValue(company);
   sheet.getRange(r, 8).setValue(status);
+  if (auth.isSuper && Array.isArray(data.ecoSees)) { ensureEcoSeesHeader(sheet); sheet.getRange(r, ECO_SEES_COLUMN).setValue(role === "Ekonom" ? ecoSeesText(data.ecoSees) : ""); }
   clearStaffAuthCache(name);
   return createJsonResponse({ status: "success", user: name });
 }
@@ -5351,6 +5377,33 @@ function handleHubspotImport() {
 }
 
 // Import från Fortnox (kundlista som tabell). Rader: { nr, name, orgnr, type, postnr, city, phone, email, address }
+// ＋ Ny kund under 💼 Kunder (2026-11-12). Bara i appen – skickas inte till HubSpot (Källa "APP").
+// Personnummer sparas aldrig; org.nr bara för företag. Admin på Klaryta lägger alltid kunden i Klaryta.
+function handleSaveCustomer(c, auth) {
+  c = c || {};
+  const name = sanitize(c.name).replace(/\s+/g, " ").slice(0, 120);
+  if (!name) return createJsonResponse({ status: "error", message: "Skriv kundens namn." });
+  const company = c.type !== "privat";
+  const email = sanitize(c.email).toLowerCase().trim().slice(0, 120);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return createJsonResponse({ status: "error", message: "E-postadressen ser inte rätt ut." });
+  const org = company && isOrgNr(c.orgnr) ? String(c.orgnr).replace(/[^\d-]/g, "") : "";
+  if (company && String(c.orgnr || "").trim() && !org) return createJsonResponse({ status: "error", message: "Org.nr ska vara 10 siffror, t.ex. 556123-4567." });
+  const bolag = scopeOf(auth) || (companyOf(c.company) === "Klaryta" ? "Klaryta" : "LPV");
+  const t = loadCustomerTable(), idx = customerIndex(t), C = t.col;
+  const dup = (email && idx.email[email]) || (org && idx.org[org.replace(/\D/g, "")]);
+  if (dup) return createJsonResponse({ status: "error", message: "Kunden finns redan: " + t.rows[dup][1] + " (samma " + (email && idx.email[email] ? "e-post" : "org.nr") + ")." });
+  const r = t.blank();
+  r[0] = "APP-" + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyyMMdd-HHmmss");
+  r[1] = name; r[2] = org; r[3] = email; r[4] = bolag; r[5] = "aktiv";
+  r[6] = sanitize(c.contact).slice(0, 120); const phone = sanitize(c.phone).slice(0, 40); r[7] = /^\d/.test(phone) ? "'" + phone : phone; r[8] = sanitize(c.address).slice(0, 200);
+  r[9] = company ? "company" : "private";
+  r[10] = !company && ["rot", "rut"].indexOf(c.rotRut) !== -1 ? c.rotRut : "none";
+  r[C["Källa"]] = "APP"; r[C["Affärer (JSON)"]] = "[]"; r[C["Uppdaterad"]] = nowStamp();
+  t.rows.push(r);
+  t.save();
+  return createJsonResponse({ status: "success", customer: customerFromRow(r, C) });
+}
+
 function handleImportCustomers(list, user) {
   if (!Array.isArray(list) || !list.length) return createJsonResponse({ status: "error", message: "Inga kunder skickades." });
   if (list.length > 1000) return createJsonResponse({ status: "error", message: "Högst 1000 kunder per gång." });
@@ -5680,18 +5733,8 @@ function handleGetInvoiceBasis(auth) {
   const tidRows = tid ? tid.getDataRange().getValues() : [];
   for (let i = 1; i < tidRows.length; i++) {
     const r = tidRows[i];
-    if (!r[0] || isInvoicedValue(r[1]) || !inScope(auth, r[10] || "LPV")) continue;
-    const start = sheetTimeText(r[4], tz), end = sheetTimeText(r[5], tz);
-    const imageLink = (String(r[9] || "").match(/https:\/\/drive\.google\.com\/\S+/) || [""])[0];
-    reports.push({
-      row: i + 1,
-      stamp: r[7] instanceof Date ? Utilities.formatDate(r[7], tz, "yyyy-MM-dd HH:mm:ss") : String(r[7] || ""),
-      date: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10),
-      place: String(r[2] || ""), activity: String(r[3] || ""), start: start, end: end,
-      hours: Math.round(reportHours(r[6], start, end) * 100) / 100,
-      user: String(r[8] || ""), note: String(r[9] || "").replace(/\s*Drive-mapp: \S+/, "").trim(), imageLink: imageLink,
-      company: String(r[10] || "LPV")
-    });
+    if (!r[0] || isInvoicedValue(r[1]) || !inEconomyScope(auth, r[10] || "LPV")) continue;
+    reports.push(reportFromRow(r, i + 1, tz));
   }
 
   const offers = [];
@@ -5702,7 +5745,7 @@ function handleGetInvoiceBasis(auth) {
   const offerRows = offerSheet.getDataRange().getValues();
   for (let i = 1; i < offerRows.length; i++) {
     if (!offerRows[i][0] || String(offerRows[i][3]) !== "godkänd" || offerRows[i][OFFER_INVOICED_COLUMN - 1]) continue;
-    if (!inScope(auth, brandFromCell(offerRows[i][OFFER_BRAND_COLUMN - 1]) === "klaryta" ? "Klaryta" : "LPV")) continue;
+    if (!inEconomyScope(auth, brandFromCell(offerRows[i][OFFER_BRAND_COLUMN - 1]) === "klaryta" ? "Klaryta" : "LPV")) continue;
     const o = offerFromRow(offerRows[i]);
     o.totals = computeOfferTotals(o, settings);
     o.pdfUrl = o.pdfId ? "https://drive.google.com/file/d/" + o.pdfId + "/view" : "";
@@ -5714,7 +5757,7 @@ function handleGetInvoiceBasis(auth) {
   const kundRows = kunder ? kunder.getDataRange().getValues() : [];
   for (let i = 1; i < kundRows.length; i++) {
     const k = kundRows[i];
-    if (!k[1] || !inScope(auth, k[4])) continue;
+    if (!k[1] || !inEconomyScope(auth, k[4])) continue;
     customers.push({ id: String(k[0]), name: String(k[1]), idNr: String(k[2] || ""), email: String(k[3] || ""),
       phone: String(k[7] || ""), address: String(k[8] || ""), type: String(k[9] || "company"), rotRut: String(k[10] || "none") });
   }
@@ -5724,6 +5767,82 @@ function handleGetInvoiceBasis(auth) {
 
 // Markerar pass och offerter som fakturerade. Passen identifieras med rad + tidsstämpel,
 // så att inget fel pass markeras om någon har sorterat eller tagit bort rader i arket.
+// Ett pass i Tidrapporter som objekt (Ekonomi och rättning läser samma form)
+function reportStampText(v, tz) {
+  return v instanceof Date ? Utilities.formatDate(v, tz, "yyyy-MM-dd HH:mm:ss") : String(v || "");
+}
+function reportFromRow(r, rowNumber, tz) {
+  const start = sheetTimeText(r[4], tz), end = sheetTimeText(r[5], tz);
+  const imageLink = (String(r[9] || "").match(/https:\/\/drive\.google\.com\/\S+/) || [""])[0];
+  return {
+    row: rowNumber,
+    stamp: reportStampText(r[7], tz),
+    date: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd") : String(r[0]).slice(0, 10),
+    place: String(r[2] || ""), activity: String(r[3] || ""), start: start, end: end,
+    hours: Math.round(reportHours(r[6], start, end) * 100) / 100,
+    user: String(r[8] || ""), note: String(r[9] || "").replace(/\s*Drive-mapp: \S+/, "").trim(), imageLink: imageLink,
+    company: String(r[10] || "LPV")
+  };
+}
+
+// ===== Rätta och radera pass (docs/pass-rattning.md) =====
+// Passet pekas ut med radnummer + sparad-tid + användare, precis som markInvoiced. Stämmer de inte görs ingenting.
+function findReportRef(tid, ref, auth, tz) {
+  const rowNumber = Number(ref && ref.row);
+  if (!tid || !(rowNumber >= 2 && rowNumber <= tid.getLastRow())) return { error: "Passet hittades inte – tryck ↻ Uppdatera." };
+  const width = Math.max(12, tid.getLastColumn());
+  const row = tid.getRange(rowNumber, 1, 1, width).getValues()[0];
+  if (reportStampText(row[7], tz) !== String(ref.stamp) || String(row[8]) !== String(ref.user)) return { error: "Passet har ändrats i arket – tryck ↻ Uppdatera." };
+  if (!inEconomyScope(auth, row[10] || "LPV")) return { error: "Åtkomst nekad." };
+  if (isInvoicedValue(row[1])) return { error: "Passet är fakturerat och kan inte ändras." };
+  return { rowNumber: rowNumber, row: row, width: width };
+}
+
+function handleUpdateReport(data, user, auth) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const tid = getSS().getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  const hit = findReportRef(tid, data.ref, auth, tz);
+  if (hit.error) return createJsonResponse({ status: "error", message: hit.error });
+  const r = hit.row, old = reportFromRow(r, hit.rowNumber, tz), c = data.changes || {};
+  const isTime = (v) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v));
+  if (c.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(c.date))) return createJsonResponse({ status: "error", message: "Datumet ska skrivas ÅÅÅÅ-MM-DD." });
+  if ((c.start !== undefined && !isTime(c.start)) || (c.end !== undefined && !isTime(c.end))) return createJsonResponse({ status: "error", message: "Tiderna ska skrivas TT:MM." });
+  const next = {
+    date: c.date !== undefined ? String(c.date) : old.date,
+    place: c.place !== undefined ? sanitize(c.place).slice(0, 150) : old.place,
+    activity: c.activity !== undefined ? sanitize(c.activity).slice(0, 100) : old.activity,
+    start: c.start !== undefined ? String(c.start) : old.start,
+    end: c.end !== undefined ? String(c.end) : old.end,
+    note: c.note !== undefined ? sanitize(c.note).slice(0, 2000) : old.note
+  };
+  const was = [];
+  if (next.date !== old.date) was.push(old.date);
+  if (next.start !== old.start || next.end !== old.end) was.push((old.start || "?") + "–" + (old.end || "?"));
+  if (next.place !== old.place) was.push(old.place || "ingen plats");
+  if (next.activity !== old.activity) was.push(old.activity || "ingen aktivitet");
+  if (next.note !== old.note) was.push("annan anteckning");
+  if (!was.length) return createJsonResponse({ status: "error", message: "Inget är ändrat." });
+  const trace = "Rättad " + nowStamp() + " av " + sanitize(user) + " (var " + was.join(", ") + ")";
+  const note = [next.note, trace, old.imageLink ? "Drive-mapp: " + old.imageLink : ""].filter(Boolean).join("\n\n");
+  const duration = next.start && next.end ? formatDuration(next.start, next.end) : r[6];
+  tid.getRange(hit.rowNumber, 1, 1, 10).setValues([[next.date, r[1], next.place, next.activity, next.start, next.end, duration, r[7], r[8], note]]);
+  const fresh = tid.getRange(hit.rowNumber, 1, 1, hit.width).getValues()[0];
+  return createJsonResponse({ status: "success", report: reportFromRow(fresh, hit.rowNumber, tz) });
+}
+
+// Radera = flytta raden till bladet "Raderade pass" (går att ta tillbaka för hand)
+function handleDeleteReport(data, user, auth) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const ss = getSS(), tid = ss.getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  const hit = findReportRef(tid, data.ref, auth, tz);
+  if (hit.error) return createJsonResponse({ status: "error", message: hit.error });
+  const headers = tid.getRange(1, 1, 1, hit.width).getValues()[0].map(String);
+  const bin = getSheetOrCreate(ss, "Raderade pass", headers.concat(["Raderad", "Raderad av"]));
+  bin.appendRow(hit.row.concat([nowStamp(), sanitize(user)]));
+  tid.deleteRow(hit.rowNumber);
+  return createJsonResponse({ status: "success" });
+}
+
 function handleMarkInvoiced(data, user, auth) {
   const ss = getSS();
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
@@ -5733,7 +5852,7 @@ function handleMarkInvoiced(data, user, auth) {
     const rowNumber = Number(ref.row);
     if (!tid || !(rowNumber >= 2 && rowNumber <= tid.getLastRow())) { skipped++; return; }
     const row = tid.getRange(rowNumber, 1, 1, 11).getValues()[0];
-    if (!inScope(auth, row[10] || "LPV")) { skipped++; return; }
+    if (!inEconomyScope(auth, row[10] || "LPV")) { skipped++; return; }
     const stamp = row[7] instanceof Date ? Utilities.formatDate(row[7], tz, "yyyy-MM-dd HH:mm:ss") : String(row[7] || "");
     if (stamp !== String(ref.stamp) || String(row[8]) !== String(ref.user)) { skipped++; return; }
     tid.getRange(rowNumber, 2).setValue(typeof row[1] === "boolean" ? true : "Ja");
@@ -5742,7 +5861,7 @@ function handleMarkInvoiced(data, user, auth) {
   const offerSheet = getOfferSheet();
   (Array.isArray(data.offerIds) ? data.offerIds : []).slice(0, 100).forEach(id => {
     const hit = findRowById(offerSheet, id);
-    if (!hit || String(hit.row[3]) !== "godkänd" || !inScope(auth, offerFromRow(hit.row).brand === "klaryta" ? "Klaryta" : "LPV")) { skipped++; return; }
+    if (!hit || String(hit.row[3]) !== "godkänd" || !inEconomyScope(auth, offerFromRow(hit.row).brand === "klaryta" ? "Klaryta" : "LPV")) { skipped++; return; }
     offerSheet.getRange(hit.rowNumber, OFFER_INVOICED_COLUMN).setValue(nowStamp() + " av " + sanitize(user));
     marked++;
   });
@@ -5815,7 +5934,8 @@ function handleInvoicePdf(input, auth) {
   if (!d.customer.name) return createJsonResponse({ status: "error", message: "Välj vilken kund underlaget gäller." });
   if (!d.rows.length) return createJsonResponse({ status: "error", message: "Underlaget har inga rader." });
   // Bolaget som fakturerar: från underlaget, men aldrig ett annat bolag än det man har behörighet till
-  const company = scopeOf(auth) || companyOf(input && input.company);
+  const wanted = companyOf(input && input.company), sees = ecoSeesOf(auth);
+  const company = sees ? (sees.indexOf(wanted) !== -1 ? wanted : sees[0]) : (scopeOf(auth) || wanted);
   const brand = company === "Klaryta" ? "klaryta" : "lpv";
   const settings = settingsForBrand(brand);
   const t = computeOfferTotals({ rows: d.rows, customerType: d.customerType, deduction: d.deduction, deductionPersons: d.deductionPersons }, settings);

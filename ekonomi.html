@@ -40,6 +40,7 @@
     td input { padding: 6px; font-size: var(--t-fs-input); }
     .price { width: 90px; text-align: right; }
     .pass-off td { opacity: .4; }
+    tr.edit td { background: var(--panel); padding: 10px; }
     details summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 700; margin-top: 10px; }
     .sum { text-align: right; font-size: 14px; margin-top: 8px; line-height: 1.6; }
     .sum b { font-size: 17px; }
@@ -67,6 +68,10 @@
   let data = null;         // svaret från getInvoiceBasis
   let groups = [];         // löpande räkning: ett kort per plats
   let message = '';
+  let coFilter = 'Alla';   // bolagsfiltret (Alla/LPV/Klaryta), sparas per enhet
+  try { coFilter = localStorage.getItem('lpv_eko_bolag') || 'Alla'; } catch (e) { /* privat läge */ }
+  const offerCompany = o => o.brand === 'klaryta' ? 'Klaryta' : 'LPV';
+  function setCo(c) { coFilter = c; try { localStorage.setItem('lpv_eko_bolag', c); } catch (e) { /* inget */ } render(); }
 
   const esc = snoEscape;
   const kr = v => Math.round(v).toLocaleString('sv-SE') + ' kr';
@@ -149,22 +154,30 @@
   function render() {
     const app = document.getElementById('app');
     if (!data) return;
-    const hoursTotal = data.reports.reduce((sum, r) => sum + r.hours, 0);
-    const offerTotal = data.offers.reduce((sum, o) => sum + o.totals.toPay, 0);
+    // Bolagsfilter: syns bara när listan har både LPV och Klaryta
+    const companies = [...new Set(data.reports.map(r => r.company).concat(data.offers.map(offerCompany)))];
+    const multi = companies.length > 1;
+    if (!multi || !companies.includes(coFilter)) coFilter = 'Alla';
+    const showCo = c => coFilter === 'Alla' || c === coFilter;
+    const reports = data.reports.filter(r => showCo(r.company)), offers = data.offers.filter(o => showCo(offerCompany(o)));
+    const hoursTotal = reports.reduce((sum, r) => sum + r.hours, 0);
+    const offerTotal = offers.reduce((sum, o) => sum + o.totals.toPay, 0);
+    const shownGroups = groups.map((g, gi) => showCo(g.company) ? groupCard(g, gi) : '').join('');
     app.innerHTML = `
+      ${multi ? `<div class="lpv-seg block" style="margin-top:12px">${['Alla', 'LPV', 'Klaryta'].map(c => `<button class="${coFilter === c ? 'on' : ''}" onclick="setCo('${c}')">${c}</button>`).join('')}</div>` : ''}
       <div class="stats">
-        <div class="stat"><b>${data.reports.length}</b>pass ej fakturerade</div>
+        <div class="stat"><b>${reports.length}</b>pass ej fakturerade</div>
         <div class="stat"><b>${h(hoursTotal)}</b>timmar</div>
-        <div class="stat"><b>${data.offers.length}</b>godkända offerter (${kr(offerTotal)})</div>
+        <div class="stat"><b>${offers.length}</b>godkända offerter (${kr(offerTotal)})</div>
       </div>
       <div class="row"><button class="lpv-btn" onclick="exportCsv()">⬇️ Exportera till Excel</button><button class="lpv-btn" onclick="load()">↻ Uppdatera</button></div>
       <div class="msg" id="msg">${message}</div>
 
       <h2>Godkända offerter – fast pris</h2>
-      ${data.offers.length ? data.offers.map(offerCard).join('') : '<div class="empty">Inga godkända offerter väntar på fakturering.</div>'}
+      ${offers.length ? data.offers.map((o, i) => showCo(offerCompany(o)) ? offerCard(o, i) : '').join('') : '<div class="empty">Inga godkända offerter väntar på fakturering.</div>'}
 
       <h2>Löpande räkning – tidrapporter</h2>
-      ${groups.length ? groups.map(groupCard).join('') : '<div class="empty">Alla pass är fakturerade. 🎉</div>'}`;
+      ${shownGroups || '<div class="empty">Alla pass är fakturerade. 🎉</div>'}`;
   }
 
   function offerCard(o, i) {
@@ -224,7 +237,8 @@
             <td><input type="checkbox" ${g.included[r.row] ? 'checked' : ''} onchange="groups[${gi}].included[${r.row}]=this.checked; render()"></td>
             <td>${esc(r.date)}</td><td>${esc(r.user)}</td><td>${esc(r.activity)}${r.note ? `<div class="meta">${esc(r.note)}</div>` : ''}</td>
             <td class="r hide-sm">${esc(r.start)}–${esc(r.end)}</td><td class="r">${h(r.hours)}</td>
-            <td>${r.imageLink ? `<a class="img" href="${esc(r.imageLink)}" target="_blank" rel="noopener">📷</a>` : ''}</td></tr>`).join('')}
+            <td class="r">${r.imageLink ? `<a class="img" href="${esc(r.imageLink)}" target="_blank" rel="noopener">📷</a> ` : ''}<button class="lpv-btn small icon" title="Rätta eller radera passet" onclick="startEdit(${r.row})">✏️</button></td></tr>
+            ${editRow === r.row ? editHtml(r) : ''}`).join('')}
         </table>
       </details>
       <div class="row" style="margin-top:10px;">
@@ -232,6 +246,59 @@
         <button class="lpv-btn primary" onclick="markGroup(${gi}, this)" ${inc.length ? '' : 'disabled'}>✅ Markera ${inc.length} pass fakturerade</button>
       </div>
     </div>`;
+  }
+
+  // ================= RÄTTA / RADERA PASS (docs/pass-rattning.md) =================
+  let editRow = null;      // radnumret på passet som rättas
+  function findReport(row) { return data.reports.find(r => r.row === row); }
+  function startEdit(row) { editRow = editRow === row ? null : row; render(); }
+  function editHtml(r) {
+    return `<tr class="edit"><td colspan="7">
+      <div class="grid2">
+        <div><label>Datum</label><input type="date" id="e_date" value="${esc(r.date)}"></div>
+        <div class="grid2"><div><label>Start</label><input type="time" id="e_start" value="${esc(r.start)}"></div>
+          <div><label>Slut</label><input type="time" id="e_end" value="${esc(r.end)}"></div></div>
+        <div><label>Plats</label><input id="e_place" value="${esc(r.place)}"></div>
+        <div><label>Aktivitet</label><input id="e_activity" value="${esc(r.activity)}"></div>
+      </div>
+      <label>Anteckning</label><input id="e_note" value="${esc(r.note)}">
+      <div class="meta">Ändringen skrivs in i anteckningen med vad det var innan.</div>
+      <div class="row" style="margin-top:10px;">
+        <button class="lpv-btn" onclick="saveEdit(${r.row}, this)">💾 Spara</button>
+        <button class="lpv-btn" onclick="startEdit(${r.row})">Avbryt</button>
+        <button class="lpv-btn danger" onclick="deletePass(${r.row}, this)">🗑 Radera</button>
+      </div>
+    </td></tr>`;
+  }
+  const refOf = r => ({ row: r.row, stamp: r.stamp, user: r.user });
+  async function saveEdit(row, btn) {
+    const r = findReport(row); if (!r) return;
+    const val = id => document.getElementById(id).value.trim();
+    const next = { date: val('e_date'), start: val('e_start'), end: val('e_end'), place: val('e_place'), activity: val('e_activity'), note: val('e_note') };
+    const changes = {};
+    Object.keys(next).forEach(k => { if (next[k] !== (r[k] || '')) changes[k] = next[k]; });
+    if (!Object.keys(changes).length) { editRow = null; render(); return; }
+    btn.disabled = true;
+    try {
+      const res = await snoApi({ action: 'updateReport', ref: refOf(r), changes });
+      if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+      editRow = null;
+      if (changes.place !== undefined) { message = '✅ Passet rättat.'; await load(); return; }
+      Object.assign(r, res.report);
+      groups.forEach(g => g.reports.sort((a, b) => a.date.localeCompare(b.date)));
+      message = '✅ Passet rättat.'; render();
+    } catch (err) { setMsg('❌ ' + esc(err.message || 'Ingen kontakt.')); btn.disabled = false; }
+  }
+  async function deletePass(row, btn) {
+    const r = findReport(row); if (!r) return;
+    if (!confirm(`Radera passet ${r.date} ${r.start}–${r.end} (${r.user})?\n\nDet flyttas till bladet "Raderade pass" i kalkylarket och kan tas tillbaka därifrån.`)) return;
+    btn.disabled = true;
+    try {
+      const res = await snoApi({ action: 'deleteReport', ref: refOf(r) });
+      if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+      editRow = null; message = '🗑 Passet raderat (finns kvar i bladet "Raderade pass").';
+      await load();
+    } catch (err) { setMsg('❌ ' + esc(err.message || 'Ingen kontakt.')); btn.disabled = false; }
   }
 
   function setCustomer(gi, id) {
@@ -305,9 +372,10 @@
   function exportCsv() {
     const cell = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
     const lines = [['Typ', 'Datum', 'Plats', 'Kund', 'Aktivitet / Rubrik', 'Start', 'Slut', 'Timmar', 'Utfört av', 'Bolag', 'Belopp att betala (kr)', 'Anteckning']];
-    groups.forEach(g => g.reports.forEach(r => lines.push(['Pass', r.date, r.place, (customerOf(g) || {}).name || '', r.activity, r.start, r.end,
+    const ok = c => coFilter === 'Alla' || c === coFilter; // exporten följer bolagsfiltret
+    groups.filter(g => ok(g.company)).forEach(g => g.reports.forEach(r => lines.push(['Pass', r.date, r.place, (customerOf(g) || {}).name || '', r.activity, r.start, r.end,
       String(r.hours).replace('.', ','), r.user, r.company, '', r.note])));
-    data.offers.forEach(o => lines.push([o.type === 'ata' ? 'ÄTA' : 'Offert', o.answered.slice(0, 10), o.site, o.customerName, o.title + ' (' + o.id + ')',
+    data.offers.filter(o => ok(offerCompany(o))).forEach(o => lines.push([o.type === 'ata' ? 'ÄTA' : 'Offert', o.answered.slice(0, 10), o.site, o.customerName, o.title + ' (' + o.id + ')',
       '', '', '', o.approvedBy, '', Math.round(o.totals.toPay), '']));
     const csv = '﻿' + lines.map(l => l.map(cell).join(';')).join('\r\n');
     const a = document.createElement('a');
