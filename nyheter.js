@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-12-alla-resurser', datum: '2026-11-12', roller: ['admin'], modul: 'sno',
+    titel: '❄️ Alla resurser i Snöplaneringen',
+    text: 'Alla admins ser nu både LPV:s och Klarytas förare och handskottare i kulpåsen – grupperade som 🏠 LPV, 🏠 Klaryta och 🤝 UE.' },
   { id: '2026-11-12-mina-pass', datum: '2026-11-12', roller: ['forare', 'handskottare', 'ue'],
     titel: '📋 Mina pass – rätta och skriv under',
     text: 'På startsidan: 📋 Mina pass. Rätta det som är fel med ✏️ och tryck sedan ✍️ Skriv under. Efter det kan bara arbetsledningen ändra.' },

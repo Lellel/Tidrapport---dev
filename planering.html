@@ -221,6 +221,7 @@ const kdOf = (p) => String(p.omrade || p.ort || 'Utan område').trim();
 const propById = (id) => properties.find(p => p.id === id);
 const tractorById = (id) => fleet.find(t => t.id === id);
 const personByName = (n) => people.find(x => x.name === n) || { name: n, owner: 'Egna', active: true, lat: null, lng: null };
+const personGroup = (x) => x.owner && x.owner !== 'Egna' ? x.owner : 'Egna:' + (x.company || 'LPV');
 const ownerLabel = (o) => !o || o === 'Egna' ? '🏠 Egna' : '🤝 ' + o;
 const m2 = (v) => Math.round(v).toLocaleString('sv-SE') + ' m²';
 function kommundelar() { return [...new Set(properties.map(kdOf))].sort(sv); }
@@ -353,17 +354,19 @@ function renderSide() {
   fleet.forEach(t => { if (t.driver) driving[t.driver] = t; });
   const drivers = active.filter(x => !driving[x.name] && (x.role === 'Förare' || x.role === 'UE') && !x.shoveler);
   const hands = active.filter(x => x.shoveler).map(x => ({ x, d: distTo(personHome(x), center) })).sort((a, b) => a.d - b.d || sv(a.x.name, b.x.name));
+  // Egna delas upp per bolag (🏠 LPV · 🏠 Klaryta), UE-företagen för sig – alla admins planerar med allas resurser
   const group = (list, ownerOf, html) => {
-    const owners = [...new Set(list.map(ownerOf))].sort((a, b) => (a !== 'Egna') - (b !== 'Egna') || sv(a, b));
-    return owners.map(o => `<div class="ownr">${esc(ownerLabel(o))}</div><div class="orbs">${list.filter(i => ownerOf(i) === o).map(html).join('')}</div>`).join('');
+    const isOwn = o => o.startsWith('Egna:');
+    const owners = [...new Set(list.map(ownerOf))].sort((a, b) => isOwn(b) - isOwn(a) || sv(a, b));
+    return owners.map(o => `<div class="ownr">${esc(isOwn(o) ? '🏠 ' + o.slice(5) : ownerLabel(o))}</div><div class="orbs">${list.filter(i => ownerOf(i) === o).map(html).join('')}</div>`).join('');
   };
   const orb = (name, sub, kind) => `<div class="orbwrap drag" data-drag="person" data-kind="${kind}" data-id="${esc(name)}">${pKula(name, 44)}<small>${esc(name.split(' ')[0])}</small>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
   const busy = Object.keys(driving).filter(n => personByName(n).active !== false).sort(sv);
   $('side').innerHTML = `
-    <div><h3>👷 Förare</h3>${drivers.length ? group(drivers, x => x.owner || 'Egna', x => orb(x.name, '', 'driver')) : '<div class="hint">Alla förare sitter på en traktor.</div>'}
+    <div><h3>👷 Förare</h3>${drivers.length ? group(drivers, personGroup, x => orb(x.name, '', 'driver')) : '<div class="hint">Alla förare sitter på en traktor.</div>'}
       ${busy.length ? `<details class="busylist" ${store.get('lpv_plan_busy') === 'open' ? 'open' : ''} ontoggle="store.set('lpv_plan_busy', this.open ? 'open' : '')"><summary>Upptagna (${busy.length})</summary>${busy.map(n => `<div class="drag" data-drag="person" data-kind="driver" data-id="${esc(n)}" data-from-tractor="${esc(driving[n].id)}">👷 ${esc(n)} → ${esc(shortModel(driving[n]))}</div>`).join('')}</details>` : ''}
       <div class="hint" style="margin-top:6px">Dra föraren till en traktor i remsan.</div></div>
-    <div><h3>🧹 Handskottare – närmast först</h3>${hands.length ? group(hands, h => h.x.owner || 'Egna', h => orb(h.x.name, h.d < 1e11 ? snoFormatDistance(h.d) : '', 'hand')) : '<div class="hint">Bocka i Handskottare på Personal-sidan.</div>'}</div>
+    <div><h3>🧹 Handskottare – närmast först</h3>${hands.length ? group(hands, h => personGroup(h.x), h => orb(h.x.name, h.d < 1e11 ? snoFormatDistance(h.d) : '', 'hand')) : '<div class="hint">Bocka i Handskottare på Personal-sidan.</div>'}</div>
     <div class="hint">Dra en kula hit för att ta bort den från kortet eller traktorn.</div>`;
 }
 

@@ -1650,12 +1650,15 @@ function handleGetSnowBoard(auth) {
   const people = readSnowPeople(), companies = readUeCompanies();
   const staff = [];
   getStaffSheet().getDataRange().getValues().slice(1).forEach(r => {
-    if (!r[0] || !inScope(auth, r[6])) return;
+    // Alla admins planerar med allas resurser (Daniel 2026-11-12) – båda bolagens personal syns.
+    // Hemorten skickas bara för det egna bolagets personal (behövs inte för att planera).
+    if (!r[0]) return;
+    const own = inScope(auth, r[6]);
     // Inaktiva följer med (active: false) så att tavlan kan varna när en sådan kula ligger på ett kort
     const status = String(r[7] || "").trim() || "Aktiv";
     const name = String(r[0]).trim(), sp = snowPerson(people, name);
-    staff.push({ name: name, role: staffRoleName(r), active: status.toLowerCase() === "aktiv", status: status,
-      owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: sp.home, lat: sp.lat, lng: sp.lng, ueOk: ueAgreementOk(sp.owner, companies) });
+    staff.push({ name: name, role: staffRoleName(r), company: companyOf(r[6]), active: status.toLowerCase() === "aktiv", status: status,
+      owner: sp.owner, shoveler: sp.shoveler, ueLead: sp.ueLead, home: own ? sp.home : "", lat: own ? sp.lat : null, lng: own ? sp.lng : null, ueOk: ueAgreementOk(sp.owner, companies) });
   });
   staff.sort((a, b) => a.name.localeCompare(b.name, "sv"));
   const sf = currentSnowfall();

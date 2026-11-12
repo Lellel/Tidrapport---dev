@@ -212,3 +212,8 @@ Alla admin ska kunna avgöra om det behövs ett byte eller om det bara blir en f
 - **⏱ försenad**: `driftstoppKoll` körs i vädermätningens kvartsutlösare (`vaderKollTrigger`). SMS:et kommer därför 10–25 min efter utlovad tid.
 - **Gränssnittet**: `driftstopp.js` + `driftstopp.css` (samma ruta överallt, knappklass efter sida). Snöjour: `#stopp-box`, 🆕 + 👍 på korten, animeringen står still under pågående pass (`body.ds-still`). Snöplaneringen: kulorna som står, `🔧 … står →` i listen, 🚨 i traktorrutan, traktorlistan `#phoneList` (≤ 700 px).
 - Tester: `driftstopptest.js` (33) och `driftstopp-e2e.js` (27).
+
+## Alla admins planerar med allas resurser (beslut 2026-11-12)
+- I Snöplaneringen ser **alla admins** båda bolagens personal (`getSnowBoard` filtrerar inte längre på bolag). Traktorer och fastigheter syntes redan för alla.
+- Kulpåsen grupperar **🏠 LPV · 🏠 Klaryta · 🤝 UE-företag** (`personGroup` i planering.html).
+- **Hemort** skickas bara för det egna bolagets personal – den behövs inte för att planera ("de åker runt ändå"). Personal-sidan och Ekonomi är fortfarande uppdelade per bolag. Test: `verktyg/tester/snobolagtest.js`.
