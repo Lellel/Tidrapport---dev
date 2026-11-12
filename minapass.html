@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="theme.css">
+  <script src="kravkoll.js"></script>
+  <script src="theme.js"></script>
+  <script src="moduler.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mina pass</title>
+  <!-- 📋 Mina pass (docs/pass-rattning.md, steg 2): föraren rättar sina pass och skriver sedan under alla på en gång.
+       Efter underskrift kan bara admin/ekonom rätta (i Ekonomi). -->
+  <style>
+    :root { --bg: var(--t-bg); --card: var(--t-card); --panel: var(--t-panel); --line: var(--t-line); --text: var(--t-text); --muted: var(--t-muted); --accent: var(--t-accent); --ok: var(--t-ok); --warn: var(--t-warn); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--t-font); }
+    .wrap { max-width: 640px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 12px) 16px 60px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; }
+    .topbar a { color: var(--accent); text-decoration: none; font-size: var(--t-fs-link); font-weight: 700; }
+    h1 { font-size: var(--t-fs-title); margin: 10px 0 4px; }
+    h2 { font-size: 15px; margin: 22px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--t-r-card); padding: 12px 14px; margin-bottom: 10px; }
+    .head { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .title { font-weight: 800; font-size: 16px; }
+    .hours { font-weight: 800; white-space: nowrap; }
+    .locked { opacity: .65; }
+    label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin: 10px 0 4px; }
+    input { width: 100%; padding: 10px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: var(--t-fs-input); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .row > * { flex: 1; }
+    .msg { font-size: 14px; min-height: 20px; color: var(--muted); margin: 10px 0; }
+    .empty { color: var(--muted); font-size: 14px; padding: 14px; text-align: center; background: var(--card); border-radius: var(--t-r); }
+    .sign { margin: 6px 0 4px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar"><a class="lpv-back" href="index.html"><span data-icon="tillbaka">←</span> Hem</a><span class="meta" id="who"></span></div>
+  <h1>📋 Mina pass</h1>
+  <div class="meta">Rätta det som behöver rättas och tryck sedan <b>✍️ Skriv under</b>. Efter det kan bara arbetsledningen ändra.</div>
+  <div class="msg" id="msg"></div>
+  <div id="app"><div class="empty">Hämtar…</div></div>
+</div>
+
+<script src="config.js"></script>
+<script src="knappar.js"></script>
+<script src="inloggning.js"></script>
+<script src="sasong.js"></script>
+<script src="sno.js"></script>
+<script>
+  const esc = snoEscape;
+  let reports = null, editRow = null;
+  const h = v => (Math.round(v * 100) / 100).toLocaleString('sv-SE') + ' h';
+  const open = () => reports.filter(r => !r.signed && !r.invoiced);
+  const refOf = r => ({ row: r.row, stamp: r.stamp, user: r.user });
+  const setMsg = t => { document.getElementById('msg').innerHTML = t; };
+
+  function passCard(r, editable) {
+    const head = `<div class="head"><div><div class="title">${esc(r.place || 'Okänd plats')}</div>
+        <div class="meta">${esc(r.date)} · ${esc(r.start)}–${esc(r.end)} · ${esc(r.activity)}</div>
+        ${r.note ? `<div class="meta">${esc(r.note)}</div>` : ''}
+        ${editable ? '' : `<div class="meta">${r.invoiced ? '🧾 Fakturerat' : '✍️ Underskrivet ' + esc(r.signed)}</div>`}</div>
+      <div class="hours">${h(r.hours)}</div>
+      ${editable && editRow !== r.row ? `<button class="lpv-btn small icon" title="Rätta passet" onclick="startEdit(${r.row})">✏️</button>` : ''}</div>`;
+    if (!editable || editRow !== r.row) return `<div class="card ${editable ? '' : 'locked'}">${head}</div>`;
+    return `<div class="card">${head}
+      <div class="grid2">
+        <div><label>Datum</label><input type="date" id="e_date" value="${esc(r.date)}"></div>
+        <div class="grid2"><div><label>Start</label><input type="time" id="e_start" value="${esc(r.start)}"></div>
+          <div><label>Slut</label><input type="time" id="e_end" value="${esc(r.end)}"></div></div>
+        <div><label>Plats</label><input id="e_place" value="${esc(r.place)}"></div>
+        <div><label>Aktivitet</label><input id="e_activity" value="${esc(r.activity)}"></div>
+      </div>
+      <label>Anteckning</label><input id="e_note" value="${esc(r.note)}">
+      <div class="row">
+        <button class="lpv-btn" onclick="saveEdit(${r.row}, this)">💾 Spara</button>
+        <button class="lpv-btn" onclick="startEdit(null)">Avbryt</button>
+        <button class="lpv-btn danger" onclick="deletePass(${r.row}, this)">🗑 Radera</button>
+      </div></div>`;
+  }
+
+  function render() {
+    const app = document.getElementById('app');
+    if (!reports) return;
+    const todo = open(), done = reports.filter(r => r.signed || r.invoiced);
+    app.innerHTML = `
+      <h2>Att skriva under (${todo.length})</h2>
+      ${todo.length ? todo.map(r => passCard(r, true)).join('') + `
+        <div class="sign"><button class="lpv-btn primary big block" onclick="signAll(this)">✍️ Skriv under ${todo.length} pass · ${h(todo.reduce((s, r) => s + r.hours, 0))}</button></div>`
+        : '<div class="empty">Allt är underskrivet. 👍</div>'}
+      ${done.length ? `<h2>Underskrivna – senaste 45 dagarna</h2>${done.map(r => passCard(r, false)).join('')}` : ''}`;
+  }
+
+  function startEdit(row) { editRow = row; render(); }
+
+  async function saveEdit(row, btn) {
+    const r = reports.find(x => x.row === row); if (!r) return;
+    const val = id => document.getElementById(id).value.trim();
+    const next = { date: val('e_date'), start: val('e_start'), end: val('e_end'), place: val('e_place'), activity: val('e_activity'), note: val('e_note') };
+    const changes = {};
+    Object.keys(next).forEach(k => { if (next[k] !== (r[k] || '')) changes[k] = next[k]; });
+    if (!Object.keys(changes).length) { startEdit(null); return; }
+    btn.disabled = true;
+    try {
+      const res = await snoApi({ action: 'updateReport', ref: refOf(r), changes });
+      if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+      Object.assign(r, res.report); editRow = null;
+      setMsg('✅ Passet rättat.'); render();
+    } catch (err) { setMsg('❌ ' + esc(err.message || 'Ingen kontakt.')); btn.disabled = false; }
+  }
+
+  async function deletePass(row, btn) {
+    const r = reports.find(x => x.row === row); if (!r) return;
+    if (!confirm(`Radera passet ${r.date} ${r.start}–${r.end} på ${r.place}?`)) return;
+    btn.disabled = true;
+    try {
+      const res = await snoApi({ action: 'deleteReport', ref: refOf(r) });
+      if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+      editRow = null; setMsg('🗑 Passet raderat.');
+      await load(); // radnumren under flyttar sig – hämta om
+    } catch (err) { setMsg('❌ ' + esc(err.message || 'Ingen kontakt.')); btn.disabled = false; }
+  }
+
+  async function signAll(btn) {
+    const todo = open();
+    if (!confirm(`Skriva under ${todo.length} pass?\n\nKontrollera att datum och tider stämmer. Efter underskrift kan bara arbetsledningen ändra.`)) return;
+    btn.disabled = true;
+    try {
+      const res = await snoApi({ action: 'signReports', refs: todo.map(refOf) });
+      if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+      setMsg(`✍️ ${res.signed} pass underskrivna${res.signed < todo.length ? ` – ⚠️ ${todo.length - res.signed} gick inte (ändrade, ladda om)` : ''}.`);
+      await load();
+    } catch (err) { setMsg('❌ ' + esc(err.message || 'Ingen kontakt.')); btn.disabled = false; }
+  }
+
+  async function load() {
+    try {
+      const res = await snoApi({ action: 'getMyReports' });
+      if (res.status !== 'success') { document.getElementById('app').innerHTML = `<div class="empty">❌ ${esc(res.message || 'Kunde inte hämta.')}</div>`; return; }
+      reports = res.reports; render();
+    } catch (err) {
+      document.getElementById('app').innerHTML = '<div class="empty">❌ Ingen kontakt med servern. Försök igen när du har täckning.</div>';
+    }
+  }
+  document.getElementById('who').textContent = snoCurrentUser();
+  load();
+</script>
+</body>
+</html>

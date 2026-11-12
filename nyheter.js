@@ -2,6 +2,12 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-12-mina-pass', datum: '2026-11-12', roller: ['forare', 'handskottare', 'ue'],
+    titel: '📋 Mina pass – rätta och skriv under',
+    text: 'På startsidan: 📋 Mina pass. Rätta det som är fel med ✏️ och tryck sedan ✍️ Skriv under. Efter det kan bara arbetsledningen ändra.' },
+  { id: '2026-11-12-underskrift-ekonomi', datum: '2026-11-12', roller: ['ekonom', 'admin'], modul: 'ekonomi',
+    titel: '✍️ Underskrivna pass i Ekonomi',
+    text: 'Förarna skriver nu under sina pass. I Ekonomi syns ✍️ efter namnet, och appen varnar om du fakturerar pass som inte är underskrivna.' },
   { id: '2026-11-12-ny-kund', datum: '2026-11-12', roller: ['admin'], modul: 'offerter',
     titel: '＋ Ny kund under Kunder',
     text: 'Under 💼 Kunder finns ＋ Ny kund: företag/BRF eller privatperson. Kunden går sedan att välja i offerter och i Ekonomi.' },

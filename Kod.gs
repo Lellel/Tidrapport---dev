@@ -184,7 +184,7 @@ function doGet(e) {
 const NO_LOCK_ACTIONS = ["ping", "getUsers", "getSnowZones", "getSnowJour", "getSnowBoard", "getFleet", "getProperties", "getRadarData",
   "getJobs", "signDocument", "generateTractorAvatar", "getOffers", "getOfferSettings",
   "getOfferForCustomer", "respondOffer", "geocode", "recolorHouse", "getInvoiceBasis", "invoicePdf",
-  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "suggestMapPoints", "getWeather", "getAppIcons", "generateAppIcon"]; // getOfferForCustomer/respondOffer låser själva när de skriver
+  "blacksta_getPlan", "blacksta_getEvents", "blacksta_getMed", "getCustomers", "hubspotImport", "getStalls", "getEk", "getNotices", "getAvatars", "analyzeSnowPhoto", "analyzePropertyMap", "suggestMapPoints", "getWeather", "getAppIcons", "generateAppIcon", "getMyReports"]; // getOfferForCustomer/respondOffer låser själva när de skriver
 
 function doPost(e) {
   let lock = null;
@@ -252,7 +252,7 @@ function doPost(e) {
     if (["getStalls", "setRobotRow"].indexOf(action) !== -1 && auth.company !== "LPV") {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: stalltvätten hör till LPV." });
     }
-    const economyOnly = ["getInvoiceBasis", "markInvoiced", "invoicePdf", "updateReport", "deleteReport"];
+    const economyOnly = ["getInvoiceBasis", "markInvoiced", "invoicePdf"];
     if (economyOnly.indexOf(action) !== -1 && !auth.isAdmin && !auth.isEconomist) {
       return createJsonResponse({ status: "error", message: "Åtkomst nekad: Kräver ekonom eller administratör." });
     }
@@ -420,6 +420,8 @@ function doPost(e) {
     if (action === "updateReport") return handleUpdateReport(data, auth.user, auth);
     if (action === "saveCustomer") return handleSaveCustomer(data.customer, auth);
     if (action === "deleteReport") return handleDeleteReport(data, auth.user, auth);
+    if (action === "getMyReports") return handleGetMyReports(auth);
+    if (action === "signReports") return handleSignReports(data, auth);
     if (action === "invoicePdf") return handleInvoicePdf(data.draft, auth);
     if (action === "sendSms") return handleSendSms(data, auth.user);
     if (action === "addStaff") {
@@ -5771,6 +5773,11 @@ function handleGetInvoiceBasis(auth) {
 function reportStampText(v, tz) {
   return v instanceof Date ? Utilities.formatDate(v, tz, "yyyy-MM-dd HH:mm:ss") : String(v || "");
 }
+// Kolumn M i Tidrapporter: när föraren skrev under (✍️). Efter det rättar bara admin/ekonom (docs/pass-rattning.md).
+const REPORT_SIGNED_COLUMN = 13;
+function signedText(v, tz) {
+  return v instanceof Date ? Utilities.formatDate(v, tz || Session.getScriptTimeZone() || "Europe/Stockholm", "yyyy-MM-dd HH:mm") : String(v || "").trim();
+}
 function reportFromRow(r, rowNumber, tz) {
   const start = sheetTimeText(r[4], tz), end = sheetTimeText(r[5], tz);
   const imageLink = (String(r[9] || "").match(/https:\/\/drive\.google\.com\/\S+/) || [""])[0];
@@ -5781,20 +5788,25 @@ function reportFromRow(r, rowNumber, tz) {
     place: String(r[2] || ""), activity: String(r[3] || ""), start: start, end: end,
     hours: Math.round(reportHours(r[6], start, end) * 100) / 100,
     user: String(r[8] || ""), note: String(r[9] || "").replace(/\s*Drive-mapp: \S+/, "").trim(), imageLink: imageLink,
-    company: String(r[10] || "LPV")
+    company: String(r[10] || "LPV"),
+    signed: signedText(r[REPORT_SIGNED_COLUMN - 1], tz)
   };
 }
 
 // ===== Rätta och radera pass (docs/pass-rattning.md) =====
 // Passet pekas ut med radnummer + sparad-tid + användare, precis som markInvoiced. Stämmer de inte görs ingenting.
+// Admin/ekonom: allt inom Ekonomis bolag. Alla andra: bara egna pass som inte är underskrivna.
 function findReportRef(tid, ref, auth, tz) {
+  const eco = !!(auth && (auth.isAdmin || auth.isEconomist));
+  if (!eco && (!auth || auth.legacy)) return { error: "Öppna din personliga inloggningslänk för att ändra pass." };
   const rowNumber = Number(ref && ref.row);
   if (!tid || !(rowNumber >= 2 && rowNumber <= tid.getLastRow())) return { error: "Passet hittades inte – tryck ↻ Uppdatera." };
-  const width = Math.max(12, tid.getLastColumn());
+  const width = Math.max(REPORT_SIGNED_COLUMN, tid.getLastColumn());
   const row = tid.getRange(rowNumber, 1, 1, width).getValues()[0];
   if (reportStampText(row[7], tz) !== String(ref.stamp) || String(row[8]) !== String(ref.user)) return { error: "Passet har ändrats i arket – tryck ↻ Uppdatera." };
-  if (!inEconomyScope(auth, row[10] || "LPV")) return { error: "Åtkomst nekad." };
+  if (eco ? !inEconomyScope(auth, row[10] || "LPV") : String(row[8]).trim() !== String(auth.user).trim()) return { error: "Åtkomst nekad." };
   if (isInvoicedValue(row[1])) return { error: "Passet är fakturerat och kan inte ändras." };
+  if (!eco && signedText(row[REPORT_SIGNED_COLUMN - 1], tz)) return { error: "Passet är underskrivet – be arbetsledningen rätta det." };
   return { rowNumber: rowNumber, row: row, width: width };
 }
 
@@ -5828,6 +5840,41 @@ function handleUpdateReport(data, user, auth) {
   tid.getRange(hit.rowNumber, 1, 1, 10).setValues([[next.date, r[1], next.place, next.activity, next.start, next.end, duration, r[7], r[8], note]]);
   const fresh = tid.getRange(hit.rowNumber, 1, 1, hit.width).getValues()[0];
   return createJsonResponse({ status: "success", report: reportFromRow(fresh, hit.rowNumber, tz) });
+}
+
+// 📋 Mina pass: egna pass som inte är underskrivna + underskrivna/fakturerade de senaste 45 dagarna (låsta)
+function handleGetMyReports(auth) {
+  if (!auth || auth.legacy) return createJsonResponse({ status: "error", message: "Öppna din personliga inloggningslänk." });
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const tid = getSS().getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  const cut = Utilities.formatDate(new Date(Date.now() - 45 * 86400000), tz, "yyyy-MM-dd");
+  const me = String(auth.user).trim(), reports = [];
+  (tid ? tid.getDataRange().getValues() : []).forEach((r, i) => {
+    if (!i || !r[0] || String(r[8] || "").trim() !== me) return;
+    const rep = reportFromRow(r, i + 1, tz);
+    rep.invoiced = isInvoicedValue(r[1]);
+    if ((!rep.signed && !rep.invoiced) || rep.date >= cut) reports.push(rep);
+  });
+  reports.sort((a, b) => b.date.localeCompare(a.date) || b.start.localeCompare(a.start));
+  return createJsonResponse({ status: "success", reports: reports, unsigned: reports.filter(r => !r.signed && !r.invoiced).length });
+}
+
+// ✍️ Skriv under: föraren kvitterar de pass hen ser i listan (refs) – nya pass som kommit sedan dess skrivs inte under
+function handleSignReports(data, auth) {
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  const tid = getSS().getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  if (!tid) return createJsonResponse({ status: "error", message: "Inga pass." });
+  const own = { isAdmin: false, isEconomist: false, user: auth.user, legacy: auth.legacy }; // underskrift gäller bara egna pass
+  let signed = 0;
+  const stamp = nowStamp();
+  (Array.isArray(data.refs) ? data.refs : []).slice(0, 500).forEach(ref => {
+    const hit = findReportRef(tid, ref, own, tz);
+    if (hit.error) return;
+    tid.getRange(hit.rowNumber, REPORT_SIGNED_COLUMN).setValue(stamp);
+    signed++;
+  });
+  if (signed && tid.getRange(1, REPORT_SIGNED_COLUMN).getValue() === "") tid.getRange(1, REPORT_SIGNED_COLUMN).setValue("Underskriven").setFontWeight("bold").setBackground("#f3f3f3");
+  return createJsonResponse({ status: "success", signed: signed });
 }
 
 // Radera = flytta raden till bladet "Raderade pass" (går att ta tillbaka för hand)

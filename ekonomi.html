@@ -206,7 +206,8 @@
     return `<div class="card">
       <div class="card-head">
         <div><div class="card-title">${esc(g.place)}<span class="badge">${esc(g.company)}</span>${ataCount ? `<span class="badge ata">${ataCount} ÄTA</span>` : ''}</div>
-          <div class="meta">${g.reports.length} pass · ${h(g.reports.reduce((s, r) => s + r.hours, 0))} · ${esc(period(g.reports))}</div></div>
+          <div class="meta">${g.reports.length} pass · ${h(g.reports.reduce((s, r) => s + r.hours, 0))} · ${esc(period(g.reports))}</div>
+          ${unsignedOf(inc).length ? `<div class="meta" style="color:var(--warn)">⚠️ ${unsignedOf(inc).length} pass är inte underskrivna av föraren (✍️ saknas)</div>` : ''}</div>
         <div class="amount">${kr(t.toPay)}</div>
       </div>
       <div class="grid2">
@@ -235,7 +236,7 @@
           <tr><th></th><th>Datum</th><th>Utfört av</th><th>Aktivitet</th><th class="r hide-sm">Tid</th><th class="r">Timmar</th><th></th></tr>
           ${g.reports.map(r => `<tr class="${g.included[r.row] ? '' : 'pass-off'}">
             <td><input type="checkbox" ${g.included[r.row] ? 'checked' : ''} onchange="groups[${gi}].included[${r.row}]=this.checked; render()"></td>
-            <td>${esc(r.date)}</td><td>${esc(r.user)}</td><td>${esc(r.activity)}${r.note ? `<div class="meta">${esc(r.note)}</div>` : ''}</td>
+            <td>${esc(r.date)}</td><td>${esc(r.user)}${r.signed ? ' <span title="Underskrivet av föraren ' + esc(r.signed) + '">✍️</span>' : ''}</td><td>${esc(r.activity)}${r.note ? `<div class="meta">${esc(r.note)}</div>` : ''}</td>
             <td class="r hide-sm">${esc(r.start)}–${esc(r.end)}</td><td class="r">${h(r.hours)}</td>
             <td class="r">${r.imageLink ? `<a class="img" href="${esc(r.imageLink)}" target="_blank" rel="noopener">📷</a> ` : ''}<button class="lpv-btn small icon" title="Rätta eller radera passet" onclick="startEdit(${r.row})">✏️</button></td></tr>
             ${editRow === r.row ? editHtml(r) : ''}`).join('')}
@@ -327,6 +328,7 @@
     const g = groups[gi], c = customerOf(g);
     if (!c) { setMsg('⚠️ Välj kund först.'); return; }
     const inc = g.reports.filter(r => g.included[r.row]);
+    if (unsignedOf(inc).length && !confirm(`⚠️ ${unsignedOf(inc).length} av passen är inte underskrivna av föraren. Skapa underlaget ändå?`)) return;
     makePdf({
       customer: { name: c.name, address: c.address, idNr: c.idNr, email: c.email },
       company: g.company, customerType: g.private ? 'privat' : 'företag', site: g.place, period: period(inc),
@@ -347,8 +349,10 @@
   }
 
   // ================= MARKERA FAKTURERAT =================
-  async function mark(payload, what, btn) {
-    if (!confirm('Markera ' + what + ' som fakturerat? Gör det när fakturan är skapad i Fortnox.')) return;
+  const unsignedOf = list => list.filter(r => !r.signed);
+  async function mark(payload, what, btn, unsigned) {
+    const warn = unsigned ? `⚠️ ${unsigned} av passen är inte underskrivna av föraren.\n\n` : '';
+    if (!confirm(warn + 'Markera ' + what + ' som fakturerat? Gör det när fakturan är skapad i Fortnox.')) return;
     btn.disabled = true;
     try {
       const res = await snoApi({ action: 'markInvoiced', ...payload });
@@ -362,7 +366,7 @@
   }
   function markGroup(gi, btn) {
     const inc = groups[gi].reports.filter(r => groups[gi].included[r.row]);
-    mark({ reports: inc.map(r => ({ row: r.row, stamp: r.stamp, user: r.user })) }, inc.length + ' pass', btn);
+    mark({ reports: inc.map(r => ({ row: r.row, stamp: r.stamp, user: r.user })) }, inc.length + ' pass', btn, unsignedOf(inc).length);
   }
   function markOffer(i, btn) {
     mark({ offerIds: [data.offers[i].id] }, data.offers[i].id, btn);

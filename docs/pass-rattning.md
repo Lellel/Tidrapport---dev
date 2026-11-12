@@ -19,7 +19,7 @@ Passen har ingen ID-kolumn. Ett pass pekas ut på samma sätt som `markInvoiced`
 
 ## Steg
 1. ✅ **Server + Ekonomi** (admin/ekonom), byggt 2026-11-12: ✏️ Rätta och 🗑 Radera per pass i Löpande räkning. Server: `updateReport`, `deleteReport` (economyOnly). Test: `verktyg/tester/passtest.js`.
-2. **📋 Mina pass + ✍️ Skriv under** för förare/handskottare/UE, ovanpå samma serverfunktioner. Här kommer också ✍️-ikonen och varningen i Ekonomi – de flyttades hit, eftersom ingen kan skriva under förrän steg 2 finns.
+2. ✅ **📋 Mina pass + ✍️ Skriv under** för förare/handskottare/UE, byggt 2026-11-12: `minapass.html` (knapp på startsidan under Uppdrag & Formulär). Server: `getMyReports`, `signReports`; `updateReport`/`deleteReport` tillåter egna pass som inte är underskrivna. Underskriften sparas i kolumn M "Underskriven" i Tidrapporter. Föraren skriver under de pass hen ser i listan (refs) – nya pass som kommit in under tiden skrivs inte under. Ekonomi visar ✍️ och varnar vid PDF och Markera fakturerad. Test: `verktyg/tester/signtest.js`.
 
 ## Också beslutat 2026-11-12
 - **💰 Ekonomen ser** (kryssrutor LPV/Klaryta på personalkortet, bara admin på LPV ändrar). Sparas i kolumn N "Ekonomi ser" i Personal; tom = eget bolag. Gäller bara Ekonomi (`inEconomyScope` i Kod.gs) – allt annat följer `inScope`.
