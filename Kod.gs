@@ -277,7 +277,8 @@ function doPost(e) {
       const hit = findRowById(getOfferSheet(), data.id);
       if (hit && !inScope(auth, offerFromRow(hit.row).brand === "klaryta" ? "Klaryta" : "LPV")) return createJsonResponse({ status: "error", message: "Åtkomst nekad: offerten tillhör ett annat bolag." });
     }
-    if (action === "getRadarData") return handleGetRadarData(auth);
+    if (action === "getRadarData") { syncWashIfDue(0.25); return handleGetRadarData(auth); } // färska tvättar när Radarn öppnas
+    if (action === "robotDone") return handleRobotDone(data, auth);
     if (action === "getJobs") return handleGetJobs(data, auth);
     if (action === "radarSaveJob") return handleRadarSaveJob(data, auth);
     if (action === "radarDeleteJob") return handleRadarDeleteJob(data, auth);
@@ -3167,8 +3168,9 @@ function jobsForDay(dateText, auth) {
   const events = [];
   const notes = [];
 
-  // 1. Google-kalendern (LPV:s – bara admin på LPV)
-  if (CONFIG.CALENDAR_ID && auth.isSuper) {
+  // 1. Tvättkalendern läses INTE längre här – varje tvätt blir ett Radar-jobb (syncWashSchedule) och
+  // syns för den som är tilldelad. Annars dubbelt för Daniel. (docs/tvattschema-radarn.md, 2026-11-12)
+  if (false && CONFIG.CALENDAR_ID && auth.isSuper) {
     try {
       const cal = CalendarApp.getCalendarById(CONFIG.CALENDAR_ID);
       if (!cal) throw new Error("hittar inte kalendern (CALENDAR_ID) – är den delad med kontot som kör skriptet?");
@@ -3195,10 +3197,13 @@ function jobsForDay(dateText, auth) {
     if (!j.startDate && !auth.isAdmin) return;
     if (j.startDate && !seg) return;
     const hh = (h) => String(Math.floor(h)).padStart(2, "0") + ":" + String(Math.round((h % 1) * 60)).padStart(2, "0");
+    const wash = j.id.indexOf(WASH_PREFIX) === 0;
+    const robotPending = wash && j.robot && !j.robotDone;
     events.push({
-      id: "radar:" + j.id, title: j.title || j.client || "Jobb", place: j.siteAddress || j.client || "",
+      id: "radar:" + j.id, title: robotPending ? "🤖 Starta robot – " + j.title : (j.title || j.client || "Jobb"), place: j.siteAddress || j.client || "",
       description: [j.client, j.siteContactName, j.siteContactPhone].filter(Boolean).join(" · "),
-      start: seg ? hh(seg.from) : "", source: "radar", isBuffer: !j.startDate, mine: mine, crew: j.assigned.slice(0, 8)
+      start: seg ? hh(seg.from) : "", source: "radar", isBuffer: !j.startDate, mine: mine, crew: j.assigned.slice(0, 8),
+      activity: wash ? "Stalltvätt" : undefined, stallName: wash ? j.title : undefined, robotPending: robotPending || undefined, jobId: j.id
     });
   });
 
@@ -3703,7 +3708,7 @@ function buildEkPdf(e, tpl, check) {
 // ==========================================
 const GANTT_HEADERS = ["Projekt-ID", "Kundnamn", "Fakturerande Bolag", "Titel", "Status", "Startdag-Index", "Timmar", "Skift",
   "Sitelokalization", "Site-Kontakt", "Site-Telefon", "Bemannade Resurs-IDn"];
-const GANTT_EXTRA = ["Startdatum", "Starttid", "Helgarbete", "Uppdaterad", "Uppdaterad av"];
+const GANTT_EXTRA = ["Startdatum", "Starttid", "Helgarbete", "Uppdaterad", "Uppdaterad av", "Robot", "Robot klar"];
 const WORK_START = 7, WORK_HOURS = 8;
 
 // Generisk flik i minnet med fasta kolumner + extra kolumner som hittas på rubrik (samma idé som kundregistret)
@@ -3803,10 +3808,100 @@ function ganttJobFromRow(r, col) {
     startDate: startDate, startTime: st instanceof Date ? Utilities.formatDate(st, Session.getScriptTimeZone() || "Europe/Stockholm", "HH:mm") : (String(st || "") || "07:00"),
     hours: Number(r[6]) || 8, siteAddress: String(r[8] || ""), siteContactName: String(r[9] || ""), siteContactPhone: String(r[10] || ""),
     assigned: assigned.map(String), weekendWork: String(r[col["Helgarbete"]]).toLowerCase() === "ja",
+    robot: String(r[col["Robot"]] || "").toLowerCase() === "ja", robotDone: String(r[col["Robot klar"]] || ""),
     updated: String(r[col["Uppdaterad"]] || ""), updatedBy: String(r[col["Uppdaterad av"]] || "") };
 }
 
 function loadGantt() { return loadSheetTable("Gantt_Jobb", GANTT_HEADERS, GANTT_EXTRA); }
+
+// ===== Tvättschemat → Radarn (docs/tvattschema-radarn.md, 2026-11-12) =====
+// Varje händelse i tvättkalendern (CONFIG.CALENDAR_ID) blir ett Radar-jobb med id "KAL-…". Kalendern speglas rakt av:
+// ny händelse → nytt jobb (Daniel tilldelad), ändrad → jobbet följer med (tilldelningen ligger kvar), borttagen → jobbet bort.
+// Händelser längre än två dygn börjar som "🤖 Starta robot" tills tvättaren trycker 🤖 Roboten klar.
+const WASH_PREFIX = "KAL-", WASH_DAYS_AHEAD = 92, WASH_DAYS_BACK = 21, WASH_SYNC_HOURS = 2;
+function washJobId(ev, tz) {
+  const key = ev.getId() + (ev.isRecurringEvent() ? "|" + Utilities.formatDate(ev.getStartTime(), tz, "yyyy-MM-dd") : "");
+  return WASH_PREFIX + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, key)).replace(/[^A-Za-z0-9]/g, "").slice(0, 12);
+}
+function washDefaultPerson() { return suName() || "Daniel"; }
+
+function syncWashSchedule(now) {
+  if (!CONFIG.CALENDAR_ID) return { status: "error", message: "CALENDAR_ID saknas." };
+  const cal = CalendarApp.getCalendarById(CONFIG.CALENDAR_ID);
+  if (!cal) return { status: "error", message: "Hittar inte tvättkalendern – är den delad med kontot som kör skriptet?" };
+  const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
+  now = now || new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - WASH_DAYS_BACK);
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + WASH_DAYS_AHEAD);
+  const fromText = Utilities.formatDate(from, tz, "yyyy-MM-dd");
+  const t = loadGantt(), C = t.col, kinds = resourceKinds();
+  const byId = {};
+  for (let i = 1; i < t.rows.length; i++) if (String(t.rows[i][0]).indexOf(WASH_PREFIX) === 0) byId[String(t.rows[i][0])] = i;
+  const seen = {};
+  let created = 0, updated = 0, removed = 0;
+  cal.getEvents(from, to).forEach(ev => {
+    const id = washJobId(ev, tz);
+    if (seen[id]) return;
+    seen[id] = true;
+    const start = ev.getStartTime(), end = ev.getEndTime();
+    const allDay = ev.isAllDayEvent();
+    const lastDay = new Date(end.getTime() - (allDay ? 1 : 0) - 1); // heldag: slutet är exklusivt
+    const d0 = new Date(start.getFullYear(), start.getMonth(), start.getDate()), d1 = new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate());
+    const days = Math.max(1, Math.round((d1 - d0) / 86400000) + 1);
+    let i = byId[id], r;
+    if (i === undefined) {
+      r = t.blank(); t.rows.push(r); i = t.rows.length - 1;
+      r[0] = id; r[2] = "LPV"; r[7] = "Dagpass"; r[11] = JSON.stringify([washDefaultPerson()]);
+      created++;
+    } else { r = t.rows[i]; updated++; }
+    let assigned = [];
+    try { assigned = JSON.parse(r[11] || "[]"); } catch (e) { assigned = []; }
+    const persons = Math.max(1, assigned.filter(p => (kinds[p] || "person") === "person").length);
+    r[1] = "Blacksta"; r[3] = sanitize(ev.getTitle() || "Stalltvätt").slice(0, 150); r[4] = "scheduled"; r[5] = "";
+    r[6] = days * WORK_HOURS * persons; // jobbet täcker alla dagarna oavsett hur många som delar det
+    r[8] = sanitize(ev.getLocation() || "Blacksta").slice(0, 200);
+    r[C["Startdatum"]] = Utilities.formatDate(d0, tz, "yyyy-MM-dd");
+    r[C["Starttid"]] = allDay ? "07:00" : Utilities.formatDate(start, tz, "HH:mm");
+    r[C["Helgarbete"]] = "ja"; // tvätten pågår även lördag–söndag
+    r[C["Robot"]] = (end - start) > 48 * 3600000 ? "ja" : "";
+    r[C["Uppdaterad"]] = nowStamp(); r[C["Uppdaterad av"]] = "Tvättschemat";
+  });
+  // Borttagna ur kalendern (inom fönstret) → bort ur Radarn. Äldre jobb lämnas som historik.
+  Object.keys(byId).forEach(id => {
+    if (seen[id]) return;
+    const r = t.rows[byId[id]];
+    const sd = r[C["Startdatum"]] instanceof Date ? Utilities.formatDate(r[C["Startdatum"]], tz, "yyyy-MM-dd") : String(r[C["Startdatum"]] || "");
+    if (sd && sd < fromText) return;
+    t.rows[byId[id]] = t.blank(); removed++;
+  });
+  t.save();
+  PropertiesService.getScriptProperties().setProperty("TVATT_SYNK", String(now.getTime()));
+  return { status: "success", created: created, updated: updated, removed: removed };
+}
+// Körs av väderkörningen (var 15:e min) och när Radarn öppnas – synkar om det gått minst `hours` timmar
+function syncWashIfDue(hours) {
+  const last = Number(PropertiesService.getScriptProperties().getProperty("TVATT_SYNK") || 0);
+  if (Date.now() - last < (hours === undefined ? WASH_SYNC_HOURS : hours) * 3600000) return null;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return null; // en annan körning synkar redan
+  try { return syncWashSchedule(); } catch (e) { Logger.log("syncWashSchedule: " + e.message); return { status: "error", message: e.message }; }
+  finally { lock.releaseLock(); }
+}
+
+// 🤖 Roboten klar – tvättaren (eller admin) markerar att roboten kört färdigt; resten blir vanliga tvättpass
+function handleRobotDone(data, auth) {
+  const t = loadGantt(), C = t.col;
+  const id = String(data.jobId || "");
+  for (let i = 1; i < t.rows.length; i++) {
+    if (String(t.rows[i][0]) !== id || id.indexOf(WASH_PREFIX) !== 0) continue;
+    const j = ganttJobFromRow(t.rows[i], C);
+    if (!auth.isAdmin && j.assigned.indexOf(auth.user) === -1) return createJsonResponse({ status: "error", message: "Tvätten är inte din." });
+    t.rows[i][C["Robot klar"]] = nowStamp() + " " + sanitize(auth.user);
+    t.save();
+    return createJsonResponse({ status: "success" });
+  }
+  return createJsonResponse({ status: "error", message: "Tvätten hittades inte – ladda om." });
+}
 
 function handleRadarJobs(auth) {
   const t = loadGantt();
@@ -4135,6 +4230,7 @@ function vaderKoll(force) {
 
 function vaderKollTrigger() {
   vaderKoll(false);
+  try { syncWashIfDue(); } catch (e) { Logger.log("syncWashIfDue: " + e.message); } // tvättschemat → Radarn varannan timme
   try { driftstoppKoll(); } catch (e) { Logger.log("driftstoppKoll: " + e.message); } // "⏱ försenad" vid driftstopp
 }
 

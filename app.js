@@ -640,9 +640,10 @@ function clockInPlannedJob(jobId, chosenActivity) {
     date: document.getElementById('input-date')?.value || new Date().toISOString().split('T')[0],
     user: currentUser,
     place: job.place || 'Okänd plats',
-    activity: chosenActivity || job.title || 'Planerat jobb',
+    // Tvätt från tvättschemat (Radarn): aktiviteten är alltid Stalltvätt, stallets namn följer med i noteringen
+    activity: chosenActivity || job.activity || job.title || 'Planerat jobb',
     // Kalenderns titel följer med i noteringen när en annan aktivitet valts (stallet känns igen på namnet)
-    notes: [chosenActivity && job.title && chosenActivity !== job.title ? job.title : '', job.description || ''].filter(Boolean).join(' · '),
+    notes: [job.stallName || (chosenActivity && job.title && chosenActivity !== job.title ? job.title : ''), job.description || ''].filter(Boolean).join(' · '),
     start: timeStr,
     end: '',
     images: []
@@ -651,6 +652,19 @@ function clockInPlannedJob(jobId, chosenActivity) {
   saveDraftsToStorage();
   renderOutbox();
   updateDashboardData();
+}
+
+async function markRobotDone(job, btn) {
+  if (!confirm(`Har roboten kört färdigt i ${job.stallName || 'stallet'}?\n\nDärefter visas tvätten som vanliga tvättpass.`)) return;
+  btn.disabled = true; btn.textContent = 'Sparar… ⏳';
+  try {
+    const res = await apiPost({ action: 'robotDone', jobId: job.jobId });
+    if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
+    await fetchPlannedJobs();
+  } catch (e) {
+    alert('❌ ' + (e.message || 'Ingen kontakt.'));
+    btn.disabled = false; btn.textContent = '🤖 Roboten klar';
+  }
 }
 
 function clockOut(id) {
@@ -791,9 +805,14 @@ function renderOutbox() {
         ${job.description ? `<div class="card-note">${escJob(job.description)}</div>` : ''}
       </div>
       <div class="card-actions">
+        ${job.robotPending ? `<button class="lpv-btn small robot-done">🤖 Roboten klar</button>` : ''}
         <button class="btn-action clock-in">Stämpla in</button>
       </div>
     `;
+
+    // 🤖 Roboten klar: resten av tvätten blir vanliga tvättpass (docs/tvattschema-radarn.md)
+    const robotBtn = card.querySelector('.robot-done');
+    if (robotBtn) robotBtn.addEventListener('click', () => markRobotDone(job, robotBtn));
 
     const clockInBtn = card.querySelector('.clock-in');
     if (clockInBtn) {
