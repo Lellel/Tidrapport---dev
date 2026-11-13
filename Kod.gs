@@ -438,6 +438,7 @@ function doPost(e) {
     if (action === "getStaffOverview") return handleStaffOverview(auth);
     if (action === "getStaffHistory") return handleStaffHistory(data, auth);
     if (action === "updateStaff") return handleUpdateStaff(data, auth);
+    if (action === "deleteStaff") return handleDeleteStaff(data, auth); // admin eller UE-ansvarig – kollas i funktionen
     if (action === "suRequestLink") return handleSuRequestLink(data, auth);
 
     return createJsonResponse({ status: "unknown_action", message: "Okänd action: " + action });
@@ -1025,6 +1026,59 @@ function handleUpdateStaff(data, auth) {
   if (auth.isSuper && Array.isArray(data.ecoSees)) { ensureEcoSeesHeader(sheet); sheet.getRange(r, ECO_SEES_COLUMN).setValue(role === "Ekonom" ? ecoSeesText(data.ecoSees) : ""); }
   clearStaffAuthCache(name);
   return createJsonResponse({ status: "success", user: name });
+}
+
+// Status per namn ur fliken Personal (tomt = Aktiv)
+function staffStatusMap() {
+  const out = {}, st = getStaffSheet();
+  if (st) st.getDataRange().getValues().slice(1).forEach(r => { if (r[0]) out[String(r[0]).trim()] = String(r[7] || "").trim() || "Aktiv"; });
+  return out;
+}
+
+// 🗑 Ta bort en person (beslut 2026-11-13, docs/personal.md). Admin inom sitt bolag, eller UE-ansvarig för sitt eget UE-företag.
+// Inga pass → raden tas bort ur Personal och Snöresurser. Har personen pass (tidrapporter eller snö-klart) arkiveras hen i stället:
+// status Inaktiv och inloggningen spärras (nyckeln töms) – timmarna i Ekonomi står kvar. I båda fallen plockas hen ur snöplaneringen.
+function handleDeleteStaff(data, auth) {
+  const sheet = getStaffSheet(), hit = sheet ? findStaffRow(sheet, data.targetUser) : null;
+  if (!hit) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
+  const row = hit.row, name = String(row[0]).trim();
+  const people = readSnowPeople(), sp = snowPerson(people, name);
+  if (auth.isAdmin) {
+    if (!inScope(auth, row[6])) return createJsonResponse({ status: "error", message: "Personen finns inte i fliken Personal." });
+  } else {
+    const me = snowPerson(people, auth.user);
+    if (!me.ueLead || me.owner === "Egna" || sp.owner !== me.owner) return createJsonResponse({ status: "error", message: "Åtkomst nekad: du kan bara ta bort personer i ditt eget UE-företag." });
+  }
+  if (name === String(auth.user).trim()) return createJsonResponse({ status: "error", message: "Du kan inte ta bort dig själv." });
+  if (isSuUser(name)) return createJsonResponse({ status: "error", message: "Den här personen kan inte tas bort." });
+  if ((isAdminRow(row) || isEconomistRow(row)) && !auth.isSuper) return createJsonResponse({ status: "error", message: "Bara admin på LPV kan ta bort admin och ekonom." });
+
+  // Pass = tidrapporter i personens namn + handskottning markerad klar
+  let passes = 0;
+  const tid = getSS().getSheetByName(CONFIG.SHEET_REPORTS || "Tidrapporter");
+  if (tid) tid.getDataRange().getValues().slice(1).forEach(r => { if (r[0] && String(r[8] || "").trim() === name) passes++; });
+  getSnowfallSheet().getDataRange().getValues().slice(1).forEach(r => { if (String(r[4]) === "hand" && String(r[5]).trim() === name) passes++; });
+
+  // Ur snöplaneringen: handskottarkulor på fastigheterna och fast förare på traktorer
+  const ps = getPropertySheet(), pRows = ps.getDataRange().getValues(), hCol = PROPERTY_HEADERS.length + 7;
+  for (let i = 1; i < pRows.length; i++) {
+    let list = [];
+    try { list = JSON.parse(pRows[i][hCol - 1] || "[]"); } catch (e) { list = []; }
+    if (Array.isArray(list) && list.indexOf(name) !== -1) ps.getRange(i + 1, hCol).setValue(JSON.stringify(list.filter(n => n !== name)));
+  }
+  const fs = getFleetSheet(), fRows = fs.getDataRange().getValues(), dCol = FLEET_HEADERS.length + 2;
+  for (let i = 1; i < fRows.length; i++) if (String(fRows[i][dCol - 1] || "").trim() === name) fs.getRange(i + 1, dCol).setValue("");
+
+  clearStaffAuthCache(name);
+  if (passes) {
+    sheet.getRange(hit.rowNumber, 8).setValue("Inaktiv");
+    sheet.getRange(hit.rowNumber, KEY_COLUMN).setValue("");
+    return createJsonResponse({ status: "success", user: name, archived: true, passes: passes });
+  }
+  const sn = getSnowPeopleSheet(), sRows = sn.getDataRange().getValues();
+  for (let i = sRows.length - 1; i >= 1; i--) if (String(sRows[i][0]).trim() === name) sn.deleteRow(i + 1);
+  sheet.deleteRow(hit.rowNumber);
+  return createJsonResponse({ status: "success", user: name, archived: false, passes: 0 });
 }
 
 // ==========================================
@@ -2196,9 +2250,10 @@ function ueContext() {
 
 // Admin: allt om varje UE-företag – uppgifter, avtal, personer, traktorer och fastigheter
 function handleGetUeOverview(auth) {
-  const ctx = ueContext(), names = {};
+  const ctx = ueContext(), names = {}, status = staffStatusMap();
   Object.keys(ctx.companies).forEach(n => { names[n] = true; });
-  Object.keys(ctx.people).forEach(n => { if (ctx.people[n].owner !== "Egna") names[ctx.people[n].owner] = true; });
+  // Ett oregistrerat företag syns bara så länge det har aktiva personer (eller traktorer) – inaktiva håller det inte kvar
+  Object.keys(ctx.people).forEach(n => { if (ctx.people[n].owner !== "Egna" && (status[n] || "Aktiv") === "Aktiv") names[ctx.people[n].owner] = true; });
   Object.values(ctx.fleet).forEach(t => { if (t.owner !== "Egna") names[t.owner] = true; });
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm", kitSent = kitSentMap(tz);
   const staff = {};
@@ -2259,8 +2314,9 @@ function handleSaveUeCompany(data, auth) {
 function handleDeleteUeCompany(data) {
   const sheet = getUeSheet(), hit = findRowById(sheet, data.id);
   if (!hit) return createJsonResponse({ status: "error", message: "Företaget hittades inte." });
-  const name = String(hit.row[1] || "").trim(), people = readSnowPeople();
-  const nP = Object.keys(people).filter(n => people[n].owner === name).length, nT = Object.values(readFleetMap()).filter(t => t.owner === name).length;
+  const name = String(hit.row[1] || "").trim(), people = readSnowPeople(), status = staffStatusMap();
+  // Inaktiva/arkiverade personer hindrar inte (2026-11-13) – de har pass kvar men jobbar inte längre åt företaget
+  const nP = Object.keys(people).filter(n => people[n].owner === name && (status[n] || "Aktiv") === "Aktiv").length, nT = Object.values(readFleetMap()).filter(t => t.owner === name).length;
   if (nP || nT) return createJsonResponse({ status: "error", message: name + " har " + [nP ? nP + " person(er)" : "", nT ? nT + " traktor(er)" : ""].filter(Boolean).join(" och ") + " kvar – flytta eller ta bort dem först." });
   sheet.deleteRow(hit.rowNumber);
   return createJsonResponse({ status: "success" });
@@ -2837,8 +2893,13 @@ function handleSaveProperty(p) {
     nowStamp()
   ];
   upsertById(sheet, rowData);
-  // Kolumnerna efter de elva första (kund, kartor, kulor …) rörs inte – skicka med dem i svaret
-  return createJsonResponse({ status: "success", property: propertyFromRow(existing ? rowData.concat(existing.row.slice(rowData.length)) : rowData), geocodeNote: geocodeNote });
+  // Kolumnerna efter de elva första (kund, kartor, kulor …) rörs inte – utom område (kolumn 13) när det skickas med
+  let full = existing ? rowData.concat(existing.row.slice(rowData.length)) : rowData;
+  if (p.omrade !== undefined && p.omrade !== null) {
+    const omrade = sanitize(p.omrade).slice(0, 60), hit = findRowById(sheet, id);
+    if (hit) { sheet.getRange(hit.rowNumber, 13).setValue(omrade); full = hit.row.slice(); full[12] = omrade; }
+  }
+  return createJsonResponse({ status: "success", property: propertyFromRow(full), geocodeNote: geocodeNote });
 }
 
 // Import från kalkylark: max 50 rader per anrop (appen skickar i omgångar och visar förlopp).
