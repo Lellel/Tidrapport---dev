@@ -98,6 +98,9 @@
     }
     .imp-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: none; align-items: flex-end; justify-content: center; }
     .imp-bg.open { display: flex; }
+    @media (min-width: 700px) { .imp-bg { align-items: center; } .imp-bg .imp { border-radius: 18px; max-height: 88vh; } } /* iPad/dator: mitt på skärmen, inte längst ner */
+    .imp-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+    .imp-choices input[type=file] { display: none; }
     .imp { background: var(--panel); width: 100%; max-width: 760px; max-height: 92vh; overflow-y: auto; border-radius: var(--t-r-card) 18px 0 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
     .imp textarea { min-height: 120px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
     .imp-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
@@ -1055,12 +1058,13 @@
       el.innerHTML = `
         <div class="detail-head"><h2>📥 Importera fastigheter</h2><button class="lpv-btn" onclick="closeImport()">✕</button></div>
         ${!importTable.length ? `
-          <div class="muted"><b>1.</b> Öppna arket, markera cellerna (gärna med rubrikraden), kopiera (Cmd+C) och klistra in här (Cmd+V).</div>
-          <textarea id="imp-text" placeholder="Klistra in här…" oninput="importTable = parseTable(this.value); guessMapping(); if (importTable.length) renderImport()"></textarea>
-          <div class="muted">…eller välj en fil (CSV – i Google Kalkylark: Arkiv → Ladda ned → CSV):</div>
-          <input type="file" accept=".csv,.txt,.tsv,text/csv" onchange="readImportFile(event)">
-          <div class="muted" style="margin-top:14px;">…eller <b>snöunderlag från kunderna</b> (filen snöunderlag.json med adresser och kundkartor):</div>
-          <input type="file" accept=".json,application/json" onchange="readSnoBundle(event)">`
+          <div class="muted"><b>Välj fil:</b> snöunderlag (.json med adresser och kundkartor) eller en tabell (CSV – i Google Kalkylark: Arkiv → Ladda ned → CSV).</div>
+          <div class="imp-choices">
+            <label class="lpv-btn primary">🗺 Snöunderlag (.json)<input type="file" accept=".json,application/json" onchange="readSnoBundle(event)"></label>
+            <label class="lpv-btn">📊 Tabell (CSV)<input type="file" accept=".csv,.txt,.tsv,text/csv" onchange="readImportFile(event)"></label>
+          </div>
+          <div class="muted" style="margin-top:6px;">…eller öppna arket, markera cellerna (gärna med rubrikraden), kopiera (Cmd+C) och klistra in här (Cmd+V):</div>
+          <textarea id="imp-text" placeholder="Klistra in här…" oninput="importTable = parseTable(this.value); guessMapping(); if (importTable.length) renderImport()"></textarea>`
         : `
           <div class="row"><span class="muted"><b>${rows.length}</b> rader · ${cols} kolumner</span>
             <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;font-size:13px;"><input type="checkbox" ${importHeader ? 'checked' : ''} onchange="importHeader=this.checked; guessMapping(); renderImport()" style="width:20px;height:20px;"> Första raden är rubriker</label>
