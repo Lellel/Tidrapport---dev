@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-13-ta-bort-person', datum: '2026-11-13', roller: ['admin'],
+    titel: '🗑 Ta bort personal och UE',
+    text: 'Personer har nu en 🗑 Ta bort-knapp (Personal och UE). Utan pass försvinner personen helt, med pass blir hen inaktiv så att timmarna finns kvar. Ett UE-företag går att ta bort när ingen aktiv person finns kvar.' },
   { id: '2026-11-12-tvatt-radarn', datum: '2026-11-12', roller: ['admin'],
     titel: '🧽 Tvättschemat i Radarn',
     text: 'Varje tvätt i tvättkalendern blir nu ett jobb i Radarn. Dra en annan kula till jobbet för att lämna över tvätten – personen ser den i Dagens pass.' },

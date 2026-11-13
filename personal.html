@@ -219,7 +219,8 @@
         <label class="chk"><input type="checkbox" id="fShovel" ${sn.shoveler ? 'checked' : ''}> 🧹 Handskottare (får en kula i snöplaneringen)</label>
         <label class="chk"><input type="checkbox" id="fUeLead" ${sn.ueLead ? 'checked' : ''}> 🤝 UE-ansvarig (ser allt som företagets kulor ligger på i Snöjour)</label>
         <div class="note">Tomt = Egna (LPV). Förare kopplas till traktorn under Snöplanering → Traktorer. Hemorten används för att visa närmaste handskottare.</div>
-        <div class="actions"><button type="button" class="lpv-btn primary" onclick="savePerson()">💾 Spara</button><button type="button" class="lpv-btn" onclick="$('form').classList.remove('open')">Avbryt</button></div>
+        <div class="actions"><button type="button" class="lpv-btn primary" onclick="savePerson()">💾 Spara</button><button type="button" class="lpv-btn" onclick="$('form').classList.remove('open')">Avbryt</button>${p.canEdit && p.name !== data.me ? `<button type="button" class="lpv-btn danger" onclick="deletePerson()">🗑 Ta bort</button>` : ''}</div>
+        <div class="note">🗑 Ta bort: har personen inga pass försvinner hen helt. Har hen pass blir hen inaktiv i stället, så att timmarna finns kvar i Ekonomi.</div>
       </div>
       <h3>Tidigare projekt</h3>
       <div id="hist"><div class="empty">Hämtar…</div></div>`;
@@ -274,6 +275,17 @@
   function ecoPicked(prefix) {
     if (!$(prefix + 'Eco')) return undefined;
     return ['LPV', 'Klaryta'].filter(c => $(prefix + 'Eco' + c).checked);
+  }
+
+  async function deletePerson() {
+    const p = current;
+    if (!confirm(`Ta bort ${p.name}?\n\nHar ${p.name.split(' ')[0]} pass sparade blir hen inaktiv i stället, så att timmarna finns kvar. Hen plockas bort från snöplaneringen och kan inte logga in längre.`)) return;
+    let res;
+    try { res = await snoApi({ action: 'deleteStaff', targetUser: p.name }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
+    if (res.status !== 'success') { msg('❌ ' + (res.message || 'Kunde inte ta bort.'), true); return; }
+    await load(true);
+    if (res.archived) { openPerson(p.name); msg(`📦 ${p.name} har ${res.passes} pass och är nu inaktiv – timmarna finns kvar.`); }
+    else { closePerson(); alert(`🗑 ${p.name} är borttagen.`); }
   }
 
   async function savePerson() {

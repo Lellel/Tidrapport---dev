@@ -214,7 +214,7 @@
       <label class="chk"><input type="checkbox" id="pShovel" ${p && p.shoveler ? 'checked' : ''}> 🧹 Handskottare</label>
       ${isNew ? '' : `<label>Status</label><select id="pStatus">${['Aktiv', 'Inaktiv', 'Karantän'].map(s => `<option ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}</select>`}
       <div class="actions"><button class="lpv-btn primary" onclick="savePerson(${isNew ? 'null' : jsArg(p.name)})">💾 ${isNew ? 'Lägg till' : 'Spara'}</button>
-        ${isNew ? '' : `<button class="lpv-btn" onclick="sendKit(${jsArg(p.name)})">📦 Välkomstpaket</button>`}</div>
+        ${isNew ? '' : `<button class="lpv-btn" onclick="sendKit(${jsArg(p.name)})">📦 Välkomstpaket</button><button class="lpv-btn danger" onclick="deletePerson(${jsArg(p.name)})">🗑 Ta bort</button>`}</div>
       ${isNew ? '<div class="hint">Personen läggs in i Personal med rollen UE. Skicka sedan 📦 Välkomstpaket så att hen kommer in i appen.</div>' : ''}</div>`;
   }
 
@@ -316,6 +316,17 @@
     say(`📦 SMS: ${esc(res.sms || '–')}${res.mail && res.mail !== 'behövs inte' ? ' · mejl: ' + esc(res.mail) : ''}`);
   }
 
+  // 🗑 Ta bort: utan pass försvinner personen helt, med pass blir hen inaktiv (timmarna står kvar i Ekonomi)
+  async function deletePerson(name) {
+    if (!confirm(`Ta bort ${name}?\n\nHar ${name.split(' ')[0]} pass sparade blir hen inaktiv i stället, så att timmarna finns kvar. Hen plockas bort från fastigheterna och traktorerna och kan inte logga in längre.`)) return;
+    say('Tar bort…');
+    const res = await api({ action: 'deleteStaff', targetUser: name });
+    if (res.status !== 'success') { say('❌ ' + esc(res.message)); return; }
+    open = '';
+    await load();
+    say(res.archived ? `📦 ${esc(name)} har ${res.passes} pass och är nu inaktiv – timmarna finns kvar.` : `🗑 ${esc(name)} är borttagen.`);
+  }
+
   async function saveTractor(id) {
     const c = coBy(cur);
     const t = { id: id || undefined, model: $('tModel').value.trim(), size: $('tSize').value, base: $('tBase').value.trim(), note: $('tNote').value.trim(),
@@ -357,7 +368,7 @@
 
   async function deleteCompany() {
     const c = coBy(cur);
-    if (c.people.length || c.tractors.length) { say(`❌ ${esc(c.name)} har personer eller traktorer kvar – ta bort eller flytta dem först.`); return; }
+    if (c.people.some(p => p.status === 'Aktiv') || c.tractors.length) { say(`❌ ${esc(c.name)} har aktiva personer eller traktorer kvar – ta bort dem först (🗑 Ta bort på personen).`); return; }
     if (!confirm(`Ta bort ${c.name}?`)) return;
     if (!c.registered) { closeSheet(); await load(); return; }
     const res = await api({ action: 'deleteUeCompany', id: c.id });
