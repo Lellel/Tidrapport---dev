@@ -430,17 +430,29 @@
   }
 
   // ================= START =================
+  // Senast kända lista visas direkt (sparad på enheten, per inloggad), servern frågas samtidigt och bestämmer.
+  const CACHE_KEY = 'lpv_cache_staff_' + (localStorage.getItem('lpv_user') || localStorage.getItem('lpv_user_name') || '').trim();
+  function cached() { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; } }
   async function load(quiet) {
+    const old = !quiet && !data ? cached() : null;
+    if (old) { data = old; render(); $('count').textContent += ' · uppdaterar…'; }
     let res;
     try { res = await snoApi({ action: 'getStaffOverview' }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
-    if (res.status !== 'success') { if (!quiet) $('list').innerHTML = `<div class="empty">❌ ${esc(res.message || 'Kunde inte hämta.')}</div>`; return; }
+    if (res.status !== 'success') {
+      if (old) { $('count').textContent = $('count').textContent.replace(' · uppdaterar…', ' · ⚠️ kunde inte uppdatera'); return; }
+      if (!quiet) $('list').innerHTML = `<div class="empty">❌ ${esc(res.message || 'Kunde inte hämta.')}</div>`; return;
+    }
     data = res;
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(res)); } catch (e) { /* privat läge eller fullt */ }
     render();
   }
-  load().then(() => {
+  let opened = false;
+  const openFromUrl = () => {
     const p = new URLSearchParams(location.search).get('p');
-    if (p && data) openPerson(p);
-  });
+    if (p && data && !opened) { opened = true; openPerson(p); }
+  };
+  load().then(openFromUrl);
+  openFromUrl(); // med sparad lista öppnas personen direkt
 </script>
 </body>
 </html>
