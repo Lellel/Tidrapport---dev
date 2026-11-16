@@ -313,9 +313,9 @@
   }
 
   // Samma välkomstpaket som på startsidan (SMS + mejl för admin/ekonom + kvittens till dig)
-  async function sendKit(noAsk) {
+  async function sendKit() {
     const p = current;
-    if (!noAsk && !confirm(`Skicka välkomstpaket till ${p.name}?\n\nSMS till ${fixPhone(p.phone) || '(saknar nummer)'}` + (p.role === 'Admin' || p.role === 'Ekonom' ? `\nMejl till ${p.email || '(saknar e-post)'}` : ''))) return;
+    if (!confirm(`Skicka välkomstpaket till ${p.name}?\n\nSMS till ${fixPhone(p.phone) || '(saknar nummer)'}` + (p.role === 'Admin' || p.role === 'Ekonom' ? `\nMejl till ${p.email || '(saknar e-post)'}` : ''))) return;
     let res;
     try { res = await snoApi({ action: 'sendWelcomeKit', targetUser: p.name }); }
     catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
@@ -406,7 +406,8 @@
         </div>
         ${ecoBox('n', roles[0], null, 'LPV')}
         <div class="note">Personen får en personlig länk direkt. Har den mobil eller e-post skickas välkomstpaketet med en gång.</div>
-        <div class="actions"><button type="button" class="lpv-btn primary" onclick="saveNew()">💾 Lägg till &amp; skicka välkomstpaket</button></div>
+        <div class="actions"><button type="button" class="lpv-btn primary" onclick="saveNew()">💾 Lägg till personen</button></div>
+        <div class="hint" style="margin-top:6px">Välkomstpaketet skickas inte nu – det gör du med 📦 när personen är klar med roller, moduler och jobb.</div>
         <div class="msg" id="pMsg"></div>
       </div>`;
     $('sheetBg').classList.add('open');
@@ -425,8 +426,11 @@
     await load(true);
     openPerson(res.user);
     if (!current) return;
-    if (person.phone || person.email) await sendKit(true);
-    else msg(`✅ ${res.user} är tillagd som ${res.role}. Inget mobilnummer eller e-post – visa 🏁 QR.`);
+    // Välkomstpaketet går INTE av sig självt (16/11): lägg in alla, fördela jobben, tryck 📦 när du är klar.
+    // Påminnelsen sköter sig själv – personen får ⚠️ "Välkomstpaket inte skickat" tills knappen tryckts.
+    msg(person.phone || person.email
+      ? `✅ ${res.user} är tillagd som ${res.role}. Inget är skickat än – tryck 📦 Välkomstpaket när du är klar.`
+      : `✅ ${res.user} är tillagd som ${res.role}. Inget mobilnummer eller e-post – visa 🏁 QR.`);
   }
 
   // ================= START =================

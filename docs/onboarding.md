@@ -48,7 +48,8 @@ Bestämt med Daniel 2026-11-03. Byggt (Kod.gs: handleSendWelcomeKit, handleRedee
 - Själv-länken: högst fem per dygn.
 
 ## Ny personal – rutin (bestämt 2026-11-04)
-1. Lägg alltid till personen **i appen**: startsidan → Administratör → Lägg till & skicka välkomstpaket. Aldrig direkt i arket – då saknas nyckel, och mobilnumret kan tappa nollan.
+1. Lägg alltid till personen **i appen**: startsidan → Administratör → **Lägg till personen**. Aldrig direkt i arket – då saknas nyckel, och mobilnumret kan tappa nollan.
+   - **Ändrat 2026-11-16:** välkomstpaketet går inte längre automatiskt när personen läggs in. Daniel ville hinna lägga in flera, sätta moduler och fördela jobben först. 46elks skickar som förut – men på knappens uppdrag: **📦 Välkomstpaket** på personkortet. Påminnelsen sköter sig själv (⚠️ "Välkomstpaket inte skickat" tills knappen tryckts).
 2. Kontrollera på **Personal-sidan → ⚠️ Att åtgärda** att personen inte står kvar där:
    - *Ingen personlig länk / Välkomstpaket inte skickat* (läses ur fliken SMS-logg) → 📦 Välkomstpaket
    - *Saknar mobil*, *Saknar e-post* (admin/ekonom), *Konstigt i arket* → ✏️ Ändra

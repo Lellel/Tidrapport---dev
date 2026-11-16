@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-16-valkomst-knapp', datum: '2026-11-16', roller: ['admin'],
+    titel: '📦 Välkomstpaketet väntar på knappen',
+    text: 'Lägger du in en ny person skickas inget längre automatiskt. Lägg in alla, sätt roller och moduler och fördela jobben – tryck sedan 📦 Välkomstpaket när du är klar. Personen står som "Välkomstpaket inte skickat" tills dess, så ingen glöms bort.' },
   { id: '2026-11-16-packlista-av', datum: '2026-11-16', roller: ['forare', 'handskottare', 'ue', 'ekonom', 'admin'],
     titel: '🎒 Packlistan pausad – och ❄️ Snöjour högst upp',
     text: 'Fordonschecken och packlistan är avstängd tills vidare: startsidan är öppen direkt, du kan fylla i passet utan att bocka av något. Under snösäsong ligger ❄️ Snöjour – karta & GPS som egen knapp högst upp, i stället för längst ner i passformuläret. Även väljaren Nya/ÄTA är borttagen – allt du registrerar blir ett vanligt jobb.' },
