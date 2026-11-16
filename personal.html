@@ -405,9 +405,8 @@
           ${data && data.isSuper ? `<div><label for="nCompany">Bolag</label><select id="nCompany"><option>LPV</option><option>Klaryta</option></select></div>` : ''}
         </div>
         ${ecoBox('n', roles[0], null, 'LPV')}
-        <div class="note">Personen får en personlig länk direkt. Har den mobil eller e-post skickas välkomstpaketet med en gång.</div>
+        <div class="note">Personen får en personlig länk direkt – men <b>inget skickas</b> förrän du trycker 📦 Välkomstpaket. Gäller alla roller och båda bolagen.</div>
         <div class="actions"><button type="button" class="lpv-btn primary" onclick="saveNew()">💾 Lägg till personen</button></div>
-        <div class="hint" style="margin-top:6px">Välkomstpaketet skickas inte nu – det gör du med 📦 när personen är klar med roller, moduler och jobb.</div>
         <div class="msg" id="pMsg"></div>
       </div>`;
     $('sheetBg').classList.add('open');
