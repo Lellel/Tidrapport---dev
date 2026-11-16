@@ -1095,10 +1095,10 @@ const MODULES = ["tid", "sno", "radar", "offerter", "ekonomi", "personal"];
 // "kartor" = 📌 Kartkalibrering i Rita zoner (Passa in, Justera, Föreslå punkter, Granska AI-inpassade).
 // "packlista" = 🎒 Fordonscheck & Packlista på startsidan. Avaktiverad för alla 2026-11-16 (Daniels beslut)
 // – som tilläggsmodul är den av tills någon får den i 🎛️ Moduler.
-const EXTRA_MODULES = ["kartor", "packlista"];
+const EXTRA_MODULES = ["kartor", "packlista", "ata"];
 // SU har automatiskt alla tillägg UTOM packlistan: den är avstängd för alla (även Daniel) tills man
 // bockar i den på sig själv i 🎛️ Moduler (2026-11-16).
-const SU_AUTO_EXTRAS = ["kartor"];
+const SU_AUTO_EXTRAS = ["kartor"]; // packlista och ata är avstängda för alla, även SU, tills man bockar i dem
 const SU_LINK_MINUTES = 15, SU_SESSION_DAYS = 30;
 
 function readModules(row) {

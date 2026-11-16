@@ -171,6 +171,7 @@ document.body.classList.toggle('not-super', localStorage.getItem('lpv_is_super')
     localStorage.setItem('lpv_applage', JSON.stringify(me.appLage || {}));
     if (window.lpvSnojourKnapp) window.lpvSnojourKnapp(); // ❄️ Snöjour överst när snösäsongen är på
     if (window.lpvPacklista) window.lpvPacklista(); // 🎒 Packlistan är en tilläggsmodul – utan den är dagen upplåst direkt
+    if (window.lpvAtaVal) window.lpvAtaVal(); // 🧾 Nya/ÄTA är en tilläggsmodul – utan den blir allt vanliga jobb
     if (window.lpvSpalt) window.lpvSpalt.refresh();
     document.body.classList.toggle('not-super', !me.isSuper);
     // Admin bestäms av servern (fliken Personal), inte av länken – annars blev man förare på en ny enhet

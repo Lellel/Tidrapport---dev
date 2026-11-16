@@ -18,7 +18,7 @@ Administratörerna vill bara se det som gäller snön just nu. Vilka delar av ap
 
 - **Stalltvätt är ingen modul:** den har ingen menyknapp, arbetsordern visas bara när man stämplar in på ett stalljobb.
 - Ingen bock = allt som rollen ger (inget ändras förrän SU bockar).
-- **Tilläggsmoduler** (📌 Kartkalibrering, 🎒 Packlistan) fungerar tvärtom: dolda tills SU bockar i dem. De ligger i samma kolumn (`kartor`, eller t.ex. `tid,sno,kartor`); bara `kartor` = allt rollen ger + tillägget. `me` ger `extras`, appen sparar dem i `lpv_extra_modules`. Utan modulen visas kundkartor som inte är inpassade inte alls i Rita zoner (de skulle ligga fel).
+- **Tilläggsmoduler** (📌 Kartkalibrering, 🎒 Packlistan, 🧾 Nya / ÄTA) fungerar tvärtom: dolda tills SU bockar i dem. De ligger i samma kolumn (`kartor`, eller t.ex. `tid,sno,kartor`); bara `kartor` = allt rollen ger + tillägget. `me` ger `extras`, appen sparar dem i `lpv_extra_modules`. Utan modulen visas kundkartor som inte är inpassade inte alls i Rita zoner (de skulle ligga fel).
 - En avbockad modul **döljs** i alla menyer (sidomeny, flikrad, Mer, admin-knappar), i bruksanvisningen, i "Nytt sedan sist" och i välkomstmejlet. Den **spärras inte** – behörigheten följer fortfarande rollen.
 - Lagras i en ny kolumn **Moduler** i Personal. Appen läser den via `me` när den startar.
 
@@ -48,3 +48,6 @@ Apps Script → ⚙️ Projektinställningar → Skriptegenskaper → lägg till
 
 ## 🎒 Packlistan som tilläggsmodul (2026-11-16)
 Daniel stängde av fordonschecken/packlistan tills vidare. Den lades som **tilläggsmodul** (`packlista`) just för att tillägg är *av* för alla tills någon får dem – en vanlig modul hade varit på för alla med tom modulruta. Utan modulen göms både packlistan och `✅ Packat`-raden, och startsidan låser upp **Uppdrag & Formulär** direkt (annars fanns ingen väg in, eftersom knappen *Visat & Packat – Lås upp Dagen* sitter i packlistan). Vill man ha tillbaka den: 🎛️ Moduler → personen → 🎒 Packlistan.
+
+## 🧾 Nya / ÄTA som tilläggsmodul (2026-11-16)
+Samma sort som packlistan, och av samma skäl: Daniel ville rensa startskärmen. Utan tillägget `ata` göms väljaren **Nya/ÄTA** och ÄTA-nr-raden, och `currentJobType` tvingas till `nya` – allt som registreras blir ett vanligt jobb. Gäller även SU. Tillbaka: 🎛️ Moduler → personen → 🧾 Nya / ÄTA. (Offerter & ÄTA på kontorssidan är en annan sak och påverkas inte.)

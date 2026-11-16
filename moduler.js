@@ -8,7 +8,7 @@
   function myModules() {
     try { const m = JSON.parse(localStorage.getItem('lpv_modules') || 'null'); return Array.isArray(m) ? m : null; } catch (e) { return null; }
   }
-  const EXTRA = ['kartor', 'packlista']; // tilläggsmoduler: dolda tills man fått dem (packlistan avaktiverad 2026-11-16)
+  const EXTRA = ['kartor', 'packlista', 'ata']; // tilläggsmoduler: dolda tills man fått dem (packlistan och Nya/ÄTA avstängda 2026-11-16)
   function myExtras() {
     try { const x = JSON.parse(localStorage.getItem('lpv_extra_modules') || '[]'); return Array.isArray(x) ? x : []; } catch (e) { return []; }
   }

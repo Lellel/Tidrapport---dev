@@ -124,7 +124,8 @@
         <div class="section-label">Uppdrag & Formulär</div>
         
         <div class="ios-card" style="grid-column: 1 / -1;">
-          <div class="type-control">
+          <!-- Nya/ÄTA är tilläggsmodulen "ata" (av för alla sedan 16/11) – utan den registreras allt som vanligt jobb -->
+          <div class="type-control" data-modul="ata">
             <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
             <button type="button" id="btn-type-ata" class="type-btn" onclick="setJobType('ata')">ÄTA</button>
           </div>
@@ -335,6 +336,15 @@
       if (rad) rad.hidden = true;
     };
     window.lpvPacklista();
+
+    // 🧾 Nya/ÄTA: utan tilläggsmodulen "ata" syns inte väljaren – då ska allt bli ett vanligt jobb
+    window.lpvAtaVal = function () {
+      if (!window.lpvModuleOn || window.lpvModuleOn('ata')) return;
+      if (typeof setJobType === 'function') setJobType('nya');
+      const rad = document.getElementById('row-ata-number');
+      if (rad) rad.style.display = 'none';
+    };
+    window.lpvAtaVal();
 
     // ❄️ Snöjour-knappen överst: bara när SU slagit på Snösäsong i appläget (app.js anropar den igen när me kommit)
     window.lpvSnojourKnapp = function () {
