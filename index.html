@@ -340,9 +340,11 @@
     window.lpvSnojourKnapp = function () {
       const b = document.getElementById('snojour-top');
       if (!b) return;
-      let lage = {};
-      try { lage = JSON.parse(localStorage.getItem('lpv_applage') || '{}'); } catch (e) { lage = {}; }
-      b.hidden = !lage.sno;
+      // Appläget skrivs bara när me-anropet lyckats på den här telefonen. Vet vi ingenting (dålig täckning,
+      // ny enhet) visar vi knappen hellre än att gömma den – den som saknar snömodulen göms ändå av moduler.js.
+      let lage = null;
+      try { const raw = localStorage.getItem('lpv_applage'); lage = raw ? JSON.parse(raw) : null; } catch (e) { lage = null; }
+      b.hidden = lage ? !lage.sno : false;
       if (window.lpvApplyModules) window.lpvApplyModules();
     };
     window.lpvSnojourKnapp();

@@ -49,3 +49,5 @@ Det mesta är byggt men inget är provat. En offert skickas som kontakt plus aff
 
 ## ❄️ Snöjour-knappen överst (2026-11-16)
 Tommy hittade inte tillbaka till Snöjour: knappen låg längst ner i passformuläret, bakom packlistan. Nu ligger **❄️ Snöjour – karta & GPS** överst på startsidan (under larmraden) för alla med snömodulen, men bara när **❄️ Snösäsong** är påslaget i appläget. Den gamla knappen i formuläret är kvar. Sidofynd: `button`/`.main-btn` har `display:flex`, så `hidden`-attributet bet inte – därför regeln `.main-btn[hidden] { display: none; }` i style.css (samma lapp som redan fanns för `.su-only`).
+
+**Rättelse samma dag:** knappen var gömd så fort appläget var okänt, och `lpv_applage` skrivs bara när `me` lyckats på just den telefonen (SU-panelen skriver det också, vilket är varför Daniels egen telefon visade knappen men Tommys inte). Nu gäller: okänt appläge = visa knappen. Den som saknar snömodulen göms ändå av moduler.js.
