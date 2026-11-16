@@ -68,7 +68,7 @@ Samma utseende och arbetssätt som Radarn (radar.html), men:
 **Förare på traktorn:** dra föraren från kulpåsen till traktorkulan i remsan → fast par tills man ändrar. Traktorn tar med föraren till alla sina fastigheter. En förare som sitter på en traktor plockas ner till **Upptagna** (hopfällt, som i Radarn). Handskottare stannar kvar (kan ha flera fastigheter).
 
 **🏠 Fastighetsvyn:** rutnät med kort per kommundel.
-- **⚠️ Väntar på traktor** överst: kort utan traktor (rött tomt hål). Kortet flyttar ner till sin ort när det fått traktor. Tom grupp → "✅ Alla har traktor" i listen.
+- ~~**⚠️ Väntar på traktor** överst: kort utan traktor (rött tomt hål). Kortet flyttar ner till sin ort när det fått traktor.~~ **Ändrat 2026-11-16:** gruppen är borttagen – korten ligger alltid under sin ort och rör sig aldrig när man lägger på resurser (Daniel: "kan vi göra så att korten ligger still i vyn"). De utan traktor känns igen på det röda tomma hålet, räknaren i ortrubriken ("FLEN (3) · ⚠️ 2 utan traktor") och ⚠️ N utan traktor i listen. Scrollplatsen behålls när vyn ritas om.
 - Under: korten per ort, sedan adress. Dra traktor från remsan till hålet, person från kulpåsen till 🧹-platsen. Dra tillbaka för att ta bort.
 - Under ett snöfall blir korten gröna/gula men **står kvar på sin plats**.
 
@@ -217,3 +217,7 @@ Alla admin ska kunna avgöra om det behövs ett byte eller om det bara blir en f
 - I Snöplaneringen ser **alla admins** båda bolagens personal (`getSnowBoard` filtrerar inte längre på bolag). Traktorer och fastigheter syntes redan för alla.
 - Kulpåsen grupperar **🏠 LPV · 🏠 Klaryta · 🤝 UE-företag** (`personGroup` i planering.html).
 - **Hemort** skickas bara för det egna bolagets personal – den behövs inte för att planera ("de åker runt ändå"). Personal-sidan och Ekonomi är fortfarande uppdelade per bolag. Test: `verktyg/tester/snobolagtest.js`.
+
+## Handskottarhålet syns alltid (2026-11-16)
+
+Fastighetskortets 🧹-hål ritades förut bara ut om fastigheten hade **handytor ritade i Rita zoner**. Eftersom zonerna oftast inte är ritade ännu gick det inte att se att man fick släppa en handskottare där (släppet fungerade, men hålet syntes inte). Nu har **varje fastighetskort** ett 🧹-hål, som blir `＋` när någon ligger där. ⚠️-varningen "saknar handskottare" är oförändrad: den gäller bara fastigheter som faktiskt har handytor.

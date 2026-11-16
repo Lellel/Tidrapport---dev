@@ -79,7 +79,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #map { height: 100%; width: 100%; }
 /* Fastighetsvyn: kort i rutnät */
 .grp { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 6px; }
-.grp.wait { color: var(--warn); }
+.grp .wait { color: var(--warn); }
 .grp:first-child { margin-top: 0; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 8px; }
 .pcard { background: var(--panel2); border: 1px solid var(--line); border-left: 6px solid var(--line); border-radius: var(--t-r); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-width: 0; }
@@ -378,7 +378,8 @@ function cardHtml(p) {
     ? `<div class="drag" data-drag="tractor" data-id="${esc(t.id)}" data-from="${esc(p.id)}">${tKula(t, p.size === 'liten' ? 30 : 38, !!doneOf(p, 'traktor', t.id))}</div>` : (p.size ? '' : '?')}</div>`;
   const drv = t ? `<span class="drvname">${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}</span>` : '';
   const hands = (p.shovelers || []).map(n => `<div class="drag" data-drag="person" data-kind="hand" data-id="${esc(n)}" data-from="${esc(p.id)}" title="${esc(n)}">${pKula(n, 30, !!doneOf(p, 'hand', n))}</div>`).join('');
-  const slot = zs.hand > 0 || (p.shovelers || []).length ? `<div class="slot${needsHand(p) ? ' need' : ''}" data-drop="slot" data-pid="${esc(p.id)}">${(p.shovelers || []).length ? '＋' : '🧹'}</div>` : '';
+  // Hålet syns alltid – man ska kunna släppa en handskottare även innan handytorna är ritade
+  const slot = `<div class="slot${needsHand(p) ? ' need' : ''}" data-drop="slot" data-pid="${esc(p.id)}">${(p.shovelers || []).length ? '＋' : '🧹'}</div>`;
   // Saknad storlek visas som en rad i listen (⚠️ N saknar storlek →), inte på varje kort
   const warns = [needsHand(p) ? '🧹⚠️ saknar handskottare' : '',
     t && t.driver && personByName(t.driver).active === false ? `⚠️ ${esc(t.driver)} inaktiv` : '',
@@ -393,13 +394,15 @@ function cardHtml(p) {
 function renderProps() {
   const list = kdProps();
   if (!list.length) return '<div class="empty">Inga fastigheter här. Lägg till i ⚙️ Register.</div>';
-  const wait = list.filter(p => !p.tractorId).sort((a, b) => sv(a.address, b.address));
-  const rest = list.filter(p => p.tractorId);
-  let h = wait.length ? `<div class="grp wait">⚠️ Väntar på traktor (${wait.length})</div><div class="cards">${wait.map(cardHtml).join('')}</div>` : '';
-  const orter = [...new Set(rest.map(p => p.ort || ''))].sort(sv);
+  // Korten ligger alltid under sin ort och flyttar sig aldrig när man lägger på traktor eller handskottare
+  // (bestämt 2026-11-16, ersätter gruppen "⚠️ Väntar på traktor"). De utan traktor känns igen på det
+  // röda tomma hålet, ortrubriken och räknaren i listen.
+  let h = '';
+  const orter = [...new Set(list.map(p => p.ort || ''))].sort(sv);
   orter.forEach(o => {
-    const ps = rest.filter(p => (p.ort || '') === o).sort((a, b) => sv(a.address, b.address));
-    h += `<div class="grp">${esc(o || 'Utan ort')} (${ps.length})</div><div class="cards">${ps.map(cardHtml).join('')}</div>`;
+    const ps = list.filter(p => (p.ort || '') === o).sort((a, b) => sv(a.address, b.address));
+    const utan = ps.filter(p => !p.tractorId).length;
+    h += `<div class="grp">${esc(o || 'Utan ort')} (${ps.length})${utan ? `<span class="wait"> · ⚠️ ${utan} utan traktor</span>` : ''}</div><div class="cards">${ps.map(cardHtml).join('')}</div>`;
   });
   return h + '<div class="hint" style="margin-top:14px">Dra en traktor från remsan till hålet, en handskottare till 🧹. Tryck på ett kort för detaljer.</div>';
 }
@@ -467,13 +470,19 @@ function renderPhoneList() {
 }
 
 // ===== Rita allt =====
+let lastView = null;
 function render(fitMap) {
   renderTop(); renderOrder(); renderSide(); renderPhoneList();
   const isMap = view === 'map';
   $('area').classList.toggle('mapmode', isMap);
   $('map').hidden = !isMap; $('cardsview').hidden = isMap;
   if (isMap) { ensureMap(); renderMapPins(fitMap); }
-  else $('cardsview').innerHTML = view === 'tractors' ? renderTractors() : renderProps();
+  else {
+    const keep = lastView === view ? $('area').scrollTop : 0; // samma vy → stå kvar där man var
+    $('cardsview').innerHTML = view === 'tractors' ? renderTractors() : renderProps();
+    $('area').scrollTop = keep;
+  }
+  lastView = view;
   if (sheetFor) renderSheet();
   if (loaded) store.set('lpv_plan_cache2', JSON.stringify({ properties, fleet, people, zonesAll, snowfall, doneList, stops }));
 }
