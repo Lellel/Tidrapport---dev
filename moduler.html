@@ -87,7 +87,8 @@
 (function () {
   const MODS = [['sno', '❄️ Snö'], ['radar', '🔭 Radarn'], ['offerter', '📄 Offerter & kunder'], ['ekonomi', '💰 Ekonomi'], ['personal', '👥 Personal']];
   // Tilläggsmoduler: av tills man bockar i (SU har dem alltid)
-  const EXTRAS = [['kartor', '📌 Kartkalibrering']];
+  const EXTRAS = [['kartor', '📌 Kartkalibrering'], ['packlista', '🎒 Packlistan']];
+  const SU_AUTO = ['kartor']; // de tillägg SU alltid har (packlistan måste SU ge sig själv)
   const SITE = location.origin + location.pathname.replace(/[^/]*$/, '');
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -137,7 +138,8 @@
     $('list').innerHTML = staff.map((p, i) => {
       const all = !p.modules;
       const chips = MODS.map(([k, label]) => `<button type="button" class="lpv-chip" data-i="${i}" data-m="${k}" aria-pressed="${all || p.modules.indexOf(k) !== -1}">${esc(label)}</button>`).join('') +
-        EXTRAS.map(([k, label]) => `<button type="button" class="lpv-chip" data-i="${i}" data-x="${k}" aria-pressed="${p.su || (p.extras || []).indexOf(k) !== -1}" ${p.su ? 'disabled title="SU har alltid tilläggen"' : ''}>${esc(label)}</button>`).join('');
+        EXTRAS.map(([k, label]) => { const auto = p.su && SU_AUTO.indexOf(k) !== -1; // SU har alla tillägg utom packlistan
+          return `<button type="button" class="lpv-chip" data-i="${i}" data-x="${k}" aria-pressed="${auto || (p.extras || []).indexOf(k) !== -1}" ${auto ? 'disabled title="SU har alltid det här tillägget"' : ''}>${esc(label)}</button>`; }).join('');
       return `<div class="person"><input type="checkbox" data-mark="${i}" ${marked.has(p.name) ? 'checked' : ''} aria-label="Markera ${esc(p.name)}">
         <div><div class="name">${esc(p.name)}${p.su ? '<span class="tag">SU</span>' : ''}${all ? '<span class="tag">Allt</span>' : ''}</div>
         <div class="meta">${esc(p.role)} · ${esc(p.company)}${p.status !== 'Aktiv' ? ' · ' + esc(p.status) : ''}</div>

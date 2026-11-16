@@ -8,7 +8,7 @@
   function myModules() {
     try { const m = JSON.parse(localStorage.getItem('lpv_modules') || 'null'); return Array.isArray(m) ? m : null; } catch (e) { return null; }
   }
-  const EXTRA = ['kartor'];
+  const EXTRA = ['kartor', 'packlista']; // tilläggsmoduler: dolda tills man fått dem (packlistan avaktiverad 2026-11-16)
   function myExtras() {
     try { const x = JSON.parse(localStorage.getItem('lpv_extra_modules') || '[]'); return Array.isArray(x) ? x : []; } catch (e) { return []; }
   }
@@ -31,6 +31,6 @@
       else if (el.hasAttribute('data-modul-dold')) { el.style.display = el.getAttribute('data-modul-dold'); el.removeAttribute('data-modul-dold'); }
     });
   };
-  function run() { window.lpvApplyModules(); new MutationObserver(() => { if (myModules() || document.querySelector('[data-modul="kartor"]')) window.lpvApplyModules(); }).observe(document.body, { childList: true, subtree: true }); }
+  function run() { window.lpvApplyModules(); new MutationObserver(() => { if (myModules() || document.querySelector('[data-modul]')) window.lpvApplyModules(); }).observe(document.body, { childList: true, subtree: true }); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
 })();

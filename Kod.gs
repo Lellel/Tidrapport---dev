@@ -269,7 +269,8 @@ function doPost(e) {
     // --- ROUTER ---
     if (action === "me") return createJsonResponse({ status: "success", user: auth.user, role: auth.role || "", company: auth.company, isAdmin: auth.isAdmin, isSuper: !!auth.isSuper, isEconomist: auth.isEconomist,
       modules: (readStaffAuth(auth.user) || {}).modules || null, su: isSuUser(auth.user), appLage: appLageForApp(),
-      extras: isSuUser(auth.user) ? EXTRA_MODULES.slice() : ((readStaffAuth(auth.user) || {}).extras || []),
+      extras: (function () { const mine = (readStaffAuth(auth.user) || {}).extras || [];
+        return isSuUser(auth.user) ? SU_AUTO_EXTRAS.concat(mine.filter(m => SU_AUTO_EXTRAS.indexOf(m) === -1)) : mine; })(),
       avatar: data.wantAvatar ? myAvatarFromSheet(auth.user) : undefined, // ny enhet utan egen avatar hämtar sin (2026-11-12)
       guideRoll: guideRollFor([auth.isAdmin ? "admin" : "", auth.isEconomist || /^ekonom$/i.test(auth.role || "") ? "ekonom" : "", /^ue$/i.test(auth.role || "") ? "ue" : ""].filter(Boolean), auth.user) });
     // Offerter: Klaryta-admin får bara röra Klarytas offerter
@@ -1092,7 +1093,12 @@ const MODULES_COLUMN = 13; // Kolumn M
 const MODULES = ["tid", "sno", "radar", "offerter", "ekonomi", "personal"];
 // Tilläggsmoduler: dolda för alla utom SU och den som fått dem (2026-11-07). Ligger i samma kolumn, t.ex. "kartor" eller "tid,sno,kartor".
 // "kartor" = 📌 Kartkalibrering i Rita zoner (Passa in, Justera, Föreslå punkter, Granska AI-inpassade).
-const EXTRA_MODULES = ["kartor"];
+// "packlista" = 🎒 Fordonscheck & Packlista på startsidan. Avaktiverad för alla 2026-11-16 (Daniels beslut)
+// – som tilläggsmodul är den av tills någon får den i 🎛️ Moduler.
+const EXTRA_MODULES = ["kartor", "packlista"];
+// SU har automatiskt alla tillägg UTOM packlistan: den är avstängd för alla (även Daniel) tills man
+// bockar i den på sig själv i 🎛️ Moduler (2026-11-16).
+const SU_AUTO_EXTRAS = ["kartor"];
 const SU_LINK_MINUTES = 15, SU_SESSION_DAYS = 30;
 
 function readModules(row) {

@@ -191,6 +191,8 @@ button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.5; cursor: default; }
 
 .main-btn { min-height: var(--tap); background: var(--surface); border: 1px solid var(--border); }
+/* knappar sätts till display:flex ovan – då biter inte hidden-attributet utan en egen regel */
+.main-btn[hidden] { display: none; }
 
 .main-btn-blue,
 button.btn-primary, .action-button, .btn-blue {

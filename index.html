@@ -69,6 +69,9 @@
 
       <!-- 🔧 Traktor/handskottare som står (admin, snösäsong) – snolage.js -->
       <div id="stopp-banner"></div>
+      <!-- ❄️ Snöjour högst upp under snösäsong (16/11): annars ligger knappen begravd längst ner i
+           passformuläret, bakom packlistan. Göms automatiskt av moduler.js för den som saknar snömodulen. -->
+      <button type="button" id="snojour-top" class="main-btn" style="width:100%; margin-top:10px; min-height:48px;" hidden onclick="location.href='snojour.html'">❄️ Snöjour – karta &amp; GPS</button>
 
       <!-- KARUSELLEN HÖGST UPP -->
       <div id="outbox-section">
@@ -90,8 +93,8 @@
         </div>
 
         <!-- Packlistan bockas en gång per dag och telefon; sedan bara en rad (lpv_packat) -->
-        <div class="packed-line" id="packed-line" hidden>✅ Packat <span id="packed-time"></span> <button type="button" class="packed-again" onclick="showPackingAgain()">Visa packlistan</button></div>
-        <div id="packing-list">
+        <div class="packed-line" id="packed-line" data-modul="packlista" hidden>✅ Packat <span id="packed-time"></span> <button type="button" class="packed-again" onclick="showPackingAgain()">Visa packlistan</button></div>
+        <div id="packing-list" data-modul="packlista">
         <div class="section-label">📦 Fordonscheck & Packlista</div>
         
         <div class="checklist-item">
@@ -310,6 +313,39 @@
     }
     // Redan packat i dag på den här telefonen → verktygen är öppna direkt
     try { const p = JSON.parse(localStorage.getItem('lpv_packat') || 'null'); if (p && p.d === todayKey()) unlockFullMenu(true); } catch (e) { /* ingen lagring */ }
+
+    // 🎒 Packlistan är en tilläggsmodul (av för alla sedan 16/11). Utan den finns ingen "Lås upp Dagen"-knapp,
+    // så Uppdrag & Formulär måste vara öppet direkt. Körs igen när personens moduler kommit från servern.
+    window.lpvPacklista = function () {
+      const pl = document.getElementById('packing-list'), rad = document.getElementById('packed-line');
+      if (!pl) return;
+      if (window.lpvModuleOn && !window.lpvModuleOn('packlista')) {
+        unlockFullMenu(true);
+        pl.hidden = true;
+        if (rad) rad.hidden = true;
+        return;
+      }
+      // Modulen på: tillbaka till det vanliga – packat i dag = upplåst, annars packlistan igen
+      let packat = null;
+      try { packat = JSON.parse(localStorage.getItem('lpv_packat') || 'null'); } catch (e) { packat = null; }
+      if (packat && packat.d === todayKey()) { unlockFullMenu(true); return; }
+      const menu = document.getElementById('field-tools-menu');
+      if (menu) menu.classList.remove('unlocked');
+      pl.hidden = false;
+      if (rad) rad.hidden = true;
+    };
+    window.lpvPacklista();
+
+    // ❄️ Snöjour-knappen överst: bara när SU slagit på Snösäsong i appläget (app.js anropar den igen när me kommit)
+    window.lpvSnojourKnapp = function () {
+      const b = document.getElementById('snojour-top');
+      if (!b) return;
+      let lage = {};
+      try { lage = JSON.parse(localStorage.getItem('lpv_applage') || '{}'); } catch (e) { lage = {}; }
+      b.hidden = !lage.sno;
+      if (window.lpvApplyModules) window.lpvApplyModules();
+    };
+    window.lpvSnojourKnapp();
   </script>
 <script src="avatar_onboarding.js?v=4.7.1"></script>
 <script src="install.js"></script>

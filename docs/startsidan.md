@@ -46,3 +46,6 @@ Det mesta är byggt men inget är provat. En offert skickas som kontakt plus aff
 - **Pågående snöfall** = startat för mindre än 24 h sedan (snöfall avslutas inte, nästa ersätter).
 - **personal.html**: ＋ Ny person, 🏁 QR och 🔑 Spärra & ny länk. Snöplaneringen tar `?p=<fastighet>`.
 - Tester: `sutest` (appläget), `vadertest` (utsikten), `startspalt-e2e`, `driftstopp-e2e`.
+
+## ❄️ Snöjour-knappen överst (2026-11-16)
+Tommy hittade inte tillbaka till Snöjour: knappen låg längst ner i passformuläret, bakom packlistan. Nu ligger **❄️ Snöjour – karta & GPS** överst på startsidan (under larmraden) för alla med snömodulen, men bara när **❄️ Snösäsong** är påslaget i appläget. Den gamla knappen i formuläret är kvar. Sidofynd: `button`/`.main-btn` har `display:flex`, så `hidden`-attributet bet inte – därför regeln `.main-btn[hidden] { display: none; }` i style.css (samma lapp som redan fanns för `.su-only`).
