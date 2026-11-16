@@ -4,7 +4,7 @@
 window.LPV_NYHETER = [
   { id: '2026-11-16-kort-still', datum: '2026-11-16', roller: ['admin'], modul: 'sno',
     titel: '🧹 Handskottarhål på alla fastigheter – och korten ligger still',
-    text: 'Varje fastighetskort i Snöplaneringen har nu ett 🧹-hål, även innan handytorna är ritade (det blir ＋ för fler). Korten ligger kvar under sin ort när du lägger på traktor eller handskottare – gruppen "Väntar på traktor" är borttagen, ortrubriken räknar i stället hur många som saknar traktor.' },
+    text: 'Varje fastighetskort i Snöplaneringen har nu ett 🧹-hål, även innan handytorna är ritade (det blir ＋ för fler). Korten ligger kvar under sin ort när du lägger på traktor eller handskottare – gruppen "Väntar på traktor" är borttagen, ortrubriken räknar i stället hur många som saknar traktor. Drar du dit någon som inte är bockad som Handskottare frågar appen och bockar i det åt dig.' },
   { id: '2026-11-13-ta-bort-person', datum: '2026-11-13', roller: ['admin'],
     titel: '🗑 Ta bort personal och UE',
     text: 'Personer har nu en 🗑 Ta bort-knapp (Personal och UE). Utan pass försvinner personen helt, med pass blir hen inaktiv så att timmarna finns kvar. Ett UE-företag går att ta bort när ingen aktiv person finns kvar.' },

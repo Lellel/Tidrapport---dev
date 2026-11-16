@@ -647,11 +647,15 @@ function resolve(d, x, y) {
     if (d.kind === 'driver' || d.fromTractor) {
       if (t.type === 'tractor') return { act: 'setDriver', tid: t.tid, ok: true, el: t.el };
       if (t.side && d.fromTractor) return { act: 'removeDriver', el: $('side') };
-      return null;
     }
     let pid = t.type === 'slot' || t.type === 'card' || t.type === 'pin' ? t.pid : t.card ? t.card.dataset.pid : null;
     if (!pid && t.map) pid = nearestPin(x, y);
-    if (pid) { const el = (document.getElementById('c-' + pid) || {}).querySelector?.('.slot') || t.el; return { act: 'putHand', pid, ok: true, el }; }
+    if (pid) {
+      const el = (document.getElementById('c-' + pid) || {}).querySelector?.('.slot') || t.el;
+      // En kula som inte är bockad som 🧹 Handskottare studsade förut tyst – nu får man frågan i stället
+      const isHand = !!personByName(d.id).shoveler;
+      return { act: isHand ? 'putHand' : 'askHand', pid, ok: isHand, el };
+    }
     if (t.side && d.from) return { act: 'removeHand', el: $('side') };
     return null;
   }
@@ -694,6 +698,20 @@ function drop(d, x, y) {
     if ((p.shovelers || []).includes(d.id)) return;
     if (d.from && d.from !== p.id) { const f = propById(d.from); assign(f.id, { shovelers: f.shovelers.filter(n => n !== d.id) }); }
     return assign(p.id, { shovelers: [...(p.shovelers || []), d.id] });
+  }
+  if (r.act === 'askHand') {
+    const x2 = personByName(d.id), p = propById(r.pid);
+    if ((p.shovelers || []).includes(d.id)) return;
+    toast(`🧹 ${esc(d.id)} är inte bockad som handskottare. Ska hen bli det och läggas på ${esc(p.address)}?`, 'warn', { label: 'Ja, bocka i', run: async () => {
+      setStatus('Sparar…');
+      try {
+        const res = await snoApi({ action: 'saveSnowPerson', name: d.id, owner: x2.owner || 'Egna', shoveler: true, ueLead: !!x2.ueLead, home: x2.home || '' });
+        if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
+        x2.shoveler = true; setStatus('Sparat');
+        if (await assign(p.id, { shovelers: [...(p.shovelers || []), d.id] })) toast(`✅ ${esc(d.id)} är nu 🧹 handskottare och ligger på ${esc(p.address)}`, true);
+      } catch (err) { setStatus('Fel', true); toast('❌ ' + esc(err.message)); }
+    } });
+    return;
   }
   if (r.act === 'removeHand') { const f = propById(d.from); assign(f.id, { shovelers: f.shovelers.filter(n => n !== d.id) }); return; }
   if (r.act === 'propToLane') {

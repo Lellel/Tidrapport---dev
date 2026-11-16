@@ -221,3 +221,5 @@ Alla admin ska kunna avgöra om det behövs ett byte eller om det bara blir en f
 ## Handskottarhålet syns alltid (2026-11-16)
 
 Fastighetskortets 🧹-hål ritades förut bara ut om fastigheten hade **handytor ritade i Rita zoner**. Eftersom zonerna oftast inte är ritade ännu gick det inte att se att man fick släppa en handskottare där (släppet fungerade, men hålet syntes inte). Nu har **varje fastighetskort** ett 🧹-hål, som blir `＋` när någon ligger där. ⚠️-varningen "saknar handskottare" är oförändrad: den gäller bara fastigheter som faktiskt har handytor.
+
+Förut studsade en kula tyst tillbaka om personen inte var bockad som **🧹 Handskottare** på Personal-sidan (upptäckt 16/11: Daniel hade noll handskottare i dev och trodde att släppet var trasigt). Nu frågar appen i stället – **Ja, bocka i** sätter bocken via `saveSnowPerson` och lägger kulan i hålet i samma svep. Hålet lyser varnande medan man drar dit en sådan kula.
