@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-17-pass-forst', datum: '2026-11-17', roller: ['forare', 'handskottare', 'ue', 'admin'], modul: 'sno',
+    titel: '▶️ Starta snöpasset först',
+    text: 'Nu går det inte att trycka ✅ Klar på dina egna fastigheter förrän du startat snöpasset. Står det "▶️ Starta snöpasset först" på knappen saknas bara passet. Röjningstiden räknas från passet – annars hamnar markeringen utanför tidrapporten. Markerar en arbetsledare åt någon annan behövs inget pass.' },
   { id: '2026-11-16-valkomst-knapp', datum: '2026-11-16', roller: ['admin'],
     titel: '📦 Välkomstpaketet väntar på knappen',
     text: 'Lägger du in en ny person skickas inget längre automatiskt. Lägg in alla, sätt roller och moduler och fördela jobben – tryck sedan 📦 Välkomstpaket när du är klar. Personen står som "Välkomstpaket inte skickat" tills dess, så ingen glöms bort.' },

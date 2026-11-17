@@ -20,6 +20,7 @@
     .map-wrap { position: relative; height: 50vh; flex-shrink: 0; }
     #map { height: 100%; width: 100%; }
     .map-buttons { position: absolute; right: 10px; bottom: 10px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
+    .lpv-btn.spard { opacity: .55; border-style: dashed; }
     .sheet { flex: 1; overflow-y: auto; padding: 12px 14px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 12px; }
     select { width: 100%; padding: 12px; border-radius: var(--t-r); border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; }
     .timer { text-align: center; font-size: 13px; color: var(--muted); }
@@ -133,6 +134,20 @@
     function loadMine() { try { return JSON.parse(localStorage.getItem('lpv_sno_klara') || '[]'); } catch (e) { return []; } }
     function saveMine(list) { try { localStorage.setItem('lpv_sno_klara', JSON.stringify(list.slice(-200))); } catch (e) { /* full */ } }
 
+    // ▶️ Snöpasset måste vara igång innan man markerar SIN EGEN kula klar (2026-11-17).
+    // Röjningstiden räknas ut från Klar-tiderna i passet – utan pass hamnar markeringen utanför tidrapporten
+    // och faktureringen tappar timmarna. Gäller alla, även admin, när det är ens egen kula.
+    // Markerar admin eller UE-ansvarig åt NÅGON ANNAN är det administration och kräver inget pass.
+    function needsPass(p, part, unit) {
+      const x = (p.parts || []).find(y => y.part === part && y.unit === unit);
+      return !!(x && x.mine) && !activeSnowDraft();
+    }
+    function passFirst() {
+      alert('▶️ Starta snöpasset först\n\nRöjningstiden räknas från passet. Utan det hamnar din Klar-markering utanför tidrapporten.');
+      const box = document.getElementById('time-box');
+      if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     function startPass() {
       const drafts = loadDrafts();
       const ongoing = drafts.find(d => !d.end);
@@ -147,7 +162,7 @@
         snoPass: true, startedAt: Date.now()
       });
       saveDrafts(drafts);
-      renderTimeBox();
+      renderAll(); // knapparna byter från spärr till ✅ Klar
     }
 
     function stopPass() {
@@ -275,8 +290,10 @@
         const buttons = mine.map(x => {
           const d = doneOf(p, x.part, x.unit), lbl = mine.length > 1 || !x.mine ? ` ${x.part === 'traktor' ? '🚜' : '🧹'} ${snoEscape(x.label)}` : '';
           const args = `'${snoEscape(p.id)}','${x.part}','${snoEscape(x.unit).replace(/&#39;/g, "\\'")}'`;
-          return d ? `<button class="lpv-btn small block" onclick="markDone(${args}, true)">↶ Ångra klar${lbl} (${snoEscape(d.time.slice(11))})</button>`
-            : `<button class="lpv-btn go big block" onclick="markDone(${args}, false)">✅ Klar${lbl}</button>`;
+          if (d) return `<button class="lpv-btn small block" onclick="markDone(${args}, true)">↶ Ångra klar${lbl} (${snoEscape(d.time.slice(11))})</button>`;
+          // Egen kula utan pågående snöpass: spärrad tills passet startats
+          if (needsPass(p, x.part, x.unit)) return `<button class="lpv-btn big block spard" onclick="passFirst()">▶️ Starta snöpasset först${lbl}</button>`;
+          return `<button class="lpv-btn go big block" onclick="markDone(${args}, false)">✅ Klar${lbl}</button>`;
         }).join('');
         return `<div class="obj ${st}" id="o-${snoEscape(p.id)}">
           <div onclick="focusProp('${snoEscape(p.id)}')">
@@ -401,6 +418,7 @@
     function markDone(pid, part, unit, undo) {
       const p = jour.properties.find(x => x.id === pid);
       if (!p) return;
+      if (!undo && needsPass(p, part, unit)) { passFirst(); return; }
       const at = Date.now();
       // Direkt på skärmen
       p.done = p.done.filter(d => !(d.part === part && d.unit === unit));
