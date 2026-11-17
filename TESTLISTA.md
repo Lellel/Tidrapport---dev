@@ -393,7 +393,7 @@ I den här appen är Blacksta spärrat för alla utom admin på LPV tills datan 
 - [ ] **➕ Ny adress** finns bara för admin
 
 ## 9c. Väder – Plogometern och Sandometern (kräver ny Kod.gs)
-- [ ] Apps Script (dev): kör **installeraVaderKoll** en gång → godkänn behörigheter → loggen visar plog/sand per område
+- [x] Apps Script (dev): kör **installeraVaderKoll** en gång → godkänn behörigheter → loggen visar plog/sand per område *(gjort 2026-11-17 i editorn – `clasp run` fungerar inte mot dev)*
 - [ ] Meny → **🌨️ Väder**: fem områden med båda mätarna, timprognos, vägyta, kamerabild
 - [ ] Ändra **Plogas från** (cm) → Spara → mätarna räknas om
 - [ ] Förare med slinga i Flen: Snöjour visar Plogometern och Sandometern för Flen
