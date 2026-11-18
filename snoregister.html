@@ -29,7 +29,7 @@
     .row { display: flex; gap: 8px; align-items: center; }
     .row > * { flex: 1; }
     .muted { color: var(--muted); font-size: 12px; }
-    .msg { font-size: 13px; min-height: 18px; color: var(--muted); }
+    .msg { font-size: 13px; min-height: 18px; color: var(--muted); flex-shrink: 0; } /* annars trycks en tvåradig text ihop under sökrutan (18/11) */
     .filters { display: flex; flex-wrap: wrap; gap: 6px; }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; }
     .stat { background: var(--card); border-radius: var(--t-r); padding: 8px 4px; font-size: 11px; color: var(--muted); }
@@ -43,7 +43,6 @@
     .pcard-meta { font-size: 12px; color: var(--muted); }
     .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
     .badge.prio { background: rgba(245,158,11,.2); color: var(--t-warn); }
-    .badge.forced { background: rgba(239,68,68,.2); color: #fca5a5; }
     .badge.missing { background: rgba(239,68,68,.25); color: var(--t-danger); }
 
     /* HÅLEN: platshållare för kulan på fastighetskortet */
@@ -51,7 +50,6 @@
     .hal.stor { width: 56px; height: 56px; border-color: var(--stor); }
     .hal.liten { width: 38px; height: 38px; border-color: var(--liten); }
     .hal.none { width: 46px; height: 46px; border-color: var(--danger); }
-    .hal.forced { box-shadow: 0 0 0 3px rgba(239,68,68,.35); }
     .hal-big { margin: 0 auto; }
     .hal-big.stor { width: 110px; height: 110px; border-width: 4px; }
     .hal-big.liten { width: 76px; height: 76px; border-width: 4px; }
@@ -198,7 +196,7 @@
     // Tavlan har flyttat till planering.html (Radar-stil, 2026-11-06) – registret har bara Fastigheter och Traktorer
     let tab = (() => { try { const t = localStorage.getItem('lpv_reg_tab'); return t === 'fleet' ? 'fleet' : 'props'; } catch (e) { return 'props'; } })();
     // ?filter=saknar från Snöplaneringens "⚠️ N saknar storlek →"
-    let filter = (() => { const f = new URLSearchParams(location.search).get('filter'); return ['saknar', 'stor', 'liten', 'prio', 'nopos'].includes(f) ? f : 'alla'; })();
+    let filter = (() => { const f = new URLSearchParams(location.search).get('filter'); return ['saknar', 'stor', 'liten', 'prio', 'nopos', 'nokund'].includes(f) ? f : 'alla'; })();
     let showNew = false;
     let search = '';
     let selectedId = null;
@@ -234,19 +232,16 @@
     // ================= FASTIGHETER =================
     function sizeLabel(p) {
       if (!p.size) return 'Storlek saknas';
-      return p.size === 'stor' ? 'Stor' : (p.forced ? 'Liten (tvingad stor)' : 'Liten');
+      return p.size === 'stor' ? 'Stor' : 'Liten';
     }
-    function fitText(p) {
-      if (!p.size) return 'Välj storlek nedan så att en traktorkula kan läggas på kortet.';
-      if (p.size === 'stor') return 'Passar: 🟠 stor kula och 🔵 liten kula';
-      return p.forced ? 'Passar: 🔵 liten kula + 🟠 stor kula (tvingad – gränsfall)' : 'Passar: 🔵 bara liten kula – en stor får inte plats';
-    }
-    function holeClass(p) { return (p.size || 'none') + (p.forced ? ' forced' : ''); }
+    // Storleksregeln slopad 2026-11-16: stor/liten är bara information, alla maskiner får läggas på alla fastigheter
+    function fitText(p) { return 'Storleken är bara information – alla maskiner får läggas på alla fastigheter.'; }
+    function holeClass(p) { return p.size || 'none'; }
 
     function filteredProps() {
       const q = search.toLowerCase();
       return properties
-        .filter(p => filter === 'alla' || (filter === 'saknar' ? !p.size : filter === 'prio' ? p.priority : filter === 'nopos' ? p.lat === null : p.size === filter))
+        .filter(p => filter === 'alla' || (filter === 'saknar' ? !p.size : filter === 'prio' ? p.priority : filter === 'nopos' ? p.lat === null : filter === 'nokund' ? !p.kundId : p.size === filter))
         .filter(p => !q || p.address.toLowerCase().includes(q) || p.ort.toLowerCase().includes(q))
         .sort((a, b) => a.ort.localeCompare(b.ort, 'sv') || a.address.localeCompare(b.address, 'sv'));
     }
@@ -254,19 +249,21 @@
     function renderProps() {
       const missing = properties.filter(p => !p.size).length;
       const noPos = properties.filter(p => p.lat === null).length;
+      const noKund = properties.filter(p => !p.kundId).length;
       const sel = properties.find(p => p.id === selectedId);
       const fbtn = (key, text) => `<button class="lpv-chip ${filter === key ? 'on' : ''}" onclick="filter='${key}'; render()">${text}</button>`;
       return `
         <div class="stats">
           <div class="stat"><b>${properties.length}</b>fastigheter</div>
-          <div class="stat"><b style="color:${missing ? 'var(--danger)' : 'var(--ok)'}">${missing}</b>saknar storlek</div>
+          <div class="stat"><b>${missing}</b>saknar storlek</div>
+          <div class="stat"><b style="color:${noKund ? 'var(--warn)' : 'var(--ok)'}">${noKund}</b>utan kundkort</div>
           <div class="stat"><b>${new Set(properties.map(p => p.ort).filter(Boolean)).size}</b>orter</div>
         </div>
-        ${missing === 0 && properties.length ? '<div class="muted" style="text-align:center;">✅ Alla kort har storlek – redo att lägga ut kulor på 🎯 Tavla</div>' : ''}
+        ${noKund ? renderLinkBox(noKund) : ''}
         ${sel ? renderDetail(sel) : showNew ? renderNewForm() : '<button class="lpv-btn block" onclick="showNew=true; render()">＋ Ny fastighet</button>'}
         <div class="msg" id="msg">${message}</div>
         <input placeholder="🔍 Sök adress eller ort" value="${snoEscape(search)}" oninput="search=this.value; document.getElementById('plist').innerHTML = renderPropList()">
-        <div class="filters">${fbtn('alla', 'Alla')}${fbtn('saknar', `⚠️ Saknar storlek (${missing})`)}${fbtn('stor', '🟠 Stor')}${fbtn('liten', '🔵 Liten')}${fbtn('prio', '⭐ Prio')}${noPos ? fbtn('nopos', `📍 Utan position (${noPos})`) : ''}</div>
+        <div class="filters">${fbtn('alla', 'Alla')}${fbtn('saknar', `⚠️ Saknar storlek (${missing})`)}${fbtn('stor', '🟠 Stor')}${fbtn('liten', '🔵 Liten')}${fbtn('prio', '⭐ Prio')}${noPos ? fbtn('nopos', `📍 Utan position (${noPos})`) : ''}${noKund ? fbtn('nokund', `🔗 Utan kundkort (${noKund})`) : ''}</div>
         <div id="plist" style="display:flex; flex-direction:column; gap:6px;">${renderPropList()}</div>`;
     }
 
@@ -277,8 +274,8 @@
         <div class="pcard ${p.id === selectedId ? 'selected' : ''}" onclick="selectProperty('${snoEscape(p.id)}')">
           <div class="hal ${holeClass(p)}">${p.size ? '' : '?'}</div>
           <div class="pcard-body">
-            <div class="pcard-title">${snoEscape(p.address)}${p.priority ? '<span class="badge prio">⭐ PRIO</span>' : ''}${p.forced ? '<span class="badge forced">TVINGAD</span>' : ''}</div>
-            <div class="pcard-meta">${snoEscape(p.ort || 'Ort saknas')} · ${sizeLabel(p)}${p.photos.length ? ' · 📷 ' + p.photos.length : ''}${p.lat === null ? ' · 📍 saknar position' : ''}</div>
+            <div class="pcard-title">${snoEscape(p.address)}${p.priority ? '<span class="badge prio">⭐ PRIO</span>' : ''}</div>
+            <div class="pcard-meta">${snoEscape(p.ort || 'Ort saknas')}${p.kund ? ' · ' + (p.kundId ? '' : '🔗⚠️ ') + snoEscape(p.kund) : ''} · ${sizeLabel(p)}${p.photos.length ? ' · 📷 ' + p.photos.length : ''}${p.lat === null ? ' · 📍 saknar position' : ''}</div>
           </div>
         </div>`).join('');
     }
@@ -306,7 +303,6 @@
         <div class="size-toggle">${sizeBtn('stor', '🟠 Stor')}${sizeBtn('liten', '🔵 Liten')}</div>
         <div class="row">
           <button class="lpv-toggle ${p.priority ? 'on' : ''}" onclick="updateProperty({ priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
-          ${p.size === 'liten' ? `<button class="lpv-toggle ${p.forced ? 'on' : ''}" onclick="toggleForced()">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}
         </div>
         <div>
           <label>Att tänka på (visas för föraren)</label>
@@ -320,9 +316,17 @@
           <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="addPhoto(event)">
           <button class="lpv-btn" style="width:100%; margin-top:6px;" onclick="document.getElementById('photo-input').click()">📷 Lägg till foto</button>
         </div>
-        ${(p.maps || []).length || p.kund ? `<div>
-          <label>Kund och kundkartor</label>
-          <div class="muted">${snoEscape(p.kund || '')}${p.omrade ? ' · ' + snoEscape(p.omrade) : ''}</div>
+        <div>
+          <label>Kund (kundkortet i 💼 Kunder – fakturan går dit)</label>
+          ${customers ? `<select onchange="setPropertyCustomer('${snoEscape(p.id)}', this.value)">
+            <option value="">${p.kundId ? '– Ingen kund –' : p.kund ? '⚠️ Inte kopplad: ' + snoEscape(p.kund) : '– Välj kund –'}</option>
+            ${customers.map(c => `<option value="${snoEscape(c.id)}" ${c.id === p.kundId ? 'selected' : ''}>${snoEscape(c.name)}</option>`).join('')}
+          </select>` : `<div class="muted">${snoEscape(p.kund || 'Ingen kund')} · hämtar kundregistret…</div>`}
+          ${p.kundId ? `<div class="muted" style="margin-top:4px">🔗 Kopplad till kundkortet · <a href="offerter.html?view=customers&kund=${encodeURIComponent(p.kundId)}" style="color:var(--accent)">Öppna i 💼 Kunder</a></div>` : ''}
+        </div>
+        ${(p.maps || []).length ? `<div>
+          <label>Kundkartor</label>
+          <div class="muted">${p.omrade ? snoEscape(p.omrade) : ''}</div>
           <div class="photos">${(p.maps || []).map(m => `<div class="photo"><a href="${snoEscape(m.url)}" target="_blank" rel="noopener"><img src="${snoEscape(m.url)}" alt="${snoEscape(m.label)}" loading="lazy"></a></div>`).join('')}</div>
           ${(p.maps || []).length ? `<button class="lpv-btn" style="width:100%; margin-top:6px;" onclick="location.href='snozoner.html?fastighet=${encodeURIComponent(p.id)}'">❄️ Rita zoner från kundkartan</button>` : ''}
         </div>` : ''}
@@ -363,6 +367,55 @@
       if (saved) selectProperty(saved.id, true); else render();
     }
 
+    // ===== Kund på fastigheten (docs/snoplanering.md "Kunden på fastigheten", 2026-11-18) =====
+    let customers = null, linkPreview = null;
+    async function loadCustomers() {
+      try { const r = await snoApi({ action: 'getCustomers' }); if (r.status === 'success') customers = r.customers || []; } catch (e) { /* ingen kontakt */ }
+      if (tab === 'props') render();
+    }
+    async function setPropertyCustomer(pid, cid) {
+      const p = properties.find(x => x.id === pid);
+      if (!p) return;
+      const before = { kundId: p.kundId, kund: p.kund };
+      const c = (customers || []).find(x => x.id === cid);
+      p.kundId = cid; if (c) p.kund = c.name; render();
+      try {
+        const r = await snoApi({ action: 'setPropertyCustomer', propertyId: pid, customerId: cid });
+        if (r.status !== 'success') throw new Error(r.message || 'Kunde inte spara.');
+        Object.assign(p, r.property); setMessage('✅ Kunden sparad');
+      } catch (err) { Object.assign(p, before); setMessage('❌ ' + snoEscape(err.message)); }
+      render();
+    }
+    function renderLinkBox(n) {
+      if (!linkPreview) return `<div class="detail" style="border-color: var(--line);"><b>🔗 ${n} fastigheter är inte kopplade till ett kundkort</b>
+        <div class="muted">Fakturan ska gå till kundkortet i 💼 Kunder (org.nr, adress, e-post). Appen kan koppla dem åt dig utifrån kundnamnet som står på fastigheten.</div>
+        <button class="lpv-btn" onclick="previewLink()">🔍 Visa vad som kopplas</button></div>`;
+      const g = linkPreview.groups;
+      return `<div class="detail" style="border-color: var(--line);"><b>🔗 Så här kopplas de</b>
+        ${g.map(x => `<div class="muted">${x.count} st · <b>${snoEscape(x.kund)}</b> → ${x.customer ? '💼 ' + snoEscape(x.customer.name) : '🆕 nytt kundkort'}</div>`).join('')}
+        ${linkPreview.noKund.length ? `<div class="muted">⚠️ ${linkPreview.noKund.length} utan kundnamn – välj kund på var och en: ${linkPreview.noKund.slice(0, 5).map(snoEscape).join(', ')}${linkPreview.noKund.length > 5 ? ' …' : ''}</div>` : ''}
+        ${g.some(x => !x.customer) ? '<div class="muted">Nya kundkort får bara namnet – fyll i org.nr, adress och e-post under 💼 Kunder.</div>' : ''}
+        <div class="row"><button class="lpv-btn primary" onclick="runLink()">🔗 Koppla</button><button class="lpv-btn" onclick="linkPreview=null; render()">Avbryt</button></div></div>`;
+    }
+    async function previewLink() {
+      setMessage('Kollar…');
+      try { const r = await snoApi({ action: 'linkPropertyCustomers', dryRun: true }); if (r.status !== 'success') throw new Error(r.message); linkPreview = r; message = ''; }
+      catch (err) { message = '❌ ' + snoEscape(err.message || 'Ingen kontakt.'); }
+      render();
+    }
+    async function runLink() {
+      setMessage('Kopplar…');
+      try {
+        const r = await snoApi({ action: 'linkPropertyCustomers', create: true });
+        if (r.status !== 'success') throw new Error(r.message);
+        linkPreview = null;
+        const pRes = await snoApi({ action: 'getProperties' }); if (pRes.status === 'success') properties = pRes.properties || [];
+        customers = null; await loadCustomers();
+        message = `✅ ${r.linked} fastigheter kopplade${r.created ? ` · ${r.created} nya kundkort – fyll i uppgifterna under 💼 Kunder` : ''}`;
+      } catch (err) { message = '❌ ' + snoEscape(err.message || 'Ingen kontakt.'); }
+      render();
+    }
+
     async function updateProperty(changes) {
       const p = properties.find(x => x.id === selectedId);
       if (!p) return;
@@ -373,11 +426,6 @@
       render(); renderPins();
     }
 
-    function toggleForced() {
-      const p = properties.find(x => x.id === selectedId);
-      if (!p.forced && !confirm('Tvinga in en stor traktor på en liten plats?\n\nGör det bara för gränsfall där en stor traktor faktiskt kommer fram.')) return;
-      updateProperty({ forced: !p.forced });
-    }
 
     async function editAddress() {
       const p = properties.find(x => x.id === selectedId);
@@ -1230,6 +1278,7 @@
         snoApi({ action: 'getAvatars' }).then(r => { if (r.status === 'success') { avatars = r.avatars || {}; if (tab === 'board') render(); } }).catch(() => {});
         dataLoaded = true;
         if (message === 'Hämtar…') message = '';
+        loadCustomers();
       } catch (err) {
         message = cache ? '⚠️ Ingen kontakt – visar senast hämtade.' : '❌ Ingen kontakt med servern.';
       }

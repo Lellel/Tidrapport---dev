@@ -234,7 +234,7 @@ function doPost(e) {
       "getOfferSettings", "saveOfferSettings", "saveSnowZone", "deleteSnowZone", "saveSnowZones", "getSnowBoard", "saveSnowPerson", "assignSnow", "newSnowfall", "getUeOverview", "saveUeCompany", "deleteUeCompany", "setUeAgreement", "sendUeMaps", "setUeFskatt", "lookupOrgNr",
       "getFleet", "saveTractor", "deleteTractor", "generateTractorAvatar",
       "getProperties", "saveProperty", "deleteProperty", "addPropertyPhoto", "removePropertyPhoto", "addPropertyMap", "savePropertyMapPlace", "clearPropertyMapPlace", "analyzePropertyMap", "suggestMapPoints", "setPropertyZoneStatus", "claimProperty", "setPlowThreshold", "sendSms", "importProperties",
-      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers", "saveCustomer",
+      "blacksta_savePlan", "addStaff", "hubspotSyncPending", "hubspotImport", "getCustomers", "importCustomers", "saveCustomer", "setPropertyCustomer", "linkPropertyCustomers",
       "getStaffOverview", "getStaffHistory", "updateStaff",
       "saveStall", "addStallPhoto", "robotAlarm", "generateAppIcon", "radarSaveJob", "radarDeleteJob", "getRadarData", "getAvatars", "radarSaveResource", "radarRemoveResource", "radarResourceAvatar"];
     if (adminOnly.indexOf(action) !== -1 && !auth.isAdmin) {
@@ -422,6 +422,8 @@ function doPost(e) {
     if (action === "markInvoiced") return handleMarkInvoiced(data, auth.user, auth);
     if (action === "updateReport") return handleUpdateReport(data, auth.user, auth);
     if (action === "saveCustomer") return handleSaveCustomer(data.customer, auth);
+    if (action === "setPropertyCustomer") return handleSetPropertyCustomer(data, auth);
+    if (action === "linkPropertyCustomers") return handleLinkPropertyCustomers(data, auth);
     if (action === "deleteReport") return handleDeleteReport(data, auth.user, auth);
     if (action === "getMyReports") return handleGetMyReports(auth);
     if (action === "signReports") return handleSignReports(data, auth);
@@ -2521,7 +2523,7 @@ function getFleetSheet() {
   return sheet;
 }
 // Kolumner efter de elva första: kunden, området (kommundel), kundens kartor (snöunderlaget) och kulorna på kortet
-const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus", "Pågår (namn|tid)", "Traktor (ID)", "Handskottare (JSON)", "Maskin 2 (ID)"];
+const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus", "Pågår (namn|tid)", "Traktor (ID)", "Handskottare (JSON)", "Maskin 2 (ID)", "Kund-ID"];
 const CLAIM_MINUTES = 30; // så länge en fastighet räknas som upptagen av den som öppnat den
 function getPropertySheet() {
   const sheet = getSheetOrCreate(getSS(), "Fastigheter", PROPERTY_HEADERS.concat(PROPERTY_EXTRA));
@@ -2845,7 +2847,8 @@ function propertyFromRow(row) {
     claimedBy: activeClaim(row[15]),
     tractorId: String(row[16] || ""),
     shovelers: parseJsonCell(row[17], []).filter(n => typeof n === "string"),
-    tractor2Id: String(row[18] || "")
+    tractor2Id: String(row[18] || ""),
+    kundId: String(row[19] || "")
   };
 }
 
@@ -5423,7 +5426,82 @@ function handleGetCustomers(auth) {
   const list = [];
   for (let i = 1; i < t.rows.length; i++) if (t.rows[i][1] && inScope(auth, t.rows[i][4])) list.push(customerFromRow(t.rows[i], t.col));
   list.sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  // 🏠 Kundens fastigheter (Kund-ID på fastigheten, 2026-11-18)
+  const props = {};
+  allSnowProperties().forEach(p => { if (p.kundId) (props[p.kundId] = props[p.kundId] || []).push({ id: p.id, address: p.address, omrade: p.omrade || p.ort }); });
+  list.forEach(c => { c.properties = (props[c.id] || []).sort((a, b) => a.address.localeCompare(b.address, "sv")); });
   return createJsonResponse({ status: "success", customers: list });
+}
+
+// ---------- KUND PÅ FASTIGHETEN (docs/snoplanering.md "Kunden på fastigheten", 2026-11-18) ----------
+// Fastigheten pekar på kundkortet med Kund-ID (kolumnen "Kund-ID" i Fastigheter). Textkolumnen "Kund" hålls
+// i fas med kundens namn, så att Snöjour, UE-vyn och kartorna som läser texten fungerar som förut.
+// Grunden för snöfaktureringen: fakturan går till kundkortet (org.nr, adress, e-post, fakturerande bolag).
+const normKund = (s) => String(s || "").toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
+const KUND_ID_COL = PROPERTY_HEADERS.length + PROPERTY_EXTRA.indexOf("Kund-ID") + 1;   // kolumn 20
+const KUND_TEXT_COL = PROPERTY_HEADERS.length + PROPERTY_EXTRA.indexOf("Kund") + 1;   // kolumn 12
+
+function handleSetPropertyCustomer(data, auth) {
+  const sheet = getPropertySheet(), hit = findRowById(sheet, data.propertyId);
+  if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
+  const cid = sanitize(data.customerId);
+  let name = String(hit.row[11] || "");
+  if (cid) {
+    const t = loadCustomerTable(), i = customerIndex(t).id[cid];
+    if (!i || !inScope(auth, t.rows[i][4])) return createJsonResponse({ status: "error", message: "Kunden finns inte i kundregistret." });
+    name = String(t.rows[i][1]);
+  }
+  sheet.getRange(hit.rowNumber, KUND_ID_COL).setValue(cid);
+  sheet.getRange(hit.rowNumber, KUND_TEXT_COL).setValue(name);
+  hit.row[19] = cid; hit.row[11] = name;
+  return createJsonResponse({ status: "success", property: propertyFromRow(hit.row) });
+}
+
+// 🔗 Koppla fastigheterna till kundkorten, en gång: kundtexten på fastigheten matchas mot kundens namn
+// (utan parentes, versaler och punkter). Saknas kunden skapas ett kundkort (create: true) – uppgifterna
+// (org.nr, adress, e-post) fylls i sedan under 💼 Kunder. dryRun: visa bara vad som skulle hända.
+// Fastigheter som redan har ett Kund-ID rörs inte.
+function handleLinkPropertyCustomers(data, auth) {
+  const sheet = getPropertySheet(), rows = sheet.getDataRange().getValues();
+  const t = loadCustomerTable(), C = t.col, byName = {};
+  for (let i = 1; i < t.rows.length; i++) if (t.rows[i][0] && t.rows[i][1] && inScope(auth, t.rows[i][4])) { const k = normKund(t.rows[i][1]); if (!byName[k]) byName[k] = i; }
+  const groups = {}, noKund = [];
+  let already = 0;
+  for (let r = 1; r < rows.length; r++) {
+    if (!rows[r][0]) continue;
+    if (String(rows[r][19] || "")) { already++; continue; }
+    const text = String(rows[r][11] || "").trim();
+    if (!text) { noKund.push(String(rows[r][1])); continue; }
+    const k = normKund(text);
+    (groups[k] = groups[k] || { text: text, rows: [] }).rows.push(r);
+  }
+  const out = [];
+  let created = 0, linked = 0;
+  const bolag = scopeOf(auth) || "LPV";
+  Object.keys(groups).sort().forEach(k => {
+    const g = groups[k];
+    let i = byName[k];
+    const isNew = !i;
+    if (!i && data.create && !data.dryRun) {
+      const r = t.blank();
+      r[0] = "APP-" + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyyMMdd-HHmmss") + "-" + (created + 1);
+      r[1] = g.text.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim(); r[4] = bolag; r[5] = "aktiv"; r[9] = "company"; r[10] = "none";
+      r[C["Källa"]] = "APP"; r[C["Affärer (JSON)"]] = "[]"; r[C["Uppdaterad"]] = nowStamp();
+      t.rows.push(r); i = t.rows.length - 1; byName[k] = i; created++;
+    }
+    const cust = i ? { id: String(t.rows[i][0]), name: String(t.rows[i][1]) } : null;
+    if (cust && !data.dryRun) g.rows.forEach(r => { rows[r][19] = cust.id; rows[r][11] = cust.name; linked++; });
+    out.push({ kund: g.text, count: g.rows.length, customer: cust, isNew: isNew });
+  });
+  if (!data.dryRun) {
+    if (created) t.save();
+    if (linked) {
+      const n = rows.length - 1;
+      sheet.getRange(2, KUND_ID_COL, n, 1).setValues(rows.slice(1).map(r => [r[19] === undefined ? "" : r[19]]));
+      sheet.getRange(2, KUND_TEXT_COL, n, 1).setValues(rows.slice(1).map(r => [r[11] === undefined ? "" : r[11]]));
+    }
+  }
+  return createJsonResponse({ status: "success", dryRun: !!data.dryRun, groups: out, created: created, linked: linked, already: already, noKund: noKund });
 }
 
 // Index för att hitta en kund: HubSpot-nyckel, Fortnox-nummer, e-post, organisationsnummer, Kund-ID
@@ -5575,6 +5653,24 @@ function handleSaveCustomer(c, auth) {
   const bolag = scopeOf(auth) || (companyOf(c.company) === "Klaryta" ? "Klaryta" : "LPV");
   const t = loadCustomerTable(), idx = customerIndex(t), C = t.col;
   const dup = (email && idx.email[email]) || (org && idx.org[org.replace(/\D/g, "")]);
+  // ✏️ Ändra ett befintligt kundkort (c.id, 2026-11-18): namn, org.nr, kontakt, telefon, e-post, adress.
+  // Byter kunden namn följer namnet med på fastigheterna som är kopplade till kortet.
+  if (c.id) {
+    const i = idx.id[String(c.id)];
+    if (!i || !inScope(auth, t.rows[i][4])) return createJsonResponse({ status: "error", message: "Kunden finns inte i kundregistret." });
+    if (dup && dup !== i) return createJsonResponse({ status: "error", message: "En annan kund har redan samma " + (email && idx.email[email] ? "e-post" : "org.nr") + ": " + t.rows[dup][1] + "." });
+    const r = t.rows[i], oldName = String(r[1]);
+    r[1] = name; r[2] = org; r[3] = email;
+    r[6] = sanitize(c.contact).slice(0, 120); const ph = sanitize(c.phone).slice(0, 40); r[7] = /^\d/.test(ph) ? "'" + ph : ph; r[8] = sanitize(c.address).slice(0, 200);
+    r[9] = company ? "company" : "private";
+    r[C["Uppdaterad"]] = nowStamp();
+    t.save();
+    if (oldName !== name) {
+      const ps = getPropertySheet(), pr = ps.getDataRange().getValues();
+      for (let k = 1; k < pr.length; k++) if (String(pr[k][19] || "") === String(c.id)) ps.getRange(k + 1, KUND_TEXT_COL).setValue(name);
+    }
+    return createJsonResponse({ status: "success", customer: customerFromRow(r, C) });
+  }
   if (dup) return createJsonResponse({ status: "error", message: "Kunden finns redan: " + t.rows[dup][1] + " (samma " + (email && idx.email[email] ? "e-post" : "org.nr") + ")." });
   const r = t.blank();
   r[0] = "APP-" + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Stockholm", "yyyyMMdd-HHmmss");

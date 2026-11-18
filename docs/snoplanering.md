@@ -241,3 +241,12 @@ Hård spärr enligt Daniels val: knappen visar **▶️ Starta snöpasset först
 - Byggd i dev-repot men **inte uppladdad** förrän den provats i testmiljön (Daniel 16/11). Tester: `maskin2test.js` (22) och `maskin2-e2e.js` (klick i Snöplaneringen).
 
 - **Uppladdat direkt till skarpt 2026-11-18** på Daniels beslut ("tryck upp det, så hanterar vi eventuella fel senare") – utan testmiljö, men efter servertest 22/22 och klicktest 17/17 (`maskin2-e2e.js`). Testmiljön gäller fortfarande för kommande större ändringar.
+
+## Kunden på fastigheten (bestämt 2026-11-18)
+Daniel: "det ska bli rätt med fakturan långsiktigt … bygg med ambition". Fastigheten pekar på **kundkortet** i 💼 Kunder, inte på ett namn.
+- Ny kolumn **Kund-ID** i Fastigheter (kolumn 20, `kundId`). Textkolumnen **Kund** (12) hålls i fas med kortets namn så att Snöjour, UE-vyn och kartorna fungerar som förut.
+- `setPropertyCustomer` (välj kund på en fastighet, ⚙️ Register) och `linkPropertyCustomers` (🔗 en gång: matchar kundtexten mot kundnamn utan parentes/versaler/punkter, skapar kundkort som saknas, `dryRun` = förhandsvisning). Redan kopplade fastigheter rörs inte.
+- `getCustomers` ger varje kund `properties` (🏠 Fastigheter på kundkortet). `saveCustomer` med `id` = ✏️ Ändra uppgifter; namnbyte följer med till fastigheterna.
+- **Fakturan byggs inte här** – den väntar på Nyköpings kundpriser. Men den ska gå till kundkortet: org.nr, adress, e-post och fakturerande bolag.
+- Tester: `kundfastighettest.js` (20), `kundfastighet-e2e.js` (17). Byggt 18/11, **inte uppladdat** – laddas upp efter testmiljön.
+- Sidofynd: Registret visade fortfarande 💪 Tvinga stor – borta nu (storleken är bara information).

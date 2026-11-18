@@ -342,7 +342,7 @@
     function renderNewCustomer() {
       if (!newCust) return `<button class="lpv-btn block" onclick="newCust={ type: 'foretag', rotRut: 'none', company: 'LPV' }; render()">＋ Ny kund</button>`;
       const n = newCust, f = (k, label, ph, type) => `<div><label>${label}</label><input ${type ? `type="${type}"` : ''} placeholder="${ph || ''}" value="${esc(n[k] || '')}" oninput="newCust.${k}=this.value"></div>`;
-      return `<div class="card"><h2>＋ Ny kund</h2>
+      return `<div class="card"><h2>${n.id ? '✏️ Ändra kund' : '＋ Ny kund'}</h2>
         <div class="lpv-seg block">${[['foretag', '🏢 Företag / BRF'], ['privat', '🏠 Privatperson']].map(([v, l]) => `<button class="${n.type === v ? 'on' : ''}" onclick="newCust.type='${v}'; render()">${l}</button>`).join('')}</div>
         ${f('name', 'Namn', n.type === 'privat' ? 'För- och efternamn' : 'Företagets namn')}
         <div class="grid2">
@@ -352,7 +352,7 @@
           ${f('email', 'E-post', 'namn@exempel.se', 'email')}
         </div>
         ${f('address', 'Adress', 'Gata 1, 642 30 Flen')}
-        ${scope ? '' : `<label>Bolag</label><div class="lpv-seg block">${['LPV', 'Klaryta'].map(c => `<button class="${n.company === c ? 'on' : ''}" onclick="newCust.company='${c}'; render()">${c}</button>`).join('')}</div>`}
+        ${scope || n.id ? '' : `<label>Bolag</label><div class="lpv-seg block">${['LPV', 'Klaryta'].map(c => `<button class="${n.company === c ? 'on' : ''}" onclick="newCust.company='${c}'; render()">${c}</button>`).join('')}</div>`}
         <div class="muted" style="margin-top:6px">Kunden sparas i kundregistret i appen (inte i HubSpot). Personnummer sparas inte.</div>
         <div class="chips"><button class="lpv-btn primary" onclick="saveNewCustomer(this)">💾 Spara kund</button><button class="lpv-btn" onclick="newCust=null; render()">Avbryt</button></div>
       </div>`;
@@ -363,11 +363,18 @@
       let res;
       try { res = await snoApi({ action: 'saveCustomer', customer: newCust }); } catch (e) { res = { status: 'error', message: 'Ingen kontakt med servern.' }; }
       if (res.status !== 'success') { message = '❌ ' + esc(res.message || 'Kunde inte spara.'); render(); return; }
+      const edited = !!newCust.id;
       customers = null; await loadCustomers();
       newCust = null; openCustomer = res.customer.id; customerSearch = res.customer.name;
-      message = '✅ ' + esc(res.customer.name) + ' tillagd i kundregistret.'; render();
+      message = '✅ ' + esc(res.customer.name) + (edited ? ' sparad.' : ' tillagd i kundregistret.'); render();
     }
 
+    function editCustomer(id) {
+      const c = (customers || []).find(x => x.id === id);
+      if (!c) return;
+      newCust = { id: c.id, type: c.type, name: c.name, orgnr: c.orgnr, contact: c.contact, phone: c.phone, email: c.email, address: c.address, rotRut: 'none' };
+      message = ''; render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     function renderCustomerList(list) {
       list = list || customers.filter(c => customerMatches(c, customerSearch));
       return `<div class="muted">${list.length} kunder</div>` + list.slice(0, 200).map(c => `
@@ -375,12 +382,15 @@
           <div style="display:flex;justify-content:space-between;gap:8px">
             <div><b>${esc(c.name)}</b>${c.contact ? ` <span class="muted">${esc(c.contact)}</span>` : ''}${c.brand ? `<span class="brand">${esc(c.brand)}</span>` : ''}${c.fortnoxNr ? `<span class="brand">Fortnox ${esc(c.fortnoxNr)}</span>` : ''}<br>
               <span class="muted">${esc([c.phone, c.email].filter(Boolean).join(' · '))}</span></div>
-            <span class="muted" style="white-space:nowrap">${c.deals.length ? c.deals.length + ' affärer' : ''}</span>
+            <span class="muted" style="white-space:nowrap">${[c.deals.length ? c.deals.length + ' affärer' : '', (c.properties || []).length ? '🏠 ' + c.properties.length : ''].filter(Boolean).join(' · ')}</span>
           </div>
           ${openCustomer === c.id ? `<div onclick="event.stopPropagation()">
             ${c.address ? `<div class="muted">📍 ${esc(c.address)}</div>` : ''}${c.orgnr ? `<div class="muted">Org.nr ${esc(c.orgnr)}</div>` : ''}
             ${renderDeals(c)}
-            <button class="lpv-btn primary" style="margin-top:8px" onclick="newOffer('offert'); pickCustomer('${esc(c.id)}')">➕ Ny offert till kunden</button></div>` : ''}
+            ${(c.properties || []).length ? `<details style="margin-top:8px"><summary><b>🏠 Fastigheter (${c.properties.length})</b></summary>${c.properties.map(p => `<div class="muted">${esc(p.address)}${p.omrade ? ' · ' + esc(p.omrade) : ''}</div>`).join('')}</details>` : ''}
+            ${(c.properties || []).length && !c.orgnr ? '<div class="muted" style="color:var(--warn)">⚠️ Org.nr saknas – behövs på fakturan.</div>' : ''}
+            <div class="chips" style="margin-top:8px"><button class="lpv-btn primary" onclick="newOffer('offert'); pickCustomer('${esc(c.id)}')">➕ Ny offert till kunden</button>
+              <button class="lpv-btn" onclick="editCustomer('${esc(c.id)}')">✏️ Ändra uppgifter</button></div></div>` : ''}
         </div>`).join('') + (list.length > 200 ? '<div class="muted">Visar 200 – sök för att hitta fler.</div>' : '');
     }
 
@@ -980,7 +990,7 @@
         const q = new URLSearchParams(location.search);
         if (q.get('id') && offers.find(o => o.id === q.get('id'))) openOffer(q.get('id'));
         else if (q.get('ny')) newOffer(q.get('ny') === 'ata' ? 'ata' : 'offert');
-        else if (q.get('view') === 'customers') showCustomers(); // från menyn: 💼 Kunder
+        else if (q.get('view') === 'customers') { if (q.get('kund')) openCustomer = q.get('kund'); showCustomers().then(() => { const c = (customers || []).find(x => x.id === openCustomer); if (c) { customerSearch = c.name; render(); } }); } // från menyn: 💼 Kunder (?kund= från Registret)
         else render();
       } catch (err) {
         message = '❌ Ingen kontakt med servern.'; render();

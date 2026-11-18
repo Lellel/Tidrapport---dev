@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-18-kund-fastighet', datum: '2026-11-18', roller: ['admin'],
+    titel: '💼 Fastigheterna hör till kundkorten',
+    text: 'Varje snöfastighet pekar nu på ett kundkort i 💼 Kunder – där fakturan ska gå. I ⚙️ Register: 🔗 Visa vad som kopplas → 🔗 Koppla gör det för alla på en gång. Kundkortet visar 🏠 Fastigheter, och ✏️ Ändra uppgifter fyller i org.nr och adress.' },
   { id: '2026-11-18-bara-snojour', datum: '2026-11-18', roller: ['handskottare', 'ue'],
     titel: '🧹 Renare startsida',
     text: 'Passformuläret och "Logga in på en dator" är borta från din startsida – du registrerar allt i ❄️ Snöjour (▶️ Starta snöpass och ✅ Klar). 📋 Mina pass finns kvar för att rätta och skriva under.' },
