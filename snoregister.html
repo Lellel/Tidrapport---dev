@@ -431,8 +431,11 @@
       const p = properties.find(x => x.id === selectedId);
       const address = prompt('Ny adress:', p.address);
       if (!address || address.trim() === p.address) return;
+      // Orten följer med kartsökningen – fråga efter den, annars söker vi på den gamla (Slottsskogsvägen hamnade i Göteborg 18/11)
+      const ort = prompt('Ort (kartan söker adressen där):', p.ort || 'Flen');
+      if (ort === null) return;
       setMessage('Söker adressen på kartan…');
-      await saveProperty({ ...p, address: address.trim(), lat: null, lng: null });
+      await saveProperty({ ...p, address: address.trim(), ort: ort.trim(), lat: null, lng: null });
       selectProperty(p.id, true);
     }
 
