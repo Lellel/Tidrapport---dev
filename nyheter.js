@@ -2,6 +2,15 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-18-bara-snojour', datum: '2026-11-18', roller: ['handskottare', 'ue'],
+    titel: '🧹 Renare startsida',
+    text: 'Passformuläret och "Logga in på en dator" är borta från din startsida – du registrerar allt i ❄️ Snöjour (▶️ Starta snöpass och ✅ Klar). 📋 Mina pass finns kvar för att rätta och skriva under.' },
+  { id: '2026-11-18-gul-prick', datum: '2026-11-18', roller: ['forare', 'handskottare', 'ue'], modul: 'sno',
+    titel: '🟡 Gul prick = den andra är klar',
+    text: 'Ni frågade hur man ser om traktorn redan har varit på en fastighet – det syns i Snöjour. Pricken på kartan blir gul när den andra är klar och det är din tur. I listan står båda, och ✅ med klockslag när någon är färdig. Saknas ✅ har den andra inte varit där än – ta en annan först. Tack för frågan!' },
+  { id: '2026-11-18-maskin2', datum: '2026-11-18', roller: ['admin'], modul: 'sno',
+    titel: '🚜 En maskin till på fastigheten',
+    text: 'I Snöplaneringen får kortet ett ＋-hål bredvid traktorn när det första hålet är fyllt. Dra dit en maskin till, t.ex. en liten vid sidan av plogen. Båda förarna ser fastigheten i Snöjour och markerar sin del – tiden räknas per maskin. Storleken stoppar inte längre: alla maskiner får läggas på alla fastigheter.' },
   { id: '2026-11-17-pass-forst', datum: '2026-11-17', roller: ['forare', 'handskottare', 'ue', 'admin'], modul: 'sno',
     titel: '▶️ Starta snöpasset först',
     text: 'Nu går det inte att trycka ✅ Klar på dina egna fastigheter förrän du startat snöpasset. Står det "▶️ Starta snöpasset först" på knappen saknas bara passet. Röjningstiden räknas från passet – annars hamnar markeringen utanför tidrapporten. Markerar en arbetsledare åt någon annan behövs inget pass.' },

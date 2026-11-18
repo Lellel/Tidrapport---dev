@@ -121,9 +121,10 @@
 
       <!-- TRANSFORMERAD MENY & FORMULÄR -->
       <div class="field-tools-grid" id="field-tools-menu">
-        <div class="section-label">Uppdrag & Formulär</div>
+        <!-- data-ej-falt: döljs för handskottare och UE – de registrerar bara via Snöjour (Daniel 2026-11-18, ses över i vår) -->
+        <div class="section-label" data-ej-falt>Uppdrag & Formulär</div>
         
-        <div class="ios-card" style="grid-column: 1 / -1;">
+        <div class="ios-card" style="grid-column: 1 / -1;" data-ej-falt>
           <!-- Nya/ÄTA är tilläggsmodulen "ata" (av för alla sedan 16/11) – utan den registreras allt som vanligt jobb -->
           <div class="type-control" data-modul="ata">
             <button type="button" id="btn-type-new" class="type-btn active" onclick="setJobType('nya')">Nya</button>
@@ -146,7 +147,7 @@
           </div>
         </div>
 
-        <div class="ios-card" style="grid-column: 1 / -1;">
+        <div class="ios-card" style="grid-column: 1 / -1;" data-ej-falt>
           <div class="ios-row">
             <span>Tid</span>
             <span id="current-duration-badge" class="duration-pill" style="display: none;">-</span>
@@ -165,7 +166,7 @@
           </div>
         </div>
 
-        <div class="ios-card" style="grid-column: 1 / -1;">
+        <div class="ios-card" style="grid-column: 1 / -1;" data-ej-falt>
           <textarea id="input-notes" placeholder="Vad har gjorts?"></textarea>
           <input type="file" id="camera-input" accept="image/*" style="display: none;" onchange="handlePhotoSelect(event)">
           <div class="add-photo-btn" onclick="document.getElementById('camera-input').click()">
@@ -174,8 +175,8 @@
           </div>
         </div>
 
-        <button class="main-btn main-btn-blue" style="grid-column: 1 / -1;" onclick="saveToOutbox()">Spara pass lokalt</button>
-        <button class="main-btn" style="grid-column: 1 / -1;" onclick="location.href='snojour.html'">❄️ Snöjour – karta &amp; GPS</button>
+        <button class="main-btn main-btn-blue" style="grid-column: 1 / -1;" onclick="saveToOutbox()" data-ej-falt>Spara pass lokalt</button>
+        <button class="main-btn" style="grid-column: 1 / -1;" onclick="location.href='snojour.html'" data-ej-falt>❄️ Snöjour – karta &amp; GPS</button>
         <button class="lpv-btn block" style="grid-column: 1 / -1;" onclick="location.href='minapass.html'">📋 Mina pass – rätta &amp; skriv under</button>
       </div>
 
@@ -198,7 +199,7 @@
       </div>
       <button type="button" class="main-btn" style="grid-column: 1 / -1; margin-top: 10px;" onclick="location.href='guide.html'">📖 Bruksanvisning</button>
       <button type="button" class="main-btn" style="grid-column: 1 / -1; margin-top: 10px;" onclick="location.href='widget.html'">📱 Widget på hemskärmen</button>
-      <button type="button" class="main-btn" style="grid-column: 1 / -1; margin-top: 10px;" onclick="sendPcLinkToMe()">💻 Logga in på en dator</button>
+      <button type="button" class="main-btn" style="grid-column: 1 / -1; margin-top: 10px;" onclick="sendPcLinkToMe()" data-ej-falt>💻 Logga in på en dator</button>
 
     </div>
 

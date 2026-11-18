@@ -137,6 +137,9 @@ function applyRoleUI() {
   const ataBtn = document.getElementById('btn-type-ata');
   if (ataBtn) ataBtn.style.display = ue ? 'none' : '';
   if (ue && typeof currentJobType !== 'undefined' && currentJobType === 'ata' && typeof setJobType === 'function') setJobType('nya');
+  // Handskottare och UE registrerar bara via Snöjour: passformuläret och 💻 Logga in på en dator döljs (data-ej-falt, 2026-11-18)
+  const baraSnojour = ['handskottare', 'ue'].indexOf(localStorage.getItem('lpv_guide_roll') || '') !== -1;
+  document.body.classList.toggle('bara-snojour', baraSnojour);
 }
 document.addEventListener('DOMContentLoaded', applyRoleUI);
 // Sidomenyn leder bara till admin-sidor: dölj den för förare

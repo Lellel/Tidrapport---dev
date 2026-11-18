@@ -493,6 +493,7 @@ button.btn-primary, .action-button, .btn-blue {
 @keyframes pulse { 50% { opacity: 0.45; } }
 
 /* ---------- Formulär ---------- */
+body.bara-snojour [data-ej-falt] { display: none !important; } /* handskottare och UE: bara Snöjour (2026-11-18) */
 .field-tools-grid { display: none; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
 .field-tools-grid.unlocked { display: grid; animation: fadeInDown 0.35s ease forwards; }
 @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
