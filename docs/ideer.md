@@ -1,5 +1,8 @@
 # Idéer till senare
 
+## Kramer finns två gånger – koppla ihop Radarns resurs med snötraktorn (2026-11-18)
+Samma maskin ligger både som resurs *Kramer* i Radarn (fliken Resurser, har AI-kula) och som *Kramer 388* i snöregistret (fliken Traktorer, utan kula). Två rader = två kulor, två namn och risk för dubbelbokning. Enklaste vägen: låt snötraktorn ärva Radarresursens kula (eller tvärtom) när namnen hör ihop, i stället för att slå ihop registren. Tas när snösäsongen är i gång och det märks i vardagen.
+
 ## Kundens namn och logga på luren när kunden ringer (2026-11-04)
 Mål: när en kund ringer visas kundens namn (och logga) på telefonen – i vanliga samtal och i 3Koppla. Kontaktboken ska underhålla sig själv.
 
