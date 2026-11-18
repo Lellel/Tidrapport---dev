@@ -6,7 +6,7 @@ Resonerat med Daniel 2026-11-05. **Byggt samma dag** (se "Hur det blev" längst 
 - **Fastigheten = arbetsorderkort** med ett **hål** i rätt storlek (🟠 stor / 🔵 liten, ⚠️ tvinga stor för gränsfall) – finns redan i Snöplanering.
 - **Kulor dras direkt till fastigheten.** Slingorna behövs inte längre – kartan ger helhetssynen. (Ordning i Rita zoner är redan borttagen.)
 - Per fastighet: **en traktorkula** i hålet + ev. **handskottarkulor** för handzonerna.
-- Storleksregeln (finns): liten kula passar i både stort och litet hål, stor kula bara i stort (om inte ⚠️ tvinga stor).
+- ~~Storleksregeln: liten kula passar i både stort och litet hål, stor kula bara i stort (om inte ⚠️ tvinga stor).~~ **Slopad 2026-11-16:** alla maskiner får läggas på alla fastigheter. Stor/liten på fastigheten är bara information (ingen studs, inget 💪, ingen ⚠️ saknar storlek i listen; filtret finns kvar i Registret).
 
 ## Ägare och enheter
 - **Ägare:** antingen **Egna (LPV)** eller ett **UE-företag** (t.ex. "Snöbröderna AB").
@@ -230,3 +230,14 @@ Daniel: *"handskottarna ska inte kunna trycka klar innan de startat sitt pass �
 **Regeln gäller kulan, inte personen:** är det **din egen** kula krävs ett pågående snöpass – även om du är admin, för då är det fältarbete. Markerar en **arbetsledare åt någon annan** (admin eller UE-ansvarig) krävs inget pass, för det är administration.
 
 Hård spärr enligt Daniels val: knappen visar **▶️ Starta snöpasset först** (streckad, nedtonad) och förklarar vid tryck. `markDone` kontrollerar samma sak en gång till, ifall knappen ligger kvar på skärmen. **↶ Ångra klar** är inte spärrad – man måste kunna rätta sig efteråt.
+
+## Flera maskiner per fastighet – väg B (bestämt 2026-11-18)
+- Daniel valde **B: ett andra fält**. Kortet har **hål 1** (traktorn, `tractorId`) och **hål 2** (`tractor2Id`, kolumnen *Maskin 2 (ID)* i fliken Fastigheter).
+- Hål 2 (＋) syns först när hål 1 är fyllt. Töms hål 1 flyttar maskin 2 upp. Samma maskin kan inte ligga i båda.
+- Ingen storleksregel i något hål. ⚠️ *utan traktor* = utan någon maskin alls.
+- Snöjour, Snöläget, driftstopp och UE-vyn räknar båda maskinerna. Varje maskin markerar ✅ Klar för sin del och får en egen rad i snöfallsloggen – faktureras var för sig, samma regel som två handskottare.
+- Traktorvyn: fastigheten står på båda maskinernas rader; drar man den därifrån rörs bara den maskinen.
+- `assignSnow` tar också `removeTractor: id` (tar bort maskinen ur vilket hål som helst) – UE-sidan använder den.
+- Byggd i dev-repot men **inte uppladdad** förrän den provats i testmiljön (Daniel 16/11). Tester: `maskin2test.js` (22) och `maskin2-e2e.js` (klick i Snöplaneringen).
+
+- **Uppladdat direkt till skarpt 2026-11-18** på Daniels beslut ("tryck upp det, så hanterar vi eventuella fel senare") – utan testmiljö, men efter servertest 22/22 och klicktest 17/17 (`maskin2-e2e.js`). Testmiljön gäller fortfarande för kommande större ändringar.

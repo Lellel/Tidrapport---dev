@@ -1682,7 +1682,7 @@ function snowVisibleProperties(auth, ctx) {
   // Flyttar vid driftstopp (bara detta snöfall) läggs ovanpå planeringen
   const props = ctx.properties || applySnowMoves(getPropertySheet().getDataRange().getValues().slice(1).filter(r => r[0]).map(propertyFromRow));
   return props.filter(p => auth.isAdmin ||
-    (p.tractorId && snowUnitVisible(auth, me, "traktor", p.tractorId, fleet, people)) ||
+    propTractors(p).some(id => snowUnitVisible(auth, me, "traktor", id, fleet, people)) ||
     p.shovelers.some(n => snowUnitVisible(auth, me, "hand", n, fleet, people)));
 }
 
@@ -1751,26 +1751,34 @@ function handleSaveSnowPerson(data, auth) {
   return createJsonResponse({ status: "success", person: snowPerson(readSnowPeople(), name), note: note });
 }
 
-// Lägg/ta bort kulor på ett fastighetskort. tractorId: "" = tomt hål, undefined = rör inte.
+// Lägg/ta bort kulor på ett fastighetskort. tractorId/tractor2Id: "" = tomt hål, undefined = rör inte.
+// removeTractor: ta bort den maskinen ur vilket hål den än ligger i (UE-sidan). Storleken stoppar inte längre (2026-11-16).
+// Hål 2 används bara när hål 1 är fyllt – blir hål 1 tomt flyttar maskin 2 upp.
 function handleAssignSnow(data) {
   const sheet = getPropertySheet(), hit = findRowById(sheet, data.propertyId);
   if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
   const p = propertyFromRow(hit.row);
-  let tractorId = p.tractorId, shovelers = p.shovelers;
-  if (data.tractorId !== undefined) {
-    tractorId = sanitize(data.tractorId);
-    if (tractorId) {
-      const t = readFleetMap()[tractorId];
-      if (!t) return createJsonResponse({ status: "error", message: "Traktorn hittades inte." });
-      if (t.size === "stor" && p.size === "liten" && !p.forced) return createJsonResponse({ status: "error", message: "En stor traktor får inte plats på " + p.address + " (litet hål)." });
-    }
+  let tractorId = p.tractorId, tractor2Id = p.tractor2Id, shovelers = p.shovelers;
+  const fleet = readFleetMap();
+  for (const key of ["tractorId", "tractor2Id"]) {
+    if (data[key] === undefined) continue;
+    const id = sanitize(data[key]);
+    if (id && !fleet[id]) return createJsonResponse({ status: "error", message: "Traktorn hittades inte." });
+    if (key === "tractorId") tractorId = id; else tractor2Id = id;
   }
+  if (data.removeTractor) {
+    const rid = sanitize(data.removeTractor);
+    if (tractorId === rid) tractorId = "";
+    if (tractor2Id === rid) tractor2Id = "";
+  }
+  if (!tractorId && tractor2Id) { tractorId = tractor2Id; tractor2Id = ""; }
+  if (tractor2Id === tractorId) tractor2Id = "";
   if (Array.isArray(data.shovelers)) {
     const seen = {};
     shovelers = data.shovelers.map(n => sanitize(n).slice(0, 60)).filter(n => n && !seen[n] && (seen[n] = true)).slice(0, 8);
   }
-  sheet.getRange(hit.rowNumber, PROPERTY_HEADERS.length + 6, 1, 2).setValues([[tractorId, JSON.stringify(shovelers)]]);
-  hit.row[16] = tractorId; hit.row[17] = JSON.stringify(shovelers);
+  sheet.getRange(hit.rowNumber, PROPERTY_HEADERS.length + 6, 1, 3).setValues([[tractorId, JSON.stringify(shovelers), tractor2Id]]);
+  hit.row[16] = tractorId; hit.row[17] = JSON.stringify(shovelers); hit.row[18] = tractor2Id;
   return createJsonResponse({ status: "success", property: propertyFromRow(hit.row) });
 }
 
@@ -1788,7 +1796,7 @@ function handleMarkSnowDone(data, auth) {
   const hit = findRowById(getPropertySheet(), data.propertyId);
   if (!hit) return createJsonResponse({ status: "error", message: "Fastigheten hittades inte." });
   const p = applySnowMoves([propertyFromRow(hit.row)])[0];
-  if (part === "traktor" ? p.tractorId !== unit : p.shovelers.indexOf(unit) === -1) return createJsonResponse({ status: "error", message: "Den kulan ligger inte längre på " + p.address + "." });
+  if (part === "traktor" ? !propHasTractor(p, unit) : p.shovelers.indexOf(unit) === -1) return createJsonResponse({ status: "error", message: "Den kulan ligger inte längre på " + p.address + "." });
   const fleet = readFleetMap(), people = readSnowPeople();
   if (!snowUnitVisible(auth, snowPerson(people, auth.user), part, unit, fleet, people)) return createJsonResponse({ status: "error", message: "Du kan bara markera dina egna fastigheter." });
   const unitOwner = part === "traktor" ? (fleet[unit] ? fleet[unit].owner : "Egna") : snowPerson(people, unit).owner;
@@ -1842,7 +1850,10 @@ function applySnowMoves(props, st) {
   const mv = (st || driftstopp()).moves;
   if (!mv.length) return props;
   props.forEach(p => mv.filter(m => m.pid === p.id).forEach(m => {
-    if (m.part === "traktor") { if (p.tractorId === m.from) { p.tractorId = m.to; (p.moved = p.moved || []).push(m); } }
+    if (m.part === "traktor") {
+      const k = p.tractorId === m.from ? "tractorId" : p.tractor2Id === m.from ? "tractor2Id" : "";
+      if (k && !propHasTractor(p, m.to)) { p[k] = m.to; (p.moved = p.moved || []).push(m); }
+    }
     else { const i = p.shovelers.indexOf(m.from); if (i !== -1 && p.shovelers.indexOf(m.to) === -1) { p.shovelers[i] = m.to; (p.moved = p.moved || []).push(m); } }
   }));
   return props;
@@ -1873,7 +1884,7 @@ function stopCanHandle(auth, owner, people) {
 
 // Vad som är kvar för enheten i snöfallet: fastigheter där den ligger (med flyttar) och dess del inte är klar
 function stopRemaining(part, unit, props, done) {
-  return props.filter(p => (part === "traktor" ? p.tractorId === unit : p.shovelers.indexOf(unit) !== -1) &&
+  return props.filter(p => (part === "traktor" ? propHasTractor(p, unit) : p.shovelers.indexOf(unit) !== -1) &&
     !done.some(d => d.propertyId === p.id && d.part === part && d.unit === unit));
 }
 
@@ -2022,14 +2033,14 @@ function handleStopSuggest(data, auth) {
   }
   // Var enheten är nu: senaste klara fastigheten i snöfallet, annars mitten av dess fastigheter (handskottare: hemorten)
   cands.forEach(c => {
-    const mine = props.filter(p => (k.part === "traktor" ? p.tractorId === c.unit : p.shovelers.indexOf(c.unit) !== -1));
+    const mine = props.filter(p => (k.part === "traktor" ? propHasTractor(p, c.unit) : p.shovelers.indexOf(c.unit) !== -1));
     c.left = stopRemaining(k.part, c.unit, props, done).length;
     const lastDone = done.filter(d => d.part === k.part && d.unit === c.unit).sort((a, b) => a.time < b.time ? 1 : -1)[0];
     const lp = lastDone ? props.find(p => p.id === lastDone.propertyId) : null;
     const pts = mine.filter(p => p.lat !== null);
     c.pos = lp && lp.lat !== null ? [lp.lat, lp.lng] : c.home ? c.home : pts.length ? [pts.reduce((s, p) => s + p.lat, 0) / pts.length, pts.reduce((s, p) => s + p.lng, 0) / pts.length] : null;
   });
-  const fits = (c, p) => !(c.size === "stor" && p.size === "liten" && !p.forced);
+  const fits = () => true; // storleksregeln slopad 2026-11-16 – alla maskiner får läggas på alla fastigheter
   const kmTo = (c, p) => c.pos && p.lat !== null ? kmBetween(c.pos, [p.lat, p.lng]) : null;
   const rem = remaining.map(p => {
     const opts = cands.map(c => ({ unit: c.unit, label: c.label, km: kmTo(c, p), left: c.left, fits: fits(c, p) }))
@@ -2162,7 +2173,7 @@ function handleGetSnowStatus(auth) {
   const pagar = !!sf && Date.now() - stampMs(sf.start) < 24 * 3600000;
   const kds = {};
   const out = props.map(p => {
-    const parts = (p.tractorId ? [{ part: "traktor", unit: p.tractorId }] : []).concat(p.shovelers.map(n => ({ part: "hand", unit: n })));
+    const parts = propTractors(p).map(id => ({ part: "traktor", unit: id })).concat(p.shovelers.map(n => ({ part: "hand", unit: n })));
     const d = parts.map(x => done.find(y => y.propertyId === p.id && y.part === x.part && y.unit === x.unit)).filter(Boolean);
     const state = !parts.length ? "" : d.length === parts.length ? "done" : d.length ? "part" : "";
     const kd = String(p.omrade || p.ort || "Utan område").trim();
@@ -2196,10 +2207,9 @@ function handleGetSnowJour(auth) {
   props.forEach(p => { addr[snowAddrKey(p.address)] = true; });
   const zones = JSON.parse(handleGetSnowZones({ isAdmin: true }).getContent()).zones.filter(z => addr[snowAddrKey(z.property)]);
   const out = props.map(p => {
-    const t = p.tractorId ? fleet[p.tractorId] : null;
     const parts = [];
-    if (t) parts.push({ part: "traktor", unit: t.id, label: t.model + (t.driver ? " (" + t.driver + ")" : ""), driver: t.driver, owner: t.owner,
-      mine: t.driver === auth.user, waiting: !ueAgreementOk(t.owner, companies), canMark: okFor(t.owner) && snowUnitVisible(auth, me, "traktor", t.id, fleet, people) });
+    propTractors(p).map(id => fleet[id]).filter(Boolean).forEach(t => parts.push({ part: "traktor", unit: t.id, label: t.model + (t.driver ? " (" + t.driver + ")" : ""), driver: t.driver, owner: t.owner,
+      mine: t.driver === auth.user, waiting: !ueAgreementOk(t.owner, companies), canMark: okFor(t.owner) && snowUnitVisible(auth, me, "traktor", t.id, fleet, people) }));
     p.shovelers.forEach(n => { const o = snowPerson(people, n).owner; parts.push({ part: "hand", unit: n, label: n, driver: n, owner: o,
       mine: n === auth.user, waiting: !ueAgreementOk(o, companies), canMark: okFor(o) && snowUnitVisible(auth, me, "hand", n, fleet, people) }); });
     // 🆕 Flyttad hit vid driftstopp: varifrån och om mottagaren tryckt 👍 Uppfattat
@@ -2245,7 +2255,7 @@ function ueAgreementOk(owner, companies) {
 
 // Fastigheter där företaget har en kula (traktor eller handskottare)
 function ueCompanyProperties(name, ctx) {
-  return ctx.properties.filter(p => (p.tractorId && ctx.fleet[p.tractorId] && ctx.fleet[p.tractorId].owner === name) ||
+  return ctx.properties.filter(p => propTractors(p).some(id => ctx.fleet[id] && ctx.fleet[id].owner === name) ||
     p.shovelers.some(n => snowPerson(ctx.people, n).owner === name));
 }
 
@@ -2273,14 +2283,14 @@ function handleGetUeOverview(auth) {
   const list = Object.keys(names).sort((a, b) => a.localeCompare(b, "sv")).map(name => {
     const c = ctx.companies[name] || { id: "", name: name, orgNr: "", address: "", contact: "", phone: "", email: "", note: "", acceptedAt: "", acceptedBy: "", fskattAt: "", fskattBy: "" };
     const props = ueCompanyProperties(name, ctx).map(p => {
-      const t = p.tractorId ? ctx.fleet[p.tractorId] : null;
+      const t = propTractors(p).map(id => ctx.fleet[id]).find(x => x && x.owner === name) || null;
       return { id: p.id, address: p.address, ort: p.ort, omrade: p.omrade, kund: p.kund, maps: p.maps.length,
-        tractor: t && t.owner === name ? { id: t.id, model: t.model, driver: t.driver } : null,
+        tractor: t ? { id: t.id, model: t.model, driver: t.driver } : null,
         shovelers: p.shovelers.filter(n => snowPerson(ctx.people, n).owner === name), allShovelers: p.shovelers };
     }).sort((a, b) => (a.omrade || a.ort).localeCompare(b.omrade || b.ort, "sv") || a.address.localeCompare(b.address, "sv"));
     const people = Object.values(staff).filter(s => s.owner === name).sort((a, b) => b.ueLead - a.ueLead || a.name.localeCompare(b.name, "sv"));
     const tractors = Object.values(ctx.fleet).filter(t => t.owner === name).map(t => ({ id: t.id, model: t.model, size: t.size, base: t.base, note: t.note, driver: t.driver, active: t.active,
-      count: ctx.properties.filter(p => p.tractorId === t.id).length }));
+      count: ctx.properties.filter(p => propHasTractor(p, t.id)).length }));
     return Object.assign({}, c, { registered: !!c.id, ok: !!c.acceptedAt, people: people, tractors: tractors, properties: props });
   });
   return createJsonResponse({ status: "success", companies: list, isSuper: !!auth.isSuper, me: auth.user });
@@ -2511,7 +2521,7 @@ function getFleetSheet() {
   return sheet;
 }
 // Kolumner efter de elva första: kunden, området (kommundel), kundens kartor (snöunderlaget) och kulorna på kortet
-const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus", "Pågår (namn|tid)", "Traktor (ID)", "Handskottare (JSON)"];
+const PROPERTY_EXTRA = ["Kund", "Område", "Kundkartor (JSON)", "Zonstatus", "Pågår (namn|tid)", "Traktor (ID)", "Handskottare (JSON)", "Maskin 2 (ID)"];
 const CLAIM_MINUTES = 30; // så länge en fastighet räknas som upptagen av den som öppnat den
 function getPropertySheet() {
   const sheet = getSheetOrCreate(getSS(), "Fastigheter", PROPERTY_HEADERS.concat(PROPERTY_EXTRA));
@@ -2834,9 +2844,14 @@ function propertyFromRow(row) {
     zoneStatus: String(row[14] || ""),
     claimedBy: activeClaim(row[15]),
     tractorId: String(row[16] || ""),
-    shovelers: parseJsonCell(row[17], []).filter(n => typeof n === "string")
+    shovelers: parseJsonCell(row[17], []).filter(n => typeof n === "string"),
+    tractor2Id: String(row[18] || "")
   };
 }
+
+// Maskinerna på ett kort: hål 1 (tractorId) och hål 2 (tractor2Id). Flera maskiner per fastighet, väg B (Daniel 2026-11-18).
+function propTractors(p) { return [p.tractorId, p.tractor2Id].filter(Boolean); }
+function propHasTractor(p, id) { return !!id && (p.tractorId === id || p.tractor2Id === id); }
 
 // "Daniel|1793716000000" -> "Daniel" om det är mindre än en halvtimme sedan, annars ingen
 function activeClaim(value) {

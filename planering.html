@@ -98,7 +98,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hole.none { width: 40px; height: 40px; border-color: var(--bad); font-size: 11px; }
 .hole.empty { background: rgba(239,68,68,.15); border-color: var(--bad); border-style: solid; }
 .hole.filled { border-style: solid; }
-.hole.forced::after { content: '💪'; position: absolute; top: -8px; right: -10px; font-size: 12px; }
+.hole.hole2 { width: 36px; height: 36px; border-color: var(--line); }
 .slot { width: 30px; height: 30px; border-radius: 50%; border: 2px dashed var(--hand); display: grid; place-items: center; color: var(--hand); font-weight: 800; flex-shrink: 0; font-size: 13px; }
 .slot.need { border-color: var(--warn); color: var(--warn); }
 .hole.drop-ok, .slot.drop-ok { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -242,14 +242,15 @@ function zoneStats(p) {
 // Status i pågående snöfall
 // Flyttar vid driftstopp: status räknas på den som kör nu (planeringen själv ändras inte)
 const movedTo = (p, part, unit) => { const m = (stops.moves || []).find(x => x.pid === p.id && x.part === part && x.from === unit); return m ? m.to : unit; };
-const partsOf = (p) => (p.tractorId ? [{ part: 'traktor', unit: movedTo(p, 'traktor', p.tractorId) }] : []).concat((p.shovelers || []).map(n => ({ part: 'hand', unit: movedTo(p, 'hand', n) })));
+const tractorsOf = (p) => [p.tractorId, p.tractor2Id].filter(Boolean);
+const hasT = (p, id) => !!id && (p.tractorId === id || p.tractor2Id === id);
+const partsOf = (p) => tractorsOf(p).map(id => ({ part: 'traktor', unit: movedTo(p, 'traktor', id) })).concat((p.shovelers || []).map(n => ({ part: 'hand', unit: movedTo(p, 'hand', n) })));
 const downOf = (part, unit) => (stops.units || []).find(u => u.key === part + ':' + unit && lpvStopp.isDown(u));
 const doneOf = (p, part, unit) => doneList.find(d => d.propertyId === p.id && d.part === part && d.unit === unit);
 function stateOf(p) {
   const parts = partsOf(p), n = parts.filter(x => doneOf(p, x.part, x.unit)).length;
   return !parts.length || !n ? '' : n === parts.length ? 'done' : 'part';
 }
-const fits = (t, p) => !(t.size === 'stor' && p.size === 'liten' && !p.forced);
 const needsHand = (p) => zoneStats(p).hand > 0 && !(p.shovelers || []).length;
 
 // Var en kula hör hemma (för avstånd och "stationerad")
@@ -263,7 +264,7 @@ function baseMatches(base, kd) {
 }
 function tractorHome(t) {
   const there = properties.filter(p => baseMatches(t.base, kdOf(p)));
-  return centroid(there) || centroid(properties.filter(p => p.tractorId === t.id));
+  return centroid(there) || centroid(properties.filter(p => hasT(p, t.id)));
 }
 const personHome = (x) => x.lat !== null && x.lat !== undefined ? [x.lat, x.lng] : centroid(properties.filter(p => (p.shovelers || []).includes(x.name)));
 const distTo = (home, c) => home && c ? snoDistance(home, c) : 1e12;
@@ -296,7 +297,7 @@ function renderTop() {
   const assigned = list.filter(p => partsOf(p).length), doneN = assigned.filter(p => stateOf(p) === 'done').length;
   $('sfchip').innerHTML = snowfall ? `❄️ Snöfall ${esc(snowfall.start.slice(5))} · <b>${doneN}/${assigned.length}</b> klara` : '❄️ Inget snöfall';
   const noT = list.filter(p => !p.tractorId).length, noH = list.filter(needsHand).length;
-  const tr = fleet.filter(t => t.active !== false && list.some(p => p.tractorId === t.id));
+  const tr = fleet.filter(t => t.active !== false && list.some(p => hasT(p, t.id)));
   const noDrv = tr.filter(t => !t.driver).length;
   const badPeople = new Set();
   list.forEach(p => (p.shovelers || []).forEach(n => { if (personByName(n).active === false) badPeople.add(n); }));
@@ -304,8 +305,6 @@ function renderTop() {
   const parts = [noT ? `<span class="bad">⚠️ ${noT} utan traktor</span>` : '<span class="good">✅ Alla har traktor</span>'];
   if (noH) parts.push(`<span class="bad">⚠️ ${noH} saknar handskottare</span>`);
   if (noDrv) parts.push(`<span class="bad">⚠️ ${noDrv} traktor utan förare</span>`);
-  const noSize = list.filter(p => !p.size).length;
-  if (noSize) parts.push(`<a class="bad" href="snoregister.html?filter=saknar">⚠️ ${noSize} saknar storlek →</a>`);
   if (badPeople.size) parts.push(`<span class="bad">⚠️ ${[...badPeople].map(esc).join(', ')} inaktiv</span>`);
   const downs = (stops.units || []).filter(lpvStopp.isDown);
   if (downs.length) parts.unshift(downs.map(u => `<a class="bad" href="#" data-stopp="${esc(u.key)}">🔧 ${esc(u.short || u.label)} står${lpvStopp.isLate(u) ? ' ⏱' : ''} →</a>`).join(' · '));
@@ -315,7 +314,7 @@ function renderTop() {
 
 // ===== Traktorremsan =====
 function tractorCounts(t, kd) {
-  const mine = properties.filter(p => p.tractorId === t.id), here = mine.filter(p => kdOf(p) === kd);
+  const mine = properties.filter(p => hasT(p, t.id)), here = mine.filter(p => kdOf(p) === kd);
   const done = here.filter(p => doneOf(p, 'traktor', t.id)).length;
   return { here: here.length, all: mine.length, done };
 }
@@ -332,7 +331,7 @@ function tchip(t, kd, extra) {
 function renderOrder() {
   const kd = currentKd(), center = centroid(kdProps(kd));
   const act = fleet.filter(t => t.active !== false);
-  const here = act.filter(t => baseMatches(t.base, kd) || properties.some(p => p.tractorId === t.id && kdOf(p) === kd));
+  const here = act.filter(t => baseMatches(t.base, kd) || properties.some(p => hasT(p, t.id) && kdOf(p) === kd));
   const others = act.filter(t => !here.includes(t)).map(t => ({ t, d: distTo(tractorHome(t), center) })).sort((a, b) => a.d - b.d);
   const owners = [...new Set(here.map(t => t.owner || 'Egna'))].sort((a, b) => (a !== 'Egna') - (b !== 'Egna') || sv(a, b));
   let h = '<div class="title">Traktorer</div>';
@@ -373,21 +372,26 @@ function renderSide() {
 // ===== Fastighetsvyn =====
 function cardHtml(p) {
   const t = p.tractorId ? tractorById(p.tractorId) : null, zs = zoneStats(p), st = stateOf(p);
-  const holeCls = `hole ${p.size || 'none'}${t ? ' filled' : ' empty'}${p.forced && t && t.size === 'stor' ? ' forced' : ''}`;
+  const holeCls = `hole ${p.size || 'none'}${t ? ' filled' : ' empty'}`;
   const hole = `<div class="${holeCls}" data-drop="hole" data-pid="${esc(p.id)}">${t
-    ? `<div class="drag" data-drag="tractor" data-id="${esc(t.id)}" data-from="${esc(p.id)}">${tKula(t, p.size === 'liten' ? 30 : 38, !!doneOf(p, 'traktor', t.id))}</div>` : (p.size ? '' : '?')}</div>`;
-  const drv = t ? `<span class="drvname">${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}</span>` : '';
+    ? `<div class="drag" data-drag="tractor" data-id="${esc(t.id)}" data-from="${esc(p.id)}">${tKula(t, p.size === 'liten' ? 30 : 38, !!doneOf(p, 'traktor', t.id))}</div>` : ''}</div>`;
+  const drvOf = (x) => `<span class="drvname">${x.driver ? '👷 ' + esc(x.driver) : '⚠️ ingen förare'}</span>`;
+  const drv = t ? drvOf(t) : '';
+  // Hål 2 (en maskin till, t.ex. en liten) syns först när hål 1 är fyllt – väg B, 2026-11-18
+  const t2 = t && p.tractor2Id ? tractorById(p.tractor2Id) : null;
+  const hole2 = t ? `<div class="hole hole2${t2 ? ' filled' : ''}" data-drop="hole2" data-pid="${esc(p.id)}" title="Maskin 2">${t2
+    ? `<div class="drag" data-drag="tractor" data-id="${esc(t2.id)}" data-from="${esc(p.id)}" data-slot="2">${tKula(t2, 30, !!doneOf(p, 'traktor', t2.id))}</div>` : '＋'}</div>${t2 ? drvOf(t2) : ''}` : '';
   const hands = (p.shovelers || []).map(n => `<div class="drag" data-drag="person" data-kind="hand" data-id="${esc(n)}" data-from="${esc(p.id)}" title="${esc(n)}">${pKula(n, 30, !!doneOf(p, 'hand', n))}</div>`).join('');
   // Hålet syns alltid – man ska kunna släppa en handskottare även innan handytorna är ritade
   const slot = `<div class="slot${needsHand(p) ? ' need' : ''}" data-drop="slot" data-pid="${esc(p.id)}">${(p.shovelers || []).length ? '＋' : '🧹'}</div>`;
   // Saknad storlek visas som en rad i listen (⚠️ N saknar storlek →), inte på varje kort
   const warns = [needsHand(p) ? '🧹⚠️ saknar handskottare' : '',
-    t && t.driver && personByName(t.driver).active === false ? `⚠️ ${esc(t.driver)} inaktiv` : '',
+    ...[t, t2].filter(x => x && x.driver && personByName(x.driver).active === false).map(x => `⚠️ ${esc(x.driver)} inaktiv`),
     ...(p.shovelers || []).filter(n => personByName(n).active === false).map(n => `⚠️ ${esc(n)} inaktiv`)].filter(Boolean);
   return `<div class="pcard ${st}" id="c-${esc(p.id)}" data-card="${esc(p.id)}" data-drop="card" data-pid="${esc(p.id)}">
     <div class="t">${p.priority ? '⭐ ' : ''}${esc(p.address)}${p.zoneStatus === 'klar' ? ' ✅' : ''}</div>
     <div class="m">${[esc(p.kund), zs.maskin ? '🔵 ' + m2(zs.maskin) : '', zs.hand ? '🟠 ' + m2(zs.hand) : '', !zs.maskin && !zs.hand ? 'inga zoner' : ''].filter(Boolean).join(' · ')}</div>
-    <div class="kulrad">${hole}${drv}${hands}${slot}</div>
+    <div class="kulrad">${hole}${drv}${hole2}${hands}${slot}</div>
     ${warns.length ? `<div class="w">${warns.join(' · ')}</div>` : ''}
   </div>`;
 }
@@ -404,31 +408,31 @@ function renderProps() {
     const utan = ps.filter(p => !p.tractorId).length;
     h += `<div class="grp">${esc(o || 'Utan ort')} (${ps.length})${utan ? `<span class="wait"> · ⚠️ ${utan} utan traktor</span>` : ''}</div><div class="cards">${ps.map(cardHtml).join('')}</div>`;
   });
-  return h + '<div class="hint" style="margin-top:14px">Dra en traktor från remsan till hålet, en handskottare till 🧹. Tryck på ett kort för detaljer.</div>';
+  return h + '<div class="hint" style="margin-top:14px">Dra en traktor från remsan till hålet, en maskin till på ＋, en handskottare till 🧹. Tryck på ett kort för detaljer.</div>';
 }
 
 // ===== Traktorvyn =====
-function miniCard(p) {
-  return `<div class="mcard drag ${stateOf(p)}" data-drag="prop" data-id="${esc(p.id)}" data-card="${esc(p.id)}"><b>${p.priority ? '⭐ ' : ''}${esc(p.address)}</b><span>${p.size === 'stor' ? '🟠' : p.size === 'liten' ? '🔵' : '?'} ${zoneStats(p).maskin ? m2(zoneStats(p).maskin) : 'inga zoner'}${(p.shovelers || []).length ? ' · 🧹' + p.shovelers.length : ''}</span></div>`;
+function miniCard(p, lane) {
+  return `<div class="mcard drag ${stateOf(p)}" data-drag="prop" data-id="${esc(p.id)}" data-lane="${esc(lane || '')}" data-card="${esc(p.id)}"><b>${p.priority ? '⭐ ' : ''}${esc(p.address)}</b><span>${p.size === 'stor' ? '🟠' : p.size === 'liten' ? '🔵' : '?'} ${zoneStats(p).maskin ? m2(zoneStats(p).maskin) : 'inga zoner'}${(p.shovelers || []).length ? ' · 🧹' + p.shovelers.length : ''}</span></div>`;
 }
 function renderTractors() {
   const kd = currentKd(), list = kdProps(kd);
   if (!list.length) return '<div class="empty">Inga fastigheter här.</div>';
   const wait = list.filter(p => !p.tractorId).sort((a, b) => sv(a.address, b.address));
   let h = `<div class="lane wait" data-drop="lane" data-tid=""><div class="lab"><span>⚠️ Utan traktor<em>${wait.length} fastigheter</em></span></div>
-    <div class="lcards">${wait.map(miniCard).join('') || '<span class="hint">✅ Alla har traktor</span>'}</div><div class="sum"></div></div>`;
+    <div class="lcards">${wait.map(p => miniCard(p, '')).join('') || '<span class="hint">✅ Alla har traktor</span>'}</div><div class="sum"></div></div>`;
   const act = fleet.filter(t => t.active !== false);
   // ⋯ Övriga öppen i remsan → de lånade traktorerna får också en rad
-  const here = act.filter(t => showOthers || baseMatches(t.base, kd) || list.some(p => p.tractorId === t.id));
+  const here = act.filter(t => showOthers || baseMatches(t.base, kd) || list.some(p => hasT(p, t.id)));
   here.sort((a, b) => (a.owner || 'Egna').localeCompare(b.owner || 'Egna', 'sv') || sv(a.model, b.model)).forEach(t => {
-    const ps = list.filter(p => p.tractorId === t.id).sort((a, b) => sv(a.address, b.address));
+    const ps = list.filter(p => hasT(p, t.id)).sort((a, b) => sv(a.address, b.address));
     const area = ps.reduce((s, p) => s + zoneStats(p).maskin, 0), c = tractorCounts(t, kd);
     h += `<div class="lane" data-drop="lane" data-tid="${esc(t.id)}">
       <div class="lab" data-tractor-sheet="${esc(t.id)}">${tKula(t, t.size === 'stor' ? 40 : 32)}<span>${esc(shortModel(t))}<em>${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}${t.owner && t.owner !== 'Egna' ? ' · ' + esc(t.owner) : ''}</em></span></div>
-      <div class="lcards">${ps.map(miniCard).join('') || '<span class="hint">Dra fastigheter hit</span>'}</div>
+      <div class="lcards">${ps.map(p => miniCard(p, t.id)).join('') || '<span class="hint">Dra fastigheter hit</span>'}</div>
       <div class="sum"><b>${ps.length} ${ps.length === 1 ? 'fastighet' : 'fastigheter'}</b>${area ? m2(area) : ''}${snowfall && ps.length ? `<br>${c.done}/${ps.length} klara` : ''}</div></div>`;
   });
-  return h + '<div class="hint" style="margin-top:10px">Dra en fastighet till en traktors rad. Tillbaka till "Utan traktor" tar bort traktorn.</div>';
+  return h + '<div class="hint" style="margin-top:10px">Dra en fastighet till en traktors rad. Tillbaka till "Utan traktor" tar bort traktorn. En fastighet med två maskiner står på båda raderna.</div>';
 }
 
 // ===== Kartvyn =====
@@ -441,10 +445,12 @@ function renderMapPins(fit) {
   if (!map || SNO_MAP_MISSING) return;
   pins.forEach(l => map.removeLayer(l));
   pins = kdProps().filter(p => p.lat !== null).map(p => {
-    const t = p.tractorId ? tractorById(p.tractorId) : null, px = p.size === 'liten' ? 26 : 32, n = (p.shovelers || []).length;
-    const html = `<div class="mk ${t ? stateOf(p) : 'empty'}" data-drop="pin" data-pid="${esc(p.id)}" style="width:${px}px;height:${px}px">${t ? tKula(t, px) : ''}${n ? `<i>🧹${n > 1 ? n : ''}</i>` : ''}</div>`;
+    const t = p.tractorId ? tractorById(p.tractorId) : null, t2 = t && p.tractor2Id ? tractorById(p.tractor2Id) : null, px = p.size === 'liten' ? 26 : 32, n = (p.shovelers || []).length;
+    const badge = (t2 ? '🚜' : '') + (n ? '🧹' + (n > 1 ? n : '') : '');
+    const html = `<div class="mk ${t ? stateOf(p) : 'empty'}" data-drop="pin" data-pid="${esc(p.id)}" style="width:${px}px;height:${px}px">${t ? tKula(t, px) : ''}${badge ? `<i>${badge}</i>` : ''}</div>`;
     const m = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html, iconSize: [px, px] }) }).addTo(map);
-    m.bindTooltip(`${esc(p.address)}${t ? ' · ' + esc(t.model) + (t.driver ? ' (' + esc(t.driver) + ')' : '') : ' · ingen traktor'}${n ? ' · 🧹 ' + p.shovelers.map(esc).join(', ') : ''}`);
+    const tName = (x) => esc(x.model) + (x.driver ? ' (' + esc(x.driver) + ')' : '');
+    m.bindTooltip(`${esc(p.address)}${t ? ' · ' + tName(t) : ' · ingen traktor'}${t2 ? ' + ' + tName(t2) : ''}${n ? ' · 🧹 ' + p.shovelers.map(esc).join(', ') : ''}`);
     m.on('click', () => openSheet(p.id));
     return m;
   });
@@ -463,7 +469,7 @@ function renderPhoneList() {
     return `<div class="ds-item" ${down ? `data-stopp="${esc(down.key)}"` : `data-unitmenu="${part}|${esc(unit)}"`}>${kula}<span class="lamp ${lamp}"></span>
       <div class="ds-grow"><b>${esc(label)}</b><span class="hint">${esc(sub)}${sub ? ' · ' : ''}${status}</span></div></div>`;
   };
-  const tr = fleet.filter(t => t.active !== false && properties.some(p => p.tractorId === t.id)).sort((a, b) => !!downOf('traktor', b.id) - !!downOf('traktor', a.id) || sv(a.model, b.model));
+  const tr = fleet.filter(t => t.active !== false && properties.some(p => hasT(p, t.id))).sort((a, b) => !!downOf('traktor', b.id) - !!downOf('traktor', a.id) || sv(a.model, b.model));
   const hs = [...new Set(properties.flatMap(p => p.shovelers || []))].sort((a, b) => !!downOf('hand', b) - !!downOf('hand', a) || sv(a, b));
   el.innerHTML = `<h3>🚜 Traktorer</h3>${tr.map(t => rowFor('traktor', t.id, shortModel(t), t.driver ? '👷 ' + t.driver : '⚠️ ingen förare', tKula(t, 40))).join('') || '<div class="hint">Inga traktorer på fastigheter.</div>'}` +
     (hs.length ? `<h3>🧹 Handskottare</h3>${hs.map(n => rowFor('hand', n, n, '', pKula(n, 40))).join('')}` : '');
@@ -500,16 +506,23 @@ function toast(html, ok, action) {
   if (action) $('toastAct').onclick = () => { el.style.display = 'none'; action.run(); };
   clearTimeout(toastT); toastT = setTimeout(() => { el.style.display = 'none'; }, action ? 9000 : ok === true ? 2200 : 5000);
 }
+// Samma regler som servern: removeTractor tar bort maskinen ur vilket hål som helst, och maskin 2 flyttar upp om hål 1 blir tomt
+function applyLocal(p, c) {
+  Object.keys(c).forEach(k => { if (k !== 'removeTractor') p[k] = c[k]; });
+  if (c.removeTractor) { if (p.tractorId === c.removeTractor) p.tractorId = ''; if (p.tractor2Id === c.removeTractor) p.tractor2Id = ''; }
+  if (!p.tractorId && p.tractor2Id) { p.tractorId = p.tractor2Id; p.tractor2Id = ''; }
+  if (p.tractor2Id === p.tractorId) p.tractor2Id = '';
+}
 async function assign(pid, changes) {
   const p = propById(pid);
   if (!p) return false;
-  const before = { tractorId: p.tractorId || '', shovelers: [...(p.shovelers || [])] };
-  Object.assign(p, changes); render();
+  const before = { tractorId: p.tractorId || '', tractor2Id: p.tractor2Id || '', shovelers: [...(p.shovelers || [])] };
+  applyLocal(p, changes); render();
   setStatus('Sparar…');
   try {
     const res = await snoApi({ action: 'assignSnow', propertyId: pid, ...changes });
     if (res.status !== 'success') throw new Error(res.message || 'Kunde inte spara.');
-    p.tractorId = res.property.tractorId; p.shovelers = res.property.shovelers;
+    p.tractorId = res.property.tractorId; p.tractor2Id = res.property.tractor2Id || ''; p.shovelers = res.property.shovelers;
     setStatus('Sparat');
     return true;
   } catch (err) {
@@ -539,35 +552,17 @@ async function saveProp(p, changes) {
   } catch (err) { Object.assign(p, before); render(); setStatus('Fel', true); toast('❌ ' + esc(err.message)); }
 }
 
-// Traktor på en fastighet + förslag: grannar inom 300 m utan traktor
-// Storleken varnar men stoppar inte: stor traktor i litet hål → fastigheten blir 💪 Tvingad stor (går att ångra).
-async function putTractor(t, p, fromPid) {
-  if (p.tractorId === t.id) return;
-  const tooBig = !!p.size && !fits(t, p);
-  if (tooBig) { await saveProp(p, { forced: true }); if (!p.forced) return; }
-  const prev = p.tractorId || '';
-  const moved = fromPid && fromPid !== p.id;
-  if (moved) assign(fromPid, { tractorId: '' });
-  const ok = await assign(p.id, { tractorId: t.id });
-  if (!ok) return;
-  if (tooBig) {
-    bounce(p.id);
-    toast(`⚠️ ${esc(shortModel(t))} är stor – ${esc(p.address)} har ett litet hål. Lagd ändå 💪`, 'warn', { label: 'Ångra', run: async () => {
-      await assign(p.id, { tractorId: prev });
-      if (moved) assign(fromPid, { tractorId: t.id });
-      saveProp(p, { forced: false });
-    } });
-    return;
-  }
-  if (!p.size) { bounce(p.id); toast(`⚠️ ${esc(p.address)} saknar storlek – välj stor/liten i detaljrutan.`, 'warn'); return; }
-  if (p.lat === null) return;
-  const near = properties.filter(x => x.id !== p.id && !x.tractorId && x.lat !== null && kdOf(x) === kdOf(p) && x.size && fits(t, x) && snoDistance([p.lat, p.lng], [x.lat, x.lng]) <= 300);
+// Traktor på en fastighet (hål 1 eller 2) + förslag: grannar inom 300 m utan traktor.
+// Storleken stoppar inte längre (bestämt 2026-11-16) – stor/liten på fastigheten är bara information.
+async function putTractor(t, p, fromPid, slot) {
+  const key = slot === 2 && p.tractorId ? 'tractor2Id' : 'tractorId';
+  if (hasT(p, t.id)) { if (fromPid !== p.id) toast(`${esc(shortModel(t))} ligger redan på ${esc(p.address)}.`, 'warn'); return; }
+  if (fromPid && fromPid !== p.id) assign(fromPid, { removeTractor: t.id });
+  const ok = await assign(p.id, { [key]: t.id });
+  if (!ok || key !== 'tractorId' || p.lat === null) return;
+  const near = properties.filter(x => x.id !== p.id && !x.tractorId && x.lat !== null && kdOf(x) === kdOf(p) && snoDistance([p.lat, p.lng], [x.lat, x.lng]) <= 300);
   if (near.length) toast(`${near.length} ${near.length === 1 ? 'granne' : 'grannar'} inom 300 m saknar traktor (${near.slice(0, 3).map(x => esc(x.address)).join(', ')}${near.length > 3 ? ' …' : ''}).`, true,
     { label: `Lägg ${esc(shortModel(t))} där också`, run: async () => { for (const x of near) await assign(x.id, { tractorId: t.id }); toast(`✅ ${esc(shortModel(t))} lagd på ${near.length} till`, true); } });
-}
-function bounce(pid) {
-  const el = document.querySelector(`#c-${CSS.escape(pid)} .hole`) || document.getElementById('c-' + pid);
-  if (el && el.animate) el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], { duration: 350 });
 }
 
 // ===== Dra och släpp (som i Radarn: dra = flytta, tryck = detaljer) =====
@@ -575,7 +570,7 @@ let drag = null;
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest('[data-drag]');
   if (!el || e.button > 0 || el.closest('.sheet')) return;
-  drag = { el, x: e.clientX, y: e.clientY, started: false, type: el.dataset.drag, id: el.dataset.id, kind: el.dataset.kind, from: el.dataset.from, fromTractor: el.dataset.fromTractor, pointerId: e.pointerId };
+  drag = { el, x: e.clientX, y: e.clientY, started: false, type: el.dataset.drag, id: el.dataset.id, kind: el.dataset.kind, from: el.dataset.from, lane: el.dataset.lane, fromTractor: el.dataset.fromTractor, pointerId: e.pointerId };
 });
 document.addEventListener('pointermove', (e) => {
   if (!drag || e.pointerId !== drag.pointerId) return;
@@ -637,9 +632,10 @@ function clearHighlight() { document.querySelectorAll('.drop-ok,.drop-warn').for
 function resolve(d, x, y) {
   const t = targetAt(x, y);
   if (d.type === 'tractor') {
-    let pid = t.type === 'hole' || t.type === 'card' || t.type === 'pin' ? t.pid : t.card ? t.card.dataset.pid : null;
+    let pid = t.type === 'hole' || t.type === 'hole2' || t.type === 'card' || t.type === 'pin' ? t.pid : t.card ? t.card.dataset.pid : null;
     if (!pid && t.map) pid = nearestPin(x, y);
-    if (pid) { const p = propById(pid), tr = tractorById(d.id); return { act: 'putTractor', pid, ok: !!p.size && fits(tr, p), el: (t.card || document.getElementById('c-' + pid) || t.el)?.querySelector?.('.hole') || t.el }; }
+    if (pid && t.type === 'hole2') return { act: 'putTractor', pid, slot: 2, ok: true, el: t.el };
+    if (pid) return { act: 'putTractor', pid, slot: 1, ok: true, el: (t.card || document.getElementById('c-' + pid) || t.el)?.querySelector?.('.hole') || t.el };
     if (t.order && d.from) return { act: 'removeTractor', el: $('order') };
     return null;
   }
@@ -660,8 +656,7 @@ function resolve(d, x, y) {
     return null;
   }
   if (d.type === 'prop' && t.lane) {
-    const tid = t.lane.dataset.tid, p = propById(d.id);
-    return { act: 'propToLane', tid, ok: !tid || (!!p.size && fits(tractorById(tid), p)), el: t.lane };
+    return { act: 'propToLane', tid: t.lane.dataset.tid, ok: true, el: t.lane };
   }
   return null;
 }
@@ -683,8 +678,8 @@ function nearestPin(x, y) {
 function drop(d, x, y) {
   const r = resolve(d, x, y);
   if (!r) return;
-  if (r.act === 'putTractor') return putTractor(tractorById(d.id), propById(r.pid), d.from);
-  if (r.act === 'removeTractor') { assign(d.from, { tractorId: '' }); toast('↩ Traktorn borttagen från kortet', true); return; }
+  if (r.act === 'putTractor') return putTractor(tractorById(d.id), propById(r.pid), d.from, r.slot);
+  if (r.act === 'removeTractor') { assign(d.from, { removeTractor: d.id }); toast('↩ Traktorn borttagen från kortet', true); return; }
   if (r.act === 'setDriver') {
     const t = tractorById(r.tid), x2 = personByName(d.id);
     if ((x2.owner || 'Egna') !== (t.owner || 'Egna')) { toast(`🚫 ${esc(d.id)} hör till ${esc(ownerLabel(x2.owner))} – ${esc(shortModel(t))} till ${esc(ownerLabel(t.owner))}. Ändra ägare i 🤝 UE eller ⚙️ Register.`); return; }
@@ -715,9 +710,13 @@ function drop(d, x, y) {
   }
   if (r.act === 'removeHand') { const f = propById(d.from); assign(f.id, { shovelers: f.shovelers.filter(n => n !== d.id) }); return; }
   if (r.act === 'propToLane') {
-    const p = propById(d.id);
-    if (!r.tid) { if (p.tractorId) assign(p.id, { tractorId: '' }); return; }
-    return putTractor(tractorById(r.tid), p, null);
+    // Raden man drar ifrån bestämmer vilken maskin som byts – på en fastighet med två maskiner rörs bara den ena
+    const p = propById(d.id), from = d.lane || '';
+    if (r.tid === from) return;
+    if (!r.tid) { if (from) assign(p.id, { removeTractor: from }); return; }
+    if (from && hasT(p, r.tid)) { assign(p.id, { removeTractor: from }); return; }
+    if (from) return assign(p.id, { [p.tractor2Id === from ? 'tractor2Id' : 'tractorId']: r.tid });
+    return putTractor(tractorById(r.tid), p, null, 1);
   }
 }
 
@@ -741,25 +740,27 @@ function statusText(p, part, unit) {
 }
 function propSheetHtml(p) {
   if (!p) return '<div class="empty">Fastigheten finns inte längre.</div>';
-  const t = p.tractorId ? tractorById(p.tractorId) : null, zs = zoneStats(p);
+  const t = p.tractorId ? tractorById(p.tractorId) : null, t2 = t && p.tractor2Id ? tractorById(p.tractor2Id) : null, zs = zoneStats(p);
   const pos = p.lat !== null ? `${p.lat},${p.lng}` : encodeURIComponent(p.address + (p.ort ? ', ' + p.ort : ''));
-  const freeT = fleet.filter(x => x.active !== false && x.id !== p.tractorId && (!p.size || fits(x, p)));
+  const freeT = fleet.filter(x => x.active !== false && !hasT(p, x.id));
+  const tOpts = freeT.map(x => `<option value="${esc(x.id)}">${esc(x.model)}${x.driver ? ' (' + esc(x.driver) + ')' : ''}</option>`).join('');
+  const tRow = (x) => `<div class="krow">${tKula(x, 34)}<div class="who">${esc(x.model)}<em>${x.driver ? '👷 ' + esc(x.driver) : '⚠️ ingen förare'}${x.owner !== 'Egna' ? ' · ' + esc(x.owner) : ''}</em></div>${statusText(p, 'traktor', x.id)}
+        ${snowfall ? `<button class="lpv-btn small" onclick="adminMark('${id}','traktor','${esc(x.id)}', ${!!doneOf(p, 'traktor', x.id)})">${doneOf(p, 'traktor', x.id) ? '↶' : '✅'}</button>` : ''}
+        <button class="lpv-btn icon small danger" aria-label="Ta bort" onclick="assign('${id}', { removeTractor: '${esc(x.id)}' })">✕</button></div>`;
   const freeH = people.filter(x => x.active !== false && x.shoveler && !(p.shovelers || []).includes(x.name));
   const id = esc(p.id);
   return `<div class="head"><div><h2>${p.priority ? '⭐ ' : ''}${esc(p.address)}</h2><div class="sub">${esc([p.kund, p.ort, kdOf(p) !== p.ort ? kdOf(p) : ''].filter(Boolean).join(' · '))}</div></div><button class="lpv-btn icon small" onclick="closeSheet()" aria-label="Stäng">✕</button></div>
     <div class="row2"><button class="lpv-toggle ${p.priority ? 'on' : ''}" onclick="saveProp(propById('${id}'), { priority: ${!p.priority} })">⭐ ${p.priority ? 'Prioriterad' : 'Prioritera'}</button>
       <a class="lpv-btn" href="https://www.google.com/maps/dir/?api=1&destination=${pos}" target="_blank" rel="noopener">🧭 Kör dit</a>
       <a class="lpv-btn" href="snozoner.html?fastighet=${encodeURIComponent(p.id)}">✏️ Rita zoner</a></div>
-    <h4>Storlek (traktorhålet)</h4>
+    <h4>Storlek (bara information – alla maskiner får läggas på alla fastigheter)</h4>
     <div class="sizes"><button class="lpv-toggle stor ${p.size === 'stor' ? 'on' : ''}" onclick="saveProp(propById('${id}'), { size: 'stor', forced: false })">🟠 Stor</button>
       <button class="lpv-toggle liten ${p.size === 'liten' ? 'on' : ''}" onclick="saveProp(propById('${id}'), { size: 'liten' })">🔵 Liten</button>
-      ${p.size === 'liten' ? `<button class="lpv-toggle ${p.forced ? 'on' : ''}" onclick="if (${p.forced} || confirm('Tvinga in en stor traktor på en liten plats? Bara för gränsfall.')) saveProp(propById('${id}'), { forced: ${!p.forced} })">💪 ${p.forced ? 'Tvingad stor' : 'Tvinga stor'}</button>` : ''}</div>
+</div>
     <h4>Kulorna${snowfall ? ' · snöfall ' + esc(snowfall.start.slice(5)) : ''}</h4>
-    ${t ? `<div class="krow">${tKula(t, 34)}<div class="who">${esc(t.model)}<em>${t.driver ? '👷 ' + esc(t.driver) : '⚠️ ingen förare'}${t.owner !== 'Egna' ? ' · ' + esc(t.owner) : ''}</em></div>${statusText(p, 'traktor', t.id)}
-        ${snowfall ? `<button class="lpv-btn small" onclick="adminMark('${id}','traktor','${esc(t.id)}', ${!!doneOf(p, 'traktor', t.id)})">${doneOf(p, 'traktor', t.id) ? '↶' : '✅'}</button>` : ''}
-        <button class="lpv-btn icon small danger" aria-label="Ta bort" onclick="assign('${id}', { tractorId: '' })">✕</button></div>`
-      : `<div class="krow"><div class="hole ${p.size || 'none'} empty"></div><div class="who">Ingen traktor<em>Dra från remsan – eller välj:</em></div></div>`}
-    <select onchange="if (this.value) putTractor(tractorById(this.value), propById('${id}'), null); this.value=''"><option value="">${t ? '🔁 Byt traktor…' : '🚜 Välj traktor…'}</option>${freeT.map(x => `<option value="${esc(x.id)}">${esc(x.model)}${x.driver ? ' (' + esc(x.driver) + ')' : ''}</option>`).join('')}</select>
+    ${t ? tRow(t) : `<div class="krow"><div class="hole ${p.size || 'none'} empty"></div><div class="who">Ingen traktor<em>Dra från remsan – eller välj:</em></div></div>`}
+    <select onchange="if (this.value) putTractor(tractorById(this.value), propById('${id}'), null, 1); this.value=''"><option value="">${t ? '🔁 Byt traktor…' : '🚜 Välj traktor…'}</option>${tOpts}</select>
+    ${t ? `${t2 ? tRow(t2) : ''}<select style="margin-top:6px" onchange="if (this.value) putTractor(tractorById(this.value), propById('${id}'), null, 2); this.value=''"><option value="">${t2 ? '🔁 Byt maskin 2…' : '🚜 Lägg till maskin 2…'}</option>${tOpts}</select>` : ''}
     ${(p.shovelers || []).map(n => `<div class="krow">${pKula(n, 34)}<div class="who">${esc(n)}<em>🧹 Handskottare${personByName(n).active === false ? ' · ⚠️ inaktiv' : ''}</em></div>${statusText(p, 'hand', n)}
         ${snowfall ? `<button class="lpv-btn small" onclick="adminMark('${id}','hand','${esc(n).replace(/&#39;/g, "\\'")}', ${!!doneOf(p, 'hand', n)})">${doneOf(p, 'hand', n) ? '↶' : '✅'}</button>` : ''}
         <button class="lpv-btn icon small danger" aria-label="Ta bort" onclick="assign('${id}', { shovelers: propById('${id}').shovelers.filter(x => x !== this.dataset.n) })" data-n="${esc(n)}">✕</button></div>`).join('')}
@@ -786,7 +787,7 @@ async function adminMark(pid, part, unit, undo) {
 // ===== Detaljrutan: traktor =====
 function tractorSheetHtml(t) {
   if (!t) return '<div class="empty">Traktorn finns inte längre.</div>';
-  const kd = currentKd(), mine = properties.filter(p => p.tractorId === t.id).sort((a, b) => sv(kdOf(a), kdOf(b)) || sv(a.address, b.address));
+  const kd = currentKd(), mine = properties.filter(p => hasT(p, t.id)).sort((a, b) => sv(kdOf(a), kdOf(b)) || sv(a.address, b.address));
   const owners = ['Egna', ...[...new Set(people.map(x => x.owner).concat(fleet.map(x => x.owner)).filter(o => o && o !== 'Egna'))].sort(sv)];
   const drivers = people.filter(x => x.active !== false && (x.owner || 'Egna') === (t.owner || 'Egna') && x.name !== t.driver);
   const id = esc(t.id);

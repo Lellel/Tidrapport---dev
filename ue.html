@@ -344,7 +344,7 @@
     if (!confirm(`Ta bort ${t.model}?` + (t.count ? `\n\nDen ligger på ${t.count} fastigheter – de får ett tomt traktorhål.` : ''))) return;
     say('Tar bort…');
     for (const p of c.properties.filter(p => p.tractor && p.tractor.id === id)) {
-      const r = await api({ action: 'assignSnow', propertyId: p.id, tractorId: '' });
+      const r = await api({ action: 'assignSnow', propertyId: p.id, removeTractor: id });
       if (r.status !== 'success') { say('❌ ' + esc(r.message)); return; }
     }
     const res = await api({ action: 'deleteTractor', id });
@@ -359,7 +359,7 @@
     if (!confirm(`Ta bort ${p.address} från ${c.name}?\n\nFöretagets traktor och handskottare plockas bort från fastigheten.`)) return;
     say('Tar bort…');
     const payload = { action: 'assignSnow', propertyId: pid, shovelers: p.allShovelers.filter(n => p.shovelers.indexOf(n) === -1) };
-    if (p.tractor) payload.tractorId = '';
+    if (p.tractor) payload.removeTractor = p.tractor.id;
     const res = await api(payload);
     if (res.status !== 'success') { say('❌ ' + esc(res.message)); return; }
     await load();
