@@ -2681,8 +2681,9 @@ function handleGenerateTractorAvatar(id) {
     "in the playful toy-like style of Bob the Builder: big expressive eyes in the windshield, a happy smiling front grille, " +
     "glossy smooth plastic textures, a small snow plough blade at the front with a little snow on it. " +
     "Brand colors: " + getBrandColorPrompt(model) + ". " +
-    "The character sits centered inside a shiny transparent glass sphere (a marble), soft studio lighting, " +
-    "snowflakes around, solid deep navy blue background, square image, no text, no logos.";
+    "The character sits centered inside a shiny transparent glass sphere (a marble). " +
+    "The tractor is large and fills most of the sphere – close-up, little empty space around it, the plough blade almost touching the glass. " +
+    "Soft studio lighting, a few snowflakes, solid deep navy blue background, square image, no text, no logos.";
 
   try {
     const response = geminiFetch("image", apiKey, {
@@ -4513,7 +4514,9 @@ function handleRadarResourceAvatar(data, auth) {
   const prompt = "A cheerful, friendly 3D animated character of a " + what + (machine ? " construction machine" : " (work equipment for a painting and property maintenance company)") + ", " +
     "in the playful toy-like style of Bob the Builder: " + (machine ? "big expressive eyes in the windshield, a happy smiling front" : "small friendly cartoon eyes and a happy smile") + ", " +
     "glossy smooth plastic textures, recognisable shape of the real product. Brand colors: " + getBrandColorPrompt(what) + ". " +
-    "The character sits centered inside a shiny transparent glass sphere (a marble), soft studio lighting, solid deep navy blue background, square image, no text, no logos.";
+    "The character sits centered inside a shiny transparent glass sphere (a marble). " +
+    "The character is large and fills most of the sphere – close-up, little empty space around it, almost touching the glass. " +
+    "Soft studio lighting, solid deep navy blue background, square image, no text, no logos.";
   try {
     const response = geminiFetch("image", apiKey, {
       method: "post", contentType: "application/json", muteHttpExceptions: true, payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
