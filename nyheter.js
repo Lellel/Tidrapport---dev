@@ -2,6 +2,9 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-19-nytt-snofall', datum: '2026-11-19', roller: ['admin'], modul: 'sno',
+    titel: '❄️ Snöjour frågar om nytt snöfall',
+    text: 'Startar du snöpasset och senaste snöfallet är äldre än 18 timmar frågar appen om det är ett nytt snöfall. OK nollställer fastigheterna (kulorna ligger kvar), Avbryt fortsätter på samma. Förare får en påminnelse om att säga till admin.' },
   { id: '2026-11-18-kund-fastighet', datum: '2026-11-18', roller: ['admin'],
     titel: '💼 Fastigheterna hör till kundkorten',
     text: 'Varje snöfastighet pekar nu på ett kundkort i 💼 Kunder – där fakturan ska gå. I ⚙️ Register: 🔗 Visa vad som kopplas → 🔗 Koppla gör det för alla på en gång. Kundkortet visar 🏠 Fastigheter, och ✏️ Ändra uppgifter fyller i org.nr och adress.' },

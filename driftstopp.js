@@ -217,7 +217,7 @@
       const choice = (k, icon, title, sub) => `<button type="button" class="${btn(k === rec ? 'primary block' : 'block')}" data-choice="${k}">${icon} ${title}</button>${k === rec ? `<div class="ds-rec">Rekommenderas: ${esc(why)}</div>` : ''}${sub ? `<div class="ds-sub">${sub}</div>` : ''}`;
       const order = rec === 'vanta' ? ['vanta', 'hela', 'fordela'] : ['fordela', 'hela', 'vanta'];
       const C = { vanta: choice('vanta', '⏳', 'Vänta', 'Inget flyttas. Kulan behåller sina fastigheter.'),
-        hela: choice('hela', '🔁', 'En annan traktor tar hela rundan', ''), fordela: choice('fordela', '🧩', 'Fördela det som är kvar', '') };
+        hela: choice('hela', '🔁', u.part === 'hand' ? 'En annan tar hela rundan' : 'En annan traktor tar hela rundan', ''), fordela: choice('fordela', '🧩', 'Fördela det som är kvar', '') };
       el.innerHTML = header() + handlerRow() + (u.decision === 'vanta' ? '<div class="ds-card">⏳ Ni väntar. Kulan behåller sina fastigheter.</div>' : '') +
         (sug.remaining.length ? `<div class="ds-stack">${order.map(k => C[k]).join('')}</div>` : '<div class="ds-card">✅ Inget kvar att flytta.</div>') + footer();
       wireCommon();

@@ -148,7 +148,24 @@
       if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    function startPass() {
+    // Snöfall 1 (19/11): ingen startade snöfallet – ett test från 7/11 gällde fortfarande. Är senaste snöfallet äldre än
+    // 18 h frågar appen admin om det är ett nytt; förare får en påminnelse (de kan inte starta snöfall). docs/snoplanering.md
+    async function checkSnowfall() {
+      const sf = jour && jour.snowfall;
+      const age = sf ? Date.now() - new Date(String(sf.start).replace(' ', 'T')).getTime() : Infinity;
+      if (age < 18 * 3600 * 1000) return;
+      const when = sf ? `Senaste snöfallet startade ${String(sf.start).slice(5)}.` : 'Inget snöfall är startat.';
+      if (!jour.isAdmin) { alert(`❄️ Säg till admin att starta snöfallet\n\n${when} Ditt pass startar ändå.`); return; }
+      if (!confirm(`❄️ Är det ett nytt snöfall?\n\n${when}\n\nOK = starta ett nytt snöfall (alla fastigheter blir ogjorda, kulorna ligger kvar).\nAvbryt = fortsätt på samma snöfall.`)) return;
+      try {
+        const res = await snoApi({ action: 'newSnowfall' });
+        if (res.status === 'success') await loadJour();
+        else alert('❌ ' + (res.message || 'Kunde inte starta snöfallet.'));
+      } catch (e) { alert('❌ Ingen kontakt – starta snöfallet i Snöplaneringen när du har täckning.'); }
+    }
+
+    async function startPass() {
+      await checkSnowfall();
       const drafts = loadDrafts();
       const ongoing = drafts.find(d => !d.end);
       if (ongoing) {
