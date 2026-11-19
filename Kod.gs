@@ -427,7 +427,7 @@ function doPost(e) {
     if (action === "deleteReport") return handleDeleteReport(data, auth.user, auth);
     if (action === "getMyReports") return handleGetMyReports(auth);
     if (action === "signReports") return handleSignReports(data, auth);
-    if (action === "invoicePdf") return handleInvoicePdf(data.draft, auth);
+    if (action === "invoicePdf") return handleInvoicePdf(data.draft, auth, !!data.preview);
     if (action === "sendSms") return handleSendSms(data, auth.user);
     if (action === "addStaff") {
       // Admin på Klaryta kan lägga till förare/UE i Klaryta – admin- och ekonombehörighet delas bara ut av admin på LPV
@@ -6264,7 +6264,8 @@ function buildInvoiceHtml(d, settings, t, number, today, due, logoHtml) {
     '</body></html>';
 }
 
-function handleInvoicePdf(input, auth) {
+// preview: samma underlag som HTML – inget sparas i Drive och inget FU-nummer (Daniel 2026-11-19)
+function handleInvoicePdf(input, auth, preview) {
   const d = cleanInvoiceDraft(input);
   if (!d.customer.name) return createJsonResponse({ status: "error", message: "Välj vilken kund underlaget gäller." });
   if (!d.rows.length) return createJsonResponse({ status: "error", message: "Underlaget har inga rader." });
@@ -6275,9 +6276,10 @@ function handleInvoicePdf(input, auth) {
   const settings = settingsForBrand(brand);
   const t = computeOfferTotals({ rows: d.rows, customerType: d.customerType, deduction: d.deduction, deductionPersons: d.deductionPersons }, settings);
   const tz = Session.getScriptTimeZone() || "Europe/Stockholm";
-  const number = "FU-" + Utilities.formatDate(new Date(), tz, "yyyyMMdd-HHmmss");
+  const number = preview ? "FÖRHANDSGRANSKNING" : "FU-" + Utilities.formatDate(new Date(), tz, "yyyyMMdd-HHmmss");
   const logo = brandLogoHtml(brand, 60);
   const html = buildInvoiceHtml(d, settings, t, number, Utilities.formatDate(new Date(), tz, "yyyy-MM-dd"), addDays(settings.invoiceDueDays || 30), logo);
+  if (preview) return createJsonResponse({ status: "success", html: html, totals: t });
   const pdf = Utilities.newBlob(html, "text/html", number + ".html").getAs("application/pdf")
     .setName(number + " " + d.customer.name.replace(/[\\/:*?"<>|]/g, "") + ".pdf");
   const root = DriveApp.getFolderById(CONFIG.FOLDER_ID_ROOT_IMAGES);

@@ -2,6 +2,12 @@
 // Lägg NYASTE först. roller: forare, handskottare, ue, ekonom, admin.
 // Regel (CLAUDE.md): ändras något som påverkar hur användaren gör → uppdatera guide.html och lägg en rad här.
 window.LPV_NYHETER = [
+  { id: '2026-11-19-forhandsgranska', datum: '2026-11-19', roller: ['ekonom', 'admin'],
+    titel: '👁 Förhandsgranska fakturaunderlaget',
+    text: 'I 💰 Ekonomi finns 👁 Förhandsgranska bredvid 📄 Fakturaunderlag (PDF). Du ser underlaget precis som det blir – men inget sparas i Drive och inget FU-nummer tas. Går bra även innan förarna skrivit under.' },
+  { id: '2026-11-19-snojour-rensad', datum: '2026-11-19', roller: ['forare', 'handskottare', 'ue'], modul: 'sno',
+    titel: '❄️ Lugnare Snöjour',
+    text: 'Håller du telefonen stående följer kartan med upp när du sveper ner till fastigheterna – mer plats för korten. Liggande sitter kartan kvar till vänster. ⚠️ Lägg ut hinder och 👍 Uppfattat är borta – 🆕 visar fortfarande när en fastighet flyttats till dig.' },
   { id: '2026-11-19-nytt-snofall', datum: '2026-11-19', roller: ['admin'], modul: 'sno',
     titel: '❄️ Snöjour frågar om nytt snöfall',
     text: 'Startar du snöpasset och senaste snöfallet är äldre än 18 timmar frågar appen om det är ett nytt snöfall. OK nollställer fastigheterna (kulorna ligger kvar), Avbryt fortsätter på samma. Förare får en påminnelse om att säga till admin.' },

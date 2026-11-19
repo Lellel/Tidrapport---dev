@@ -166,12 +166,11 @@
     if (rb) rb.onclick = () => openReport(free, (s, sms) => { if (onChange) onChange(s); if (sms && sms.notConfigured) alert('⚠️ SMS är inte inställt – ring arbetsledningen.'); });
   }
 
-  // 🆕 på kort som flyttats hit + 👍 Uppfattat (mjukfråga, låser ingenting)
+  // 🆕 på kort som flyttats hit (👍 Uppfattat togs bort 19/11 – markeringen räcker)
   function movedHtml(p, myUnitKeys) {
     const m = (p.moved || []).filter(x => !myUnitKeys || myUnitKeys.includes(x.part + ':' + x.to));
     if (!m.length) return '';
-    const acked = m.every(x => x.ack);
-    return `<div class="ds-row"><span class="ds-new">🆕 från ${esc(m[0].fromLabel)}</span>${acked ? '<span class="ds-done">✓ Uppfattat</span>' : `<button type="button" class="${btn('small')}" data-ack="${esc(p.id)}">👍 Uppfattat</button>`}</div>`;
+    return `<div class="ds-row"><span class="ds-new">🆕 från ${esc(m[0].fromLabel)}</span></div>`;
   }
   async function ack(pid) { return call({ action: 'stopAck', propertyId: pid }); }
 

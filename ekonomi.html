@@ -49,6 +49,11 @@
     .empty { color: var(--muted); font-size: 14px; padding: 14px; text-align: center; background: var(--card); border-radius: var(--t-r); }
     a.img { color: var(--accent); text-decoration: none; }
     @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } .hide-sm { display: none; } }
+    /* 👁 Förhandsgranska fakturaunderlaget */
+    #preview-dlg { width: min(900px, 96vw); height: 92vh; padding: 0; border: 1px solid var(--t-line); border-radius: var(--t-r); background: var(--t-panel); color: var(--t-text); }
+    #preview-dlg::backdrop { background: rgba(0, 0, 0, .55); }
+    #preview-dlg .dlg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--t-line); }
+    #preview-frame { width: 100%; height: calc(100% - 56px); border: 0; }
   </style>
 </head>
 <body>
@@ -191,6 +196,7 @@
       ${o.totals.deduction ? `<div class="meta">${esc(o.totals.deductionLabel)} −${kr(o.totals.deduction)} (summa inkl. moms ${kr(o.totals.gross)})</div>` : ''}
       ${o.chosenColor ? `<div class="meta">🎨 ${esc(o.chosenColor)}</div>` : ''}
       <div class="row" style="margin-top:10px;">
+        <button class="lpv-btn" onclick="previewDraft(offerDraft(${i}), this)">👁 Förhandsgranska</button>
         <button class="lpv-btn primary" onclick="offerPdf(${i}, this)">📄 Fakturaunderlag (PDF)</button>
         ${o.pdfUrl ? `<button class="lpv-btn" onclick="window.open('${esc(o.pdfUrl)}')">Offerten</button>` : ''}
         <button class="lpv-btn primary" onclick="markOffer(${i}, this)">✅ Markera fakturerad</button>
@@ -243,6 +249,7 @@
         </table>
       </details>
       <div class="row" style="margin-top:10px;">
+        <button class="lpv-btn" onclick="previewDraft(groupDraft(${gi}), this)" ${inc.length ? '' : 'disabled'}>👁 Förhandsgranska</button>
         <button class="lpv-btn primary" onclick="groupPdf(${gi}, this)" ${inc.length ? '' : 'disabled'}>📄 Fakturaunderlag (PDF)</button>
         <button class="lpv-btn primary" onclick="markGroup(${gi}, this)" ${inc.length ? '' : 'disabled'}>✅ Markera ${inc.length} pass fakturerade</button>
       </div>
@@ -324,29 +331,49 @@
     btn.disabled = false; btn.textContent = label;
   }
 
-  function groupPdf(gi, btn) {
+  // 👁 Förhandsgranska: samma underlag som PDF:en, men inget sparas och inget nummer tas (2026-11-19)
+  async function previewDraft(draft, btn) {
+    if (!draft) return;
+    btn.disabled = true; const label = btn.textContent; btn.textContent = 'Hämtar… ⏳';
+    try {
+      const res = await snoApi({ action: 'invoicePdf', draft, preview: true });
+      if (res.status !== 'success') throw new Error(res.message || 'Okänt fel');
+      const dlg = document.getElementById('preview-dlg');
+      document.getElementById('preview-frame').srcdoc = res.html;
+      dlg.showModal();
+    } catch (err) { setMsg('❌ ' + esc(err.message || 'Ingen kontakt.')); }
+    btn.disabled = false; btn.textContent = label;
+  }
+
+  function groupDraft(gi) {
     const g = groups[gi], c = customerOf(g);
-    if (!c) { setMsg('⚠️ Välj kund först.'); return; }
+    if (!c) { setMsg('⚠️ Välj kund först.'); return null; }
     const inc = g.reports.filter(r => g.included[r.row]);
-    if (unsignedOf(inc).length && !confirm(`⚠️ ${unsignedOf(inc).length} av passen är inte underskrivna av föraren. Skapa underlaget ändå?`)) return;
-    makePdf({
+    return {
       customer: { name: c.name, address: c.address, idNr: c.idNr, email: c.email },
       company: g.company, customerType: g.private ? 'privat' : 'företag', site: g.place, period: period(inc),
       title: 'Utfört arbete ' + period(inc), rows: invoiceRows(g), deduction: g.deduction,
       spec: inc.map(r => ({ date: r.date, user: r.user, activity: r.activity, hours: r.hours }))
-    }, btn);
+    };
+  }
+  function groupPdf(gi, btn) {
+    const draft = groupDraft(gi); if (!draft) return;
+    const inc = groups[gi].reports.filter(r => groups[gi].included[r.row]);
+    if (unsignedOf(inc).length && !confirm(`⚠️ ${unsignedOf(inc).length} av passen är inte underskrivna av föraren. Skapa underlaget ändå?`)) return;
+    makePdf(draft, btn);
   }
 
-  function offerPdf(i, btn) {
+  function offerDraft(i) {
     const o = data.offers[i];
     const c = data.customers.find(x => x.name === o.customerName) || {};
-    makePdf({
+    return {
       customer: { name: o.customerName, address: c.address || o.site, idNr: c.idNr || '', email: o.email },
       company: o.brand === 'klaryta' ? 'Klaryta' : 'LPV', customerType: o.customerType === 'privat' ? 'privat' : 'företag', site: o.site, reference: o.id + (o.version > 1 ? ' v' + o.version : ''),
       title: o.title + ' – enligt godkänd ' + (o.type === 'ata' ? 'ÄTA' : 'offert') + ' ' + o.id,
       rows: o.rows, deduction: o.deduction, deductionPersons: o.deductionPersons, spec: []
-    }, btn);
+    };
   }
+  function offerPdf(i, btn) { makePdf(offerDraft(i), btn); }
 
   // ================= MARKERA FAKTURERAT =================
   const unsignedOf = list => list.filter(r => !r.signed);
@@ -406,5 +433,10 @@
   document.getElementById('who').textContent = snoCurrentUser();
   load();
 </script>
+  <dialog id="preview-dlg">
+    <div class="dlg-head"><b>👁 Förhandsgranskning – inget är sparat</b>
+      <button class="lpv-btn" onclick="document.getElementById('preview-dlg').close()">Stäng</button></div>
+    <iframe id="preview-frame" sandbox title="Förhandsgranskning av fakturaunderlaget"></iframe>
+  </dialog>
 </body>
 </html>
